@@ -27,7 +27,7 @@ repo would put a generated file into every project's git status.
 
 ## Storage
 
-`manifest.json` records the project id, the commit the wiki was generated at,
+`manifest.json` records the project id, the prompt revision that produced the wiki, the commit it was generated at,
 the language, the diagrams flag, the model that produced it, the run state,
 and the catalog (ordered pages with id, title, purpose, files, diagram kind,
 and per-page status). Page bodies live beside it as markdown.

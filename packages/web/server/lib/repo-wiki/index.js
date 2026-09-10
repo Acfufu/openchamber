@@ -27,7 +27,7 @@ import simpleGit from 'simple-git';
 import { getRepositoryRoot } from '../git/service.js';
 import { normalizeLanguage } from '../walkthrough/languages.js';
 import { buildCatalogDigest, buildPageContext } from './digest.js';
-import { buildCatalogPrompt, buildPagePrompt, RESPONSE_FORMAT_INSTRUCTION } from './prompt.js';
+import { buildCatalogPrompt, buildPagePrompt, PROMPT_VERSION, RESPONSE_FORMAT_INSTRUCTION } from './prompt.js';
 import {
   catalogResponseSchema,
   normalizeCatalog,
@@ -434,6 +434,7 @@ export const createRepoWikiRuntime = ({
 
       const manifest = {
         projectId,
+        promptVersion: PROMPT_VERSION,
         commit,
         language,
         diagrams,

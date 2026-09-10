@@ -289,5 +289,3 @@ export async function buildPageContext({ repoRoot, files, budgetChars }) {
   assertWithinBudget(context, budgetChars, 'page context');
   return { context, resolvedPaths: resolved.length };
 }
-
-export const __testing = { MAX_FILE_BYTES, MAX_KEY_FILES, ROOT_MANIFEST_FILES };

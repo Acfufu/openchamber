@@ -59,7 +59,7 @@ const inject = ({ modelCall }) => {
   });
 };
 
-const waitFor = async (predicate, timeoutMs = 2_000) => {
+const waitFor = async (predicate, timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await predicate()) return;

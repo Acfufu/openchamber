@@ -5,10 +5,10 @@
 // lose its anchors the way a translated enum would.
 
 export const MAX_CATALOG_PAGES = 24;
-export const MAX_FILES_PER_PAGE = 12;
-export const MAX_PAGE_TITLE_CHARS = 80;
-export const MAX_PAGE_PURPOSE_CHARS = 200;
-export const MAX_PAGE_MARKDOWN_CHARS = 64 * 1024;
+const MAX_FILES_PER_PAGE = 12;
+const MAX_PAGE_TITLE_CHARS = 80;
+const MAX_PAGE_PURPOSE_CHARS = 200;
+const MAX_PAGE_MARKDOWN_CHARS = 64 * 1024;
 
 /** Fixed English values: a model writing Ukrainian prose still emits these. */
 export const DIAGRAM_KINDS = ['architecture', 'flow', 'sequence', 'state', 'component'];
