@@ -21,6 +21,7 @@ const GitView = lazyWithChunkRecovery(() => import('@/components/views/GitView')
 const LinearIssuesView = lazyWithChunkRecovery(() => import('@/components/views/LinearIssuesView').then((m) => ({ default: m.LinearIssuesView })));
 const PlanView = lazyWithChunkRecovery(() => import('@/components/views/PlanView').then((m) => ({ default: m.PlanView })));
 import { ProjectContextPanel } from './RightSidebarTabs';
+import { RepoWikiPanel } from '@/components/context/repo-wiki/RepoWikiPanel';
 import { SidebarFilesTree } from './SidebarFilesTree';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
@@ -124,6 +125,7 @@ const getModeLabel = (
   if (mode === 'pr') return t('contextPanel.mode.pr');
   if (mode === 'linear') return t('contextPanel.mode.linear');
   if (mode === 'notes') return t('contextRail.surface.notes');
+  if (mode === 'repo-wiki') return t('contextPanel.mode.repoWiki');
   if (mode === 'terminal') return t('layout.mainTab.terminal');
   return t('contextPanel.mode.context');
 };
@@ -223,6 +225,10 @@ const getTabIcon = (
 
   if (tab.mode === 'notes') {
     return <Icon name="sticky-note" className="h-3.5 w-3.5" />;
+  }
+
+  if (tab.mode === 'repo-wiki') {
+    return <Icon name="book-open" className="h-3.5 w-3.5" />;
   }
 
   if (tab.mode === 'terminal') {
@@ -963,6 +969,8 @@ export const ContextPanel: React.FC = () => {
                 ? <React.Suspense fallback={null}><LinearIssuesView /></React.Suspense>
             : activeTab?.mode === 'notes'
                 ? <ProjectContextPanel />
+            : activeTab?.mode === 'repo-wiki'
+                ? <RepoWikiPanel directory={effectiveDirectory} />
         : activeTab?.mode === 'plan'
             ? <React.Suspense fallback={null}><PlanView
                 targetPath={activeTab.targetPath}

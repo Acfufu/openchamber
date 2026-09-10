@@ -46,7 +46,7 @@ interface RepoWikiState {
 interface RepoWikiActions {
   getEntry: (projectPath: string | null | undefined) => RepoWikiEntry;
   load: (projectPath: string, options?: { force?: boolean; silent?: boolean }) => Promise<void>;
-  loadPage: (projectPath: string, pageId: string) => Promise<string | null>;
+  loadPage: (projectPath: string, pageId: string, options?: { force?: boolean }) => Promise<string | null>;
   generate: (projectPath: string, options?: RepoWikiGenerateOptions) => Promise<boolean>;
   stop: (projectPath: string) => Promise<boolean>;
   retryPage: (projectPath: string, pageId: string) => Promise<boolean>;
@@ -125,9 +125,15 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     if (!fromPoller) {
       patchEntry(projectId, { loading: true });
     }
+    const previousRunStatus = entryFor(projectId).status?.wiki?.run?.status;
     try {
       const status = await fetchRepoWikiStatus(projectPath);
       patchEntry(projectId, { status, loaded: true, loading: false, error: null });
+      // A run just ended: cached page markdown may be superseded (retry,
+      // regeneration), so the cache gives way to the fresh files.
+      if (previousRunStatus === 'running' && status.wiki?.run?.status !== 'running') {
+        patchEntry(projectId, { pages: {} });
+      }
       if (isRunActive(projectId) && visiblePanels.has(projectId)) {
         scheduleTick(projectId, projectPath);
       } else {
@@ -166,10 +172,10 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       await refresh({ projectPath, projectId });
     },
 
-    loadPage: async (projectPath, pageId) => {
+    loadPage: async (projectPath, pageId, options = {}) => {
       const projectId = resolveRepoWikiProjectId(projectPath);
       const cached = entryFor(projectId).pages[pageId];
-      if (cached) return cached.markdown;
+      if (cached && !options.force) return cached.markdown;
       try {
         const markdown = await fetchRepoWikiPage(projectPath, pageId);
         patchEntry(projectId, {

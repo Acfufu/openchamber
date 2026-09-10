@@ -12,6 +12,7 @@ export type ContextSurfaceId =
   | 'terminal'
   | 'plan'
   | 'notes'
+  | 'repo-wiki'
   | 'context'
   | 'browser'
   | 'chat';
@@ -133,6 +134,16 @@ export const CONTEXT_SURFACES: readonly ContextSurfaceDescriptor[] = [
     availability: 'always',
   },
   {
+    id: 'repo-wiki',
+    descriptionKey: 'contextRail.surface.repoWiki.description',
+    // As wide as the walkthrough: generated pages read best with room.
+    defaultWidthFraction: 3 / 5,
+    mode: 'repo-wiki',
+    icon: 'book-open',
+    labelKey: 'contextRail.surface.repoWiki',
+    availability: 'always',
+  },
+  {
     id: 'browser',
     descriptionKey: 'contextRail.surface.browser.description',
     defaultWidthFraction: 0.45,
@@ -239,6 +250,13 @@ export const getVisibleContextRailSurfaces = (options: VisibleRailSurfacesOption
     // not have. Offering the surface anyway would promise the panel people see
     // on the desktop.
     if (surface.id === 'browser' && options.isVSCode) {
+      return false;
+    }
+    // The Repo Wiki ships for web and desktop in v1: generation runs against
+    // OpenChamber's server routes, and the reading pane is built for the
+    // desktop rail. Offered in VS Code it would promise a surface the
+    // extension has not been designed for.
+    if (surface.id === 'repo-wiki' && options.isVSCode) {
       return false;
     }
     if (surface.id === 'linear' && !options.linearConnected) {

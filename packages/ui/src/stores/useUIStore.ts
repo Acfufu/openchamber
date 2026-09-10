@@ -17,7 +17,7 @@ import { isVSCodeRuntime } from '@/lib/desktop';
 import { getRuntimeKey, isTransientRuntimeKey } from '@/lib/runtime-switch';
 
 export type PendingDiffScope = 'working' | 'staged' | 'turn' | 'branch' | 'commit';
-const contextPanelModeSchema = z.enum(['diff', 'walkthrough', 'file', 'context', 'plan', 'chat', 'browser', 'git', 'pr', 'linear', 'notes', 'terminal']);
+const contextPanelModeSchema = z.enum(['diff', 'walkthrough', 'file', 'context', 'plan', 'chat', 'browser', 'git', 'pr', 'linear', 'notes', 'repo-wiki', 'terminal']);
 export type ContextPanelMode = z.infer<typeof contextPanelModeSchema>;
 const persistedPanelWidthsSchema = z.object({
   widthByMode: z.record(z.string(), z.number().finite().optional().catch(undefined)).catch({}),
@@ -405,6 +405,9 @@ const sanitizeContextPanelTabs = (tabs: unknown): ContextPanelTab[] => {
     return [];
   }
   const dropBrowserTabs = isVSCodeRuntime();
+  // Repo Wiki tabs persist from the desktop/web surfaces; inside VS Code the
+  // surface is filtered from the rail, so a restored tab would have no home.
+  const dropRepoWikiTabs = dropBrowserTabs;
 
   const result: ContextPanelTab[] = [];
   const seen = new Set<string>();
@@ -432,13 +435,19 @@ const sanitizeContextPanelTabs = (tabs: unknown): ContextPanelTab[] => {
     // Legacy 'preview' tabs are converted to 'browser' by the v14 migration;
     // anything still carrying an unknown mode here is discarded rather than
     // resurrected into a tab the panel cannot render.
-    if (candidate.mode !== 'diff' && candidate.mode !== 'walkthrough' && candidate.mode !== 'file' && candidate.mode !== 'context' && candidate.mode !== 'plan' && candidate.mode !== 'chat' && candidate.mode !== 'browser' && candidate.mode !== 'git' && candidate.mode !== 'pr' && candidate.mode !== 'linear' && candidate.mode !== 'notes' && candidate.mode !== 'terminal') {
+    if (candidate.mode !== 'diff' && candidate.mode !== 'walkthrough' && candidate.mode !== 'file' && candidate.mode !== 'context' && candidate.mode !== 'plan' && candidate.mode !== 'chat' && candidate.mode !== 'browser' && candidate.mode !== 'git' && candidate.mode !== 'pr' && candidate.mode !== 'linear' && candidate.mode !== 'notes' && candidate.mode !== 'repo-wiki' && candidate.mode !== 'terminal') {
       continue;
     }
 
     // State is shared with the desktop and web surfaces, which do have a
     // browser; inside VS Code such a tab would have no surface to belong to.
     if (dropBrowserTabs && candidate.mode === 'browser') {
+      continue;
+    }
+
+    // Same rule for the Repo Wiki: desktop state must not resurrect a tab
+    // whose surface VS Code does not offer.
+    if (dropRepoWikiTabs && candidate.mode === 'repo-wiki') {
       continue;
     }
 
