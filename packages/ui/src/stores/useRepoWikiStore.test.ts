@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, jest, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 interface StatusPayload {
   wiki: {
@@ -177,59 +177,74 @@ describe('useRepoWikiStore', () => {
   });
 
   test('visible panel with an active run polls until the run ends', async () => {
-    const flush = async () => {
-      for (let turn = 0; turn < 25; turn += 1) {
-        await Promise.resolve();
-      }
+    // bun:test has no fake timers; collect the poller's timeout callback and
+    // fire it by hand, exactly as the elapsed interval would.
+    const base = statusPayload();
+    const running: StatusPayload = {
+      ...base,
+      runActive: true,
+      wiki: base.wiki === null ? null : {
+        ...base.wiki,
+        run: { status: 'running', stage: 'pages', startedAt: 'x', finishedAt: null, error: null, errorCode: null, generatedPages: 0, failedPages: null, retriedPage: null },
+      },
     };
-    jest.useFakeTimers();
-    try {
-      const base = statusPayload();
-      const running: StatusPayload = {
-        ...base,
-        runActive: true,
-        wiki: base.wiki === null ? null : {
-          ...base.wiki,
-          run: { status: 'running', stage: 'pages', startedAt: 'x', finishedAt: null, error: null, errorCode: null, generatedPages: 0, failedPages: null, retriedPage: null },
-        },
-      };
-      let active = running;
-      handlers.fetchStatus = async () => active;
+    let active = running;
+    handlers.fetchStatus = async () => active;
 
+    let pollTicks: Array<() => void> = [];
+    const originalSetTimeout = globalThis.setTimeout;
+    // SAFETY: the only timer scheduled in this test is the store's poll tick,
+    // so every handler here is the zero-argument callback we fire by hand.
+    (globalThis as { setTimeout: unknown }).setTimeout = (handler: () => void) => {
+      pollTicks = [...pollTicks, handler];
+      return 1;
+    };
+
+    try {
       await store().load(PROJECT_PATH);
       store().setPanelVisible(PROJECT_PATH, true);
+      expect(pollTicks.length).toBe(1);
 
-      await jest.advanceTimersByTime(1_500);
-      await flush();
+      const ticks = pollTicks;
+      pollTicks = [];
+      for (const tick of ticks) tick?.();
+      for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
       expect(calls.fetchStatus).toBe(2);
+      // Still active: the next tick was scheduled again.
+      expect(pollTicks.length).toBe(1);
 
       // The run ends; the poller stops instead of polling forever.
       active = statusPayload({ runActive: false });
-      await jest.advanceTimersByTime(1_500);
-      await flush();
+      const secondTicks = pollTicks;
+      pollTicks = [];
+      for (const tick of secondTicks) tick?.();
+      for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
       expect(calls.fetchStatus).toBe(3);
-      await jest.advanceTimersByTime(3_000);
-      await flush();
-      expect(calls.fetchStatus).toBe(3);
+      expect(pollTicks.length).toBe(0);
     } finally {
-      jest.useRealTimers();
+      globalThis.setTimeout = originalSetTimeout;
       store().setPanelVisible(PROJECT_PATH, false);
     }
   });
 
   test('an invisible panel never polls', async () => {
-    jest.useFakeTimers();
+    handlers.fetchStatus = async () => statusPayload({ runActive: true });
+
+    let timerScheduled = false;
+    const originalSetTimeout = globalThis.setTimeout;
+    // SAFETY: this test only observes whether any timer gets scheduled.
+    (globalThis as { setTimeout: unknown }).setTimeout = () => {
+      timerScheduled = true;
+      return 1;
+    };
+
     try {
-      handlers.fetchStatus = async () => statusPayload({ runActive: true });
       await store().load(PROJECT_PATH);
       store().setPanelVisible(PROJECT_PATH, false);
-      await jest.advanceTimersByTime(4_500);
-      for (let turn = 0; turn < 25; turn += 1) {
-        await Promise.resolve();
-      }
+      expect(timerScheduled).toBe(false);
       expect(calls.fetchStatus).toBe(1);
     } finally {
-      jest.useRealTimers();
+      globalThis.setTimeout = originalSetTimeout;
     }
   });
 });

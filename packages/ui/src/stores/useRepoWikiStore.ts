@@ -93,6 +93,8 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
 
   /** projectId → timer. A timer exists only for a visible panel with an active run. */
   const pollers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Projects whose Repo Wiki panel is currently mounted/visible. */
+  const visiblePanels = new Set<string>();
 
   const stopPoller = (projectId: string) => {
     const timer = pollers.get(projectId);
@@ -126,7 +128,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     try {
       const status = await fetchRepoWikiStatus(projectPath);
       patchEntry(projectId, { status, loaded: true, loading: false, error: null });
-      if (isRunActive(projectId)) {
+      if (isRunActive(projectId) && visiblePanels.has(projectId)) {
         scheduleTick(projectId, projectPath);
       } else {
         stopPoller(projectId);
@@ -243,9 +245,11 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       if (!projectPath) return;
       const projectId = resolveRepoWikiProjectId(projectPath);
       if (!visible) {
+        visiblePanels.delete(projectId);
         stopPoller(projectId);
         return;
       }
+      visiblePanels.add(projectId);
       if (isRunActive(projectId) && !pollers.has(projectId)) {
         scheduleTick(projectId, projectPath);
       }
@@ -253,6 +257,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
 
     reset: () => {
       for (const projectId of [...pollers.keys()]) stopPoller(projectId);
+      visiblePanels.clear();
       set({ entries: {} });
     },
   };
