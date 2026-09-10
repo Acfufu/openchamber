@@ -36,6 +36,18 @@ const PAGE_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 export const MANIFEST_FILE = 'manifest.json';
 
+/** Route-level guard: reject malformed project ids before touching the store. */
+export const isValidProjectId = (value) => value != null
+  && value.constructor === String
+  && value.length > 0
+  && PROJECT_ID_PATTERN.test(value);
+
+/** Route-level guard for page ids (same traversal argument as pagePath). */
+export const isValidPageId = (value) => value != null
+  && value.constructor === String
+  && value.length > 0
+  && PAGE_ID_PATTERN.test(value);
+
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
 const MAX_PAGE_BYTES = 4 * 1024 * 1024;
 

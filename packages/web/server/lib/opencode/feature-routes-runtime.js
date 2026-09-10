@@ -2,6 +2,9 @@ import { registerFsRoutes } from '../fs/routes.js';
 import { registerQuotaRoutes } from '../quota/routes.js';
 import { registerSmallModelRoutes } from '../small-model/routes.js';
 import { registerWalkthroughRoutes } from '../walkthrough/routes.js';
+import { registerRepoWikiRoutes } from '../repo-wiki/routes.js';
+import { createRepoWikiRuntime } from '../repo-wiki/index.js';
+import { createDefaultModelReader } from '../repo-wiki/default-model.js';
 import { registerSessionGoalRoutes } from '../session-goal/routes.js';
 import { registerGitHubRoutes } from '../github/routes.js';
 import { registerLinearRoutes } from '../linear/routes.js';
@@ -146,6 +149,15 @@ export const createFeatureRoutesRuntime = (dependencies) => {
 
     registerPermissionAutoAcceptRoutes(app, permissionAutoAcceptRuntime);
     registerMessageQueueRoutes(app, messageQueueRuntime);
+
+    // Repo Wiki: one runtime per server process, storage under the injected
+    // data dir, default model read live from merged settings.
+    const repoWikiRuntime = createRepoWikiRuntime({
+      dataDir: openchamberDataDir,
+      readSettings: createDefaultModelReader({ dataDir: openchamberDataDir }),
+    });
+    await repoWikiRuntime.recover();
+    registerRepoWikiRoutes(app, { repoWikiRuntime });
 
     registerOpenCodeRoutes(app, {
       crypto,

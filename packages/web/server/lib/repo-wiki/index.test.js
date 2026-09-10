@@ -169,14 +169,15 @@ describe('repo-wiki runtime', () => {
     expect(status.wiki.catalog.pages[1].status).toBe('failed');
     expect(status.wiki.run.status).toBe('done');
 
-    // A retry that succeeds repairs the page.
+    // A retry that succeeds repairs the page (background job — poll for it).
     runtime = createRepoWikiRuntime({
       dataDir,
       readSettings: () => ({ defaultModel: 'test-provider/test-model' }),
       describeModel: async () => ({ ...describedModel }),
       modelCall: async () => markdownFor('internals'),
     });
-    await runtime.retryPage({ projectId: 'path_iso', directory: repoRoot, pageId: 'internals' });
+    await runtime.requestRetry({ projectId: 'path_iso', directory: repoRoot, pageId: 'internals' });
+    await waitFor(async () => (await runtime.readPage({ projectId: 'path_iso', pageId: 'internals' })) !== null);
     expect(await runtime.readPage({ projectId: 'path_iso', pageId: 'internals' })).toContain('# internals');
   });
 

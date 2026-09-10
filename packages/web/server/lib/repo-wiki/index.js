@@ -195,6 +195,75 @@ export const createRepoWikiRuntime = ({
 
   const now = () => new Date().toISOString();
 
+  /** One page: build context, prompt, call the model, persist the markdown. */
+  const generatePage = async ({ projectId, repoRoot, page, model, catalogPages, language, diagrams, signal }) => {
+    const context = await buildPageContext({
+      repoRoot,
+      files: page.files,
+      budgetChars: model.inputCharBudget,
+    });
+    const pageCall = buildPagePrompt({
+      repoName: path.basename(repoRoot),
+      page,
+      catalogOutline: catalogPages.map((entry) => `- ${entry.title} (${entry.id})`).join('\n'),
+      pageContext: context.context,
+      language,
+      diagrams,
+    });
+    const pageRaw = await callWithSchemaFallback({
+      directory: repoRoot,
+      model,
+      system: pageCall.system,
+      prompt: pageCall.prompt,
+      responseSchema: pageResponseSchema,
+      signal,
+    });
+    const { markdown } = normalizePage(parseModelJson(pageRaw.text));
+    await store.writePage(projectId, page.id, markdown);
+  };
+
+  /** One failed-page retry as a background job; results land in the manifest. */
+  const executeRetry = async ({ projectId, repoRoot, manifest, page, model, cancelFlag }) => {
+    const persist = async () => store.writeManifest(projectId, manifest);
+    try {
+      await generatePage({
+        projectId,
+        repoRoot,
+        page,
+        model,
+        catalogPages: manifest.catalog.pages,
+        language: manifest.language,
+        diagrams: manifest.diagrams,
+        signal: cancelFlag.controller.signal,
+      });
+      page.status = 'done';
+      page.error = undefined;
+      manifest.run = {
+        status: 'done',
+        stage: 'done',
+        startedAt: manifest.run.startedAt,
+        finishedAt: now(),
+        retriedPage: page.id,
+      };
+      await persist();
+    } catch (error) {
+      page.status = 'failed';
+      page.error = error?.message || 'page generation failed';
+      manifest.run = {
+        status: 'failed',
+        stage: 'failed',
+        startedAt: manifest.run.startedAt,
+        finishedAt: now(),
+        retriedPage: page.id,
+        error: page.error,
+        errorCode: error?.code,
+      };
+      await persist();
+    } finally {
+      activeRuns.delete(projectId);
+    }
+  };
+
   /**
    * The run loop. `manifest` is the progressively-written record; every
    * transition persists, so a reader (the panel poll) always sees the truth.
@@ -248,30 +317,16 @@ export const createRepoWikiRuntime = ({
         await persist();
 
         try {
-          const context = await buildPageContext({
+          await generatePage({
+            projectId,
             repoRoot,
-            files: page.files,
-            budgetChars: model.inputCharBudget,
-          });
-          const pageCall = buildPagePrompt({
-            repoName: path.basename(repoRoot),
             page,
-            catalogOutline: catalogOutline(),
-            pageContext: context.context,
+            model,
+            catalogPages: manifest.catalog.pages,
             language,
             diagrams,
-          });
-          const pageRaw = await callWithSchemaFallback({
-            directory: repoRoot,
-            model,
-            system: pageCall.system,
-            prompt: pageCall.prompt,
-            responseSchema: pageResponseSchema,
             signal,
           });
-          const { markdown } = normalizePage(parseModelJson(pageRaw.text));
-
-          await store.writePage(projectId, page.id, markdown);
           page.status = 'done';
           manifest.run = { ...manifest.run, generatedPages: manifest.run.generatedPages + 1 };
         } catch (pageError) {
@@ -406,11 +461,13 @@ export const createRepoWikiRuntime = ({
     },
 
     /**
-     * Regenerate one page of an existing wiki. Only failed pages are
+     * Regenerate one page of an existing wiki, as a background job the panel
+     * polls (a page call can run for minutes). Only failed pages are
      * retryable — a done page is part of a coherent whole and changes only
-     * through a full regeneration.
+     * through a full regeneration. Validation happens before the response so
+     * the caller sees real errors; the result lands in the manifest.
      */
-    async retryPage({ projectId, directory, pageId }) {
+    async requestRetry({ projectId, directory, pageId }) {
       assertNotRunning(projectId);
 
       const manifest = await store.readManifest(projectId);
@@ -441,54 +498,8 @@ export const createRepoWikiRuntime = ({
       page.status = 'writing';
       await store.writeManifest(projectId, manifest);
 
-      const persist = async () => store.writeManifest(projectId, manifest);
-      try {
-        const context = await buildPageContext({
-          repoRoot,
-          files: page.files,
-          budgetChars: model.inputCharBudget,
-        });
-        const pageCall = buildPagePrompt({
-          repoName: path.basename(repoRoot),
-          page,
-          catalogOutline: manifest.catalog.pages.map((entry) => `- ${entry.title} (${entry.id})`).join('\n'),
-          pageContext: context.context,
-          language: manifest.language,
-          diagrams: manifest.diagrams,
-        });
-        const pageRaw = await callWithSchemaFallback({
-          directory: repoRoot,
-          model,
-          system: pageCall.system,
-          prompt: pageCall.prompt,
-          responseSchema: pageResponseSchema,
-          signal: cancelFlag.controller.signal,
-        });
-        const { markdown } = normalizePage(parseModelJson(pageRaw.text));
-
-        await store.writePage(projectId, page.id, markdown);
-        page.status = 'done';
-        page.error = undefined;
-        manifest.run = { status: 'done', stage: 'done', startedAt: manifest.run.startedAt, finishedAt: now(), retriedPage: pageId };
-        await persist();
-        return { retried: true, pageId };
-      } catch (error) {
-        page.status = 'failed';
-        page.error = error?.message || 'page generation failed';
-        manifest.run = {
-          status: 'failed',
-          stage: 'failed',
-          startedAt: manifest.run.startedAt,
-          finishedAt: now(),
-          retriedPage: pageId,
-          error: page.error,
-          errorCode: error?.code,
-        };
-        await persist();
-        throw error;
-      } finally {
-        activeRuns.delete(projectId);
-      }
+      void executeRetry({ projectId, repoRoot, manifest, page, model, cancelFlag });
+      return { retried: true, pageId };
     },
 
     async deleteWiki({ projectId }) {
