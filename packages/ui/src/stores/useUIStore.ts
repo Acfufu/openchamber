@@ -16,7 +16,7 @@ import { isWindowsArm64 } from '@/lib/platform';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { getRuntimeKey, isTransientRuntimeKey } from '@/lib/runtime-switch';
 
-export type PendingDiffScope = 'working' | 'staged' | 'turn' | 'branch' | 'commit';
+export type PendingDiffScope = 'working' | 'staged' | 'turn' | 'branch' | 'commit' | 'pr';
 const contextPanelModeSchema = z.enum(['diff', 'walkthrough', 'file', 'context', 'plan', 'chat', 'browser', 'git', 'pr', 'linear', 'notes', 'repo-wiki', 'terminal']);
 export type ContextPanelMode = z.infer<typeof contextPanelModeSchema>;
 const persistedPanelWidthsSchema = z.object({
@@ -289,7 +289,7 @@ const normalizeContextTabLabel = (value: string | null | undefined): string | nu
 };
 
 const normalizePendingDiffScope = (value: unknown): PendingDiffScope | null => {
-  return value === 'working' || value === 'staged' || value === 'turn' || value === 'branch' || value === 'commit' ? value : null;
+  return value === 'working' || value === 'staged' || value === 'turn' || value === 'branch' || value === 'commit' || value === 'pr' ? value : null;
 };
 
 /** A plan tab's owner must be a complete project reference or nothing; a
@@ -862,6 +862,7 @@ interface UIStore {
   autoSaveEnabled: boolean;
   autoDeleteAfterDays: number;
   sessionRetentionAction: SessionRetentionAction;
+  sessionRetentionOnlyArchived: boolean;
   autoDeleteLastRunAt: number | null;
   messageLimit: number;
   fontSize: number;
@@ -1068,6 +1069,7 @@ interface UIStore {
   setAutoSaveEnabled: (value: boolean) => void;
   setAutoDeleteAfterDays: (days: number) => void;
   setSessionRetentionAction: (value: SessionRetentionAction) => void;
+  setSessionRetentionOnlyArchived: (value: boolean) => void;
   setAutoDeleteLastRunAt: (timestamp: number | null) => void;
   setMessageLimit: (value: number) => void;
   setFontSize: (size: number) => void;
@@ -1251,6 +1253,7 @@ export const useUIStore = create<UIStore>()(
         autoSaveEnabled: true,
         autoDeleteAfterDays: 30,
         sessionRetentionAction: 'archive',
+        sessionRetentionOnlyArchived: false,
         autoDeleteLastRunAt: null,
         messageLimit: 200,
         fontSize: 100,
@@ -2058,7 +2061,14 @@ export const useUIStore = create<UIStore>()(
         },
 
         setSessionRetentionAction: (value) => {
-          set({ sessionRetentionAction: value });
+          set((state) => ({ sessionRetentionAction: state.sessionRetentionOnlyArchived ? 'delete' : value }));
+        },
+
+        setSessionRetentionOnlyArchived: (value) => {
+          set((state) => ({
+            sessionRetentionOnlyArchived: value,
+            sessionRetentionAction: value ? 'delete' : state.sessionRetentionAction,
+          }));
         },
 
         setAutoDeleteLastRunAt: (timestamp) => {
@@ -2999,6 +3009,7 @@ export const useUIStore = create<UIStore>()(
           autoSaveEnabled: state.autoSaveEnabled,
           autoDeleteAfterDays: state.autoDeleteAfterDays,
           sessionRetentionAction: state.sessionRetentionAction,
+          sessionRetentionOnlyArchived: state.sessionRetentionOnlyArchived,
           autoDeleteLastRunAt: state.autoDeleteLastRunAt,
           messageLimit: state.messageLimit,
           fontSize: state.fontSize,

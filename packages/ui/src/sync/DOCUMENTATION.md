@@ -128,9 +128,36 @@ full-list timers. Surface-specific refreshes, such as opening the mobile session
 sheet or returning from suspension, may still request freshness at their
 explicit lifecycle edge; the store coalesces an overlapping in-flight load.
 
-Current consumers:
+### Session retention
 
-- `useSessionAutoCleanup.ts`
+`session-retention.ts` owns eligibility and cleanup execution;
+`useSessionAutoCleanup.ts` connects it to the app and Settings. Manual and
+automatic runs share a lock acquired before loading. Each run requests a fresh
+complete global snapshot and refuses the loader's error/fallback state. A
+runtime switch stops the batch and prevents writing its cooldown into the new
+runtime. Automatic attempts are limited to once per day while the app is open;
+manual runs bypass the cooldown and enabled checkbox.
+
+Retention targets unarchived sessions by last activity by default. The opt-in
+`sessionRetentionOnlyArchived` setting switches both the preview and execution
+to archived sessions and measures their retention period from `time.archived`.
+It forces Delete in the store and cleanup runner; Archive is disabled in Settings.
+Turning it off leaves Delete selected and makes Archive available again. The
+setting uses the instance settings registry across web, desktop, VS Code and mobile.
+
+Both modes preserve the five most recent sessions in the selected scope, ranked
+by that scope's retention timestamp, plus the selected session, shared sessions,
+and sessions with observed live activity. Parents with an attached `/btw` conversation also stay,
+because the canonical archive/delete actions remove that temporary fork.
+Sessions outside the selected scope remain protected. Because
+OpenCode cascades deletion, every ancestor of a retained session is protected
+too. Eligible deletions run children first and recheck current selection,
+activity, sharing, age, and child membership before each request. A failed child
+blocks deletion of its ancestors while unrelated sessions continue.
+
+Cleanup uses the canonical archive/delete actions, including confirmed `404`
+deletion, persisted-state cleanup and runtime guards. Settings shares the run
+state and shows loading or fetch failure separately from an eligible count.
 
 ### Live cross-directory session/status view
 
@@ -184,6 +211,12 @@ This keeps cold/global lists responsive without requiring a refetch after every 
 Live activity/status indicators must not depend on this cache. They must use the event/snapshot-reconciled global live status index.
 
 ## Session message loading
+
+The event pipeline's reconnect callback carries `replayReset`. A global WS
+`ready` frame with that flag means the server's bounded replay suffix no longer
+covers the client cursor. The pipeline clears that cursor and the sync provider
+runs normal authoritative gap repair even during early boot. Ordinary reconnects
+retain their existing startup grace period.
 
 `SessionMessageLoader` is the shared authority for session message requests. Navigation, reactive chat loading, sidebar prefetch, pagination, reconnect/recovery, and optimistic reconciliation must delegate to it rather than issuing parallel initial requests.
 
@@ -279,6 +312,34 @@ Rules:
 3. Never persist or rank a guessed directory. `selectSession` may fall back to the active directory to keep routing usable, but that value is not written to runtime memory, not written to the last-active snapshot, and not passed as `selected` — a persisted guess outlives the race that produced it and survives reloads and restarts.
 4. Components must not read `currentSessionDirectory` to build request or queue keys; use `getDirectoryForSession()` so every consumer resolves identically.
 5. A disagreement between sources is logged once per session, and `__opencodeDebug.diagnoseSessionDirectory()` reports every source in precedence order.
+
+## AI session titles
+
+`use-session-ai-rename.ts` connects the shared menus to Small Model and the
+existing title action. `session-title-context.ts` uses `SessionMessageLoader`
+to page backward only until three completed user/final-answer pairs are covered.
+Opening a menu checks eligibility on demand; row mounts do not load history.
+The collector uses chronological records and assistant parent IDs, excludes
+unfinished, failed, summary, synthetic-only and reverted turns, and retains
+user-attached context even when its transport part is synthetic.
+
+`session-title-generation.ts` owns runtime/directory/session-scoped pending
+operations. Manual title saves cancel generation before sending their write.
+Runtime changes abort pending generation, including a switch away and back.
+After generation, a fresh session read rejects changed titles, directories,
+archive state and revert markers before the normal title action saves. Failure
+retains the old title and always releases pending state. The current OpenCode
+title endpoint has no compare-and-set operation, so another client's write
+after this final read cannot be guarded atomically.
+
+`lib/messages/messageMarkdown.ts` formats attached quotes and user comments for
+both title context and Markdown export. Export keeps full text; title input
+limits individual fields and each message while retaining head/tail excerpts.
+Web, Electron, hosted mobile and Capacitor use the existing Small Model route.
+Mobile session rows expose the same action beside manual rename when swiped
+open, with four 48px action slots and a session-scoped generation spinner.
+VS Code has no Small Model route and exposes a disabled action with an explicit
+explanation.
 
 ## Session action rules
 

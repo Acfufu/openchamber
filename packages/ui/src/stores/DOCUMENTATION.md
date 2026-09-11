@@ -57,12 +57,23 @@ commits have pushed it beyond the latest 50.
 
 `hooks/useGitComparison.ts` owns the local file-list state used by desktop and
 mobile comparisons. Its key contains runtime, directory, and the complete
-branch/commit source. A source change hides the old list immediately; failed
+branch/commit/PR source. A source change hides the old list immediately; failed
 reads remain errors, and manual retries cannot publish into a superseded scope.
 The hook also resolves per-file patch requests, including a commit rename's
 previous path. Views own their lazy patch caches through `useRangeKeyedCache`.
 Mobile requests only the active detail path and suspends reads while its
 keep-alive workspace pane is hidden.
+
+`usePullRequestSelectionStore.ts` shares session-only PR choices across desktop,
+mobile Changes and walkthrough, keyed by runtime, directory and checked-out
+branch. Explicit selection bounds remembered choices to 100 entries. A choice
+contains the PR number and its repository, so fork and upstream PRs with equal
+numbers remain distinct. `usePullRequestComparison` owns the searchable,
+paginated list while PR mode is active. The shared GitHub PR status store's
+fork/remote-aware resolver supplies the initial choice, independently of list
+pagination. An absent match requires selection. External walkthrough handoffs
+apply once, and later picker changes
+remain authoritative when a retained panel becomes visible again.
 
 Examples:
 
@@ -118,6 +129,13 @@ round-trips re-read instead of guessing. Empty legacy events without a directory
 clear all projections of their session in that runtime. Projection items carry
 attachment metadata only, so `popToInput()` and `takeForSend()` asynchronously
 remove the message on the server and retrieve its complete captured payload.
+
+`lib/messages/queuedMessagePreview.ts` derives the queue row from typed text,
+then attached comments/context, then the first filename. The store sends a
+bounded `contextPreview` with the captured item so server projections can show
+context-only messages without carrying full quotes or diffs. VS Code derives
+the same preview from its local full item. Preview text is display-only;
+editing and delivery always use the original content and captured context.
 
 A queued message is captured whole, so whoever delivers it sends exactly what the composer would have: `text` (the content with its agent mention stripped and `@file` mentions already resolved into `attachments`), `agentMention`, and `context` — every chip the composer had attached (inline comments, terminal selections, browser annotations, PR comments/checks, quotes, linked issue/PR/Linear references, pending synthetic parts) plus the skill instruction derived from the text. `QueuedContextPart` distinguishes attached items (restored to the chips when the message is edited) from derived instructions (re-derived on send, never restored) and from synthetic parts other surfaces handed the composer (restored as pending). Context is captured by `buildComposerContext` and delivered by `queuedContextToParts` (`components/chat/composer/submit/buildOutgoingMessage.ts`), the same functions the composer uses for its own send. Nothing is re-resolved at delivery: the server has no agent list, no confirmed mentions, and no draft store. Messages a previous build left in this browser are uploaded once on the first hydration of a runtime and then dropped from persistence for that runtime (`partialize` skips server-owned runtime keys). VS Code has no server and keeps the local queue with the foreground auto-send hook (`useQueuedMessageAutoSend`, enabled only there); `useMessageQueueHoldSync` tells the server to hold a session's queue while a UI-driven auto-review run is going.
 
@@ -336,6 +354,14 @@ project in Settings cannot change what chat sees. Components select through
 `selectAgentsForDirectory` / `selectCommandsForDirectory` /
 `selectSkillsForDirectory` / `selectMcpServersForDirectory` /
 `selectProvidersForDirectory`, which return stored arrays.
+
+Command discovery compares responses only with the requested directory's cache.
+A first successful response always creates that entry, even when empty or
+identical to another project's commands. Cached and unchanged loads restore the
+active-project mirror; asynchronous completions check the active directory at
+commit time. Failed loads leave the current cache untouched. Discovery passes
+its directory directly to the SDK wrapper without changing the client's shared
+directory context.
 
 Settings resolves its directory through `useSettingsDirectory`, backed by
 `useUIStore.settingsProjectPath`. That selection is Settings-local and not
