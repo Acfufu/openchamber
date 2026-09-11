@@ -117,12 +117,14 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     pollers.set(projectId, timer);
   };
 
-  const refresh = async ({ projectPath, projectId, fromPoller = false }: {
+  const refresh = async ({ projectPath, projectId, fromPoller = false, silent = false }: {
     projectPath: string;
     projectId: string;
     fromPoller?: boolean;
+    /** A silent refresh keeps the cached snapshot visible and skips the loading flag. */
+    silent?: boolean;
   }) => {
-    if (!fromPoller) {
+    if (!fromPoller && !silent) {
       patchEntry(projectId, { loading: true });
     }
     const previousRunStatus = entryFor(projectId).status?.wiki?.run?.status;
@@ -169,7 +171,9 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       const entry = entryFor(projectId);
       if (entry.loading) return;
       if (entry.loaded && !options.force) return;
-      await refresh({ projectPath, projectId });
+      // A cached entry revalidates silently on mount, so a wiki created
+      // elsewhere (another window, a new run) shows up without a flash.
+      await refresh({ projectPath, projectId, silent: options.silent === true && entry.loaded });
     },
 
     loadPage: async (projectPath, pageId, options = {}) => {

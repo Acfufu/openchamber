@@ -189,7 +189,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
 
   React.useEffect(() => {
     if (!directory) return;
-    void load(directory);
+    void load(directory, { force: true, silent: true });
     setPanelVisible(directory, true);
     return () => setPanelVisible(directory, false);
   }, [directory, load, setPanelVisible]);
@@ -230,16 +230,27 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     return null;
   }
 
-  const handleSourceClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const targetNode = event.target instanceof HTMLElement ? event.target : null;
-    const anchor = targetNode?.closest('a');
-    if (!anchor) return;
-    const target = parseSourceRef(anchor.getAttribute('href') ?? '');
-    if (!target) return;
-    event.preventDefault();
-    event.stopPropagation();
-    openContextFileAtLine(directory, target.filePath, target.line);
-  };
+  // Source references are intercepted in the CAPTURE phase on this container:
+  // the markdown renderer's own app-link guard sits on an inner node in the
+  // bubble phase and would otherwise claim the custom scheme (confirm dialog)
+  // before the panel ever sees the click.
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const node = contentRef.current;
+    if (!node) return;
+    const handleCapture = (event: MouseEvent) => {
+      const targetNode = event.target instanceof Element ? event.target : null;
+      const anchor = targetNode?.closest('a');
+      if (!anchor) return;
+      const target = parseSourceRef(anchor.getAttribute('href') ?? '');
+      if (!target) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openContextFileAtLine(directory, target.filePath, target.line);
+    };
+    node.addEventListener('click', handleCapture, true);
+    return () => node.removeEventListener('click', handleCapture, true);
+  }, [directory, openContextFileAtLine]);
 
   const startGeneration = async () => {
     setWorking(true);
@@ -447,7 +458,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                   />
                 ))}
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3" onClick={handleSourceClick}>
+              <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 {selectedPage?.status === 'failed'
                   ? (
                       <div className="space-y-2">
