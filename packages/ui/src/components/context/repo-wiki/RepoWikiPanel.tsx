@@ -233,11 +233,12 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   // Source references are intercepted in the CAPTURE phase on this container:
   // the markdown renderer's own app-link guard sits on an inner node in the
   // bubble phase and would otherwise claim the custom scheme (confirm dialog)
-  // before the panel ever sees the click.
-  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  // before the panel ever sees the click. The node arrives with the wiki
+  // view (the empty state renders none), so the listener tracks the node
+  // itself instead of firing once while the ref is still null.
+  const [contentNode, setContentNode] = React.useState<HTMLDivElement | null>(null);
   React.useEffect(() => {
-    const node = contentRef.current;
-    if (!node) return;
+    if (!contentNode) return;
     const handleCapture = (event: MouseEvent) => {
       const targetNode = event.target instanceof Element ? event.target : null;
       const anchor = targetNode?.closest('a');
@@ -248,9 +249,9 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
       event.stopPropagation();
       openContextFileAtLine(directory, target.filePath, target.line);
     };
-    node.addEventListener('click', handleCapture, true);
-    return () => node.removeEventListener('click', handleCapture, true);
-  }, [directory, openContextFileAtLine]);
+    contentNode.addEventListener('click', handleCapture, true);
+    return () => contentNode.removeEventListener('click', handleCapture, true);
+  }, [contentNode, directory, openContextFileAtLine]);
 
   const startGeneration = async () => {
     setWorking(true);
@@ -458,7 +459,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                   />
                 ))}
               </div>
-              <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div ref={setContentNode} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 {selectedPage?.status === 'failed'
                   ? (
                       <div className="space-y-2">
