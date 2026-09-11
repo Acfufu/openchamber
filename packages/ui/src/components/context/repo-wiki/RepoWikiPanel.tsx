@@ -56,6 +56,26 @@ const parseSourceRef = (href: string): WikiSourceTarget | null => {
 };
 
 /**
+ * The files surface addresses files by absolute path (that is what the file
+ * tree stores), while source references hold workspace-relative paths. A
+ * relative path handed to the viewer unanchored reads as outside the
+ * workspace, so resolve it against the wiki's directory. `..` segments that
+ * escape the workspace stay subject to the server's outside-workspace grant.
+ */
+const resolveSourcePath = (directory: string, filePath: string): string => {
+  if (filePath.startsWith('/') || /^[A-Za-z]:[/\\]/.test(filePath)) {
+    return filePath;
+  }
+  const segments: string[] = [];
+  for (const part of `${directory}/${filePath}`.split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') segments.pop();
+    else segments.push(part);
+  }
+  return `/${segments.join('/')}`;
+};
+
+/**
  * Providers the server can actually call, filtered to models the catalog does
  * not flag as schema-incapable — the same rule the walkthrough picker applies
  * (a missing capability field is treated as capable).
@@ -247,7 +267,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
       if (!target) return;
       event.preventDefault();
       event.stopPropagation();
-      openContextFileAtLine(directory, target.filePath, target.line);
+      openContextFileAtLine(directory, resolveSourcePath(directory, target.filePath), target.line);
     };
     contentNode.addEventListener('click', handleCapture, true);
     return () => contentNode.removeEventListener('click', handleCapture, true);
