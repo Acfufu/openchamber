@@ -182,7 +182,9 @@ export const createRepoWikiRuntime = ({
     try {
       return await attempt(true);
     } catch (error) {
-      const statusCode = Number(error?.statusCode);
+      // Provider HTTP errors carry `status` (small-model call.js); the
+      // walkthrough's refusal check reads the same property.
+      const statusCode = Number(error?.status ?? error?.statusCode);
       const isRequestFailure = ['context-too-small', 'output-exhausted', 'no-provider-login', 'no-model']
         .includes(error?.code);
       if (isRequestFailure) throw error;

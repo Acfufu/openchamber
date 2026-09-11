@@ -228,6 +228,32 @@ describe('repo-wiki runtime', () => {
     expect(callLog.slice(1).every((entry) => !entry.hasSchema)).toBe(true);
   });
 
+  it('falls back for provider-shaped HTTP 4xx errors that carry `status`, not `statusCode`', async () => {
+    let sawSchema = false;
+    inject({
+      // Mirrors small-model call.js httpError: `status`, provider label, no code.
+      modelCall: async ({ responseSchema, system }) => {
+        if (responseSchema) {
+          sawSchema = true;
+          throw Object.assign(new Error('DeepSeek request failed with 400: response_format unavailable'), {
+            status: 400,
+            provider: 'DeepSeek',
+          });
+        }
+        if (system.includes('You write one page')) {
+          return markdownFor('overview');
+        }
+        return { text: JSON.stringify(catalogResponse) };
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_status_shape', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_status_shape', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect(sawSchema).toBe(true);
+    const status = await runtime.getStatus({ projectId: 'path_status_shape', directory: repoRoot });
+    expect(status.wiki?.run?.status).toBe('done');
+  });
+
   it('rejects a second generation while one is running', async () => {
     inject({
       modelCall: async ({ prompt }) => {
