@@ -3395,6 +3395,7 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.page.status.done': '완료',
   'repoWiki.page.status.failed': '실패',
   'repoWiki.page.retry': '다시 시도',
+  'repoWiki.pages.failedCount': '{count}개 실패',
   'repoWiki.stale.banner': '이 Wiki를 생성한 이후 코드가 변경되었습니다.',
   'repoWiki.stale.regenerate': '다시 생성',
   'repoWiki.delete.action': 'Wiki 삭제',

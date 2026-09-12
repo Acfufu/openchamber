@@ -1324,6 +1324,7 @@ export const dict = {
   'repoWiki.page.status.done': 'Done',
   'repoWiki.page.status.failed': 'Failed',
   'repoWiki.page.retry': 'Retry',
+  'repoWiki.pages.failedCount': '{count} failed',
   'repoWiki.stale.banner': 'The code has changed since this wiki was generated.',
   'repoWiki.stale.regenerate': 'Regenerate',
   'repoWiki.delete.action': 'Delete wiki',

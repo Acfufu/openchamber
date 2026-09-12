@@ -129,6 +129,22 @@ const PAGE_STATUS_RANK = {
   done: 3,
 } satisfies Record<RepoWikiPageMeta['status'], number>;
 
+interface PageStateCounts {
+  done: number;
+  failed: number;
+  total: number;
+}
+
+/**
+ * Live page counts mirrored straight off the manifest statuses: done and
+ * failed are disjoint, and a page that flips back to `writing` shrinks both.
+ */
+const countPageStates = (pages: RepoWikiPageMeta[]): PageStateCounts => ({
+  done: pages.filter((page) => page.status === 'done').length,
+  failed: pages.filter((page) => page.status === 'failed').length,
+  total: pages.length,
+});
+
 /**
  * Stable failure codes → localized sentences. A failure whose code has no
  * entry here (server freeform text, provider errors) renders its raw message.
@@ -372,6 +388,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     : null;
 
   const sortedPages = [...pages].sort((a, b) => PAGE_STATUS_RANK[a.status] - PAGE_STATUS_RANK[b.status]);
+  const pageCounts = countPageStates(pages);
 
   const errorLine = wikiErrorLine(t, entry);
 
@@ -533,17 +550,32 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
       {pages.length > 0
         ? (
             <div className="flex min-h-0 flex-1">
-              <div className="min-h-0 w-44 flex-shrink-0 overflow-y-auto border-r border-border px-1.5 py-2">
-                {sortedPages.map((page) => (
-                  <PageRow
-                    key={page.id}
-                    page={page}
-                    selected={page.id === selectedPageId}
-                    active={page.status === 'done'}
-                    onSelect={() => setSelectedPageId(page.id)}
-                    onRetry={() => void requestRetry(page.id)}
-                  />
-                ))}
+              <div className="flex min-h-0 w-44 flex-shrink-0 flex-col border-r border-border">
+                <div className="flex-shrink-0 px-2.5 pb-1 pt-2 typography-micro text-muted-foreground">
+                  {pageCounts.done}/{pageCounts.total}
+                  {pageCounts.failed > 0
+                    ? (
+                        <>
+                          {' · '}
+                          <span className="text-destructive">
+                            {t('repoWiki.pages.failedCount', { count: pageCounts.failed })}
+                          </span>
+                        </>
+                      )
+                    : null}
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+                  {sortedPages.map((page) => (
+                    <PageRow
+                      key={page.id}
+                      page={page}
+                      selected={page.id === selectedPageId}
+                      active={page.status === 'done'}
+                      onSelect={() => setSelectedPageId(page.id)}
+                      onRetry={() => void requestRetry(page.id)}
+                    />
+                  ))}
+                </div>
               </div>
               <div ref={setContentNode} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 {selectedPage?.status === 'failed'

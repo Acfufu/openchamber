@@ -3393,6 +3393,7 @@ export const dict = {
   'repoWiki.page.status.done': 'Terminé',
   'repoWiki.page.status.failed': 'Échec',
   'repoWiki.page.retry': 'Réessayer',
+  'repoWiki.pages.failedCount': '{count} en échec',
   'repoWiki.stale.banner': 'Le code a changé depuis la génération de ce wiki.',
   'repoWiki.stale.regenerate': 'Régénérer',
   'repoWiki.delete.action': 'Supprimer le wiki',

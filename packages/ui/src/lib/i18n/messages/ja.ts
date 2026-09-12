@@ -3395,6 +3395,7 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.page.status.done': '完了',
   'repoWiki.page.status.failed': '失敗',
   'repoWiki.page.retry': '再試行',
+  'repoWiki.pages.failedCount': '{count} 件失敗',
   'repoWiki.stale.banner': 'この Wiki の生成後にコードが変更されました。',
   'repoWiki.stale.regenerate': '再生成',
   'repoWiki.delete.action': 'Wiki を削除',
