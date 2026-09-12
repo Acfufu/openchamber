@@ -52,7 +52,11 @@ timer exists only while the panel is visible AND a run is active, and it is
 cleared the moment either condition stops holding. When a run leaves the
 `running` state, cached page markdown is dropped once, because a retry or
 regeneration can supersede those files. Commands (generate, stop, retry,
-remove) serialize per project through one command chain.
+remove) serialize per project through one command chain. Status freshness has
+two triggers: the visible-consumer poller above, and
+`revalidateOnTurnComplete` — the panel observes the sync layer's session-idle
+writes and asks the store to revalidate silently for a visible panel whose
+project has no active run (the poller owns freshness while it has).
 
 ### UI state stores
 

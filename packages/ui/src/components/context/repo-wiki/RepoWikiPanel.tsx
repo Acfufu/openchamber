@@ -22,6 +22,7 @@ import { runtimeFetch } from '@/lib/runtime-fetch';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useRepoWikiStore, EMPTY_REPO_WIKI_ENTRY, type RepoWikiEntry } from '@/stores/useRepoWikiStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useDirectorySync } from '@/sync/sync-context';
 import { cn } from '@/lib/utils';
 
 type TranslateFn = (key: I18nKey, params?: I18nParams) => string;
@@ -280,6 +281,33 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     setPanelVisible(directory, true);
     return () => setPanelVisible(directory, false);
   }, [directory, load, setPanelVisible]);
+
+  // Conversation-turn revalidation: the sync reducer rewrites a session's
+  // status to `idle` when its turn completes. A visible panel whose project
+  // has no active run silently revalidates when a session in this directory
+  // just turned idle — never on first sight of the directory, and never for
+  // a project whose freshness already belongs to the poller.
+  const sessionStatuses = useDirectorySync(
+    React.useCallback((state) => state.session_status, []),
+    directory,
+  );
+  const revalidateOnTurnComplete = useRepoWikiStore((state) => state.revalidateOnTurnComplete);
+  const turnTypesRef = React.useRef<{ directory: string; types: Map<string, string> }>({ directory: '', types: new Map() });
+  React.useEffect(() => {
+    const tracked = turnTypesRef.current;
+    const firstSight = tracked.directory !== directory;
+    const next = new Map<string, string>();
+    let turnCompleted = false;
+    for (const [sessionId, status] of Object.entries(sessionStatuses ?? {})) {
+      const type = status?.type ?? '';
+      next.set(sessionId, type);
+      if (!firstSight && type === 'idle' && tracked.types.get(sessionId) !== undefined && tracked.types.get(sessionId) !== 'idle') {
+        turnCompleted = true;
+      }
+    }
+    turnTypesRef.current = { directory, types: next };
+    if (turnCompleted) revalidateOnTurnComplete(directory);
+  }, [sessionStatuses, directory, revalidateOnTurnComplete]);
 
   const wiki = entry.status?.wiki ?? null;
   const run = wiki?.run ?? null;

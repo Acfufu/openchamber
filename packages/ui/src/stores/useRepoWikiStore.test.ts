@@ -287,4 +287,63 @@ describe('useRepoWikiStore', () => {
       globalThis.setTimeout = originalSetTimeout;
     }
   });
+
+  test('a turn-complete revalidate silently refetches a visible idle project', async () => {
+    await store().load(PROJECT_PATH);
+    store().setPanelVisible(PROJECT_PATH, true);
+    expect(calls.fetchStatus).toBe(1);
+
+    store().revalidateOnTurnComplete(PROJECT_PATH);
+    for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
+    expect(calls.fetchStatus).toBe(2);
+    // Silent: the cached snapshot never flips to a loading state.
+    expect(entry().loading).toBe(false);
+
+    // An invisible panel has nothing to revalidate for.
+    store().setPanelVisible(PROJECT_PATH, false);
+    store().revalidateOnTurnComplete(PROJECT_PATH);
+    for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
+    expect(calls.fetchStatus).toBe(2);
+  });
+
+  test('the turn-complete revalidate skips a project with an active run', async () => {
+    handlers.fetchStatus = async () => statusPayload({ runActive: true });
+
+    let timerScheduled = false;
+    const originalSetTimeout = globalThis.setTimeout;
+    // SAFETY: only observing whether the poller, not the revalidate, reacts.
+    (globalThis as { setTimeout: unknown }).setTimeout = () => {
+      timerScheduled = true;
+      return 1;
+    };
+
+    try {
+      await store().load(PROJECT_PATH);
+      store().setPanelVisible(PROJECT_PATH, true);
+      expect(calls.fetchStatus).toBe(1);
+
+      store().revalidateOnTurnComplete(PROJECT_PATH);
+      for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
+      expect(calls.fetchStatus).toBe(1);
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      store().setPanelVisible(PROJECT_PATH, false);
+    }
+  });
+
+  test('the turn-complete revalidate only touches the matching project', async () => {
+    await store().load(PROJECT_PATH);
+    await store().load('/other-repo');
+    store().setPanelVisible(PROJECT_PATH, true);
+    store().setPanelVisible('/other-repo', true);
+    expect(calls.fetchStatus).toBe(2);
+
+    store().revalidateOnTurnComplete('/other-repo');
+    for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
+    expect(calls.fetchStatus).toBe(3);
+
+    store().revalidateOnTurnComplete(PROJECT_PATH);
+    for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
+    expect(calls.fetchStatus).toBe(4);
+  });
 });

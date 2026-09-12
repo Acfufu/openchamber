@@ -63,6 +63,12 @@ interface RepoWikiActions {
   remove: (projectPath: string) => Promise<boolean>;
   /** The panel reports visibility; this starts or stops the run poller. */
   setPanelVisible: (projectPath: string | null, visible: boolean) => void;
+  /**
+   * Conversation-turn signal: a visible, mounted panel whose project has no
+   * active run silently revalidates its status. Freshness while a run is
+   * active belongs to the poller; an invisible panel revalidates on mount.
+   */
+  revalidateOnTurnComplete: (projectPath: string) => void;
   reset: () => void;
 }
 
@@ -292,6 +298,12 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       if (isRunActive(projectId) && !pollers.has(projectId)) {
         scheduleTick(projectId, projectPath);
       }
+    },
+
+    revalidateOnTurnComplete: (projectPath) => {
+      const projectId = resolveRepoWikiProjectId(projectPath);
+      if (!visiblePanels.has(projectId) || isRunActive(projectId)) return;
+      void refresh({ projectPath, projectId, silent: true });
     },
 
     reset: () => {
