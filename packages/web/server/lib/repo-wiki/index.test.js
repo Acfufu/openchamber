@@ -558,6 +558,50 @@ describe('repo-wiki runtime', () => {
     expect('stale' in cross).toBe(false);
   });
 
+  it('isolates runs per project: a second project generates while the first is in flight', async () => {
+    let aInFlight = false;
+    let overviewCalls = 0;
+    inject({
+      modelCall: async ({ prompt, signal }) => {
+        if (prompt.includes('Repository digest:')) {
+          return { text: JSON.stringify(catalogResponse) };
+        }
+        // Only project A's first page blocks until released, so its run is
+        // in flight while project B generates; B's identical page prompt
+        // (same fixture repo) answers immediately.
+        if (prompt.includes('Page to write: Overview')) {
+          overviewCalls += 1;
+          if (overviewCalls === 1) {
+            aInFlight = true;
+            await new Promise((resolve, reject) => {
+              const timer = setTimeout(() => resolve(markdownFor('overview')), 10_000);
+              signal?.addEventListener('abort', () => {
+                clearTimeout(timer);
+                reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+              });
+            });
+          }
+          return markdownFor('overview');
+        }
+        return markdownFor('internals');
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_par_a', directory: repoRoot, options: {} });
+    await waitFor(() => aInFlight === true);
+
+    // Project B runs to completion while A is still mid-flight.
+    await runtime.startGeneration({ projectId: 'path_par_b', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_par_b', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect((await runtime.getStatus({ projectId: 'path_par_b', directory: repoRoot })).wiki.catalog.pages.every((page) => page.status === 'done')).toBe(true);
+
+    // A is untouched — still running, not failed, not stopped by B.
+    expect((await runtime.getStatus({ projectId: 'path_par_a', directory: repoRoot })).wiki?.run?.status).toBe('running');
+    // A is still abortable: the stop lands and marks it stopped.
+    await runtime.stopGeneration({ projectId: 'path_par_a' });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_par_a', directory: repoRoot })).wiki?.run?.status === 'stopped');
+  });
+
   it('boot recovery reclassifies pages stuck in writing as failed/interrupted, retryable again', async () => {
     inject({
       modelCall: async ({ prompt }) => {

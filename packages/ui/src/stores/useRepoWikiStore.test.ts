@@ -362,6 +362,21 @@ describe('useRepoWikiStore', () => {
     expect(calls.fetchStatus).toBe(4);
   });
 
+  test('loading another project never clears an existing entry', async () => {
+    await store().load(PROJECT_PATH);
+    await store().loadPage(PROJECT_PATH, 'overview');
+    const entryBefore = entry();
+
+    await store().load('/other-repo');
+
+    // Entries are isolated per project: B's load leaves A's snapshot,
+    // cached pages, and loaded flag untouched (same references).
+    expect(entry().loaded).toBe(true);
+    expect(entry().status).toBe(entryBefore.status);
+    expect(entry().pages).toBe(entryBefore.pages);
+    expect(store().getEntry('/other-repo').loaded).toBe(true);
+  });
+
   test('loadList merges entries so the switcher sees runs, never overriding loaded state', async () => {
     await store().load(PROJECT_PATH);
     handlers.fetchList = async () => [
