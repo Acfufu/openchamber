@@ -132,6 +132,7 @@ const PAGE_STATUS_RANK = {
 /**
  * Stable failure codes → localized sentences. A failure whose code has no
  * entry here (server freeform text, provider errors) renders its raw message.
+ * Page-level failures resolve through the same table.
  */
 const ERROR_MESSAGE_KEYS = [
   ['run-in-progress', 'repoWiki.error.runInProgress'],
@@ -142,6 +143,8 @@ const ERROR_MESSAGE_KEYS = [
   ['unknown-page', 'repoWiki.error.unknownPage'],
   ['page-not-failed', 'repoWiki.error.pageNotFailed'],
   ['malformed-response', 'repoWiki.error.malformedResponse'],
+  ['interrupted', 'repoWiki.error.interrupted'],
+  ['invalid-retries', 'repoWiki.error.invalidRetries'],
   ['read-status', 'repoWiki.error.readStatus'],
   ['read-page', 'repoWiki.error.readPage'],
   ['start-generation', 'repoWiki.error.startGeneration'],
@@ -150,19 +153,23 @@ const ERROR_MESSAGE_KEYS = [
   ['delete-wiki', 'repoWiki.error.deleteWiki'],
 ] as const satisfies ReadonlyArray<readonly [string, I18nKey]>;
 
+const localizedError = (t: TranslateFn, message: string | null, errorCode: string | null): string | null => {
+  if (!message && errorCode == null) return null;
+  const key = errorCode == null ? undefined : ERROR_MESSAGE_KEYS.find(([code]) => code === errorCode)?.[1];
+  if (key == null) return message ?? null;
+  if (key === 'repoWiki.error.contextTooSmall') return t(key);
+  return t(key);
+};
+
 const wikiErrorLine = (t: TranslateFn, entry: RepoWikiEntry): string | null => {
   if (!entry.error) return null;
-  const key = entry.errorCode == null
-    ? undefined
-    : ERROR_MESSAGE_KEYS.find(([code]) => code === entry.errorCode)?.[1];
-  if (key == null) return entry.error;
-  if (key === 'repoWiki.error.contextTooSmall' && entry.errorDetail?.requiredChars != null) {
-    return t(key, {
+  if (entry.errorCode != null && entry.errorCode === 'context-too-small' && entry.errorDetail?.requiredChars != null) {
+    return t('repoWiki.error.contextTooSmall', {
       required: entry.errorDetail.requiredChars,
       available: entry.errorDetail.availableChars ?? 0,
     });
   }
-  return t(key);
+  return localizedError(t, entry.error, entry.errorCode);
 };
 
 const PageRow: React.FC<{
@@ -237,6 +244,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   const [language, setLanguage] = React.useState<Locale>(locale);
   const [diagrams, setDiagrams] = React.useState(true);
   const [model, setModel] = React.useState('');
+  const [retries, setRetries] = React.useState(0);
   const [selectedPageId, setSelectedPageId] = React.useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
   const [pageMarkdown, setPageMarkdown] = React.useState<string | null>(null);
@@ -317,6 +325,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
         language,
         diagrams,
         model: model || undefined,
+        retries: retries > 0 ? retries : undefined,
       });
     } finally {
       setWorking(false);
@@ -335,7 +344,9 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   const requestRetry = async (pageId: string) => {
     setWorking(true);
     try {
-      await retryPage(directory, pageId);
+      // One Retry press consents to the same per-page budget the panel is
+      // configured with: up to (retries + 1) page calls.
+      await retryPage(directory, pageId, { retries: retries > 0 ? retries : undefined });
     } finally {
       setWorking(false);
     }
@@ -481,6 +492,24 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-1">
+                  <span className="typography-ui-label">{t('repoWiki.options.retries')}</span>
+                  <Select
+                    value={String(retries)}
+                    onValueChange={(value) => setRetries(Number(value))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t('repoWiki.options.retries.none')}</SelectItem>
+                      {[1, 2, 3].map((value) => (
+                        <SelectItem key={value} value={String(value)}>{String(value)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="typography-micro text-muted-foreground">{t('repoWiki.options.retries.hint')}</p>
+                </div>
                 <Button type="button" variant="default" size="default" className="w-full" disabled={working} onClick={() => void startGeneration()}>
                   {working ? t('repoWiki.generate.running') : t('repoWiki.generate.action')}
                 </Button>
@@ -520,7 +549,10 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                 {selectedPage?.status === 'failed'
                   ? (
                       <div className="space-y-2">
-                        <p className="typography-body text-destructive">{selectedPage.error ?? t('repoWiki.page.status.failed')}</p>
+                        <p className="typography-body text-destructive">
+                          {localizedError(t, selectedPage.error, selectedPage.errorCode)
+                            ?? t('repoWiki.page.status.failed')}
+                        </p>
                         <Button type="button" variant="outline" size="sm" disabled={working} onClick={() => void requestRetry(selectedPage.id)}>
                           {t('repoWiki.page.retry')}
                         </Button>

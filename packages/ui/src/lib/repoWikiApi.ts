@@ -24,6 +24,7 @@ export interface RepoWikiPageMeta {
   status: RepoWikiPageStatus;
   updatedAt: string | null;
   error: string | null;
+  errorCode: string | null;
 }
 
 export type RepoWikiRunStatus = 'running' | 'done' | 'stopped' | 'failed';
@@ -38,6 +39,7 @@ export interface RepoWikiRunState {
   generatedPages: number | null;
   failedPages: number | null;
   retriedPage: string | null;
+  attempts: number | null;
 }
 
 export interface RepoWikiModelRef {
@@ -65,6 +67,8 @@ export interface RepoWikiGenerateOptions {
   language?: string;
   diagrams?: boolean;
   model?: string;
+  /** Consented retry budget per page call (integer 0-3, default 0). */
+  retries?: number;
 }
 
 export class RepoWikiRequestError extends Error {
@@ -107,6 +111,7 @@ const parsePageMeta = (value: any): RepoWikiPageMeta | null => {
     status: PAGE_STATUSES.includes(value.status) ? value.status : 'pending',
     updatedAt: asString(value.updatedAt),
     error: asString(value.error),
+    errorCode: asString(value.errorCode),
   };
 };
 
@@ -122,6 +127,7 @@ const parseRunState = (value: any): RepoWikiRunState | null => {
     generatedPages: value.generatedPages != null && value.generatedPages.constructor === Number && Number.isFinite(value.generatedPages) ? value.generatedPages : null,
     failedPages: value.failedPages != null && value.failedPages.constructor === Number && Number.isFinite(value.failedPages) ? value.failedPages : null,
     retriedPage: asString(value.retriedPage),
+    attempts: value.attempts != null && value.attempts.constructor === Number && Number.isFinite(value.attempts) ? value.attempts : null,
   };
 };
 
@@ -219,6 +225,7 @@ interface RepoWikiGenerateBody {
   language?: string;
   model?: string;
   diagrams?: boolean;
+  retries?: number;
 }
 
 export const startRepoWikiGeneration = async (
@@ -229,6 +236,7 @@ export const startRepoWikiGeneration = async (
   if (options.language) body.language = options.language;
   if (options.model) body.model = options.model;
   if (options.diagrams != null) body.diagrams = options.diagrams === true;
+  if (options.retries != null) body.retries = options.retries;
 
   const response = await runtimeFetch(`${basePath(resolveRepoWikiProjectId(projectPath))}/generate`, {
     method: 'POST',
@@ -251,13 +259,24 @@ export const stopRepoWikiGeneration = async (projectPath: string): Promise<{ sto
   return { stopped: payload != null && payload.constructor === Object ? payload.stopped === true : false };
 };
 
-export const retryRepoWikiPage = async (projectPath: string, pageId: string): Promise<{ retried: boolean }> => {
+interface RepoWikiRetryBody {
+  directory: string;
+  retries?: number;
+}
+
+export const retryRepoWikiPage = async (
+  projectPath: string,
+  pageId: string,
+  options: { retries?: number } = {},
+): Promise<{ retried: boolean }> => {
+  const body: RepoWikiRetryBody = { directory: projectPath };
+  if (options.retries != null) body.retries = options.retries;
   const response = await runtimeFetch(
     `${basePath(resolveRepoWikiProjectId(projectPath))}/pages/${encodeURIComponent(pageId)}/retry`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directory: projectPath }),
+      body: JSON.stringify(body),
     },
   );
   if (!response.ok) {

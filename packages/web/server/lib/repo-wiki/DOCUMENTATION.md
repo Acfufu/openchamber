@@ -34,7 +34,11 @@ and per-page status). Page bodies live beside it as markdown.
 
 Every write is atomic, so a crash leaves the previous state parseable. A run
 still marked `running` after a server restart died with the old process:
-`recover()` marks it `stopped` on boot and keeps every finished page.
+`recover()` marks it `stopped` on boot and keeps every finished page. Pages
+that died mid-call (still `writing`) are reclassified on the same boot pass
+as `failed` with the stable code `interrupted`, which makes them individually
+retryable; that transition lives in the runtime, which owns page-status
+semantics. `run.attempts` records how many page calls a run made.
 
 ## Generation
 
@@ -49,12 +53,20 @@ Stages: `digesting → catalog → pages → done | stopped | failed`.
 - A failing page is recorded and the run continues. The run is `failed` only
   when every page failed. A page call has a 180s timeout.
 - Stop aborts the in-flight call, rewinds that page to `pending`, and marks
-  the run `stopped`. Finished pages stay.
+  the run `stopped`. Finished pages stay. Stop wins during calls and during
+  the pause between retry attempts.
 - A failed page can be retried individually (`requestRetry`). Validation and
   model resolution happen before the response; the call itself finishes as a
   background job, because a page can run for minutes. Only failed pages are
   retryable — a done page is part of a coherent whole and changes only
   through a full regeneration.
+- Every request that can trigger page calls carries a retry budget:
+  `retries`, integer 0-3, default 0 — the Generate press and the Retry press
+  each consent to up to (retries + 1) page calls per page. A failed page
+  call retries in place (same prompt, same model, no error classification)
+  after a fixed 2s pause; a provider that refuses structured output still
+  gets its one in-prompt fallback per attempt. A terminal failure keeps the
+  last attempt's stable error code on the page.
 
 ## Model chain
 
@@ -80,9 +92,9 @@ only half of produces a confidently wrong wiki.
 |---|---|
 | `GET /api/repo-wiki/:projectId?directory=` | status: manifest, `stale`, runActive |
 | `GET /api/repo-wiki/:projectId/pages/:pageId` | page markdown |
-| `POST /api/repo-wiki/:projectId/generate` | `{directory, language?, diagrams?, model?}`; answers `{started}` immediately |
+| `POST /api/repo-wiki/:projectId/generate` | `{directory, language?, diagrams?, model?, retries?}`; answers `{started}` immediately |
 | `POST /api/repo-wiki/:projectId/stop` | stop the active run |
-| `POST /api/repo-wiki/:projectId/pages/:pageId/retry` | `{directory}`; validates, then runs in background |
+| `POST /api/repo-wiki/:projectId/pages/:pageId/retry` | `{directory, retries?}`; validates, then runs in background |
 | `DELETE /api/repo-wiki/:projectId` | remove the stored wiki |
 
 `/api/repo-wiki` is on the JSON body-parser allowlist in `core-routes`, and

@@ -59,7 +59,7 @@ interface RepoWikiActions {
   loadPage: (projectPath: string, pageId: string, options?: { force?: boolean }) => Promise<string | null>;
   generate: (projectPath: string, options?: RepoWikiGenerateOptions) => Promise<boolean>;
   stop: (projectPath: string) => Promise<boolean>;
-  retryPage: (projectPath: string, pageId: string) => Promise<boolean>;
+  retryPage: (projectPath: string, pageId: string, options?: { retries?: number }) => Promise<boolean>;
   remove: (projectPath: string) => Promise<boolean>;
   /** The panel reports visibility; this starts or stops the run poller. */
   setPanelVisible: (projectPath: string | null, visible: boolean) => void;
@@ -248,11 +248,11 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       }).then(() => true).catch(() => false);
     },
 
-    retryPage: async (projectPath, pageId) => {
+    retryPage: async (projectPath, pageId, options = {}) => {
       const projectId = resolveRepoWikiProjectId(projectPath);
       return enqueueCommand(projectId, async () => {
         try {
-          await retryRepoWikiPage(projectPath, pageId);
+          await retryRepoWikiPage(projectPath, pageId, options);
           patchEntry(projectId, { ...CLEAR_ERROR });
           await refresh({ projectPath, projectId });
         } catch (error) {
