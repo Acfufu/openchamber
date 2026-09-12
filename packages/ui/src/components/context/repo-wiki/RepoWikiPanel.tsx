@@ -296,7 +296,13 @@ const ProjectSwitcher: React.FC<{
         className="h-7 min-w-0 max-w-full flex-1 gap-1 border-none bg-transparent px-1.5 shadow-none hover:bg-interactive-hover"
         aria-label={t('repoWiki.switcher.label')}
       >
-        <SelectValue />
+        {/* The wrapper's SelectValue prints the raw value when given no
+            children; resolve the human-readable project name instead. */}
+        <SelectValue>
+          {(value: string | undefined) => (value && value !== activeProjectId
+            ? projectName(value)
+            : activeLabel)}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={activeProjectId}>
