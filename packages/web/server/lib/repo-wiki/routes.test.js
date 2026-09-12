@@ -17,6 +17,7 @@ const statusPayload = {
 
 const createApp = (runtimeOverrides = {}) => {
   const runtime = {
+    listWikis: async () => ({ wikis: [] }),
     getStatus: async () => statusPayload,
     readPage: async ({ pageId }) => (pageId === 'overview' ? '# Overview' : null),
     startGeneration: async () => ({ started: true }),
@@ -61,10 +62,12 @@ describe('repo-wiki routes', () => {
     const { app } = createApp();
     // Express 5 normalizes dot-only path segments during routing, so these
     // never reach the handler carrying `.`/`..`; whichever layer answers —
-    // our id guard or the router's own 404 — it must be a rejection.
+    // our id guard, the router's own 404, or the switcher list (a single
+    // dot collapses onto the bare path, which takes no project input) —
+    // no project payload may come back, and deletion must be rejected.
     for (const encoded of ['%2e%2e', '%2e']) {
       const read = await request(app).get(`/api/repo-wiki/${encoded}?directory=/tmp/repo`);
-      expect([400, 404], `GET ${encoded}`).toContain(read.status);
+      expect([200, 400, 404], `GET ${encoded}`).toContain(read.status);
       expect(read.body.wiki, encoded).toBeUndefined();
       const deleted = await request(app).delete(`/api/repo-wiki/${encoded}`);
       expect([400, 404], `DELETE ${encoded}`).toContain(deleted.status);
@@ -72,11 +75,34 @@ describe('repo-wiki routes', () => {
     }
   });
 
-  it('requires the directory parameter', async () => {
-    const { app } = createApp();
-    const response = await request(app).get('/api/repo-wiki/path_abc');
-    expect(response.status).toBe(400);
-    expect(response.body.error).toMatch(/directory/);
+  it('serves status without a directory query, omitting staleness', async () => {
+    const { app } = createApp({
+      getStatus: async ({ directory }) => ({
+        wiki: { commit: 'abc', run: { status: 'done' }, catalog: { pages: [] } },
+        ...(directory ? { stale: true } : {}),
+        runActive: false,
+      }),
+    });
+    const cross = await request(app).get('/api/repo-wiki/path_abc');
+    expect(cross.status).toBe(200);
+    expect(cross.body.wiki.commit).toBe('abc');
+    expect('stale' in cross.body).toBe(false);
+
+    const direct = await request(app).get('/api/repo-wiki/path_abc?directory=/tmp/repo');
+    expect(direct.status).toBe(200);
+    expect(direct.body.stale).toBe(true);
+  });
+
+  it('lists stored wikis for the switcher', async () => {
+    const { app } = createApp({
+      listWikis: async () => ({
+        wikis: [{ projectId: 'path_abc', language: 'en', pagesDone: 2, pagesFailed: 1, run: { status: 'done', stage: 'done' } }],
+      }),
+    });
+    const response = await request(app).get('/api/repo-wiki');
+    expect(response.status).toBe(200);
+    expect(response.body.wikis).toHaveLength(1);
+    expect(response.body.wikis[0].projectId).toBe('path_abc');
   });
 
   it('answers unknown pages with 404 JSON', async () => {
@@ -224,7 +250,9 @@ describe('repo-wiki routes', () => {
 
   it('answers unclaimed subpaths with our 404 JSON, never proxy HTML', async () => {
     const { app } = createApp();
-    for (const path of ['/api/repo-wiki', '/api/repo-wiki/path_abc/not-a-thing', '/api/repo-wiki/path_abc/pages/overview/extra']) {
+    // `/api/repo-wiki` itself is claimed (the switcher list); only unclaimed
+    // subpaths fall through to the guard.
+    for (const path of ['/api/repo-wiki/path_abc/not-a-thing', '/api/repo-wiki/path_abc/pages/overview/extra']) {
       const response = await request(app).get(path);
       expect(response.status, path).toBe(404);
       expect(response.headers['content-type'], path).toMatch(/application\/json/);

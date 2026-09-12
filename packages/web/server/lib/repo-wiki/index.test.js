@@ -508,6 +508,56 @@ describe('repo-wiki runtime', () => {
     expect((await runtime.getStatus({ projectId: 'path_del', directory: repoRoot })).wiki).toBeNull();
   });
 
+  it('lists stored wikis across projects and skips unreadable manifests', async () => {
+    inject({
+      modelCall: async ({ prompt }) => (prompt.includes('Repository digest:')
+        ? { text: JSON.stringify(catalogResponse) }
+        : markdownFor('overview')),
+    });
+
+    await runtime.startGeneration({ projectId: 'path_list_a', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_list_a', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    await runtime.store.writeManifest('path_list_b', {
+      projectId: 'path_list_b',
+      commit: 'def456',
+      branch: 'dev',
+      language: 'de',
+      catalog: { pages: [{ id: 'x', status: 'done' }, { id: 'y', status: 'failed' }] },
+      run: { status: 'done', stage: 'done', startedAt: 't0', finishedAt: 't1' },
+    });
+    // A stray non-manifest entry in the store root must not break the listing.
+    fs.writeFileSync(path.join(runtime.store.rootDir, 'notes.txt'), 'not a manifest', 'utf8');
+
+    const list = await runtime.listWikis();
+    expect(list.wikis).toHaveLength(2);
+    const byId = new Map(list.wikis.map((entry) => [entry.projectId, entry]));
+    expect(byId.get('path_list_b')).toMatchObject({
+      branch: 'dev',
+      language: 'de',
+      pagesDone: 1,
+      pagesFailed: 1,
+      updatedAt: 't1',
+      run: { status: 'done', stage: 'done' },
+    });
+    expect(byId.get('path_list_a')?.pagesDone).toBe(2);
+  });
+
+  it('answers status without a directory by omitting staleness', async () => {
+    inject({
+      modelCall: async ({ prompt }) => (prompt.includes('Repository digest:')
+        ? { text: JSON.stringify(catalogResponse) }
+        : markdownFor('overview')),
+    });
+
+    await runtime.startGeneration({ projectId: 'path_nodir', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_nodir', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    const cross = await runtime.getStatus({ projectId: 'path_nodir' });
+    expect(cross.wiki?.commit).toBeTruthy();
+    expect('stale' in cross).toBe(false);
+  });
+
   it('boot recovery reclassifies pages stuck in writing as failed/interrupted, retryable again', async () => {
     inject({
       modelCall: async ({ prompt }) => {

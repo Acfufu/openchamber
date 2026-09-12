@@ -12,6 +12,12 @@ One Repo Wiki per project, stored app-side under
 repository. The wiki is a derived, regenerable artifact; writing it into the
 repo would put a generated file into every project's git status.
 
+Generation is workspace-scoped ([ADR-0001](../../../../../docs/adr/0001-repo-wiki-generation-is-workspace-scoped.md)):
+the panel's project switcher can read any stored wiki, but generate, stop,
+retry, and delete only ever act on the active workspace's project, and a
+cross-project view hides those controls rather than disabling them into
+ambiguity.
+
 ## Files
 
 - `store.js` — per-project storage: `manifest.json` plus `pages/<pageId>.md`,
@@ -95,7 +101,8 @@ only half of produces a confidently wrong wiki.
 
 | Route | Purpose |
 |---|---|
-| `GET /api/repo-wiki/:projectId?directory=` | status: manifest, `stale`, runActive |
+| `GET /api/repo-wiki` | stored-wiki list for the panel's read-only switcher; display fields only, no git |
+| `GET /api/repo-wiki/:projectId?directory=` | status: manifest, `stale`, runActive; without `directory` the manifest is served and `stale` is omitted |
 | `GET /api/repo-wiki/:projectId/pages/:pageId` | page markdown |
 | `POST /api/repo-wiki/:projectId/generate` | `{directory, language?, diagrams?, model?, retries?}`; answers `{started}` immediately |
 | `POST /api/repo-wiki/:projectId/stop` | stop the active run |

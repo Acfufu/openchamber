@@ -19,8 +19,9 @@ import {
   type RepoWikiPageMeta,
 } from '@/lib/repoWikiApi';
 import { runtimeFetch } from '@/lib/runtime-fetch';
+import { projectPathFromProjectId } from '@/lib/projectId';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useRepoWikiStore, EMPTY_REPO_WIKI_ENTRY, type RepoWikiEntry } from '@/stores/useRepoWikiStore';
+import { useRepoWikiStore, EMPTY_REPO_WIKI_ENTRY, type RepoWikiEntry, type RepoWikiListState } from '@/stores/useRepoWikiStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useDirectorySync } from '@/sync/sync-context';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,13 @@ const pageStatusLabel = (t: TranslateFn, status: RepoWikiPageMeta['status']): st
   if (status === 'failed') return t('repoWiki.page.status.failed');
   if (status === 'writing') return t('repoWiki.page.status.writing');
   return t('repoWiki.page.status.pending');
+};
+
+const runStageLabel = (t: TranslateFn, stage: string | null | undefined): string | null => {
+  if (stage === 'digesting') return t('repoWiki.progress.stage.digesting');
+  if (stage === 'catalog') return t('repoWiki.progress.stage.catalog');
+  if (stage === 'pages') return t('repoWiki.progress.stage.pages');
+  return stage || null;
 };
 
 interface WikiSourceTarget {
@@ -200,9 +208,10 @@ const PageRow: React.FC<{
   page: RepoWikiPageMeta;
   selected: boolean;
   active: boolean;
+  canRetry: boolean;
   onSelect: () => void;
   onRetry: () => void;
-}> = ({ page, selected, active, onSelect, onRetry }) => {
+}> = ({ page, selected, active, canRetry, onSelect, onRetry }) => {
   const { t } = useI18n();
   const statusLabel = pageStatusLabel(t, page.status);
 
@@ -228,7 +237,7 @@ const PageRow: React.FC<{
               : <Icon name="time" className="size-3.5 flex-shrink-0 text-muted-foreground" />}
         <span className="flex-shrink-0 typography-micro text-muted-foreground">{statusLabel}</span>
       </button>
-      {page.status === 'failed' && !active
+      {page.status === 'failed' && !active && canRetry
         ? (
             <Button
               type="button"
@@ -250,6 +259,97 @@ interface RepoWikiPanelProps {
   directory: string;
 }
 
+/** Human-readable switcher label: decode the stored id back to a basename. */
+const projectName = (projectId: string): string => {
+  const path = projectPathFromProjectId(projectId);
+  const name = path ? path.split('/').filter(Boolean).pop() : null;
+  return name || projectId;
+};
+
+/**
+ * The header's in-content project switcher. The active project is always the
+ * first item — selecting it returns to the generatable panel — and every
+ * other item is a stored wiki rendered read-only. A failed listing shows an
+ * error row, never a look-alike empty menu.
+ */
+const ProjectSwitcher: React.FC<{
+  activeProjectId: string;
+  activeLabel: string;
+  viewingProjectId: string | null;
+  list: RepoWikiListState;
+  canLeaveActive: boolean;
+  onSelect: (projectId: string | null) => void;
+  onOpen: () => void;
+  t: TranslateFn;
+}> = ({ activeProjectId, activeLabel, viewingProjectId, list, canLeaveActive, onSelect, onOpen, t }) => {
+  const others = (list.wikis ?? []).filter((item) => item.projectId !== activeProjectId);
+
+  return (
+    <Select
+      value={viewingProjectId ?? activeProjectId}
+      onValueChange={(value) => onSelect(value === activeProjectId ? null : value)}
+      onOpenChange={(open) => {
+        if (open) onOpen();
+      }}
+    >
+      <SelectTrigger
+        className="h-7 min-w-0 max-w-full flex-1 gap-1 border-none bg-transparent px-1.5 shadow-none hover:bg-interactive-hover"
+        aria-label={t('repoWiki.switcher.label')}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={activeProjectId}>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 truncate">{activeLabel}</span>
+          </span>
+        </SelectItem>
+        {canLeaveActive && others.length > 0
+          ? others.map((item) => (
+              <SelectItem key={item.projectId} value={item.projectId}>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="min-w-0 truncate">{projectName(item.projectId)}</span>
+                  {item.run?.status === 'running'
+                    ? (
+                        <span className="flex flex-shrink-0 items-center gap-1 typography-micro text-muted-foreground">
+                          <Icon name="loader-4" className="size-3 animate-spin" />
+                          {runStageLabel(t, item.run.stage)}
+                        </span>
+                      )
+                    : item.pagesFailed > 0
+                      ? (
+                          <span className="flex-shrink-0 typography-micro text-destructive">
+                            {t('repoWiki.pages.failedCount', { count: item.pagesFailed })}
+                          </span>
+                        )
+                      : (
+                          <span className="flex-shrink-0 typography-micro text-muted-foreground">
+                            {item.pagesDone}
+                          </span>
+                        )}
+                </span>
+              </SelectItem>
+            ))
+          : null}
+        {canLeaveActive && list.error
+          ? (
+              <div className="px-2 py-1.5 typography-micro text-destructive">
+                {t('repoWiki.switcher.error')}
+              </div>
+            )
+          : null}
+        {canLeaveActive && !list.error && !list.loading && list.wikis != null && others.length === 0
+          ? (
+              <div className="px-2 py-1.5 typography-micro text-muted-foreground">
+                {t('repoWiki.switcher.empty')}
+              </div>
+            )
+          : null}
+      </SelectContent>
+    </Select>
+  );
+};
+
 export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   const { t, locale, locales, label } = useI18n();
   const modelOptions = useModelOptions();
@@ -257,13 +357,25 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   const projectId = directory ? resolveRepoWikiProjectId(directory) : '';
   const entry = useRepoWikiStore((state) => (projectId ? state.entries[projectId] : undefined)) ?? EMPTY_REPO_WIKI_ENTRY;
   const load = useRepoWikiStore((state) => state.load);
+  const loadById = useRepoWikiStore((state) => state.loadById);
   const loadPage = useRepoWikiStore((state) => state.loadPage);
+  const loadPageById = useRepoWikiStore((state) => state.loadPageById);
   const generate = useRepoWikiStore((state) => state.generate);
   const stopGeneration = useRepoWikiStore((state) => state.stop);
   const retryPage = useRepoWikiStore((state) => state.retryPage);
   const removeWiki = useRepoWikiStore((state) => state.remove);
   const setPanelVisible = useRepoWikiStore((state) => state.setPanelVisible);
+  const setProjectVisible = useRepoWikiStore((state) => state.setProjectVisible);
+  const wikiList = useRepoWikiStore((state) => state.list);
+  const loadList = useRepoWikiStore((state) => state.loadList);
   const openContextFileAtLine = useUIStore((state) => state.openContextFileAtLine);
+
+  // A non-null viewingProjectId renders another stored project's wiki
+  // read-only; null is the active workspace's own (generatable) panel.
+  const [viewingProjectId, setViewingProjectId] = React.useState<string | null>(null);
+  const viewedEntry = useRepoWikiStore(
+    React.useCallback((state) => (viewingProjectId ? state.entries[viewingProjectId] : undefined), [viewingProjectId]),
+  ) ?? EMPTY_REPO_WIKI_ENTRY;
 
   const [language, setLanguage] = React.useState<Locale>(locale);
   const [diagrams, setDiagrams] = React.useState(true);
@@ -281,6 +393,16 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     setPanelVisible(directory, true);
     return () => setPanelVisible(directory, false);
   }, [directory, load, setPanelVisible]);
+
+  // The cross-project view loads its own full manifest by id (no directory,
+  // so staleness is omitted) and registers visibility so the two-condition
+  // poller keeps an active run live while the user reads it.
+  React.useEffect(() => {
+    if (!viewingProjectId) return;
+    void loadById(viewingProjectId, { force: true, silent: true });
+    setProjectVisible(viewingProjectId, true);
+    return () => setProjectVisible(viewingProjectId, false);
+  }, [viewingProjectId, loadById, setProjectVisible]);
 
   // Conversation-turn revalidation: the sync reducer rewrites a session's
   // status to `idle` when its turn completes. A visible panel whose project
@@ -309,7 +431,9 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     if (turnCompleted) revalidateOnTurnComplete(directory);
   }, [sessionStatuses, directory, revalidateOnTurnComplete]);
 
-  const wiki = entry.status?.wiki ?? null;
+  const crossView = viewingProjectId != null;
+  const shownEntry = crossView ? viewedEntry : entry;
+  const wiki = shownEntry.status?.wiki ?? null;
   const run = wiki?.run ?? null;
   const runActive = run?.status === 'running';
   const pages = wiki?.catalog?.pages ?? [];
@@ -329,17 +453,20 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
 
   React.useEffect(() => {
     let cancelled = false;
-    if (!directory || !selectedPage) {
+    if ((!directory && !viewingProjectId) || !selectedPage) {
       setPageMarkdown(null);
       return;
     }
-    void loadPage(directory, selectedPage.id).then((markdown) => {
+    const request = viewingProjectId
+      ? loadPageById(viewingProjectId, selectedPage.id)
+      : loadPage(directory, selectedPage.id);
+    void request.then((markdown) => {
       if (!cancelled) setPageMarkdown(markdown);
     });
     return () => {
       cancelled = true;
     };
-  }, [directory, selectedPage, loadPage]);
+  }, [viewingProjectId, directory, selectedPage, loadPage, loadPageById]);
 
   // Source references are intercepted in the CAPTURE phase on this container:
   // the markdown renderer's own app-link guard sits on an inner node in the
@@ -351,7 +478,9 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   // depend on props, or a directory arriving while mounted crashes React.
   const [contentNode, setContentNode] = React.useState<HTMLDivElement | null>(null);
   React.useEffect(() => {
-    if (!contentNode || !directory) return;
+    // Cross-project pages cite files in a repo this panel has no directory
+    // for, so their source references stay inert there.
+    if (!contentNode || !directory || viewingProjectId != null) return;
     const handleCapture = (event: MouseEvent) => {
       const targetNode = event.target instanceof Element ? event.target : null;
       const anchor = targetNode?.closest('a');
@@ -364,7 +493,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     };
     contentNode.addEventListener('click', handleCapture, true);
     return () => contentNode.removeEventListener('click', handleCapture, true);
-  }, [contentNode, directory, openContextFileAtLine]);
+  }, [contentNode, directory, viewingProjectId, openContextFileAtLine]);
 
   if (!directory) {
     return null;
@@ -415,36 +544,43 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     }
   };
 
-  const stageLabel = runActive
-    ? run?.stage === 'digesting'
-      ? t('repoWiki.progress.stage.digesting')
-      : run?.stage === 'catalog'
-        ? t('repoWiki.progress.stage.catalog')
-        : t('repoWiki.progress.stage.pages')
-    : null;
+  const stageLabel = runActive ? runStageLabel(t, run?.stage) : null;
 
   const sortedPages = [...pages].sort((a, b) => PAGE_STATUS_RANK[a.status] - PAGE_STATUS_RANK[b.status]);
   const pageCounts = countPageStates(pages);
 
-  const errorLine = wikiErrorLine(t, entry);
+  const errorLine = wikiErrorLine(t, shownEntry);
+
+  const selectProject = (selected: string | null) => {
+    setViewingProjectId(selected);
+    setSelectedPageId(null);
+    setPageMarkdown(null);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {wiki
-        ? (
-            <div className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-              <Icon name="book-open" className="size-4 flex-shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate typography-ui-label font-semibold">
-                {t('contextPanel.mode.repoWiki')}
-              </span>
-              {entry.status?.stale && !runActive
-                ? (
-                    <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void startGeneration()}>
-                      {t('repoWiki.stale.regenerate')}
-                    </Button>
-                  )
-                : null}
-              {confirmingDelete
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <Icon name="book-open" className="size-4 flex-shrink-0 text-muted-foreground" />
+        <ProjectSwitcher
+          activeProjectId={projectId}
+          activeLabel={projectName(projectId)}
+          viewingProjectId={viewingProjectId}
+          list={wikiList}
+          canLeaveActive={Boolean(directory)}
+          onSelect={selectProject}
+          onOpen={() => void loadList()}
+          t={t}
+        />
+        {!crossView && entry.status?.stale && !runActive
+          ? (
+              <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void startGeneration()}>
+                {t('repoWiki.stale.regenerate')}
+              </Button>
+            )
+          : null}
+        {!crossView && wiki
+          ? (
+              confirmingDelete
                 ? (
                     <>
                       <Button type="button" variant="destructive" size="xs" disabled={working} onClick={() => void requestDelete()}>
@@ -467,10 +603,10 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                     >
                       <Icon name="delete-bin" className="size-4" />
                     </Button>
-                  )}
-            </div>
-          )
-        : null}
+                  )
+            )
+          : null}
+      </div>
 
       {wiki
         ? (
@@ -530,7 +666,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
           )
         : null}
 
-      {entry.status?.stale && !runActive
+      {!crossView && entry.status?.stale && !runActive
         ? (
             <div className="flex-shrink-0 bg-surface-muted px-3 py-1.5 typography-meta text-muted-foreground">
               {t('repoWiki.stale.banner')}
@@ -546,7 +682,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
           )
         : null}
 
-      {!wiki && !runActive
+      {!crossView && !wiki && !runActive
         ? (
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               <div className="mx-auto max-w-sm space-y-4">
@@ -634,9 +770,13 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
             <div className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
               <Icon name="loader-4" className="size-4 animate-spin text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate typography-meta text-muted-foreground">{stageLabel}</span>
-              <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void requestStop()}>
-                {t('repoWiki.generate.stop')}
-              </Button>
+              {crossView
+                ? null
+                : (
+                    <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void requestStop()}>
+                      {t('repoWiki.generate.stop')}
+                    </Button>
+                  )}
             </div>
           )
         : null}
@@ -665,6 +805,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                       page={page}
                       selected={page.id === selectedPageId}
                       active={page.status === 'done'}
+                      canRetry={!crossView}
                       onSelect={() => setSelectedPageId(page.id)}
                       onRetry={() => void requestRetry(page.id)}
                     />
@@ -679,9 +820,13 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                           {localizedError(t, selectedPage.error, selectedPage.errorCode)
                             ?? t('repoWiki.page.status.failed')}
                         </p>
-                        <Button type="button" variant="outline" size="sm" disabled={working} onClick={() => void requestRetry(selectedPage.id)}>
-                          {t('repoWiki.page.retry')}
-                        </Button>
+                        {!crossView
+                          ? (
+                              <Button type="button" variant="outline" size="sm" disabled={working} onClick={() => void requestRetry(selectedPage.id)}>
+                                {t('repoWiki.page.retry')}
+                              </Button>
+                            )
+                          : null}
                       </div>
                     )
                   : pageMarkdown

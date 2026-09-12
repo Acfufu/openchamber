@@ -48,20 +48,22 @@ export function registerRepoWikiRoutes(app, { repoWikiRuntime }) {
     return pageId;
   };
 
-  const requireDirectory = (req, res) => {
-    const directory = readQueryDirectory(req);
-    if (!directory) {
-      res.status(400).json({ error: 'directory parameter is required' });
-      return null;
+  /** Stored wikis across projects, for the panel's read-only switcher. */
+  app.get('/api/repo-wiki', async (req, res) => {
+    try {
+      res.json(await repoWikiRuntime.listWikis());
+    } catch (error) {
+      respondWithError(res, error, 'Failed to list Repo Wikis');
     }
-    return directory;
-  };
+  });
 
   app.get('/api/repo-wiki/:projectId', async (req, res) => {
     const projectId = requireProjectId(req, res);
     if (!projectId) return;
-    const directory = requireDirectory(req, res);
-    if (!directory) return;
+    // The directory is optional: a directory-less read (the cross-project
+    // switcher) gets the stored manifest with staleness omitted, never a
+    // guessed `stale: false`.
+    const directory = readQueryDirectory(req);
     try {
       res.json(await repoWikiRuntime.getStatus({ projectId, directory }));
     } catch (error) {

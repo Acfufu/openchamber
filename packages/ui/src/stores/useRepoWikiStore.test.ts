@@ -42,13 +42,14 @@ const statusPayload = (overrides: Partial<StatusPayload> = {}): StatusPayload =>
 const handlers = {
   fetchStatus: async (): Promise<StatusPayload> => statusPayload(),
   fetchPage: async (): Promise<string> => '# Page',
+  fetchList: async (): Promise<unknown[]> => [],
   generate: async (): Promise<{ started: boolean }> => ({ started: true }),
   stop: async (): Promise<{ stopped: boolean }> => ({ stopped: true }),
   retry: async (): Promise<{ retried: boolean }> => ({ retried: true }),
   remove: async (): Promise<{ deleted: boolean }> => ({ deleted: true }),
 };
 
-const calls = { fetchStatus: 0, fetchPage: 0, generate: 0, stop: 0, retry: 0, remove: 0 };
+const calls = { fetchStatus: 0, fetchPage: 0, fetchList: 0, generate: 0, stop: 0, retry: 0, remove: 0 };
 
 /** Mirrors the api-layer error class; the mock swaps the module wholesale. */
 class RepoWikiRequestError extends Error {
@@ -73,9 +74,21 @@ mock.module('@/lib/repoWikiApi', () => ({
     calls.fetchStatus += 1;
     return handlers.fetchStatus();
   },
+  fetchRepoWikiStatusById: () => {
+    calls.fetchStatus += 1;
+    return handlers.fetchStatus();
+  },
   fetchRepoWikiPage: () => {
     calls.fetchPage += 1;
     return handlers.fetchPage();
+  },
+  fetchRepoWikiPageById: () => {
+    calls.fetchPage += 1;
+    return handlers.fetchPage();
+  },
+  fetchRepoWikiList: () => {
+    calls.fetchList += 1;
+    return handlers.fetchList();
   },
   startRepoWikiGeneration: () => {
     calls.generate += 1;
@@ -110,12 +123,14 @@ beforeEach(() => {
   store().reset();
   calls.fetchStatus = 0;
   calls.fetchPage = 0;
+  calls.fetchList = 0;
   calls.generate = 0;
   calls.stop = 0;
   calls.retry = 0;
   calls.remove = 0;
   handlers.fetchStatus = async () => statusPayload();
   handlers.fetchPage = async () => '# Page';
+  handlers.fetchList = async () => [];
   handlers.generate = async () => ({ started: true });
   handlers.stop = async () => ({ stopped: true });
   handlers.retry = async () => ({ retried: true });
@@ -345,5 +360,40 @@ describe('useRepoWikiStore', () => {
     store().revalidateOnTurnComplete(PROJECT_PATH);
     for (let turn = 0; turn < 25; turn += 1) await Promise.resolve();
     expect(calls.fetchStatus).toBe(4);
+  });
+
+  test('loadList merges entries so the switcher sees runs, never overriding loaded state', async () => {
+    await store().load(PROJECT_PATH);
+    handlers.fetchList = async () => [
+      { projectId: 'path_/other-repo', branch: 'dev', commit: 'def456', language: 'de', updatedAt: 't1', pagesDone: 2, pagesFailed: 1, run: { status: 'running', stage: 'pages' } },
+      // The active project already has an authoritative snapshot; the list
+      // must not overwrite it.
+      { projectId: 'path_/repo', branch: 'main', commit: 'zzz', language: 'en', updatedAt: 't2', pagesDone: 9, pagesFailed: 0, run: { status: 'done', stage: 'done' } },
+    ];
+
+    await store().loadList();
+
+    expect(store().list.error).toBeNull();
+    expect(store().list.wikis).toHaveLength(2);
+    const other = store().getEntry('/other-repo');
+    expect(other.loaded).toBe(true);
+    expect(other.status?.runActive).toBe(true);
+    expect(other.status?.wiki?.run?.status).toBe('running');
+    expect(other.status?.wiki?.branch).toBe('dev');
+    expect(entry().status?.wiki?.commit).toBe('abc123');
+  });
+
+  test('a failed list keeps the previous snapshot and records the error', async () => {
+    handlers.fetchList = async () => [
+      { projectId: 'path_/other-repo', branch: null, commit: 'def456', language: 'de', updatedAt: 't1', pagesDone: 2, pagesFailed: 0, run: null },
+    ];
+    await store().loadList();
+    expect(store().list.wikis).toHaveLength(1);
+
+    handlers.fetchList = failWith('list exploded');
+    await store().loadList();
+    expect(store().list.error).toBe('list exploded');
+    expect(store().list.errorCode).toBe('list-wikis');
+    expect(store().list.wikis).toHaveLength(1);
   });
 });

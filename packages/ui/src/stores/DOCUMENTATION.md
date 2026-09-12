@@ -56,7 +56,12 @@ remove) serialize per project through one command chain. Status freshness has
 two triggers: the visible-consumer poller above, and
 `revalidateOnTurnComplete` — the panel observes the sync layer's session-idle
 writes and asks the store to revalidate silently for a visible panel whose
-project has no active run (the poller owns freshness while it has).
+project has no active run (the poller owns freshness while it has). The
+panel's project switcher adds a cross-project read path: `loadList` fetches
+the stored-wiki listing and merges entries in lightweight form (run state
+included, so `isRunActive` sees them), never overriding a project's own
+authoritative directory-backed snapshot; a failed listing keeps the previous
+snapshot and records the error rather than reading as an empty list.
 
 ### UI state stores
 

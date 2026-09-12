@@ -15,14 +15,17 @@ import { create } from 'zustand';
 
 import {
   deleteRepoWiki,
-  fetchRepoWikiPage,
+  fetchRepoWikiList,
+  fetchRepoWikiPageById,
   fetchRepoWikiStatus,
+  fetchRepoWikiStatusById,
   RepoWikiRequestError,
   resolveRepoWikiProjectId,
   retryRepoWikiPage,
   startRepoWikiGeneration,
   stopRepoWikiGeneration,
   type RepoWikiGenerateOptions,
+  type RepoWikiListEntry,
   type RepoWikiStatusResult,
 } from '@/lib/repoWikiApi';
 
@@ -33,6 +36,18 @@ export interface RepoWikiPageContent {
 export interface RepoWikiEntryErrorDetail {
   requiredChars: number | null;
   availableChars: number | null;
+}
+
+/**
+ * The switcher's cross-project listing. `wikis` stays null until the first
+ * success — a failed load keeps the previous snapshot (or null) and records
+ * the error, never an authoritative-looking empty list.
+ */
+export interface RepoWikiListState {
+  wikis: RepoWikiListEntry[] | null;
+  loading: boolean;
+  error: string | null;
+  errorCode: string | null;
 }
 
 export interface RepoWikiEntry {
@@ -51,18 +66,26 @@ export interface RepoWikiEntry {
 
 interface RepoWikiState {
   entries: Record<string, RepoWikiEntry>;
+  list: RepoWikiListState;
 }
 
 interface RepoWikiActions {
   getEntry: (projectPath: string | null | undefined) => RepoWikiEntry;
   load: (projectPath: string, options?: { force?: boolean; silent?: boolean }) => Promise<void>;
+  /** Same read as `load`, for a cross-project view that only has the id. */
+  loadById: (projectId: string, options?: { force?: boolean; silent?: boolean }) => Promise<void>;
   loadPage: (projectPath: string, pageId: string, options?: { force?: boolean }) => Promise<string | null>;
+  loadPageById: (projectId: string, pageId: string, options?: { force?: boolean }) => Promise<string | null>;
   generate: (projectPath: string, options?: RepoWikiGenerateOptions) => Promise<boolean>;
   stop: (projectPath: string) => Promise<boolean>;
   retryPage: (projectPath: string, pageId: string, options?: { retries?: number }) => Promise<boolean>;
   remove: (projectPath: string) => Promise<boolean>;
   /** The panel reports visibility; this starts or stops the run poller. */
   setPanelVisible: (projectPath: string | null, visible: boolean) => void;
+  /** Visibility for a cross-project view that only has the id. */
+  setProjectVisible: (projectId: string | null, visible: boolean) => void;
+  /** Fetch the cross-project listing for the switcher and merge it in. */
+  loadList: () => Promise<void>;
   /**
    * Conversation-turn signal: a visible, mounted panel whose project has no
    * active run silently revalidates its status. Freshness while a run is
@@ -82,6 +105,13 @@ export const EMPTY_REPO_WIKI_ENTRY: RepoWikiEntry = {
   error: null,
   errorCode: null,
   errorDetail: null,
+};
+
+const EMPTY_REPO_WIKI_LIST: RepoWikiListState = {
+  wikis: null,
+  loading: false,
+  error: null,
+  errorCode: null,
 };
 
 const POLL_INTERVAL_MS = 1_500;
@@ -144,7 +174,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     return entry.status?.runActive === true || entry.status?.wiki?.run?.status === 'running';
   };
 
-  const scheduleTick = (projectId: string, projectPath: string) => {
+  const scheduleTick = (projectId: string, projectPath: string | null) => {
     stopPoller(projectId);
     const timer = setTimeout(() => {
       void refresh({ projectPath, projectId, fromPoller: true });
@@ -153,7 +183,8 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
   };
 
   const refresh = async ({ projectPath, projectId, fromPoller = false, silent = false }: {
-    projectPath: string;
+    /** Null for a cross-project view: the read goes out by id, so the response omits staleness. */
+    projectPath: string | null;
     projectId: string;
     fromPoller?: boolean;
     /** A silent refresh keeps the cached snapshot visible and skips the loading flag. */
@@ -164,7 +195,9 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     }
     const previousRunStatus = entryFor(projectId).status?.wiki?.run?.status;
     try {
-      const status = await fetchRepoWikiStatus(projectPath);
+      const status = await (projectPath != null
+        ? fetchRepoWikiStatus(projectPath)
+        : fetchRepoWikiStatusById(projectId));
       patchEntry(projectId, { status, loaded: true, loading: false, ...CLEAR_ERROR });
       // A run just ended: cached page markdown may be superseded (retry,
       // regeneration), so the cache gives way to the fresh files.
@@ -193,8 +226,55 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     return next;
   };
 
+  /**
+   * The switcher merge: list entries become lightweight entries carrying
+   * `run`, so `isRunActive` and the run-stage indicator see them. A project
+   * with an authoritative directory-backed snapshot (the active project)
+   * keeps its own state — the list never overrides it.
+   */
+  const mergedListedEntries = (entries: Record<string, RepoWikiEntry>, wikis: RepoWikiListEntry[]) => {
+    const next = { ...entries };
+    for (const item of wikis) {
+      if (next[item.projectId]?.loaded) continue;
+      next[item.projectId] = {
+        ...(next[item.projectId] ?? EMPTY_REPO_WIKI_ENTRY),
+        loaded: true,
+        status: {
+          wiki: {
+            commit: item.commit,
+            branch: item.branch,
+            language: item.language ?? 'en',
+            diagrams: false,
+            model: null,
+            generatedAt: null,
+            run: item.run
+              ? {
+                  status: item.run.status,
+                  stage: item.run.stage,
+                  startedAt: null,
+                  finishedAt: item.updatedAt,
+                  error: null,
+                  errorCode: null,
+                  generatedPages: null,
+                  failedPages: item.pagesFailed,
+                  retriedPage: null,
+                  attempts: null,
+                }
+              : null,
+            catalog: null,
+          },
+          stale: false,
+          runActive: item.run?.status === 'running',
+        },
+        pages: {},
+      };
+    }
+    return next;
+  };
+
   return {
     entries: {},
+    list: EMPTY_REPO_WIKI_LIST,
 
     getEntry: (projectPath) => {
       if (!projectPath) return EMPTY_REPO_WIKI_ENTRY;
@@ -211,12 +291,22 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       await refresh({ projectPath, projectId, silent: options.silent === true && entry.loaded });
     },
 
+    loadById: async (projectId, options = {}) => {
+      const entry = entryFor(projectId);
+      if (entry.loading) return;
+      if (entry.loaded && !options.force) return;
+      await refresh({ projectPath: null, projectId, silent: options.silent === true && entry.loaded });
+    },
+
     loadPage: async (projectPath, pageId, options = {}) => {
-      const projectId = resolveRepoWikiProjectId(projectPath);
+      return get().loadPageById(resolveRepoWikiProjectId(projectPath), pageId, options);
+    },
+
+    loadPageById: async (projectId, pageId, options = {}) => {
       const cached = entryFor(projectId).pages[pageId];
       if (cached && !options.force) return cached.markdown;
       try {
-        const markdown = await fetchRepoWikiPage(projectPath, pageId);
+        const markdown = await fetchRepoWikiPageById(projectId, pageId);
         patchEntry(projectId, {
           pages: { ...entryFor(projectId).pages, [pageId]: { markdown } },
         });
@@ -290,13 +380,44 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       if (!projectPath) return;
       const projectId = resolveRepoWikiProjectId(projectPath);
       if (!visible) {
+        get().setProjectVisible(projectId, false);
+        return;
+      }
+      // The path-backed variant polls with the directory attached, so every
+      // tick keeps its staleness comparison.
+      visiblePanels.add(projectId);
+      if (isRunActive(projectId) && !pollers.has(projectId)) {
+        scheduleTick(projectId, projectPath);
+      }
+    },
+
+    setProjectVisible: (projectId, visible) => {
+      if (!projectId) return;
+      if (!visible) {
         visiblePanels.delete(projectId);
         stopPoller(projectId);
         return;
       }
       visiblePanels.add(projectId);
       if (isRunActive(projectId) && !pollers.has(projectId)) {
-        scheduleTick(projectId, projectPath);
+        scheduleTick(projectId, null);
+      }
+    },
+
+    loadList: async () => {
+      set((state) => ({ list: { ...state.list, loading: true } }));
+      try {
+        const wikis = await fetchRepoWikiList();
+        set((state) => ({
+          list: { wikis, loading: false, error: null, errorCode: null },
+          entries: mergedListedEntries(state.entries, wikis),
+        }));
+      } catch (error) {
+        // Failure keeps the previous snapshot (or null) and records the
+        // error — the switcher renders that, never a look-alike empty list.
+        set((state) => ({
+          list: { ...state.list, loading: false, ...errorFieldsOf(error instanceof Error ? error : undefined, 'list-wikis') },
+        }));
       }
     },
 
@@ -309,7 +430,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     reset: () => {
       for (const projectId of [...pollers.keys()]) stopPoller(projectId);
       visiblePanels.clear();
-      set({ entries: {} });
+      set({ entries: {}, list: EMPTY_REPO_WIKI_LIST });
     },
   };
 });

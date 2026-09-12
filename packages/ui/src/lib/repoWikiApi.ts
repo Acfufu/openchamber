@@ -170,6 +170,71 @@ const parseStatus = (payload: any): RepoWikiStatusResult => {
 
 const basePath = (projectId: string): string => `/api/repo-wiki/${encodeURIComponent(projectId)}`;
 
+export interface RepoWikiListEntry {
+  projectId: string;
+  branch: string | null;
+  commit: string | null;
+  language: string | null;
+  updatedAt: string | null;
+  pagesDone: number;
+  pagesFailed: number;
+  run: { status: RepoWikiRunStatus; stage: string | null } | null;
+}
+
+/**
+ * The list-entry shape the server sends. Every field is re-validated by the
+ * tolerant readers below — the declared types are the expectation, not the
+ * proof; a malformed field reads as absent instead of poisoning the entry.
+ */
+interface RepoWikiListEntryPayload {
+  projectId?: string;
+  branch?: string | null;
+  commit?: string | null;
+  language?: string | null;
+  updatedAt?: string | null;
+  pagesDone?: number;
+  pagesFailed?: number;
+  run?: { status?: string; stage?: string | null } | null;
+}
+
+const parseListEntry = (entry: RepoWikiListEntryPayload | null | undefined): RepoWikiListEntry | null => {
+  const projectId = asString(entry?.projectId);
+  if (!entry || !projectId) return null;
+  const runStatus = RUN_STATUSES.find((candidate) => candidate === entry.run?.status) ?? null;
+  return {
+    projectId,
+    branch: asString(entry.branch),
+    commit: asString(entry.commit),
+    language: asString(entry.language),
+    updatedAt: asString(entry.updatedAt),
+    pagesDone: entry.pagesDone != null && Number.isFinite(entry.pagesDone) ? entry.pagesDone : 0,
+    pagesFailed: entry.pagesFailed != null && Number.isFinite(entry.pagesFailed) ? entry.pagesFailed : 0,
+    run: runStatus
+      ? { status: runStatus, stage: asString(entry.run?.stage) }
+      : null,
+  };
+};
+
+/**
+ * Stored wikis across projects for the panel's read-only switcher. The list
+ * never carries staleness (the server consults no git here) and a failure
+ * throws — an authoritative read must never resolve to a look-alike empty.
+ */
+export const fetchRepoWikiList = async (options: { signal?: AbortSignal } = {}): Promise<RepoWikiListEntry[]> => {
+  const response = await runtimeFetch('/api/repo-wiki', { cache: 'no-store', signal: options.signal });
+  if (!response.ok) {
+    throw await readError(response, 'Failed to list Repo Wikis');
+  }
+  const payload = await response.json();
+  const wikis = payload != null && payload.constructor === Object && Array.isArray(payload.wikis) ? payload.wikis : null;
+  if (wikis == null) {
+    throw new RepoWikiRequestError('Malformed Repo Wiki list response', 'malformed-response', null, null);
+  }
+  return wikis
+    .map((entry: RepoWikiListEntryPayload) => parseListEntry(entry))
+    .filter((entry: RepoWikiListEntry | null): entry is RepoWikiListEntry => entry !== null);
+};
+
 const readError = async (response: Response, fallback: string): Promise<RepoWikiRequestError> => {
   let message = '';
   let code: string | null = null;
@@ -189,11 +254,14 @@ const readError = async (response: Response, fallback: string): Promise<RepoWiki
   return new RepoWikiRequestError(message || `${fallback} (${response.status})`, code, requiredChars, availableChars);
 };
 
-export const fetchRepoWikiStatus = async (
-  projectPath: string,
-  options: { signal?: AbortSignal } = {},
+export const fetchRepoWikiStatusById = async (
+  projectId: string,
+  options: { directory?: string; signal?: AbortSignal } = {},
 ): Promise<RepoWikiStatusResult> => {
-  const response = await runtimeFetch(`${basePath(resolveRepoWikiProjectId(projectPath))}?directory=${encodeURIComponent(projectPath)}`, {
+  // A directory upgrade opts the read into staleness comparison; without it
+  // (cross-project reading) the response omits staleness entirely.
+  const query = options.directory ? `?directory=${encodeURIComponent(options.directory)}` : '';
+  const response = await runtimeFetch(`${basePath(projectId)}${query}`, {
     cache: 'no-store',
     signal: options.signal,
   });
@@ -203,13 +271,20 @@ export const fetchRepoWikiStatus = async (
   return parseStatus(await response.json());
 };
 
-export const fetchRepoWikiPage = async (
+export const fetchRepoWikiStatus = async (
   projectPath: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<RepoWikiStatusResult> => {
+  return fetchRepoWikiStatusById(resolveRepoWikiProjectId(projectPath), { ...options, directory: projectPath });
+};
+
+export const fetchRepoWikiPageById = async (
+  projectId: string,
   pageId: string,
   options: { signal?: AbortSignal } = {},
 ): Promise<string> => {
   const response = await runtimeFetch(
-    `${basePath(resolveRepoWikiProjectId(projectPath))}/pages/${encodeURIComponent(pageId)}`,
+    `${basePath(projectId)}/pages/${encodeURIComponent(pageId)}`,
     { cache: 'no-store', signal: options.signal },
   );
   if (!response.ok) {
@@ -221,6 +296,14 @@ export const fetchRepoWikiPage = async (
     throw new RepoWikiRequestError('Malformed Repo Wiki page response', 'malformed-response', null, null);
   }
   return markdown;
+};
+
+export const fetchRepoWikiPage = async (
+  projectPath: string,
+  pageId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<string> => {
+  return fetchRepoWikiPageById(resolveRepoWikiProjectId(projectPath), pageId, options);
 };
 
 interface RepoWikiGenerateBody {

@@ -470,6 +470,30 @@ export const createRepoWikiRuntime = ({
   };
 
   /**
+   * Placement scan over the store root: every stored manifest that still
+   * parses, keyed by its directory name. Unreadable entries are skipped so
+   * one broken project cannot blind the whole listing.
+   */
+  const readStoredManifests = async () => {
+    let names;
+    try {
+      names = await fsp.readdir(store.rootDir);
+    } catch {
+      return [];
+    }
+    const found = [];
+    for (const name of names) {
+      try {
+        const manifest = await store.readManifest(name);
+        if (manifest) found.push({ projectId: name, manifest });
+      } catch {
+        continue;
+      }
+    }
+    return found;
+  };
+
+  /**
    * Pages stuck in `writing` died mid-call with the previous server process:
    * recovery records them failed with a stable code so they become
    * individually retryable. This lives here — page-status semantics belong to
@@ -477,22 +501,9 @@ export const createRepoWikiRuntime = ({
    * integrity only.
    */
   const recoverInterruptedPages = async () => {
-    let names;
-    try {
-      names = await fsp.readdir(store.rootDir);
-    } catch {
-      return 0;
-    }
-
     let recovered = 0;
-    for (const name of names) {
-      let manifest;
-      try {
-        manifest = await store.readManifest(name);
-      } catch {
-        continue;
-      }
-      const stuck = manifest?.catalog?.pages?.filter((page) => page?.status === 'writing') ?? [];
+    for (const { projectId, manifest } of await readStoredManifests()) {
+      const stuck = manifest.catalog?.pages?.filter((page) => page?.status === 'writing') ?? [];
       if (stuck.length === 0) continue;
       for (const page of stuck) {
         page.status = 'failed';
@@ -501,7 +512,7 @@ export const createRepoWikiRuntime = ({
         page.updatedAt = now();
       }
       try {
-        await store.writeManifest(name, manifest);
+        await store.writeManifest(projectId, manifest);
         recovered += stuck.length;
       } catch {
         // Leave it; a manifest that cannot be rewritten reads as-is until the
@@ -509,6 +520,31 @@ export const createRepoWikiRuntime = ({
       }
     }
     return recovered;
+  };
+
+  /**
+   * Read-only cross-project listing for the panel's switcher. Display fields
+   * only: no git is consulted, so staleness is unknowable here by design —
+   * manifests record no source directory to compare against.
+   */
+  const listWikis = async () => {
+    const wikis = [];
+    for (const { projectId, manifest } of await readStoredManifests()) {
+      const pages = Array.isArray(manifest.catalog?.pages) ? manifest.catalog.pages : [];
+      wikis.push({
+        projectId,
+        branch: manifest.branch ?? null,
+        commit: manifest.commit ?? null,
+        language: manifest.language ?? null,
+        updatedAt: manifest.run?.finishedAt ?? null,
+        pagesDone: pages.filter((page) => page?.status === 'done').length,
+        pagesFailed: pages.filter((page) => page?.status === 'failed').length,
+        run: manifest.run && manifest.run.status
+          ? { status: manifest.run.status, stage: manifest.run.stage ?? null }
+          : null,
+      });
+    }
+    return { wikis };
   };
 
   return {
@@ -519,15 +555,21 @@ export const createRepoWikiRuntime = ({
       return recoverInterruptedPages();
     },
 
+    listWikis,
+
     async getStatus({ projectId, directory }) {
       const manifest = await store.readManifest(projectId);
       const runActive = activeRuns.has(projectId);
       if (!manifest) {
-        return { wiki: null, stale: false, runActive };
+        return {
+          wiki: null,
+          ...(directory ? { stale: false } : {}),
+          runActive,
+        };
       }
 
       let stale = false;
-      if (manifest.commit) {
+      if (directory && manifest.commit) {
         const repoRoot = await getRepositoryRoot(directory);
         const currentCommit = await getCurrentCommit(repoRoot);
         stale = Boolean(currentCommit) && currentCommit !== manifest.commit;
@@ -544,7 +586,9 @@ export const createRepoWikiRuntime = ({
           run: manifest.run,
           catalog: manifest.catalog,
         },
-        stale,
+        // A directory-less read (the cross-project switcher) cannot compare
+        // commits, so staleness is omitted rather than guessed.
+        ...(directory ? { stale } : {}),
         runActive,
       };
     },
