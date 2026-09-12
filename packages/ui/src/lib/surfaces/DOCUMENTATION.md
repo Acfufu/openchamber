@@ -28,7 +28,8 @@ edge (`components/layout/ContextPanelRail.tsx`) and rendered by
   (`useUIStore.contextRailHiddenSurfaces`, edited from the rail's trailing
   configure button — `ContextRailSurfacesDialog`), drops the plan surface
   unless plan mode is enabled,
-  drops the walkthrough on VS Code and below `WALKTHROUGH_MIN_WIDTH`, hides
+  drops the walkthrough on VS Code and below `WALKTHROUGH_MIN_WIDTH`, drops
+  the repo-wiki surface on VS Code (it ships for web and desktop only), hides
   Linear unless a workspace is connected, hides the pull-request surface
   unless GitHub is connected (OAuth or `gh` CLI — signed in from Settings →
   Integrations), and hides `has-content` surfaces

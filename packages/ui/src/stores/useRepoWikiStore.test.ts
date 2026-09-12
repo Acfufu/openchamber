@@ -50,6 +50,21 @@ const handlers = {
 
 const calls = { fetchStatus: 0, fetchPage: 0, generate: 0, stop: 0, retry: 0, remove: 0 };
 
+/** Mirrors the api-layer error class; the mock swaps the module wholesale. */
+class RepoWikiRequestError extends Error {
+  readonly code: string | null;
+  readonly requiredChars: number | null;
+  readonly availableChars: number | null;
+
+  constructor(message: string, code: string | null, requiredChars: number | null, availableChars: number | null) {
+    super(message);
+    this.name = 'RepoWikiRequestError';
+    this.code = code;
+    this.requiredChars = requiredChars;
+    this.availableChars = availableChars;
+  }
+}
+
 // Follows the local store-test precedent: swap plain handlers instead of using
 // mock helpers, because the UI tsconfig does not load bun's test globals.
 mock.module('@/lib/repoWikiApi', () => ({
@@ -78,6 +93,7 @@ mock.module('@/lib/repoWikiApi', () => ({
     calls.remove += 1;
     return handlers.remove();
   },
+  RepoWikiRequestError,
 }));
 
 const { useRepoWikiStore } = await import('./useRepoWikiStore');
@@ -131,7 +147,31 @@ describe('useRepoWikiStore', () => {
     await store().load(PROJECT_PATH, { force: true });
 
     expect(entry().error).toBe('server exploded');
+    expect(entry().errorCode).toBe('read-status');
     expect(entry().status).toBe(first);
+  });
+
+  test('a coded failure keeps its code and clears with the next success', async () => {
+    handlers.fetchStatus = async () => {
+      throw new RepoWikiRequestError('Malformed Repo Wiki status response', 'malformed-response', null, null);
+    };
+    await store().load(PROJECT_PATH, { force: true });
+    expect(entry().error).toBe('Malformed Repo Wiki status response');
+    expect(entry().errorCode).toBe('malformed-response');
+
+    handlers.fetchStatus = async () => statusPayload();
+    await store().load(PROJECT_PATH, { force: true });
+    expect(entry().error).toBeNull();
+    expect(entry().errorCode).toBeNull();
+  });
+
+  test('a context-too-small refusal carries its budget numbers for localization', async () => {
+    handlers.generate = async () => {
+      throw new RepoWikiRequestError('Input is too large', 'context-too-small', 90_000, 60_000);
+    };
+    expect(await store().generate(PROJECT_PATH)).toBe(false);
+    expect(entry().errorCode).toBe('context-too-small');
+    expect(entry().errorDetail).toEqual({ requiredChars: 90_000, availableChars: 60_000 });
   });
 
   test('loadPage caches markdown and reports failure as null', async () => {

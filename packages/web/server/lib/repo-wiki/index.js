@@ -362,13 +362,16 @@ export const createRepoWikiRuntime = ({
       manifest.run = finalRun;
       await persist();
     } catch (error) {
+      // An abort surfaces here when the stop lands during the digest/catalog
+      // calls; a stop is not a failure, same as the page-loop path.
+      const stopped = cancelFlag.cancelRequested || signal.aborted;
       manifest.run = {
         ...manifest.run,
-        status: 'failed',
-        stage: 'failed',
+        status: stopped ? 'stopped' : 'failed',
+        stage: stopped ? 'stopped' : 'failed',
         finishedAt: now(),
-        error: error?.message || 'generation failed',
-        errorCode: error?.code,
+        error: stopped ? undefined : (error?.message || 'generation failed'),
+        errorCode: stopped ? undefined : error?.code,
       };
       await persist();
     } finally {
@@ -423,36 +426,45 @@ export const createRepoWikiRuntime = ({
     async startGeneration({ projectId, directory, options = {} }) {
       assertNotRunning(projectId);
 
-      const repoRoot = await getRepositoryRoot(directory);
-      const existing = await store.readManifest(projectId);
-      const language = normalizeLanguage(options.language);
-      const diagrams = options.diagrams != null ? options.diagrams === true : true;
-      const modelRef = resolveModelRef({ requestedModel: options.model, manifest: existing });
-      const model = await describeResolvedModel({ directory, modelRef });
-      const commit = await getCurrentCommit(repoRoot);
-
+      // Reserve the slot before the first await: the check and the
+      // reservation are one synchronous step, so an overlapping request gets
+      // the 409 instead of racing past it and leaving a run whose cancel
+      // flag was overwritten — which stop could never abort.
       const cancelFlag = { cancelRequested: false, controller: new AbortController() };
       activeRuns.set(projectId, cancelFlag);
 
-      const manifest = {
-        projectId,
-        promptVersion: PROMPT_VERSION,
-        commit,
-        language,
-        diagrams,
-        model: { providerID: model.providerID, modelID: model.modelID },
-        catalog: { pages: [] },
-        run: {
-          status: 'running',
-          stage: 'digesting',
-          startedAt: now(),
-        },
-      };
-      await store.writeManifest(projectId, manifest);
+      try {
+        const repoRoot = await getRepositoryRoot(directory);
+        const existing = await store.readManifest(projectId);
+        const language = normalizeLanguage(options.language);
+        const diagrams = options.diagrams != null ? options.diagrams === true : true;
+        const modelRef = resolveModelRef({ requestedModel: options.model, manifest: existing });
+        const model = await describeResolvedModel({ directory, modelRef });
+        const commit = await getCurrentCommit(repoRoot);
 
-      // Fire-and-forget: the route answers immediately and the panel polls.
-      void executeRun({ projectId, repoRoot, manifest, model, language, diagrams, cancelFlag });
-      return { started: true, model: manifest.model };
+        const manifest = {
+          projectId,
+          promptVersion: PROMPT_VERSION,
+          commit,
+          language,
+          diagrams,
+          model: { providerID: model.providerID, modelID: model.modelID },
+          catalog: { pages: [] },
+          run: {
+            status: 'running',
+            stage: 'digesting',
+            startedAt: now(),
+          },
+        };
+        await store.writeManifest(projectId, manifest);
+
+        // Fire-and-forget: the route answers immediately and the panel polls.
+        void executeRun({ projectId, repoRoot, manifest, model, language, diagrams, cancelFlag });
+        return { started: true, model: manifest.model };
+      } catch (error) {
+        activeRuns.delete(projectId);
+        throw error;
+      }
     },
 
     async stopGeneration({ projectId }) {
@@ -473,36 +485,43 @@ export const createRepoWikiRuntime = ({
     async requestRetry({ projectId, directory, pageId }) {
       assertNotRunning(projectId);
 
-      const manifest = await store.readManifest(projectId);
-      if (!manifest) {
-        throw fail('No Repo Wiki exists for this project', 404, { code: 'no-wiki' });
-      }
-      const page = manifest.catalog?.pages?.find((entry) => entry.id === pageId);
-      if (!page) {
-        throw fail('Unknown page', 404, { code: 'unknown-page' });
-      }
-      if (page.status !== 'failed') {
-        throw fail('Only a failed page can be retried — regenerate the wiki instead', 409, { code: 'page-not-failed' });
-      }
-
-      const repoRoot = await getRepositoryRoot(directory);
-      const modelRef = resolveModelRef({ requestedModel: null, manifest });
-      const model = await describeResolvedModel({ directory, modelRef });
-
+      // Same reserve-before-await order as startGeneration: two overlapping
+      // retries must not both pass the check.
       const cancelFlag = { cancelRequested: false, controller: new AbortController() };
       activeRuns.set(projectId, cancelFlag);
 
-      manifest.run = {
-        status: 'running',
-        stage: 'pages',
-        startedAt: now(),
-        retriedPage: pageId,
-      };
-      page.status = 'writing';
-      await store.writeManifest(projectId, manifest);
+      try {
+        const manifest = await store.readManifest(projectId);
+        if (!manifest) {
+          throw fail('No Repo Wiki exists for this project', 404, { code: 'no-wiki' });
+        }
+        const page = manifest.catalog?.pages?.find((entry) => entry.id === pageId);
+        if (!page) {
+          throw fail('Unknown page', 404, { code: 'unknown-page' });
+        }
+        if (page.status !== 'failed') {
+          throw fail('Only a failed page can be retried — regenerate the wiki instead', 409, { code: 'page-not-failed' });
+        }
 
-      void executeRetry({ projectId, repoRoot, manifest, page, model, cancelFlag });
-      return { retried: true, pageId };
+        const repoRoot = await getRepositoryRoot(directory);
+        const modelRef = resolveModelRef({ requestedModel: null, manifest });
+        const model = await describeResolvedModel({ directory, modelRef });
+
+        manifest.run = {
+          status: 'running',
+          stage: 'pages',
+          startedAt: now(),
+          retriedPage: pageId,
+        };
+        page.status = 'writing';
+        await store.writeManifest(projectId, manifest);
+
+        void executeRetry({ projectId, repoRoot, manifest, page, model, cancelFlag });
+        return { retried: true, pageId };
+      } catch (error) {
+        activeRuns.delete(projectId);
+        throw error;
+      }
     },
 
     async deleteWiki({ projectId }) {

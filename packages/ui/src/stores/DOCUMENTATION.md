@@ -26,6 +26,7 @@ These are the most performance-sensitive.
 - `useGitStore.ts`
 - `useGitHubPrStatusStore.ts`
 - `useFilesViewTabsStore.ts`
+- `useRepoWikiStore.ts`
 
 These stores act like centralized keyed caches. UI should consume narrow slices from them instead of re-fetching the same data in multiple places.
 
@@ -39,6 +40,19 @@ and generation checks prevent their completions from changing the next runtime.
 request, including JSON body delivery. Compact usage cards and Settings display
 refresh errors alongside retained data. The mobile popover makes at most one
 refresh attempt per opening, so a failed first load cannot create a retry loop.
+
+`useRepoWikiStore` is a read-through cache keyed by project id: one status
+snapshot plus cached page markdown per project. A failed status load or
+command records `error` (raw message), `errorCode` (the server's stable code,
+or the command's fallback code), and, for a `context-too-small` refusal, its
+budget numbers in `errorDetail` — the panel localizes by code and keeps the
+raw message as the last resort. Failure preserves the previous snapshot and
+never reads as "no wiki". Generation polling is visible-consumer-driven: a
+timer exists only while the panel is visible AND a run is active, and it is
+cleared the moment either condition stops holding. When a run leaves the
+`running` state, cached page markdown is dropped once, because a retry or
+regeneration can supersede those files. Commands (generate, stop, retry,
+remove) serialize per project through one command chain.
 
 ### UI state stores
 

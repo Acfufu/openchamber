@@ -16,12 +16,11 @@ import { useI18n, type I18nKey, type I18nParams } from '@/lib/i18n';
 import { type Locale } from '@/lib/i18n/runtime';
 import {
   resolveRepoWikiProjectId,
-  RepoWikiRequestError,
   type RepoWikiPageMeta,
 } from '@/lib/repoWikiApi';
 import { runtimeFetch } from '@/lib/runtime-fetch';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useRepoWikiStore, EMPTY_REPO_WIKI_ENTRY } from '@/stores/useRepoWikiStore';
+import { useRepoWikiStore, EMPTY_REPO_WIKI_ENTRY, type RepoWikiEntry } from '@/stores/useRepoWikiStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { cn } from '@/lib/utils';
 
@@ -92,11 +91,11 @@ const useModelOptions = (): Array<{ value: string; label: string }> => {
         const response = await runtimeFetch('/api/small-model', { headers: { Accept: 'application/json' } });
         if (!response.ok) return;
         const payload = await response.json();
-        const ids = payload != null && payload.constructor === Object && Array.isArray(payload.authenticatedProviders)
+        const ids: unknown[] = payload != null && payload.constructor === Object && Array.isArray(payload.authenticatedProviders)
           ? payload.authenticatedProviders
           : [];
         if (!cancelled) {
-          setAuthenticated(new Set(ids.filter((id: any) => id != null && id.constructor === String)));
+          setAuthenticated(new Set(ids.filter((id): id is string => id != null && id.constructor === String)));
         }
       } catch {
         // Fail closed: never offer a provider whose login was not verified.
@@ -129,6 +128,42 @@ const PAGE_STATUS_RANK = {
   failed: 2,
   done: 3,
 } satisfies Record<RepoWikiPageMeta['status'], number>;
+
+/**
+ * Stable failure codes → localized sentences. A failure whose code has no
+ * entry here (server freeform text, provider errors) renders its raw message.
+ */
+const ERROR_MESSAGE_KEYS = [
+  ['run-in-progress', 'repoWiki.error.runInProgress'],
+  ['no-model', 'repoWiki.error.noModel'],
+  ['no-provider-login', 'repoWiki.error.noProviderLogin'],
+  ['context-too-small', 'repoWiki.error.contextTooSmall'],
+  ['no-wiki', 'repoWiki.error.noWiki'],
+  ['unknown-page', 'repoWiki.error.unknownPage'],
+  ['page-not-failed', 'repoWiki.error.pageNotFailed'],
+  ['malformed-response', 'repoWiki.error.malformedResponse'],
+  ['read-status', 'repoWiki.error.readStatus'],
+  ['read-page', 'repoWiki.error.readPage'],
+  ['start-generation', 'repoWiki.error.startGeneration'],
+  ['stop-generation', 'repoWiki.error.stopGeneration'],
+  ['retry-page', 'repoWiki.error.retryPage'],
+  ['delete-wiki', 'repoWiki.error.deleteWiki'],
+] as const satisfies ReadonlyArray<readonly [string, I18nKey]>;
+
+const wikiErrorLine = (t: TranslateFn, entry: RepoWikiEntry): string | null => {
+  if (!entry.error) return null;
+  const key = entry.errorCode == null
+    ? undefined
+    : ERROR_MESSAGE_KEYS.find(([code]) => code === entry.errorCode)?.[1];
+  if (key == null) return entry.error;
+  if (key === 'repoWiki.error.contextTooSmall' && entry.errorDetail?.requiredChars != null) {
+    return t(key, {
+      required: entry.errorDetail.requiredChars,
+      available: entry.errorDetail.availableChars ?? 0,
+    });
+  }
+  return t(key);
+};
 
 const PageRow: React.FC<{
   page: RepoWikiPageMeta;
@@ -246,19 +281,17 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     };
   }, [directory, selectedPage, loadPage]);
 
-  if (!directory) {
-    return null;
-  }
-
   // Source references are intercepted in the CAPTURE phase on this container:
   // the markdown renderer's own app-link guard sits on an inner node in the
   // bubble phase and would otherwise claim the custom scheme (confirm dialog)
   // before the panel ever sees the click. The node arrives with the wiki
   // view (the empty state renders none), so the listener tracks the node
   // itself instead of firing once while the ref is still null.
+  // These hooks sit above the `!directory` early return: hook count must not
+  // depend on props, or a directory arriving while mounted crashes React.
   const [contentNode, setContentNode] = React.useState<HTMLDivElement | null>(null);
   React.useEffect(() => {
-    if (!contentNode) return;
+    if (!contentNode || !directory) return;
     const handleCapture = (event: MouseEvent) => {
       const targetNode = event.target instanceof Element ? event.target : null;
       const anchor = targetNode?.closest('a');
@@ -272,6 +305,10 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
     contentNode.addEventListener('click', handleCapture, true);
     return () => contentNode.removeEventListener('click', handleCapture, true);
   }, [contentNode, directory, openContextFileAtLine]);
+
+  if (!directory) {
+    return null;
+  }
 
   const startGeneration = async () => {
     setWorking(true);
@@ -325,7 +362,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
 
   const sortedPages = [...pages].sort((a, b) => PAGE_STATUS_RANK[a.status] - PAGE_STATUS_RANK[b.status]);
 
-  const errorMessage = entry.error;
+  const errorLine = wikiErrorLine(t, entry);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -373,16 +410,16 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
 
       {entry.status?.stale && !runActive
         ? (
-            <div className="flex-shrink-0 bg-surface-raised px-3 py-1.5 typography-meta text-muted-foreground">
+            <div className="flex-shrink-0 bg-surface-muted px-3 py-1.5 typography-meta text-muted-foreground">
               {t('repoWiki.stale.banner')}
             </div>
           )
         : null}
 
-      {errorMessage
+      {errorLine
         ? (
             <div className="flex-shrink-0 px-3 py-2">
-              <p className="typography-meta text-destructive">{errorMessage}</p>
+              <p className="typography-meta text-destructive">{errorLine}</p>
             </div>
           )
         : null}

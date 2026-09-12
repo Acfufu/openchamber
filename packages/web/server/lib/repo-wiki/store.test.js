@@ -63,6 +63,27 @@ describe('repo-wiki store', () => {
     await expect(store.writePage('path_abc', 'a\\b', 'x')).rejects.toThrow(/unsupported characters/);
   });
 
+  it('rejects bare dot segments that path.join would normalize out of the store', async () => {
+    await expect(store.readManifest('..')).rejects.toThrow(/unsupported characters/);
+    await expect(store.readManifest('.')).rejects.toThrow(/unsupported characters/);
+    await expect(store.deleteWiki('..')).rejects.toThrow();
+    await expect(store.deleteWiki('.')).rejects.toThrow();
+  });
+
+  it('deleteWiki with a dot segment leaves the data dir and every project intact', async () => {
+    await store.writeManifest('path_abc', manifestOf());
+    await store.writePage('path_abc', 'overview', '# Overview');
+    await store.writeManifest('path_keep', manifestOf({ projectId: 'path_keep' }));
+
+    for (const id of ['.', '..']) {
+      await store.deleteWiki(id).catch(() => {});
+    }
+
+    await expect(store.readManifest('path_abc')).resolves.not.toBeNull();
+    await expect(store.readManifest('path_keep')).resolves.not.toBeNull();
+    expect(fs.existsSync(path.join(dataDir, 'repo-wiki'))).toBe(true);
+  });
+
   it('rejects empty page content', async () => {
     await expect(store.writePage('path_abc', 'overview', '')).rejects.toThrow(/non-empty string/);
   });

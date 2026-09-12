@@ -17,6 +17,7 @@ import {
   deleteRepoWiki,
   fetchRepoWikiPage,
   fetchRepoWikiStatus,
+  RepoWikiRequestError,
   resolveRepoWikiProjectId,
   retryRepoWikiPage,
   startRepoWikiGeneration,
@@ -29,6 +30,11 @@ export interface RepoWikiPageContent {
   markdown: string;
 }
 
+export interface RepoWikiEntryErrorDetail {
+  requiredChars: number | null;
+  availableChars: number | null;
+}
+
 export interface RepoWikiEntry {
   status: RepoWikiStatusResult | null;
   pages: Record<string, RepoWikiPageContent>;
@@ -37,6 +43,10 @@ export interface RepoWikiEntry {
   loading: boolean;
   /** Last load or command failure. Never clears cached data on its own. */
   error: string | null;
+  /** Stable failure code — server code or command fallback — for localization. */
+  errorCode: string | null;
+  /** Input budget numbers for a `context-too-small` failure, when known. */
+  errorDetail: RepoWikiEntryErrorDetail | null;
 }
 
 interface RepoWikiState {
@@ -64,6 +74,8 @@ export const EMPTY_REPO_WIKI_ENTRY: RepoWikiEntry = {
   loaded: false,
   loading: false,
   error: null,
+  errorCode: null,
+  errorDetail: null,
 };
 
 const POLL_INTERVAL_MS = 1_500;
@@ -75,9 +87,26 @@ const POLL_INTERVAL_MS = 1_500;
  */
 const commandChains = new Map<string, Promise<unknown>>();
 
-const messageOf = (error: Error | undefined, fallback: string): string => (
-  error && error.message ? error.message : fallback
-);
+/** Success paths clear all three failure fields together. */
+const CLEAR_ERROR = { error: null, errorCode: null, errorDetail: null };
+
+/**
+ * One failure record from any load or command: the raw message stays the
+ * ultimate fallback, the stable code (the server's, or this command's when
+ * the failure had none) lets the panel localize, and a context-too-small
+ * refusal rides along with its budget numbers.
+ */
+const errorFieldsOf = (error: Error | undefined, fallbackCode: string): Pick<RepoWikiEntry, 'error' | 'errorCode' | 'errorDetail'> => {
+  const message = error?.message || '';
+  if (!(error instanceof RepoWikiRequestError)) {
+    return { error: message, errorCode: fallbackCode, errorDetail: null };
+  }
+  const code = error.code ?? fallbackCode;
+  const errorDetail = code === 'context-too-small'
+    ? { requiredChars: error.requiredChars, availableChars: error.availableChars }
+    : null;
+  return { error: message, errorCode: code, errorDetail };
+};
 
 export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
   const patchEntry = (projectId: string, patch: Partial<RepoWikiEntry>) => {
@@ -130,7 +159,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     const previousRunStatus = entryFor(projectId).status?.wiki?.run?.status;
     try {
       const status = await fetchRepoWikiStatus(projectPath);
-      patchEntry(projectId, { status, loaded: true, loading: false, error: null });
+      patchEntry(projectId, { status, loaded: true, loading: false, ...CLEAR_ERROR });
       // A run just ended: cached page markdown may be superseded (retry,
       // regeneration), so the cache gives way to the fresh files.
       if (previousRunStatus === 'running' && status.wiki?.run?.status !== 'running') {
@@ -142,7 +171,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
         stopPoller(projectId);
       }
     } catch (error) {
-      patchEntry(projectId, { loading: false, error: messageOf(error instanceof Error ? error : undefined, 'Failed to read Repo Wiki status') });
+      patchEntry(projectId, { loading: false, ...errorFieldsOf(error instanceof Error ? error : undefined, 'read-status') });
       if (fromPoller) {
         // Transient failures keep the loop alive on the real failure signal
         // (the next tick); the snapshot from before the failure stands.
@@ -187,7 +216,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
         });
         return markdown;
       } catch (error) {
-        patchEntry(projectId, { error: messageOf(error instanceof Error ? error : undefined, 'Failed to read Repo Wiki page') });
+        patchEntry(projectId, errorFieldsOf(error instanceof Error ? error : undefined, 'read-page'));
         return null;
       }
     },
@@ -197,10 +226,10 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       return enqueueCommand(projectId, async () => {
         try {
           await startRepoWikiGeneration(projectPath, options);
-          patchEntry(projectId, { error: null });
+          patchEntry(projectId, { ...CLEAR_ERROR });
           await refresh({ projectPath, projectId });
         } catch (error) {
-          patchEntry(projectId, { error: messageOf(error instanceof Error ? error : undefined, 'Failed to start Repo Wiki generation') });
+          patchEntry(projectId, errorFieldsOf(error instanceof Error ? error : undefined, 'start-generation'));
           throw error;
         }
       }).then(() => true).catch(() => false);
@@ -213,7 +242,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
           await stopRepoWikiGeneration(projectPath);
           await refresh({ projectPath, projectId });
         } catch (error) {
-          patchEntry(projectId, { error: messageOf(error instanceof Error ? error : undefined, 'Failed to stop Repo Wiki generation') });
+          patchEntry(projectId, errorFieldsOf(error instanceof Error ? error : undefined, 'stop-generation'));
           throw error;
         }
       }).then(() => true).catch(() => false);
@@ -224,10 +253,10 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
       return enqueueCommand(projectId, async () => {
         try {
           await retryRepoWikiPage(projectPath, pageId);
-          patchEntry(projectId, { error: null });
+          patchEntry(projectId, { ...CLEAR_ERROR });
           await refresh({ projectPath, projectId });
         } catch (error) {
-          patchEntry(projectId, { error: messageOf(error instanceof Error ? error : undefined, 'Failed to retry Repo Wiki page') });
+          patchEntry(projectId, errorFieldsOf(error instanceof Error ? error : undefined, 'retry-page'));
           throw error;
         }
       }).then(() => true).catch(() => false);
@@ -245,7 +274,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
             return { entries };
           });
         } catch (error) {
-          patchEntry(projectId, { error: messageOf(error instanceof Error ? error : undefined, 'Failed to delete Repo Wiki') });
+          patchEntry(projectId, errorFieldsOf(error instanceof Error ? error : undefined, 'delete-wiki'));
           throw error;
         }
       }).then(() => true).catch(() => false);

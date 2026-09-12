@@ -57,6 +57,21 @@ describe('repo-wiki routes', () => {
     expect(response.body.code).toBe('invalid-project-id');
   });
 
+  it('never serves or deletes through bare dot-segment project ids', async () => {
+    const { app } = createApp();
+    // Express 5 normalizes dot-only path segments during routing, so these
+    // never reach the handler carrying `.`/`..`; whichever layer answers —
+    // our id guard or the router's own 404 — it must be a rejection.
+    for (const encoded of ['%2e%2e', '%2e']) {
+      const read = await request(app).get(`/api/repo-wiki/${encoded}?directory=/tmp/repo`);
+      expect([400, 404], `GET ${encoded}`).toContain(read.status);
+      expect(read.body.wiki, encoded).toBeUndefined();
+      const deleted = await request(app).delete(`/api/repo-wiki/${encoded}`);
+      expect([400, 404], `DELETE ${encoded}`).toContain(deleted.status);
+      expect(deleted.body.deleted, encoded).toBeUndefined();
+    }
+  });
+
   it('requires the directory parameter', async () => {
     const { app } = createApp();
     const response = await request(app).get('/api/repo-wiki/path_abc');

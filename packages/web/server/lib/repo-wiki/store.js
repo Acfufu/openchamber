@@ -29,17 +29,24 @@ const PROJECT_ID_PATTERN = /^[a-zA-Z0-9._:-]+$/;
 
 /**
  * Page ids come from generated catalog output, so they are untrusted input.
- * The pattern excludes path separators, which is what makes traversal
- * impossible — the id can only ever name one file inside `pages/`.
+ * The pattern excludes path separators and the id is always suffixed with
+ * `.md`, so the final segment is one plain filename inside `pages/` — dots
+ * alone cannot form a traversal segment.
  */
 const PAGE_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 export const MANIFEST_FILE = 'manifest.json';
 
-/** Route-level guard: reject malformed project ids before touching the store. */
+/**
+ * Route-level guard: reject malformed project ids before touching the store.
+ * A bare `.` or `..` passes the charset but `path.join` normalizes it to the
+ * store root or above it, so both are rejected before the pattern is trusted.
+ */
 export const isValidProjectId = (value) => value != null
   && value.constructor === String
   && value.length > 0
+  && value !== '.'
+  && value !== '..'
   && PROJECT_ID_PATTERN.test(value);
 
 /** Route-level guard for page ids (same traversal argument as pagePath). */
@@ -59,10 +66,17 @@ export const createRepoWikiStore = ({ dataDir }) => {
   const rootDir = path.join(path.resolve(dataDir), 'repo-wiki');
 
   const projectDir = (projectId) => {
-    if (projectId == null || !PROJECT_ID_PATTERN.test(projectId)) {
+    if (!isValidProjectId(projectId)) {
       throw new Error('projectId contains unsupported characters');
     }
-    return path.join(rootDir, projectId);
+    const resolved = path.join(rootDir, projectId);
+    // The charset admits no separators, so a valid id is always one direct
+    // child of the store root; containment is asserted anyway, because
+    // placement and deletion must never rest on the pattern alone.
+    if (!resolved.startsWith(rootDir + path.sep)) {
+      throw new Error('projectId must resolve inside the wiki store');
+    }
+    return resolved;
   };
 
   const manifestPath = (projectId) => path.join(projectDir(projectId), MANIFEST_FILE);

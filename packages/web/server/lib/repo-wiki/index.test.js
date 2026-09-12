@@ -272,6 +272,59 @@ describe('repo-wiki runtime', () => {
     await waitFor(async () => (await runtime.getStatus({ projectId: 'path_lock', directory: repoRoot })).wiki?.run?.status === 'done');
   });
 
+  it('reserves the run slot before the first await, so an overlapping start 409s', async () => {
+    inject({
+      modelCall: async ({ prompt }) => {
+        if (prompt.includes('Repository digest:')) {
+          return { text: JSON.stringify(catalogResponse) };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        return markdownFor('overview');
+      },
+    });
+
+    // Fired before the first request has awaited anything: only a
+    // reserve-before-await order can reject this.
+    const first = runtime.startGeneration({ projectId: 'path_lock_race', directory: repoRoot, options: {} });
+    await expect(runtime.startGeneration({ projectId: 'path_lock_race', directory: repoRoot, options: {} }))
+      .rejects.toMatchObject({ code: 'run-in-progress', statusCode: 409 });
+    await expect(first).resolves.toMatchObject({ started: true });
+
+    // The surviving run is the one stop can abort.
+    await runtime.stopGeneration({ projectId: 'path_lock_race' });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_lock_race', directory: repoRoot })).wiki?.run?.status === 'stopped');
+  });
+
+  it('marks the run stopped — not failed — when the stop lands during the catalog call', async () => {
+    inject({
+      modelCall: async ({ prompt, signal }) => {
+        if (prompt.includes('Repository digest:')) {
+          await new Promise((resolve, reject) => {
+            const abort = () => {
+              clearTimeout(timer);
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            };
+            const timer = setTimeout(() => resolve({ text: JSON.stringify(catalogResponse) }), 5_000);
+            if (signal?.aborted) {
+              abort();
+              return;
+            }
+            signal?.addEventListener('abort', abort);
+          });
+        }
+        return markdownFor('overview');
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_stop_catalog', directory: repoRoot, options: {} });
+    await runtime.stopGeneration({ projectId: 'path_stop_catalog' });
+
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_stop_catalog', directory: repoRoot })).wiki?.run?.status === 'stopped');
+    const status = await runtime.getStatus({ projectId: 'path_stop_catalog', directory: repoRoot });
+    expect(status.wiki?.run?.error).toBeFalsy();
+    expect(status.wiki?.run?.errorCode).toBeFalsy();
+  });
+
   it('reports stale when the workspace HEAD moved past the recorded commit', async () => {
     inject({
       modelCall: async ({ prompt }) => (prompt.includes('Repository digest:')
