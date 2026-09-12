@@ -14,7 +14,11 @@
  * - Every write is atomic (tmp + rename), so a crash mid-write leaves the
  *   previous state parseable rather than a half-written file.
  * - A run still marked `running` after a server restart did not survive: it is
- *   marked `stopped` on recovery, keeping every finished page readable.
+ *   marked `stopped` on recovery, keeping every finished page readable. This
+ *   run-status rewrite is the store's one concession, inherited from before
+ *   the invariant below existed; the page-side counterpart (pages stuck in
+ *   `writing` become failed/`interrupted`) lives in the runtime's recovery,
+ *   which owns status semantics.
  * - The store owns placement and integrity only. It never interprets catalog
  *   or run semantics — callers decide what status transitions mean.
  */

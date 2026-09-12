@@ -119,6 +119,51 @@ describe('repo-wiki routes', () => {
     expect(response.status).toBe(400);
   });
 
+  it('passes retries through and maps the invalid-retries refusal to 400', async () => {
+    const seen = {};
+    const { app } = createApp({
+      startGeneration: async ({ options }) => {
+        // Mirror the runtime's contract boundary for the mapping test.
+        if (options.retries != null && (!Number.isInteger(options.retries) || options.retries < 0 || options.retries > 3)) {
+          throw Object.assign(new Error('retries must be an integer between 0 and 3'), {
+            statusCode: 400,
+            code: 'invalid-retries',
+          });
+        }
+        seen.retries = options.retries;
+        return { started: true };
+      },
+    });
+
+    const bad = await request(app)
+      .post('/api/repo-wiki/path_abc/generate')
+      .send({ directory: '/tmp/repo', retries: 9 });
+    expect(bad.status).toBe(400);
+    expect(bad.body.code).toBe('invalid-retries');
+
+    const ok = await request(app)
+      .post('/api/repo-wiki/path_abc/generate')
+      .send({ directory: '/tmp/repo', retries: 2 });
+    expect(ok.status).toBe(200);
+    expect(seen.retries).toBe(2);
+  });
+
+  it('maps the retry route invalid-retries refusal to 400', async () => {
+    const { app } = createApp({
+      requestRetry: async () => {
+        throw Object.assign(new Error('retries must be an integer between 0 and 3'), {
+          statusCode: 400,
+          code: 'invalid-retries',
+        });
+      },
+    });
+    const response = await request(app)
+      .post('/api/repo-wiki/path_abc/pages/overview/retry')
+      .send({ directory: '/tmp/repo', retries: 'many' });
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('invalid-retries');
+  });
+
   it('maps runtime error status codes onto the response', async () => {
     const { app } = createApp({
       startGeneration: async () => {

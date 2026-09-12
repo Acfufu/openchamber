@@ -29,3 +29,9 @@ _Avoid_: citation, link (bare)
 **Generation Run**:
 One execution that creates or refreshes a project's Repo Wiki.
 _Avoid_: build, sync, job
+
+**Stale**:
+The project's current HEAD commit differs from the commit recorded when the
+Repo Wiki was generated. Commit is the only staleness authority — a branch
+name says nothing about content and is display metadata only.
+_Avoid_: outdated, dirty, changed (bare)

@@ -9,6 +9,10 @@
  *   so the user watches the wiki grow instead of a spinner.
  * - A page that fails is recorded and the run continues; only a run where
  *   every page failed is `failed`. Stop keeps every finished page.
+ * - A page call is retried in place when the request consents to a retry
+ *   budget (`retries`, 0-3, default 0): same prompt, same model, no error
+ *   classification, fixed pause between attempts. Stop wins during calls and
+ *   during the pause. The consent math is (retries + 1) page calls per page.
  * - The model call is injected (`modelCall`), as is model description
  *   (`describeModel`) — the tests drive whole runs against fixture repos
  *   without any provider, and the real wiring stays a thin adapter.
@@ -21,6 +25,8 @@
  */
 
 import path from 'path';
+
+import fsp from 'fs/promises';
 
 import simpleGit from 'simple-git';
 
@@ -39,12 +45,45 @@ import { createRepoWikiStore } from './store.js';
 
 const CALL_TIMEOUT_MS = 180_000;
 
+const MAX_PAGE_RETRIES = 3;
+const RETRY_DELAY_MS = 2_000;
+
 const fail = (message, statusCode, extra = undefined) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   if (extra) Object.assign(error, extra);
   return error;
 };
+
+/**
+ * Consented retry budget for page calls: integer 0..3, default 0. Every
+ * request that can trigger page calls carries its own budget — the consent
+ * was given for exactly that press.
+ */
+const normalizeRetries = (value) => {
+  if (value == null) return 0;
+  if (value.constructor !== Number || !Number.isInteger(value) || value < 0 || value > MAX_PAGE_RETRIES) {
+    throw fail(`retries must be an integer between 0 and ${MAX_PAGE_RETRIES}`, 400, { code: 'invalid-retries' });
+  }
+  return value;
+};
+
+/** Fixed pause between page-call attempts; an abort during the pause wins. */
+const waitBeforeRetry = (signal) => new Promise((resolve) => {
+  if (signal?.aborted) {
+    resolve(true);
+    return;
+  }
+  const onAbort = () => {
+    clearTimeout(timer);
+    resolve(true);
+  };
+  const timer = setTimeout(() => {
+    signal?.removeEventListener('abort', onAbort);
+    resolve(false);
+  }, RETRY_DELAY_MS);
+  signal?.addEventListener('abort', onAbort, { once: true });
+});
 
 /** `provider/model` — the one model reference format every picker speaks. */
 const MODEL_REF_PATTERN = /^[^\s/]+\/[^\s/]+$/;
@@ -225,40 +264,55 @@ export const createRepoWikiRuntime = ({
   };
 
   /** One failed-page retry as a background job; results land in the manifest. */
-  const executeRetry = async ({ projectId, repoRoot, manifest, page, model, cancelFlag }) => {
+  const executeRetry = async ({ projectId, repoRoot, manifest, page, model, retries, cancelFlag }) => {
     const persist = async () => store.writeManifest(projectId, manifest);
+    const signal = cancelFlag.controller.signal;
+    const pageAttempts = retries + 1;
+    let attempts = 0;
     try {
-      await generatePage({
-        projectId,
-        repoRoot,
-        page,
-        model,
-        catalogPages: manifest.catalog.pages,
-        language: manifest.language,
-        diagrams: manifest.diagrams,
-        signal: cancelFlag.controller.signal,
-      });
-      page.status = 'done';
-      page.error = undefined;
-      manifest.run = {
-        status: 'done',
-        stage: 'done',
-        startedAt: manifest.run.startedAt,
-        finishedAt: now(),
-        retriedPage: page.id,
-      };
-      await persist();
-    } catch (error) {
+      for (let attempt = 1; attempt <= pageAttempts; attempt += 1) {
+        attempts += 1;
+        try {
+          await generatePage({
+            projectId,
+            repoRoot,
+            page,
+            model,
+            catalogPages: manifest.catalog.pages,
+            language: manifest.language,
+            diagrams: manifest.diagrams,
+            signal,
+          });
+          page.status = 'done';
+          page.error = undefined;
+          page.errorCode = undefined;
+          manifest.run = {
+            status: 'done',
+            stage: 'done',
+            startedAt: manifest.run.startedAt,
+            finishedAt: now(),
+            retriedPage: page.id,
+            attempts,
+          };
+          await persist();
+          return;
+        } catch (error) {
+          page.error = error?.message || 'page generation failed';
+          page.errorCode = error?.code;
+          if (attempt === pageAttempts) break;
+          if (await waitBeforeRetry(signal)) break;
+        }
+      }
       page.status = 'failed';
-      page.error = error?.message || 'page generation failed';
       manifest.run = {
         status: 'failed',
         stage: 'failed',
         startedAt: manifest.run.startedAt,
         finishedAt: now(),
         retriedPage: page.id,
+        attempts,
         error: page.error,
-        errorCode: error?.code,
+        errorCode: page.errorCode,
       };
       await persist();
     } finally {
@@ -270,7 +324,7 @@ export const createRepoWikiRuntime = ({
    * The run loop. `manifest` is the progressively-written record; every
    * transition persists, so a reader (the panel poll) always sees the truth.
    */
-  const executeRun = async ({ projectId, repoRoot, manifest, model, language, diagrams, cancelFlag }) => {
+  const executeRun = async ({ projectId, repoRoot, manifest, model, language, diagrams, retries, cancelFlag }) => {
     const persist = async () => store.writeManifest(projectId, manifest);
     const setStage = async (stage) => {
       manifest.run = { ...manifest.run, stage };
@@ -318,30 +372,48 @@ export const createRepoWikiRuntime = ({
         page.updatedAt = now();
         await persist();
 
-        try {
-          await generatePage({
-            projectId,
-            repoRoot,
-            page,
-            model,
-            catalogPages: manifest.catalog.pages,
-            language,
-            diagrams,
-            signal,
-          });
-          page.status = 'done';
-          manifest.run = { ...manifest.run, generatedPages: manifest.run.generatedPages + 1 };
-        } catch (pageError) {
-          if (cancelFlag.cancelRequested || signal.aborted) {
-            // A stop is not a failure: the page goes back to pending.
-            page.status = 'pending';
+        const pageAttempts = retries + 1;
+        for (let attempt = 1; attempt <= pageAttempts; attempt += 1) {
+          manifest.run = { ...manifest.run, attempts: (manifest.run.attempts ?? 0) + 1 };
+          try {
+            await generatePage({
+              projectId,
+              repoRoot,
+              page,
+              model,
+              catalogPages: manifest.catalog.pages,
+              language,
+              diagrams,
+              signal,
+            });
+            page.status = 'done';
+            page.error = undefined;
+            page.errorCode = undefined;
+            manifest.run = { ...manifest.run, generatedPages: manifest.run.generatedPages + 1 };
             break;
+          } catch (pageError) {
+            if (cancelFlag.cancelRequested || signal.aborted) {
+              // A stop is not a failure: the page goes back to pending. Stop
+              // wins during the call and during the pause before a retry.
+              page.status = 'pending';
+              break;
+            }
+            page.error = pageError?.message || 'page generation failed';
+            page.errorCode = pageError?.code;
+            if (attempt === pageAttempts) {
+              // Terminal failure keeps the last attempt's stable code.
+              page.status = 'failed';
+              break;
+            }
+            if (await waitBeforeRetry(signal)) {
+              page.status = 'pending';
+              break;
+            }
           }
-          page.status = 'failed';
-          page.error = pageError?.message || 'page generation failed';
         }
         page.updatedAt = now();
         await persist();
+        if (cancelFlag.cancelRequested || signal.aborted) break;
       }
 
       const pagesDone = manifest.catalog.pages.filter((page) => page.status === 'done').length;
@@ -385,10 +457,55 @@ export const createRepoWikiRuntime = ({
     }
   };
 
+  /**
+   * Pages stuck in `writing` died mid-call with the previous server process:
+   * recovery records them failed with a stable code so they become
+   * individually retryable. This lives here — page-status semantics belong to
+   * the run state machine — not in the store, which owns placement and
+   * integrity only.
+   */
+  const recoverInterruptedPages = async () => {
+    let names;
+    try {
+      names = await fsp.readdir(store.rootDir);
+    } catch {
+      return 0;
+    }
+
+    let recovered = 0;
+    for (const name of names) {
+      let manifest;
+      try {
+        manifest = await store.readManifest(name);
+      } catch {
+        continue;
+      }
+      const stuck = manifest?.catalog?.pages?.filter((page) => page?.status === 'writing') ?? [];
+      if (stuck.length === 0) continue;
+      for (const page of stuck) {
+        page.status = 'failed';
+        page.error = 'interrupted by server restart';
+        page.errorCode = 'interrupted';
+        page.updatedAt = now();
+      }
+      try {
+        await store.writeManifest(name, manifest);
+        recovered += stuck.length;
+      } catch {
+        // Leave it; a manifest that cannot be rewritten reads as-is until the
+        // next successful write.
+      }
+    }
+    return recovered;
+  };
+
   return {
     store,
     /** Called once during route registration: a restart killed any live run. */
-    recover: () => store.recoverInterruptedRuns(),
+    recover: async () => {
+      await store.recoverInterruptedRuns();
+      return recoverInterruptedPages();
+    },
 
     async getStatus({ projectId, directory }) {
       const manifest = await store.readManifest(projectId);
@@ -435,6 +552,7 @@ export const createRepoWikiRuntime = ({
 
       try {
         const repoRoot = await getRepositoryRoot(directory);
+        const retries = normalizeRetries(options.retries);
         const existing = await store.readManifest(projectId);
         const language = normalizeLanguage(options.language);
         const diagrams = options.diagrams != null ? options.diagrams === true : true;
@@ -459,7 +577,7 @@ export const createRepoWikiRuntime = ({
         await store.writeManifest(projectId, manifest);
 
         // Fire-and-forget: the route answers immediately and the panel polls.
-        void executeRun({ projectId, repoRoot, manifest, model, language, diagrams, cancelFlag });
+        void executeRun({ projectId, repoRoot, manifest, model, language, diagrams, retries, cancelFlag });
         return { started: true, model: manifest.model };
       } catch (error) {
         activeRuns.delete(projectId);
@@ -482,7 +600,7 @@ export const createRepoWikiRuntime = ({
      * through a full regeneration. Validation happens before the response so
      * the caller sees real errors; the result lands in the manifest.
      */
-    async requestRetry({ projectId, directory, pageId }) {
+    async requestRetry({ projectId, directory, pageId, retries }) {
       assertNotRunning(projectId);
 
       // Same reserve-before-await order as startGeneration: two overlapping
@@ -491,6 +609,7 @@ export const createRepoWikiRuntime = ({
       activeRuns.set(projectId, cancelFlag);
 
       try {
+        const retryBudget = normalizeRetries(retries);
         const manifest = await store.readManifest(projectId);
         if (!manifest) {
           throw fail('No Repo Wiki exists for this project', 404, { code: 'no-wiki' });
@@ -516,7 +635,7 @@ export const createRepoWikiRuntime = ({
         page.status = 'writing';
         await store.writeManifest(projectId, manifest);
 
-        void executeRetry({ projectId, repoRoot, manifest, page, model, cancelFlag });
+        void executeRetry({ projectId, repoRoot, manifest, page, model, retries: retryBudget, cancelFlag });
         return { retried: true, pageId };
       } catch (error) {
         activeRuns.delete(projectId);

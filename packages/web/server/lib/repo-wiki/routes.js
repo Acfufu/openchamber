@@ -98,6 +98,9 @@ export function registerRepoWikiRoutes(app, { repoWikiRuntime }) {
       model: readStringOption(body.model),
     };
     options.diagrams = body.diagrams == null ? undefined : body.diagrams === true;
+    // Raw pass-through: the runtime owns the retries contract (default 0,
+    // integer 0-3) and answers 400 `invalid-retries` for anything else.
+    if (body.retries != null) options.retries = body.retries;
     try {
       return res.json(await repoWikiRuntime.startGeneration({ projectId, directory, options }));
     } catch (error) {
@@ -124,8 +127,11 @@ export function registerRepoWikiRoutes(app, { repoWikiRuntime }) {
     if (!directory) {
       return res.status(400).json({ error: 'directory is required' });
     }
+    const body = req.body || {};
     try {
-      return res.json(await repoWikiRuntime.requestRetry({ projectId, directory, pageId }));
+      // Same raw pass-through as generate: the runtime owns the retries
+      // contract and answers 400 `invalid-retries`.
+      return res.json(await repoWikiRuntime.requestRetry({ projectId, directory, pageId, retries: body.retries }));
     } catch (error) {
       return respondWithError(res, error, 'Failed to retry Repo Wiki page');
     }

@@ -148,6 +148,106 @@ describe('repo-wiki runtime', () => {
     expect(await runtime.readPage({ projectId: 'path_stop', pageId: 'overview' })).toBeTruthy();
   });
 
+  it('stop wins during a retry budget: no second attempt after the abort', async () => {
+    let internalsCalls = 0;
+    inject({
+      modelCall: async ({ prompt, signal }) => {
+        if (prompt.includes('Repository digest:')) {
+          return { text: JSON.stringify(catalogResponse) };
+        }
+        if (prompt.includes('Page to write: Internals')) {
+          internalsCalls += 1;
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => resolve(markdownFor('internals')), 5_000);
+            signal?.addEventListener('abort', () => {
+              clearTimeout(timer);
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            });
+          });
+        }
+        return markdownFor('overview');
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_stop_wait', directory: repoRoot, options: { retries: 1 } });
+    await waitFor(async () => {
+      const status = await runtime.getStatus({ projectId: 'path_stop_wait', directory: repoRoot });
+      return status.wiki?.catalog?.pages?.[0]?.status === 'done';
+    });
+    await runtime.stopGeneration({ projectId: 'path_stop_wait' });
+
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_stop_wait', directory: repoRoot })).wiki?.run?.status === 'stopped');
+    const status = await runtime.getStatus({ projectId: 'path_stop_wait', directory: repoRoot });
+    expect(status.wiki.catalog.pages[1].status).toBe('pending');
+    expect(internalsCalls).toBe(1);
+  });
+
+  it('stop wins during the pause between retry attempts', async () => {
+    let internalsCalls = 0;
+    inject({
+      modelCall: async ({ prompt }) => {
+        if (prompt.includes('Repository digest:')) {
+          return { text: JSON.stringify(catalogResponse) };
+        }
+        if (prompt.includes('Page to write: Internals')) {
+          internalsCalls += 1;
+          throw Object.assign(new Error('model exploded'), { statusCode: 500 });
+        }
+        return markdownFor('overview');
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_stop_delay', directory: repoRoot, options: { retries: 3 } });
+
+    // The first Internals attempt just failed; the run is now inside the
+    // fixed pause before the second attempt. Land the stop inside it.
+    await waitFor(() => internalsCalls === 1);
+    await runtime.stopGeneration({ projectId: 'path_stop_delay' });
+
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_stop_delay', directory: repoRoot })).wiki?.run?.status === 'stopped');
+    const status = await runtime.getStatus({ projectId: 'path_stop_delay', directory: repoRoot });
+    expect(status.wiki.catalog.pages[1].status).toBe('pending');
+    expect(internalsCalls).toBe(1);
+  });
+
+  it('retries a failed page call in place and records the attempts', async () => {
+    let internalsCalls = 0;
+    inject({
+      modelCall: async ({ prompt }) => {
+        if (prompt.includes('Repository digest:')) {
+          return { text: JSON.stringify(catalogResponse) };
+        }
+        if (prompt.includes('Page to write: Internals')) {
+          internalsCalls += 1;
+          if (internalsCalls === 1) {
+            throw Object.assign(new Error('model exploded'), { statusCode: 500 });
+          }
+          return markdownFor('internals');
+        }
+        return markdownFor('overview');
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_retry', directory: repoRoot, options: { retries: 3 } });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_retry', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    const status = await runtime.getStatus({ projectId: 'path_retry', directory: repoRoot });
+    expect(status.wiki.catalog.pages[1].status).toBe('done');
+    // One overview call + two internals attempts.
+    expect(status.wiki.run.attempts).toBe(3);
+    expect(internalsCalls).toBe(2);
+  });
+
+  it('rejects out-of-range and non-integer retry budgets', async () => {
+    inject({ modelCall: async () => markdownFor('overview') });
+    await expect(runtime.startGeneration({ projectId: 'path_bad_retries', directory: repoRoot, options: { retries: 4 } }))
+      .rejects.toMatchObject({ code: 'invalid-retries', statusCode: 400 });
+    await expect(runtime.startGeneration({ projectId: 'path_bad_retries', directory: repoRoot, options: { retries: 1.5 } }))
+      .rejects.toMatchObject({ code: 'invalid-retries', statusCode: 400 });
+    await expect(runtime.requestRetry({ projectId: 'path_bad_retries', directory: repoRoot, pageId: 'overview', retries: -1 }))
+      .rejects.toMatchObject({ code: 'invalid-retries', statusCode: 400 });
+  });
+
   it('isolates a failing page: others finish, run is done, page is retryable', async () => {
     inject({
       modelCall: async ({ prompt }) => {
@@ -405,5 +505,47 @@ describe('repo-wiki runtime', () => {
 
     await expect(runtime.deleteWiki({ projectId: 'path_del' })).resolves.toEqual({ deleted: true });
     expect((await runtime.getStatus({ projectId: 'path_del', directory: repoRoot })).wiki).toBeNull();
+  });
+
+  it('boot recovery reclassifies pages stuck in writing as failed/interrupted, retryable again', async () => {
+    inject({
+      modelCall: async ({ prompt }) => {
+        if (prompt.includes('Repository digest:')) {
+          return { text: JSON.stringify(catalogResponse) };
+        }
+        if (prompt.includes('Page to write: Internals')) {
+          throw Object.assign(new Error('model exploded'), { statusCode: 500 });
+        }
+        return markdownFor('overview');
+      },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_recover', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_recover', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    // Simulate the crash aftermath the store's run recovery cannot see: the
+    // run was already recovered to stopped, but a page died mid-call and its
+    // manifest entry still says `writing`.
+    const manifest = await runtime.store.readManifest('path_recover');
+    manifest.catalog.pages[1].status = 'writing';
+    await runtime.store.writeManifest('path_recover', manifest);
+
+    expect(await runtime.recover()).toBe(1);
+
+    const status = await runtime.getStatus({ projectId: 'path_recover', directory: repoRoot });
+    expect(status.wiki.catalog.pages[1].status).toBe('failed');
+    expect(status.wiki.catalog.pages[1].errorCode).toBe('interrupted');
+
+    // The reclassified page is individually retryable again.
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({ defaultModel: 'test-provider/test-model' }),
+      describeModel: async () => ({ ...describedModel }),
+      modelCall: async () => markdownFor('internals'),
+    });
+    await runtime.recover();
+    await runtime.requestRetry({ projectId: 'path_recover', directory: repoRoot, pageId: 'internals' });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_recover', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect((await runtime.getStatus({ projectId: 'path_recover', directory: repoRoot })).wiki.catalog.pages[1].status).toBe('done');
   });
 });
