@@ -177,6 +177,13 @@ const localizedError = (t: TranslateFn, message: string | null, errorCode: strin
   return t(key);
 };
 
+/** Locale-formatted wall clock for display metadata; unparseable input passes through. */
+const formatTimestamp = (iso: string, locale: string): string => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+};
+
 const wikiErrorLine = (t: TranslateFn, entry: RepoWikiEntry): string | null => {
   if (!entry.error) return null;
   if (entry.errorCode != null && entry.errorCode === 'context-too-small' && entry.errorDetail?.requiredChars != null) {
@@ -263,6 +270,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
   const [retries, setRetries] = React.useState(0);
   const [selectedPageId, setSelectedPageId] = React.useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [pageMarkdown, setPageMarkdown] = React.useState<string | null>(null);
   const [working, setWorking] = React.useState(false);
 
@@ -432,6 +440,64 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                       <Icon name="delete-bin" className="size-4" />
                     </Button>
                   )}
+            </div>
+          )
+        : null}
+
+      {wiki
+        ? (
+            <div className="flex flex-shrink-0 items-center gap-1.5 border-b border-border px-3 py-1.5 typography-micro text-muted-foreground">
+              <button
+                type="button"
+                className="flex flex-shrink-0 items-center rounded-sm hover:text-foreground"
+                aria-expanded={detailsOpen}
+                aria-label={t('repoWiki.meta.details')}
+                title={t('repoWiki.meta.details')}
+                onClick={() => setDetailsOpen((open) => !open)}
+              >
+                <Icon name={detailsOpen ? 'arrow-down-s' : 'arrow-right-s'} className="size-3.5" />
+              </button>
+              <span className="min-w-0 flex-1 truncate">
+                {wiki.branch ? `${wiki.branch} @ ` : ''}
+                {wiki.commit ? wiki.commit.slice(0, 7) : '—'}
+                {' · '}
+                {wiki.language}
+                {run && run.status !== 'running' && run.finishedAt
+                  ? ` · ${formatTimestamp(run.finishedAt, locale)}`
+                  : ''}
+              </span>
+            </div>
+          )
+        : null}
+
+      {wiki && detailsOpen
+        ? (
+            <div className="flex-shrink-0 space-y-1 border-b border-border bg-surface-muted px-3 py-2 typography-micro text-muted-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <span>{t('repoWiki.meta.pages')}</span>
+                <span className="min-w-0 truncate">
+                  {pageCounts.done}/{pageCounts.total}
+                  {pageCounts.failed > 0
+                    ? ` · ${t('repoWiki.pages.failedCount', { count: pageCounts.failed })}`
+                    : ''}
+                </span>
+              </div>
+              {wiki.model
+                ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{t('repoWiki.meta.model')}</span>
+                      <span className="min-w-0 truncate">{wiki.model.providerID}/{wiki.model.modelID}</span>
+                    </div>
+                  )
+                : null}
+              {runActive && stageLabel
+                ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{t('repoWiki.meta.stage')}</span>
+                      <span className="min-w-0 truncate">{stageLabel}</span>
+                    </div>
+                  )
+                : null}
             </div>
           )
         : null}

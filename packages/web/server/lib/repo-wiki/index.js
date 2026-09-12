@@ -157,6 +157,18 @@ export const createRepoWikiRuntime = ({
     }
   };
 
+  /** Display metadata only: staleness is compared commit-to-commit. */
+  const getCurrentBranch = async (repoRoot) => {
+    try {
+      const branch = await simpleGit({ baseDir: repoRoot }).raw(['symbolic-ref', '--short', 'HEAD']);
+      const name = branch.trim();
+      return name || null;
+    } catch {
+      // A detached HEAD has no branch to name; the wiki omits it.
+      return null;
+    }
+  };
+
   const asObject = (value) => {
     if (value == null || Array.isArray(value) || value.constructor !== Object) return {};
     return value;
@@ -524,6 +536,7 @@ export const createRepoWikiRuntime = ({
       return {
         wiki: {
           commit: manifest.commit,
+          branch: manifest.branch ?? null,
           language: manifest.language,
           diagrams: manifest.diagrams,
           model: manifest.model,
@@ -559,11 +572,13 @@ export const createRepoWikiRuntime = ({
         const modelRef = resolveModelRef({ requestedModel: options.model, manifest: existing });
         const model = await describeResolvedModel({ directory, modelRef });
         const commit = await getCurrentCommit(repoRoot);
+        const branch = await getCurrentBranch(repoRoot);
 
         const manifest = {
           projectId,
           promptVersion: PROMPT_VERSION,
           commit,
+          branch,
           language,
           diagrams,
           model: { providerID: model.providerID, modelID: model.modelID },

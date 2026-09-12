@@ -28,9 +28,12 @@ repo would put a generated file into every project's git status.
 ## Storage
 
 `manifest.json` records the project id, the prompt revision that produced the wiki, the commit it was generated at,
-the language, the diagrams flag, the model that produced it, the run state,
-and the catalog (ordered pages with id, title, purpose, files, diagram kind,
-and per-page status). Page bodies live beside it as markdown.
+the branch name at generation time (display metadata only; a detached HEAD
+records null), the language, the diagrams flag, the model that produced it,
+the run state, and the catalog (ordered pages with id, title, purpose, files,
+diagram kind, and per-page status). Page bodies live beside it as markdown.
+Staleness is compared commit-to-commit only — the branch name never
+participates.
 
 Every write is atomic, so a crash leaves the previous state parseable. A run
 still marked `running` after a server restart died with the old process:

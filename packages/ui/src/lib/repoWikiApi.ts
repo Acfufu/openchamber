@@ -49,6 +49,8 @@ export interface RepoWikiModelRef {
 
 export interface RepoWikiStatus {
   commit: string | null;
+  /** Display metadata only; staleness is compared commit-to-commit. */
+  branch: string | null;
   language: string;
   diagrams: boolean;
   model: RepoWikiModelRef | null;
@@ -142,6 +144,7 @@ const parseStatus = (payload: any): RepoWikiStatusResult => {
     const catalogValue = wikiValue.catalog;
     wiki = {
       commit: asString(wikiValue.commit),
+      branch: asString(wikiValue.branch),
       language: asString(wikiValue.language) ?? 'en',
       diagrams: wikiValue.diagrams === true,
       model: modelValue != null && modelValue.constructor === Object

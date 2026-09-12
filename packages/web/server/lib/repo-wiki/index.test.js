@@ -104,6 +104,7 @@ describe('repo-wiki runtime', () => {
     expect(status.stale).toBe(false);
     expect(status.wiki.catalog.pages.map((page) => page.status)).toEqual(['done', 'done']);
     expect(status.wiki.commit).toBeTruthy();
+    expect(status.wiki.branch).toBeTruthy();
 
     const overview = await runtime.readPage({ projectId: 'path_fix', pageId: 'overview' });
     expect(overview).toContain('# overview');
