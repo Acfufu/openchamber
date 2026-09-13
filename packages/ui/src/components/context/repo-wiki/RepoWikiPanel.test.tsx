@@ -24,7 +24,7 @@ const donePage = (id: string, title: string): RepoWikiPageMeta => ({
   id, title, purpose: '', files: [], diagram: null, status: 'done', updatedAt: null, error: null, errorCode: null,
 });
 
-const storedWiki = (stale: boolean) => ({
+const storedWiki = () => ({
   commit: 'a'.repeat(40),
   branch: 'main',
   language: 'English',
@@ -109,7 +109,7 @@ const seed = (directory: string, entry: RepoWikiEntry) => {
 
 test('readOnly renders stored pages but no generation, retry, stop, or delete affordances', async () => {
   useRepoWikiStore.getState().reset();
-  seed('/repo', entryWith({ status: { wiki: storedWiki(false), stale: false, runActive: false }, loaded: true }));
+  seed('/repo', entryWith({ status: { wiki: storedWiki(), stale: false, runActive: false }, loaded: true }));
   const harness = await setup();
   try {
     await harness.render('/repo', true);
@@ -145,7 +145,7 @@ test('readOnly empty state describes the read-only surface with no Generate affo
 
 test('readOnly keeps the informational stale banner but suppresses the Regenerate action', async () => {
   useRepoWikiStore.getState().reset();
-  seed('/repo', entryWith({ status: { wiki: storedWiki(true), stale: true, runActive: false }, loaded: true }));
+  seed('/repo', entryWith({ status: { wiki: storedWiki(), stale: true, runActive: false }, loaded: true }));
   const harness = await setup();
   try {
     await harness.render('/repo', true);
