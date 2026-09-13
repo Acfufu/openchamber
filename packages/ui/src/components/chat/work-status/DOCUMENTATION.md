@@ -112,7 +112,7 @@ which requests only providers enabled for this panel.
 
 ### Turn stats
 
-The section follows Usage and reuses the panel's existing rows. Only its header
+The section follows Usage by default and reuses the panel's existing rows. Only its header
 has an icon; metric rows use labels and values without leading icons. It
 reads already-loaded records without fetching history. The newest turn needs a
 preceding user message and completed assistant steps. A truncated or unfinished
@@ -227,7 +227,7 @@ the row reflects the reset tree rather than a mid-creation snapshot.
 
 ## Section order
 
-Ordering is by durability, not category:
+The default order is by durability:
 
 1. **Session** (goal, context, cost), **Project** (attention, branch,
    changes, PR, checks), **Usage**, and **Turn stats** (session telemetry:
@@ -236,6 +236,29 @@ Ordering is by durability, not category:
    work outright;
 2. **Subagents**, **Tasks** — what is happening right now;
 3. **MCP**, **Pinned messages**, **Context sources** — supporting material.
+
+The sections dialog has drag handles for changing this order, including hidden
+sections. A drop updates the panel immediately. `workStatusSectionOrder` is a
+profile preference persisted through the settings registry and the local UI
+store. Missing or empty order uses the default; duplicate and obsolete ids are
+discarded, and newly introduced sections append in default order. Visibility
+changes never alter positions.
+
+`WorkStatusPrimaryGroup` supplies Session and Project through a composition
+callback so the panel can place them independently while retaining one set of
+data subscriptions. Keyed fragments preserve mounted sections and DOM order;
+sections that render nothing leave no spacing wrappers. Secondary elements are
+created by the panel, so primary readout updates do not rerender them.
+
+The overlay's outside-click and Escape dismissal pauses while this dialog is
+open, since the dialog is portalled outside the panel.
+
+The first rendered section heading reserves space on its right for the panel's
+settings button. The scroller selects the first actual section DOM node, so
+hidden and empty sections do not claim that space. Both heading variants expose
+`data-work-status-heading`; only the heading is inset, leaving body rows at full
+width. Heading summaries truncate within a bounded share of the available width
+so project names and usage summaries cannot push actions under settings.
 
 ## Switching it off
 
@@ -294,6 +317,14 @@ not read as two. Two deliberate differences:
 
 Rows truncate at this width, so each carries a delayed tooltip with the full
 task text.
+
+Tasks starts expanded and stores its collapsed state under the `tasks` section
+id. Collapsed, it keeps the heading and completion count, followed by only the
+first `in_progress` task in the agent's order. Without an active task, including
+pending-only and all-completed lists, it shows no preview row. Live updates
+replace the preview without expanding the section. An authoritative empty todo
+list clears the section rather than restoring old persisted tasks; persistence
+is used only while the scoped live list is missing.
 
 ## Collapsed Usage headline
 
