@@ -136,12 +136,22 @@ the file preview. The renderer leaves unknown schemes alone.
 
 ## Runtime parity
 
-v1 ships on the web and desktop rail only.
+The panel ships on the web and desktop rail and, read-only, as a mobile
+workspace-drawer tab.
 
 - VS Code: excluded twice, deliberately. The surface is filtered from the
   rail via `isVSCode` (same as walkthrough and browser), and a persisted
   `repo-wiki` tab is dropped at restore, so desktop state cannot resurrect it
   in the webview.
-- Mobile: no entry point by design. `MobileApp` has its own chrome and no
-  `MobileWorkspaceDrawer` tab is added. A read-only tab is the natural
-  follow-up if mobile readers ask for it.
+- Mobile: a read-only `Repo Wiki` tab in the `MobileWorkspaceDrawer` renders
+  the shared panel with `readOnly`. No generate/retry/stop/delete is
+  reachable from mobile; the panel's fail-closed reads (status, page
+  markdown, the switcher's list, the model-options probe) ride along. The
+  active project's source references stay live — a tap stages the same
+  pending-file navigation the Files tab consumes — while cross-project
+  references stay inert (ADR-0001: the manifest records no source
+  directory). Mobile drawer panes stay mounted once visited, so
+  `setPanelVisible` reads as "visited this session": the turn-complete
+  revalidate stays intentionally live and the visible-consumer poller stays
+  bounded by its run-active condition. Desktop unmounts the panel on
+  rail-tab switch, so there "visible" tracks actual visibility.
