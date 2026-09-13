@@ -7,7 +7,9 @@ import { McpDropdownContent } from '@/components/mcp/McpDropdown';
 import { ProjectContextPanel } from '@/components/layout/RightSidebarTabs';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SortableTabsStrip, type SortableTabsStripItem } from '@/components/ui/sortable-tabs-strip';
+import { RepoWikiPanel } from '@/components/context/repo-wiki/RepoWikiPanel';
 import { TerminalView } from '@/components/views/TerminalView';
+import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useI18n } from '@/lib/i18n';
 import type { ProjectRef } from '@/lib/projectContextApi';
 import { cn } from '@/lib/utils';
@@ -26,7 +28,7 @@ const ENTER_DELAY_MS = 16;
 const ENTER_DURATION_MS = 320;
 const DRAWER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
-export type MobileWorkspaceTab = 'changes' | 'files' | 'terminal' | 'notes' | 'mcp';
+export type MobileWorkspaceTab = 'changes' | 'files' | 'terminal' | 'notes' | 'wiki' | 'mcp';
 
 /** Quick MCP enable/disable toggles as a workspace pane, with its own slim
     action row (add server → settings, refresh) replacing the old fullscreen
@@ -87,7 +89,27 @@ const McpWorkspacePane: React.FC<{ onOpenMcpSettings: () => void }> = ({ onOpenM
   );
 };
 
-/** The workspace surfaces as tabs (Changes / Files / Terminal / Notes / MCP).
+/** The shared Repo Wiki panel in read-only mode: mobile reads the active
+    workspace's wiki (its source references stay live) but never generates.
+    Renders its own empty note when no workspace directory resolves — the
+    panel itself returns null without one. */
+const RepoWikiPane: React.FC = () => {
+  const { t } = useI18n();
+  const directory = useEffectiveDirectory() ?? '';
+  if (!directory) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <p className="max-w-sm typography-ui-label font-semibold text-foreground">
+          {t('mobile.wiki.pane.noDirectory')}
+        </p>
+      </div>
+    );
+  }
+  return <RepoWikiPanel directory={directory} readOnly />;
+};
+
+/** The workspace surfaces as tabs (Changes / Files / Terminal / Notes /
+    Repo Wiki / MCP).
 
     Two hosts, same content and same state:
      - `drawer` (default) covers the app and slides in from the right edge —
@@ -194,6 +216,7 @@ export const MobileWorkspaceDrawer: React.FC<{
     { id: 'files', label: t('mobile.menu.files'), icon: <Icon name="file-text" className="h-3.5 w-3.5" /> },
     { id: 'terminal', label: t('mobile.menu.terminal'), icon: <Icon name="terminal" className="h-3.5 w-3.5" /> },
     { id: 'notes', label: t('contextRail.surface.notes'), icon: <Icon name="sticky-note" className="h-3.5 w-3.5" /> },
+    { id: 'wiki', label: t('contextRail.surface.repoWiki'), icon: <Icon name="book-open" className="h-3.5 w-3.5" /> },
     { id: 'mcp', label: t('mobile.menu.mcp'), icon: <McpIcon className="h-3.5 w-3.5" /> },
   ];
 
@@ -212,7 +235,7 @@ export const MobileWorkspaceDrawer: React.FC<{
               layoutMode="fit"
               variant="active-pill"
               nonCompositedIndicator
-              // Five tabs don't fit with labels — the active tab keeps
+              // Six tabs don't fit with labels — the active tab keeps
               // icon + label, the rest collapse to icons.
               inactiveTabsIconOnly
               className="h-full"
@@ -266,6 +289,13 @@ export const MobileWorkspaceDrawer: React.FC<{
           <div className={cn('h-full', tab !== 'notes' && 'hidden')}>
             <ErrorBoundary>
               <ProjectContextPanel onActionComplete={onClose} onOpenPlan={onOpenPlan} />
+            </ErrorBoundary>
+          </div>
+        ) : null}
+        {visitedTabs.has('wiki') ? (
+          <div className={cn('h-full', tab !== 'wiki' && 'hidden')}>
+            <ErrorBoundary>
+              <RepoWikiPane />
             </ErrorBoundary>
           </div>
         ) : null}
