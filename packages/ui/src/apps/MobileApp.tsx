@@ -110,7 +110,7 @@ const NATIVE_RESUME_SYNC_EVENT_THROTTLE_MS = 1_000;
 /** The fullscreen app-level surfaces, reachable from the sessions drawer
     footer. Exactly one can be open at a time — opening another replaces it,
     closing returns to the chat. The sessions drawer and the workspace drawer
-    (Changes / Files / Terminal / Notes / MCP) are separate layers. */
+    (Changes / Files / Terminal / Notes / Repo Wiki / MCP) are separate layers. */
 type MobileSurface = 'instances' | 'settings' | 'update';
 
 const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onActiveConnectionDeleted }) => {
@@ -125,6 +125,10 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
   // open/close so the right-edge swipe reopens where the user left off.
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [workspaceTab, setWorkspaceTab] = React.useState<MobileWorkspaceTab>('changes');
+  // Set when a staged file navigation started from a drawer tab: Android
+  // back returns to it (and clears it) before the drawer closes. Cleared in
+  // closeWorkspace so a record only lives within one drawer session.
+  const [navOriginTab, setNavOriginTab] = React.useState<MobileWorkspaceTab | null>(null);
   // A plan opened from the workspace drawer's Notes tab, shown as a fullscreen
   // layer on top of it (back returns to the notes).
   const [openPlan, setOpenPlan] = React.useState<{ id: string; title: string; projectRef: ProjectRef } | null>(null);
@@ -154,6 +158,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
 
   const closeWorkspace = React.useCallback(() => {
     setWorkspaceOpen(false);
+    setNavOriginTab(null);
   }, []);
 
   const openSettingsSurface = React.useCallback((stage: 'nav' | 'page-content') => {
@@ -194,6 +199,47 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
     setWorkspaceTab('changes');
     setWorkspaceOpen(true);
   }, []);
+
+  // Global staged-file-navigation interceptor. Chat tool rows, wiki source
+  // references — every mobile file link — stage pendingFileFocusPath or
+  // pendingFileNavigation in the UI store; route them to the workspace
+  // drawer's Files tab, the only mobile file-rendering surface. The staged
+  // keys are NEVER cleared here: a mounted Files pane consumes them itself
+  // (MobileFilesSurface owns pendingFileFocusPath, FilesView owns
+  // pendingFileNavigation), and on a fresh client the pane mounts because
+  // of this switch and then consumes them. Drawer state is read through
+  // refs (not deps) so closing the drawer can't re-run this effect and
+  // reopen it while a staged key is still set.
+  const workspaceOpenRef = React.useRef(workspaceOpen);
+  const workspaceTabRef = React.useRef(workspaceTab);
+  React.useEffect(() => {
+    workspaceOpenRef.current = workspaceOpen;
+  }, [workspaceOpen]);
+  React.useEffect(() => {
+    workspaceTabRef.current = workspaceTab;
+  }, [workspaceTab]);
+  const pendingFileFocusPath = useUIStore((state) => state.pendingFileFocusPath);
+  const pendingFileNavigation = useUIStore((state) => state.pendingFileNavigation);
+  const lastStagedIdentityRef = React.useRef('');
+  React.useEffect(() => {
+    const identity = pendingFileNavigation
+      ? `nav:${pendingFileNavigation.path}:${pendingFileNavigation.line}:${pendingFileNavigation.column ?? 1}`
+      : pendingFileFocusPath
+        ? `focus:${pendingFileFocusPath}`
+        : '';
+    // Unconditional first write: the ref must return to '' when a consumer
+    // clears the keys, or same-target re-taps would dead-end.
+    lastStagedIdentityRef.current = identity;
+    if (!identity) return;
+    if (workspaceOpenRef.current) {
+      const origin = workspaceTabRef.current;
+      // Already on Files: nothing to return to — the next back closes the
+      // drawer outright instead of costing a no-op tab switch.
+      if (origin !== 'files') setNavOriginTab(origin);
+    }
+    setWorkspaceTab('files');
+    setWorkspaceOpen(true);
+  }, [pendingFileFocusPath, pendingFileNavigation]);
 
   const leftResize = useIpadSidebarResize('left', 'openchamber.ipad.leftSidebarWidth', IPAD_LEFT_SIDEBAR_WIDTH);
   const rightResize = useIpadSidebarResize(
@@ -327,6 +373,13 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
       return true;
     }
     if (workspaceOpen) {
+      // A staged navigation that started from a drawer tab returns to it
+      // first; the next back closes the drawer.
+      if (navOriginTab) {
+        setWorkspaceTab(navOriginTab);
+        setNavOriginTab(null);
+        return true;
+      }
       closeWorkspace();
       return true;
     }
@@ -335,7 +388,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
       return true;
     }
     return false;
-  }, [activeSurface, closeSurface, closeWorkspace, openPlan, sessionsSheetOpen, workspaceOpen]);
+  }, [activeSurface, closeSurface, closeWorkspace, navOriginTab, openPlan, sessionsSheetOpen, workspaceOpen]);
 
   useNativeAndroidBackButton(handleNativeBack);
 
