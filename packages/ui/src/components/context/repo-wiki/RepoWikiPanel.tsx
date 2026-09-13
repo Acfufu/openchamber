@@ -257,6 +257,10 @@ const PageRow: React.FC<{
 interface RepoWikiPanelProps {
   /** The active workspace directory; empty when no workspace is open. */
   directory: string;
+  /** Read-only host (the mobile drawer tab): suppresses the generation
+      form/options, retry, stop, delete, and stale-regenerate actions. NOT
+      crossView — the active project's source references stay live. */
+  readOnly?: boolean;
 }
 
 /** Human-readable switcher label: decode the stored id back to a basename. */
@@ -356,7 +360,7 @@ const ProjectSwitcher: React.FC<{
   );
 };
 
-export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
+export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnly = false }) => {
   const { t, locale, locales, label } = useI18n();
   const modelOptions = useModelOptions();
 
@@ -577,14 +581,14 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
           onOpen={() => void loadList()}
           t={t}
         />
-        {!crossView && entry.status?.stale && !runActive
+        {!crossView && !readOnly && entry.status?.stale && !runActive
           ? (
               <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void startGeneration()}>
                 {t('repoWiki.stale.regenerate')}
               </Button>
             )
           : null}
-        {!crossView && wiki
+        {!crossView && !readOnly && wiki
           ? (
               confirmingDelete
                 ? (
@@ -688,7 +692,20 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
           )
         : null}
 
-      {!crossView && !wiki && !runActive
+      {!crossView && readOnly && !wiki && !runActive
+        ? (
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <div className="mx-auto max-w-sm space-y-4">
+                <div className="space-y-1">
+                  <h2 className="typography-ui-label font-semibold">{t('repoWiki.empty.title')}</h2>
+                  <p className="typography-meta text-muted-foreground">{t('repoWiki.empty.readOnlyDescription')}</p>
+                </div>
+              </div>
+            </div>
+          )
+        : null}
+
+      {!crossView && !readOnly && !wiki && !runActive
         ? (
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               <div className="mx-auto max-w-sm space-y-4">
@@ -776,7 +793,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
             <div className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
               <Icon name="loader-4" className="size-4 animate-spin text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate typography-meta text-muted-foreground">{stageLabel}</span>
-              {crossView
+              {crossView || readOnly
                 ? null
                 : (
                     <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void requestStop()}>
@@ -811,7 +828,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                       page={page}
                       selected={page.id === selectedPageId}
                       active={page.status === 'done'}
-                      canRetry={!crossView}
+                      canRetry={!crossView && !readOnly}
                       onSelect={() => setSelectedPageId(page.id)}
                       onRetry={() => void requestRetry(page.id)}
                     />
@@ -826,7 +843,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory }) => {
                           {localizedError(t, selectedPage.error, selectedPage.errorCode)
                             ?? t('repoWiki.page.status.failed')}
                         </p>
-                        {!crossView
+                        {!crossView && !readOnly
                           ? (
                               <Button type="button" variant="outline" size="sm" disabled={working} onClick={() => void requestRetry(selectedPage.id)}>
                                 {t('repoWiki.page.retry')}
