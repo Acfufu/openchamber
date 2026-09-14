@@ -174,6 +174,42 @@ describe('repo-wiki routes', () => {
     expect(seen.retries).toBe(2);
   });
 
+  it('passes the thought level through and maps its refusal to 400', async () => {
+    const seen = {};
+    const { app } = createApp({
+      startGeneration: async ({ options }) => {
+        // Mirror the runtime's contract boundary: only the four values pass.
+        if (options.thoughtLevel != null && !['off', 'low', 'medium', 'high'].includes(options.thoughtLevel)) {
+          throw Object.assign(new Error('thoughtLevel must be one of: off, low, medium, high'), {
+            statusCode: 400,
+            code: 'thought-level-unsupported',
+          });
+        }
+        seen.thoughtLevel = options.thoughtLevel;
+        return { started: true };
+      },
+    });
+
+    const bad = await request(app)
+      .post('/api/repo-wiki/path_abc/generate')
+      .send({ directory: '/tmp/repo', thoughtLevel: 'extreme' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.code).toBe('thought-level-unsupported');
+
+    const ok = await request(app)
+      .post('/api/repo-wiki/path_abc/generate')
+      .send({ directory: '/tmp/repo', thoughtLevel: 'medium' });
+    expect(ok.status).toBe(200);
+    expect(seen.thoughtLevel).toBe('medium');
+
+    // Absent stays absent — the runtime normalizes to null (model default).
+    const absent = await request(app)
+      .post('/api/repo-wiki/path_abc/generate')
+      .send({ directory: '/tmp/repo' });
+    expect(absent.status).toBe(200);
+    expect(seen.thoughtLevel).toBeUndefined();
+  });
+
   it('maps the retry route invalid-retries refusal to 400', async () => {
     const { app } = createApp({
       requestRetry: async () => {

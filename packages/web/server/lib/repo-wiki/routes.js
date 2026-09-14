@@ -103,6 +103,10 @@ export function registerRepoWikiRoutes(app, { repoWikiRuntime }) {
     // Raw pass-through: the runtime owns the retries contract (default 0,
     // integer 0-3) and answers 400 `invalid-retries` for anything else.
     if (body.retries != null) options.retries = body.retries;
+    // Same pass-through for the thought level: the runtime owns the enum and
+    // the family check, answering 400 `thought-level-unsupported` for a value
+    // the resolved model cannot honor exactly. Absent = model default.
+    if (body.thoughtLevel != null) options.thoughtLevel = body.thoughtLevel;
     try {
       return res.json(await repoWikiRuntime.startGeneration({ projectId, directory, options }));
     } catch (error) {

@@ -644,3 +644,193 @@ describe('repo-wiki runtime', () => {
     expect((await runtime.getStatus({ projectId: 'path_recover', directory: repoRoot })).wiki.catalog.pages[1].status).toBe('done');
   });
 });
+
+describe('repo-wiki thought level', () => {
+  const zhipuDescribe = async () => ({ ...describedModel, providerID: 'zhipu', modelID: 'glm-4.7' });
+  const standardPagesModelCall = (record) => async (args) => {
+    record.push(args);
+    if (args.prompt.includes('Repository digest:')) {
+      return { text: JSON.stringify(catalogResponse) };
+    }
+    return markdownFor(args.prompt.includes('Page to write: Internals') ? 'internals' : 'overview');
+  };
+  const readManifestFromDisk = async (projectId) => JSON.parse(
+    await fs.promises.readFile(path.join(dataDir, 'repo-wiki', projectId, 'manifest.json'), 'utf8'),
+  );
+  const writeManifestToDisk = async (projectId, manifest) => {
+    // The parsed manifest already carries its wikiVersion from the real writer.
+    await fs.promises.writeFile(
+      path.join(dataDir, 'repo-wiki', projectId, 'manifest.json'),
+      JSON.stringify(manifest, null, 2),
+      'utf8',
+    );
+  };
+
+  it('rejects a level the resolved model cannot honor before writing anything', async () => {
+    inject({ modelCall: async () => { throw new Error('must not be called'); } });
+    await runtime.recover();
+    // test-provider/test-model is a no-switch family: every level is rejected.
+    await expect(runtime.startGeneration({
+      projectId: 'path_level_none', directory: repoRoot, options: { thoughtLevel: 'low' },
+    })).rejects.toMatchObject({ code: 'thought-level-unsupported', statusCode: 400 });
+    expect((await runtime.getStatus({ projectId: 'path_level_none' })).wiki).toBeNull();
+  });
+
+  it('rejects a malformed level with the same code', async () => {
+    inject({ modelCall: async () => { throw new Error('must not be called'); } });
+    await runtime.recover();
+    await expect(runtime.startGeneration({
+      projectId: 'path_level_bad', directory: repoRoot, options: { thoughtLevel: 'extreme' },
+    })).rejects.toMatchObject({ code: 'thought-level-unsupported', statusCode: 400 });
+  });
+
+  it('records an honorable level in manifest, run, and every page call', async () => {
+    const calls = [];
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({ defaultModel: 'test-provider/test-model' }),
+      describeModel: zhipuDescribe,
+      modelCall: standardPagesModelCall(calls),
+    });
+    await runtime.recover();
+    await runtime.startGeneration({ projectId: 'path_level_ok', directory: repoRoot, options: { thoughtLevel: 'high' } });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_ok', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    expect(calls.length).toBeGreaterThanOrEqual(3);
+    expect(calls.every((args) => args.thoughtLevel === 'high')).toBe(true);
+    const status = await runtime.getStatus({ projectId: 'path_level_ok', directory: repoRoot });
+    expect(status.wiki.thoughtLevel).toBe('high');
+    expect(status.wiki.run.thoughtLevel).toBe('high');
+  });
+
+  it('retry follows the manifest level, not a request field', async () => {
+    const calls = [];
+    const failingThenOk = async (args) => {
+      calls.push(args);
+      if (args.prompt.includes('Repository digest:')) {
+        return { text: JSON.stringify(catalogResponse) };
+      }
+      if (args.prompt.includes('Page to write: Internals') && calls.filter((entry) => entry.prompt.includes('Page to write: Internals')).length === 1) {
+        throw Object.assign(new Error('model exploded'), { statusCode: 500 });
+      }
+      return markdownFor(args.prompt.includes('Page to write: Internals') ? 'internals' : 'overview');
+    };
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({ defaultModel: 'test-provider/test-model' }),
+      describeModel: zhipuDescribe,
+      modelCall: failingThenOk,
+    });
+    await runtime.recover();
+    await runtime.startGeneration({ projectId: 'path_level_retry', directory: repoRoot, options: { thoughtLevel: 'low' } });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_retry', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect((await runtime.getStatus({ projectId: 'path_level_retry', directory: repoRoot })).wiki.catalog.pages[1].status).toBe('failed');
+
+    await runtime.requestRetry({ projectId: 'path_level_retry', directory: repoRoot, pageId: 'internals', retries: 0 });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_retry', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    const pageCalls = calls.filter((entry) => entry.prompt.includes('Page to write: Internals'));
+    // The retry attempt carried the manifest's level even though the retry
+    // request has no thought-level field at all.
+    expect(pageCalls.at(-1).thoughtLevel).toBe('low');
+    const status = await runtime.getStatus({ projectId: 'path_level_retry', directory: repoRoot });
+    expect(status.wiki.catalog.pages[1].status).toBe('done');
+    expect(status.wiki.run.thoughtLevel).toBe('low');
+  });
+
+  it('re-validates the manifest level against the re-resolved model on retry', async () => {
+    const calls = [];
+    const failingInternals = async (args) => {
+      calls.push(args);
+      if (args.prompt.includes('Repository digest:')) {
+        return { text: JSON.stringify(catalogResponse) };
+      }
+      if (args.prompt.includes('Page to write: Internals')) {
+        throw Object.assign(new Error('model exploded'), { statusCode: 500 });
+      }
+      return markdownFor('overview');
+    };
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({ defaultModel: 'test-provider/test-model' }),
+      describeModel: zhipuDescribe,
+      modelCall: failingInternals,
+    });
+    await runtime.recover();
+    await runtime.startGeneration({ projectId: 'path_level_drift', directory: repoRoot, options: { thoughtLevel: 'low' } });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_drift', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    // Simulate a server upgrade that reclassified the recorded model into a
+    // no-switch family: the stored combination can no longer be honored.
+    const manifest = await readManifestFromDisk('path_level_drift');
+    manifest.model = { providerID: 'deepseek', modelID: 'deepseek-chat' };
+    await writeManifestToDisk('path_level_drift', manifest);
+
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({ defaultModel: 'test-provider/test-model' }),
+      describeModel: async ({ model }) => ({ ...describedModel, providerID: model.providerID, modelID: model.modelID }),
+      modelCall: async () => { throw new Error('must not be called'); },
+    });
+    await runtime.recover();
+    await expect(runtime.requestRetry({ projectId: 'path_level_drift', directory: repoRoot, pageId: 'internals' }))
+      .rejects.toMatchObject({ code: 'thought-level-unsupported', statusCode: 400 });
+  });
+
+  it('propagates truncated without the one-shot schema fallback', async () => {
+    const calls = [];
+    const truncatedInternals = async (args) => {
+      calls.push(args);
+      if (args.prompt.includes('Repository digest:')) {
+        return { text: JSON.stringify(catalogResponse) };
+      }
+      if (args.prompt.includes('Page to write: Internals')) {
+        throw Object.assign(new Error('clipped'), { code: 'truncated' });
+      }
+      return markdownFor('overview');
+    };
+    inject({ modelCall: truncatedInternals });
+    await runtime.recover();
+    await runtime.startGeneration({ projectId: 'path_level_trunc', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_trunc', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    const status = await runtime.getStatus({ projectId: 'path_level_trunc', directory: repoRoot });
+    expect(status.wiki.catalog.pages[1].status).toBe('failed');
+    expect(status.wiki.catalog.pages[1].errorCode).toBe('truncated');
+    // One call for the page: the JSON re-prompt fallback never fired.
+    const internalsCalls = calls.filter((entry) => entry.prompt.includes('Page to write: Internals'));
+    expect(internalsCalls).toHaveLength(1);
+  });
+
+  it('treats an old manifest without the field as model default', async () => {
+    const calls = [];
+    const failingInternals = async (args) => {
+      calls.push(args);
+      if (args.prompt.includes('Repository digest:')) {
+        return { text: JSON.stringify(catalogResponse) };
+      }
+      if (args.prompt.includes('Page to write: Internals')) {
+        throw Object.assign(new Error('model exploded'), { statusCode: 500 });
+      }
+      return markdownFor('overview');
+    };
+    inject({ modelCall: failingInternals });
+    await runtime.recover();
+    await runtime.startGeneration({ projectId: 'path_level_legacy', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_legacy', directory: repoRoot })).wiki?.run?.status === 'done');
+
+    // Strip every trace of the field, as a pre-option manifest would read.
+    const manifest = await readManifestFromDisk('path_level_legacy');
+    delete manifest.thoughtLevel;
+    if (manifest.run) delete manifest.run.thoughtLevel;
+    await writeManifestToDisk('path_level_legacy', manifest);
+
+    expect((await runtime.getStatus({ projectId: 'path_level_legacy', directory: repoRoot })).wiki.thoughtLevel).toBeNull();
+
+    inject({ modelCall: standardPagesModelCall(calls) });
+    await runtime.recover();
+    await runtime.requestRetry({ projectId: 'path_level_legacy', directory: repoRoot, pageId: 'internals' });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_level_legacy', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect(calls.filter((entry) => entry.prompt.includes('Page to write: Internals')).at(-1).thoughtLevel).toBeNull();
+  });
+});

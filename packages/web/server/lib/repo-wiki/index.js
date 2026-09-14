@@ -31,6 +31,7 @@ import fsp from 'fs/promises';
 import simpleGit from 'simple-git';
 
 import { getRepositoryRoot } from '../git/service.js';
+import { isThoughtLevelHonorable, THOUGHT_LEVEL_VALUES, thoughtLevelUnsupportedError } from '../small-model/call.js';
 import { normalizeLanguage } from '../walkthrough/languages.js';
 import { buildCatalogDigest, buildPageContext } from './digest.js';
 import { buildCatalogPrompt, buildPagePrompt, PROMPT_VERSION, RESPONSE_FORMAT_INSTRUCTION } from './prompt.js';
@@ -68,6 +69,30 @@ const normalizeRetries = (value) => {
   return value;
 };
 
+/**
+ * The generation option's thought level: one of the four coarse values, or
+ * null for "model default" — absent sends nothing and means exactly the
+ * pre-option behavior. A malformed value is unsupported, never coerced.
+ */
+const normalizeThoughtLevel = (value) => {
+  if (value == null) return null;
+  if (THOUGHT_LEVEL_VALUES.includes(value)) return value;
+  throw fail(`thoughtLevel must be one of: ${THOUGHT_LEVEL_VALUES.join(', ')}`, 400, { code: 'thought-level-unsupported' });
+};
+
+/**
+ * Family check against the resolved model: an unhonorable family × level
+ * combination is rejected before the manifest write (start) and again after
+ * every retry's model re-resolution — the mapping table can change across a
+ * server upgrade between run start and a retry, and a level must never reach
+ * the chain unvalidated.
+ */
+const assertThoughtLevelSupported = ({ providerID, modelID, thoughtLevel }) => {
+  if (!isThoughtLevelHonorable({ providerID, modelID, thoughtLevel })) {
+    throw thoughtLevelUnsupportedError(providerID, modelID, thoughtLevel);
+  }
+};
+
 /** Fixed pause between page-call attempts; an abort during the pause wins. */
 const waitBeforeRetry = (signal) => new Promise((resolve) => {
   if (signal?.aborted) {
@@ -97,7 +122,7 @@ const parseModelRef = (value) => {
 };
 
 /** One attempt against the real model stack; tests replace this wholesale. */
-const defaultModelCall = async ({ directory, model, system, prompt, responseSchema, timeoutMs, signal }) => {
+const defaultModelCall = async ({ directory, model, system, prompt, responseSchema, thoughtLevel, timeoutMs, signal }) => {
   const { generateSmallModelText } = await import('../small-model/index.js');
   return generateSmallModelText({
     prompt,
@@ -105,6 +130,7 @@ const defaultModelCall = async ({ directory, model, system, prompt, responseSche
     model: `${model.providerID}/${model.modelID}`,
     directory,
     responseSchema,
+    thoughtLevel,
     timeoutMs,
     signal,
     maxOutputTokens: model.outputTokens ?? undefined,
@@ -215,13 +241,14 @@ export const createRepoWikiRuntime = ({
    * instead, once, and the refusal is remembered for the process lifetime.
    * Known request failures (context, login, model) propagate untouched.
    */
-  const callWithSchemaFallback = async ({ directory, model, system, prompt, responseSchema, signal }) => {
+  const callWithSchemaFallback = async ({ directory, model, system, prompt, responseSchema, thoughtLevel, signal }) => {
     const attempt = (useSchema) => modelCall({
       directory,
       model,
       system: useSchema ? system : `${system}\n${RESPONSE_FORMAT_INSTRUCTION}`,
       prompt,
       responseSchema: useSchema ? responseSchema : undefined,
+      thoughtLevel,
       timeoutMs: CALL_TIMEOUT_MS,
       signal,
     });
@@ -236,7 +263,9 @@ export const createRepoWikiRuntime = ({
       // Provider HTTP errors carry `status` (small-model call.js); the
       // walkthrough's refusal check reads the same property.
       const statusCode = Number(error?.status ?? error?.statusCode);
-      const isRequestFailure = ['context-too-small', 'output-exhausted', 'no-provider-login', 'no-model']
+      // `truncated` joins deliberately: the one-shot fallback reshapes output
+      // FORMAT, not the required content budget — a clipped page clips again.
+      const isRequestFailure = ['context-too-small', 'output-exhausted', 'truncated', 'no-provider-login', 'no-model']
         .includes(error?.code);
       if (isRequestFailure) throw error;
       if (!(error?.code === 'structured-output-unsupported' || (statusCode >= 400 && statusCode < 500))) throw error;
@@ -249,7 +278,7 @@ export const createRepoWikiRuntime = ({
   const now = () => new Date().toISOString();
 
   /** One page: build context, prompt, call the model, persist the markdown. */
-  const generatePage = async ({ projectId, repoRoot, page, model, catalogPages, language, diagrams, signal }) => {
+  const generatePage = async ({ projectId, repoRoot, page, model, catalogPages, language, diagrams, thoughtLevel, signal }) => {
     const context = await buildPageContext({
       repoRoot,
       files: page.files,
@@ -269,6 +298,7 @@ export const createRepoWikiRuntime = ({
       system: pageCall.system,
       prompt: pageCall.prompt,
       responseSchema: pageResponseSchema,
+      thoughtLevel,
       signal,
     });
     const { markdown } = normalizePage(parseModelJson(pageRaw.text));
@@ -280,6 +310,9 @@ export const createRepoWikiRuntime = ({
     const persist = async () => store.writeManifest(projectId, manifest);
     const signal = cancelFlag.controller.signal;
     const pageAttempts = retries + 1;
+    // The retry follows the manifest's recorded level — the same rail as
+    // language/diagrams — not any panel select.
+    const thoughtLevel = manifest.thoughtLevel ?? null;
     let attempts = 0;
     try {
       for (let attempt = 1; attempt <= pageAttempts; attempt += 1) {
@@ -293,6 +326,7 @@ export const createRepoWikiRuntime = ({
             catalogPages: manifest.catalog.pages,
             language: manifest.language,
             diagrams: manifest.diagrams,
+            thoughtLevel,
             signal,
           });
           page.status = 'done';
@@ -305,6 +339,7 @@ export const createRepoWikiRuntime = ({
             finishedAt: now(),
             retriedPage: page.id,
             attempts,
+            thoughtLevel,
           };
           await persist();
           return;
@@ -325,6 +360,7 @@ export const createRepoWikiRuntime = ({
         attempts,
         error: page.error,
         errorCode: page.errorCode,
+        thoughtLevel,
       };
       await persist();
     } finally {
@@ -336,7 +372,7 @@ export const createRepoWikiRuntime = ({
    * The run loop. `manifest` is the progressively-written record; every
    * transition persists, so a reader (the panel poll) always sees the truth.
    */
-  const executeRun = async ({ projectId, repoRoot, manifest, model, language, diagrams, retries, cancelFlag }) => {
+  const executeRun = async ({ projectId, repoRoot, manifest, model, language, diagrams, retries, thoughtLevel, cancelFlag }) => {
     const persist = async () => store.writeManifest(projectId, manifest);
     const setStage = async (stage) => {
       manifest.run = { ...manifest.run, stage };
@@ -365,6 +401,7 @@ export const createRepoWikiRuntime = ({
         system: catalogCall.system,
         prompt: catalogCall.prompt,
         responseSchema: catalogResponseSchema,
+        thoughtLevel,
         signal,
       });
       const { pages } = normalizeCatalog(parseModelJson(catalogRaw.text));
@@ -396,6 +433,7 @@ export const createRepoWikiRuntime = ({
               catalogPages: manifest.catalog.pages,
               language,
               diagrams,
+              thoughtLevel,
               signal,
             });
             page.status = 'done';
@@ -581,6 +619,7 @@ export const createRepoWikiRuntime = ({
           branch: manifest.branch ?? null,
           language: manifest.language,
           diagrams: manifest.diagrams,
+          thoughtLevel: manifest.thoughtLevel ?? null,
           model: manifest.model,
           generatedAt: manifest.run?.startedAt,
           run: manifest.run,
@@ -610,11 +649,13 @@ export const createRepoWikiRuntime = ({
       try {
         const repoRoot = await getRepositoryRoot(directory);
         const retries = normalizeRetries(options.retries);
+        const thoughtLevel = normalizeThoughtLevel(options.thoughtLevel);
         const existing = await store.readManifest(projectId);
         const language = normalizeLanguage(options.language);
         const diagrams = options.diagrams != null ? options.diagrams === true : true;
         const modelRef = resolveModelRef({ requestedModel: options.model, manifest: existing });
         const model = await describeResolvedModel({ directory, modelRef });
+        assertThoughtLevelSupported({ providerID: model.providerID, modelID: model.modelID, thoughtLevel });
         const commit = await getCurrentCommit(repoRoot);
         const branch = await getCurrentBranch(repoRoot);
 
@@ -625,18 +666,20 @@ export const createRepoWikiRuntime = ({
           branch,
           language,
           diagrams,
+          thoughtLevel,
           model: { providerID: model.providerID, modelID: model.modelID },
           catalog: { pages: [] },
           run: {
             status: 'running',
             stage: 'digesting',
             startedAt: now(),
+            thoughtLevel,
           },
         };
         await store.writeManifest(projectId, manifest);
 
         // Fire-and-forget: the route answers immediately and the panel polls.
-        void executeRun({ projectId, repoRoot, manifest, model, language, diagrams, retries, cancelFlag });
+        void executeRun({ projectId, repoRoot, manifest, model, language, diagrams, retries, thoughtLevel, cancelFlag });
         return { started: true, model: manifest.model };
       } catch (error) {
         activeRuns.delete(projectId);
@@ -684,12 +727,17 @@ export const createRepoWikiRuntime = ({
         const repoRoot = await getRepositoryRoot(directory);
         const modelRef = resolveModelRef({ requestedModel: null, manifest });
         const model = await describeResolvedModel({ directory, modelRef });
+        // The retry follows the manifest's recorded level against the same
+        // recorded model; the re-check keeps the rejection invariant
+        // path-independent even if the mapping table changed since run start.
+        assertThoughtLevelSupported({ providerID: model.providerID, modelID: model.modelID, thoughtLevel: manifest.thoughtLevel ?? null });
 
         manifest.run = {
           status: 'running',
           stage: 'pages',
           startedAt: now(),
           retriedPage: pageId,
+          thoughtLevel: manifest.thoughtLevel ?? null,
         };
         page.status = 'writing';
         await store.writeManifest(projectId, manifest);
