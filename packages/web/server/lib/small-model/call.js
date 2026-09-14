@@ -299,7 +299,7 @@ const callOpenaiResponses = async ({ baseURL, headers, modelID, prompt, system, 
   return text;
 };
 
-const callMessages = async ({ url, headers, modelID, prompt, system, maxOutputTokens, providerLabel, responseSchema, timeoutMs, signal }) => {
+const callMessages = async ({ url, headers, modelID, prompt, system, maxOutputTokens, thinking, providerLabel, responseSchema, timeoutMs, signal }) => {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -311,6 +311,7 @@ const callMessages = async ({ url, headers, modelID, prompt, system, maxOutputTo
       model: modelID,
       max_tokens: maxOutputTokens,
       ...(system ? { system } : {}),
+      ...(thinking && { thinking }),
       messages: [{ role: 'user', content: prompt }],
       // The messages API has no response_format; a forced single-tool call is
       // the supported way to get schema-shaped output.
@@ -352,7 +353,7 @@ const callMessages = async ({ url, headers, modelID, prompt, system, maxOutputTo
   return text;
 };
 
-const callAnthropic = async ({ apiKey, baseURL, modelID, prompt, system, maxOutputTokens, responseSchema, timeoutMs, signal }) => callMessages({
+const callAnthropic = async ({ apiKey, baseURL, modelID, prompt, system, maxOutputTokens, thinking, responseSchema, timeoutMs, signal }) => callMessages({
   // Matches @ai-sdk/anthropic: baseURL is the full API prefix (commonly
   // already ending in /v1), so it gets /messages appended as-is rather than
   // having /v1/messages appended, which would double up a configured /v1.
@@ -365,6 +366,7 @@ const callAnthropic = async ({ apiKey, baseURL, modelID, prompt, system, maxOutp
   prompt,
   system,
   maxOutputTokens,
+  thinking,
   providerLabel: 'Anthropic',
   responseSchema,
   timeoutMs,
@@ -416,12 +418,26 @@ const getCopilotEndpoint = async ({ baseURL, headers, modelID }) => {
   throw new Error(`GitHub Copilot model "${modelID}" has no supported text endpoint`);
 };
 
-const callGoogle = async ({ apiKey, modelID, prompt, system, maxOutputTokens, responseSchema, timeoutMs, signal }) => {
+const callGoogle = async ({ apiKey, modelID, prompt, system, maxOutputTokens, thoughtLevel, responseSchema, timeoutMs, signal }) => {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelID)}:generateContent`;
   const lowerModelID = modelID.toLowerCase();
-  const thinkingConfig = lowerModelID.startsWith('gemini-3')
-    ? { thinkingLevel: lowerModelID.includes('flash') ? 'minimal' : 'low' }
-    : lowerModelID.startsWith('gemini-2') ? { thinkingBudget: 0 } : null;
+  let thinkingConfig;
+  if (thoughtLevel == null) {
+    thinkingConfig = lowerModelID.startsWith('gemini-3')
+      ? { thinkingLevel: lowerModelID.includes('flash') ? 'minimal' : 'low' }
+      : lowerModelID.startsWith('gemini-2') ? { thinkingBudget: 0 } : null;
+  } else if (lowerModelID.startsWith('gemini-3')) {
+    // thinkingLevel has no "off" — the level enum rejects it here.
+    if (thoughtLevel === 'off') throw thoughtLevelUnsupportedError('google', modelID, thoughtLevel);
+    thinkingConfig = { thinkingLevel: thoughtLevel };
+  } else if (lowerModelID.startsWith('gemini-2')) {
+    // Budget 0 IS this family's off; positive budgets are an unpinned
+    // capability, so levels are rejected rather than guessed.
+    if (thoughtLevel !== 'off') throw thoughtLevelUnsupportedError('google', modelID, thoughtLevel);
+    thinkingConfig = { thinkingBudget: 0 };
+  } else {
+    throw thoughtLevelUnsupportedError('google', modelID, thoughtLevel);
+  }
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -516,6 +532,99 @@ const callCodexResponses = async ({ accessToken, accountId, modelID, prompt, sys
     throw new Error('OpenAI (ChatGPT plan) returned no text output');
   }
   return result;
+};
+
+// ---------------------------------------------------------------------------
+// Thought level
+//
+// A fixed coarse enum (`off | low | medium | high`) mapped per provider family
+// for callers that expose it as a generation option (repo wiki). There is NO
+// universal parameter: unknown body fields 400 on some providers, so each
+// family keeps its own explicit wire mapping and an unhonorable
+// family × level combination is rejected, never silently reinterpreted.
+// An absent/undefined level means exactly the pre-option behavior.
+// ---------------------------------------------------------------------------
+
+export const THOUGHT_LEVEL_VALUES = ['off', 'low', 'medium', 'high'];
+
+// messages-family budget levels, pinned here; ZCode's default-1024 is the
+// reference point. All sit below the smallest output budget a wiki page
+// requests (≥ 4000), and the messages API requires budget_tokens < max_tokens.
+const MESSAGES_THINKING_BUDGET_TOKENS = { low: 1024, medium: 2048, high: 3072 };
+
+export const thoughtLevelUnsupportedError = (providerID, modelID, thoughtLevel) => Object.assign(
+  new Error(`Thought level "${thoughtLevel}" is not supported for ${providerID}/${modelID}`),
+  { statusCode: 400, code: 'thought-level-unsupported', providerID, modelID, thoughtLevel },
+);
+
+const supportsThinkingToggle = (providerID, modelID) => {
+  const lowerModel = String(modelID || '').toLowerCase();
+  return providerID.includes('zai')
+    || providerID.includes('zhipu')
+    || lowerModel.includes('glm')
+    || lowerModel.includes('minimax-m3');
+};
+
+/**
+ * Which wire switch a thought level maps onto for this provider/model.
+ * 'deferred' marks GitHub Copilot, whose endpoint (messages / responses /
+ * chat completions) is discovered at call time — the mapping applies there.
+ */
+export const resolveThoughtLevelFamily = (providerID, modelID) => {
+  const lowerModel = String(modelID || '').toLowerCase();
+  if (providerID === 'anthropic') return 'messages';
+  if (providerID === 'google') {
+    if (lowerModel.startsWith('gemini-3')) return 'gemini-3';
+    if (lowerModel.startsWith('gemini-2')) return 'gemini-2';
+    return 'none';
+  }
+  if (providerID === 'github-copilot' || providerID === 'copilot') return 'deferred';
+  // openai lands on chat completions (no switch) or the codex Responses
+  // backend (no switch) — neither carries a level.
+  if (providerID === 'openai') return 'none';
+  return supportsThinkingToggle(providerID, modelID) ? 'thinking-toggle' : 'none';
+};
+
+/**
+ * Route-side honorability check (pre-digest): false means the caller rejects
+ * with `thought-level-unsupported` before any model call is spent. 'deferred'
+ * families are decided at call time, so they pass here.
+ */
+export const isThoughtLevelHonorable = ({ providerID, modelID, thoughtLevel }) => {
+  if (thoughtLevel == null) return true;
+  switch (resolveThoughtLevelFamily(providerID, modelID)) {
+    case 'messages':
+    case 'thinking-toggle':
+    case 'deferred':
+      return true;
+    case 'gemini-3':
+      return thoughtLevel !== 'off';
+    case 'gemini-2':
+      return thoughtLevel === 'off';
+    default:
+      return false;
+  }
+};
+
+// The messages-format `thinking` body field: undefined = omit (also the
+// mapping for `off`, whose identity on this family is "no thinking field").
+const messagesThinkingParam = (thoughtLevel) => (
+  thoughtLevel == null || thoughtLevel === 'off'
+    ? undefined
+    : { type: 'enabled', budget_tokens: MESSAGES_THINKING_BUDGET_TOKENS[thoughtLevel] }
+);
+
+// The chat-completions `extraBody`: the thinking-toggle allowlist is the only
+// switch this wire format has. `off` keeps today's disabled value; levels map
+// to enabled; any level on a no-toggle model is rejected.
+const resolveChatCompletionsExtraBody = ({ providerID, modelID, thoughtLevel }) => {
+  if (thoughtLevel == null) {
+    return supportsThinkingToggle(providerID, modelID) ? { thinking: { type: 'disabled' } } : undefined;
+  }
+  if (!supportsThinkingToggle(providerID, modelID)) {
+    throw thoughtLevelUnsupportedError(providerID, modelID, thoughtLevel);
+  }
+  return { thinking: { type: thoughtLevel === 'off' ? 'disabled' : 'enabled' } };
 };
 
 // ---------------------------------------------------------------------------
@@ -648,7 +757,7 @@ export async function resolveProviderLogin({ auth, workingDirectory, providerID 
     || null;
 }
 
-export async function callSmallModel({ auth, catalog, workingDirectory, sessionID, providerID, modelID, prompt, system, maxOutputTokens, responseSchema, timeoutMs, signal }) {
+export async function callSmallModel({ auth, catalog, workingDirectory, sessionID, providerID, modelID, prompt, system, maxOutputTokens, thoughtLevel, responseSchema, timeoutMs, signal }) {
   const tokens = Number(maxOutputTokens) > 0 ? Number(maxOutputTokens) : DEFAULT_MAX_OUTPUT_TOKENS;
   const providerConfig = readProviderConfig(workingDirectory, providerID);
   const runtimeProvider = await getRuntimeProvider(providerID);
@@ -714,12 +823,19 @@ export async function callSmallModel({ auth, catalog, workingDirectory, sessionI
           ...headers,
           'anthropic-version': '2023-06-01',
         },
+        thinking: messagesThinkingParam(thoughtLevel),
       });
     }
     if (endpoint === 'responses') {
+      if (thoughtLevel != null) {
+        throw thoughtLevelUnsupportedError(providerID, modelID, thoughtLevel);
+      }
       return callOpenaiResponses(request);
     }
-    return callOpenaiCompatible(request);
+    return callOpenaiCompatible({
+      ...request,
+      extraBody: resolveChatCompletionsExtraBody({ providerID, modelID, thoughtLevel }),
+    });
   }
 
   if (providerID === 'openai' && entry.type === 'oauth') {
@@ -731,6 +847,9 @@ export async function callSmallModel({ auth, catalog, workingDirectory, sessionI
         new Error('The ChatGPT-plan OpenAI login does not support structured output — choose another small model'),
         { code: 'structured-output-unsupported' },
       );
+    }
+    if (thoughtLevel != null) {
+      throw thoughtLevelUnsupportedError(providerID, modelID, thoughtLevel);
     }
     const fresh = await ensureFreshOpenaiOauth(entry);
     return callCodexResponses({
@@ -752,10 +871,10 @@ export async function callSmallModel({ auth, catalog, workingDirectory, sessionI
   }
 
   if (providerID === 'anthropic') {
-    return callAnthropic({ apiKey, baseURL: providerConfig?.baseURL, modelID, prompt, system, maxOutputTokens: tokens, responseSchema, timeoutMs, signal });
+    return callAnthropic({ apiKey, baseURL: providerConfig?.baseURL, modelID, prompt, system, maxOutputTokens: tokens, thinking: messagesThinkingParam(thoughtLevel), responseSchema, timeoutMs, signal });
   }
   if (providerID === 'google') {
-    return callGoogle({ apiKey, modelID, prompt, system, maxOutputTokens: tokens, responseSchema, timeoutMs, signal });
+    return callGoogle({ apiKey, modelID, prompt, system, maxOutputTokens: tokens, thoughtLevel, responseSchema, timeoutMs, signal });
   }
 
   // Everything else: OpenAI-compatible chat completions against the catalog's
@@ -789,13 +908,9 @@ export async function callSmallModel({ auth, catalog, workingDirectory, sessionI
   // OpenCode's smallOptions/variants special cases). There is NO universal
   // parameter: unknown body fields 400 on some providers, so this stays an
   // explicit allowlist. Models without a switch (DeepSeek, Qwen, Kimi, …)
-  // just get the generous output budget.
-  const lowerModel = modelID.toLowerCase();
-  const supportsThinkingToggle = providerID.includes('zai')
-    || providerID.includes('zhipu')
-    || lowerModel.includes('glm')
-    || lowerModel.includes('minimax-m3');
-  const extraBody = supportsThinkingToggle ? { thinking: { type: 'disabled' } } : undefined;
+  // just get the generous output budget — and an explicit thought level is
+  // rejected there instead of being sent or silently dropped.
+  const extraBody = resolveChatCompletionsExtraBody({ providerID, modelID, thoughtLevel });
 
   return callOpenaiCompatible({
     baseURL,

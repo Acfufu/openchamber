@@ -5,7 +5,7 @@ import { readAuthFile } from '../opencode/auth.js';
 import { readConfigLayers } from '../opencode/shared.js';
 import { getModelCatalog } from './catalog.js';
 import { resolveSmallModel, parseModelRef, isUsableAuthEntry, getAuthEntryForProvider } from './resolve.js';
-import { DEDICATED_WIRE_FORMAT_PROVIDERS, callSmallModel, resolveProviderLogin } from './call.js';
+import { DEDICATED_WIRE_FORMAT_PROVIDERS, THOUGHT_LEVEL_VALUES, thoughtLevelUnsupportedError, callSmallModel, resolveProviderLogin } from './call.js';
 import { readMergedSettingsSync } from '../opencode/settings-files.js';
 import { getRuntimeProviderSnapshot } from './runtime-providers.js';
 
@@ -97,9 +97,14 @@ const readConfiguredSmallModel = (workingDirectory) => {
  * Generates text with the user's small model, resolved and authenticated
  * entirely server-side from the OpenCode config and auth store.
  */
-export async function generateSmallModelText({ prompt, system, maxOutputTokens, model, directory, sessionID, preferredProviderID, preferredModelID, restrictToPreferredProvider = false, responseSchema, timeoutMs, signal, onOverflow = 'truncate' }) {
+export async function generateSmallModelText({ prompt, system, maxOutputTokens, model, directory, sessionID, preferredProviderID, preferredModelID, restrictToPreferredProvider = false, responseSchema, thoughtLevel, timeoutMs, signal, onOverflow = 'truncate' }) {
   if (typeof prompt !== 'string' || !prompt.trim()) {
     throw Object.assign(new Error('prompt is required'), { statusCode: 400 });
+  }
+  // The route normalizes this for its own callers; the chain re-checks so a
+  // malformed value can never reach a provider as a made-up body field.
+  if (thoughtLevel != null && !THOUGHT_LEVEL_VALUES.includes(thoughtLevel)) {
+    throw thoughtLevelUnsupportedError('request', 'request', thoughtLevel);
   }
 
   const auth = readAuthFile();
@@ -170,6 +175,7 @@ export async function generateSmallModelText({ prompt, system, maxOutputTokens, 
     prompt: clamped.prompt,
     system: typeof system === 'string' && system.trim() ? system.trim() : undefined,
     maxOutputTokens: outputTokens,
+    thoughtLevel,
     responseSchema,
     timeoutMs,
     signal,

@@ -20,6 +20,11 @@ vi.mock('./catalog.js', () => ({
 }));
 vi.mock('./call.js', () => ({
   DEDICATED_WIRE_FORMAT_PROVIDERS: new Set(['github-copilot', 'copilot', 'openai', 'anthropic', 'google']),
+  THOUGHT_LEVEL_VALUES: ['off', 'low', 'medium', 'high'],
+  thoughtLevelUnsupportedError: (providerID, modelID, thoughtLevel) => Object.assign(
+    new Error(`Thought level "${thoughtLevel}" is not supported for ${providerID}/${modelID}`),
+    { statusCode: 400, code: 'thought-level-unsupported', providerID, modelID, thoughtLevel },
+  ),
   callSmallModel: vi.fn(),
   resolveProviderLogin: vi.fn(async ({ auth, providerID }) => {
     const entry = auth?.[providerID];
@@ -355,6 +360,41 @@ describe('output budget and input reserve', () => {
     const described = await describeSmallModel({ directory: '/proj', outputReserveTokens: 24_000 });
 
     expect(described.outputTokens).toBe(24_000);
+  });
+});
+
+describe('generateSmallModelText — thought level option', () => {
+  beforeEach(() => {
+    readAuthFile.mockReturnValue({ zhipu: { type: 'api', key: 'k' } });
+    readConfigLayers.mockReturnValue({ mergedConfig: {} });
+    getModelCatalog.mockResolvedValue({});
+    callSmallModel.mockReset();
+    callSmallModel.mockResolvedValue('ok');
+    getRuntimeProviderSnapshot.mockResolvedValue(null);
+  });
+
+  it('passes the level through to the transport untouched', async () => {
+    await generateSmallModelText({ prompt: 'hi', model: 'zhipu/glm-4.7', thoughtLevel: 'high' });
+
+    expect(callSmallModel).toHaveBeenCalledTimes(1);
+    expect(callSmallModel.mock.calls[0][0]).toMatchObject({ thoughtLevel: 'high' });
+  });
+
+  it('omits the level when the caller sends none', async () => {
+    await generateSmallModelText({ prompt: 'hi', model: 'zhipu/glm-4.7' });
+
+    // Undefined, not a sentinel — the transport treats it as today's behavior.
+    expect(callSmallModel.mock.calls[0][0].thoughtLevel).toBeUndefined();
+  });
+
+  it('rejects a malformed level before resolving any model or transport', async () => {
+    await expect(generateSmallModelText({
+      prompt: 'hi',
+      model: 'zhipu/glm-4.7',
+      thoughtLevel: 'extreme',
+    })).rejects.toMatchObject({ code: 'thought-level-unsupported', statusCode: 400 });
+
+    expect(callSmallModel).not.toHaveBeenCalled();
   });
 });
 

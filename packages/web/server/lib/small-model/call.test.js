@@ -20,6 +20,7 @@ vi.mock('./runtime-providers.js', () => ({ getRuntimeProvider: vi.fn(async () =>
 const { callSmallModel } = await import('./call.js');
 const { readConfig, readConfigLayers } = await import('../opencode/shared.js');
 const { getRuntimeProvider } = await import('./runtime-providers.js');
+const { THOUGHT_LEVEL_VALUES, resolveThoughtLevelFamily, isThoughtLevelHonorable } = await import('./call.js');
 
 // Minimal catalog fragment used by the catalog-based base URL resolution case.
 const CATALOG = {
@@ -1106,5 +1107,233 @@ describe('callSmallModel — structured output', () => {
     })).rejects.toThrow('does not support structured output');
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// The thought level is a fixed coarse enum mapped per provider family inside
+// the existing allowlist policy. These lock the five mapping rows (messages,
+// thinking-toggle, gemini-3, gemini-2, none) and the absent-field parity: no
+// option means today's wire bytes, exactly.
+describe('callSmallModel — thought level mapping', () => {
+  let fetchMock;
+  let originalFetch;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock;
+    readConfig.mockReset();
+    readConfig.mockReturnValue({});
+    readConfigLayers.mockReset();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const unsupported = { code: 'thought-level-unsupported', statusCode: 400 };
+
+  it('maps the messages family: off omits thinking, levels pin budget_tokens', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: 'ok' }] }) });
+    const call = (thoughtLevel) => callSmallModel({
+      auth: { anthropic: { type: 'api', key: 'sk-ant' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'anthropic',
+      modelID: 'claude-haiku-4-5',
+      prompt: 'hi',
+      thoughtLevel,
+    });
+
+    await call(undefined);
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toBeUndefined();
+
+    await call('off');
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toBeUndefined();
+
+    await call('low');
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toEqual({ type: 'enabled', budget_tokens: 1024 });
+
+    await call('medium');
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toEqual({ type: 'enabled', budget_tokens: 2048 });
+
+    await call('high');
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toEqual({ type: 'enabled', budget_tokens: 3072 });
+  });
+
+  it('maps the thinking-toggle family: off keeps disabled, levels send enabled', async () => {
+    fetchMock.mockResolvedValue(ok('ok'));
+    const call = (thoughtLevel) => callSmallModel({
+      auth: { zhipu: { type: 'api', key: 'k' } },
+      catalog: { zhipu: { id: 'zhipu', api: 'https://open.bigmodel.cn/api/paas/v4', models: { 'glm-4.7': { id: 'glm-4.7' } } } },
+      workingDirectory: '/proj',
+      providerID: 'zhipu',
+      modelID: 'glm-4.7',
+      prompt: 'hi',
+      thoughtLevel,
+    });
+
+    // Absent keeps today's disabled special case (parity).
+    await call(undefined);
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toEqual({ type: 'disabled' });
+
+    await call('off');
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toEqual({ type: 'disabled' });
+
+    await call('high');
+    expect(JSON.parse(lastCall(fetchMock).init.body).thinking).toEqual({ type: 'enabled' });
+  });
+
+  it('rejects any level on a no-toggle chat-completions model before sending', async () => {
+    fetchMock.mockResolvedValue(ok('ok'));
+    const call = (thoughtLevel) => callSmallModel({
+      auth: { deepseek: { type: 'api', key: 'k' } },
+      catalog: { deepseek: { id: 'deepseek', api: 'https://api.deepseek.com/v1', models: { 'deepseek-chat': { id: 'deepseek-chat' } } } },
+      workingDirectory: '/proj',
+      providerID: 'deepseek',
+      modelID: 'deepseek-chat',
+      prompt: 'hi',
+      thoughtLevel,
+    });
+
+    await expect(call('low')).rejects.toMatchObject(unsupported);
+
+    // Off is a level too on a family that cannot switch.
+    await expect(call('off')).rejects.toMatchObject(unsupported);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('maps gemini-3 levels to thinkingLevel and rejects off', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) });
+    const call = (thoughtLevel) => callSmallModel({
+      auth: { google: { type: 'api', key: 'google-key' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'google',
+      modelID: 'gemini-3.1-pro',
+      prompt: 'hi',
+      thoughtLevel,
+    });
+
+    await call('low');
+    expect(JSON.parse(lastCall(fetchMock).init.body).generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' });
+
+    await call('high');
+    expect(JSON.parse(lastCall(fetchMock).init.body).generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'high' });
+
+    await expect(call('off')).rejects.toMatchObject(unsupported);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps gemini-2 off to its native budget 0 and rejects levels', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) });
+    const call = (thoughtLevel) => callSmallModel({
+      auth: { google: { type: 'api', key: 'google-key' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'google',
+      modelID: 'gemini-2.5-flash',
+      prompt: 'hi',
+      thoughtLevel,
+    });
+
+    await call('off');
+    expect(JSON.parse(lastCall(fetchMock).init.body).generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+
+    await expect(call('medium')).rejects.toMatchObject(unsupported);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects any level on a non-gemini google model', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) });
+
+    await expect(callSmallModel({
+      auth: { google: { type: 'api', key: 'google-key' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'google',
+      modelID: 'gemini-1.5-flash',
+      prompt: 'hi',
+      thoughtLevel: 'off',
+    })).rejects.toMatchObject(unsupported);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects the level on the ChatGPT-plan Responses backend before refreshing tokens', async () => {
+    await expect(callSmallModel({
+      auth: { openai: { type: 'oauth', access: 'stale', refresh: 'refresh' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'openai',
+      modelID: 'gpt-5.4-mini',
+      prompt: 'hi',
+      thoughtLevel: 'low',
+    })).rejects.toMatchObject(unsupported);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('resolves the deferred copilot family per discovered endpoint', async () => {
+    const jsonResponse = (payload) => new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    // Messages endpoint honors the level as the messages family would.
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: 'claude-opus-4.7', supported_endpoints: ['/v1/messages'] }] }))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: 'ok' }] }) });
+    await callSmallModel({
+      auth: { 'github-copilot': { type: 'oauth', access: 't', refresh: 't', expires: 0 } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'github-copilot',
+      modelID: 'claude-opus-4.7',
+      prompt: 'hi',
+      thoughtLevel: 'low',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).thinking).toEqual({ type: 'enabled', budget_tokens: 1024 });
+
+    // Responses endpoint rejects it.
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: 'mai-code-1-flash-picker', supported_endpoints: ['/responses'] }] }));
+    await expect(callSmallModel({
+      auth: { 'github-copilot': { type: 'oauth', access: 't', refresh: 't', expires: 0 } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'github-copilot',
+      modelID: 'mai-code-1-flash-picker',
+      prompt: 'hi',
+      thoughtLevel: 'low',
+    })).rejects.toMatchObject(unsupported);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('classifies families and honorability for the route-level check', () => {
+    expect(THOUGHT_LEVEL_VALUES).toEqual(['off', 'low', 'medium', 'high']);
+    expect(resolveThoughtLevelFamily('anthropic', 'claude-haiku-4-5')).toBe('messages');
+    expect(resolveThoughtLevelFamily('zhipu', 'glm-4.7')).toBe('thinking-toggle');
+    expect(resolveThoughtLevelFamily('custom-proxy', 'glm-4.7')).toBe('thinking-toggle');
+    expect(resolveThoughtLevelFamily('google', 'gemini-3.1-pro')).toBe('gemini-3');
+    expect(resolveThoughtLevelFamily('google', 'gemini-2.5-flash')).toBe('gemini-2');
+    expect(resolveThoughtLevelFamily('google', 'gemini-1.5-flash')).toBe('none');
+    expect(resolveThoughtLevelFamily('deepseek', 'deepseek-chat')).toBe('none');
+    expect(resolveThoughtLevelFamily('openai', 'gpt-5.4-mini')).toBe('none');
+    expect(resolveThoughtLevelFamily('github-copilot', 'claude-opus-4.7')).toBe('deferred');
+
+    const honorable = (providerID, modelID, thoughtLevel) => isThoughtLevelHonorable({ providerID, modelID, thoughtLevel });
+    expect(honorable('deepseek', 'deepseek-chat', 'low')).toBe(false);
+    expect(honorable('google', 'gemini-3.1-pro', 'off')).toBe(false);
+    expect(honorable('google', 'gemini-2.5-flash', 'low')).toBe(false);
+    expect(honorable('google', 'gemini-2.5-flash', 'off')).toBe(true);
+    expect(honorable('zhipu', 'glm-4.7', 'high')).toBe(true);
+    expect(honorable('anthropic', 'claude-haiku-4-5', 'off')).toBe(true);
+    expect(honorable('github-copilot', 'claude-opus-4.7', 'low')).toBe(true);
+    // Absent is always honorable — it means exactly today's behavior.
+    expect(honorable('deepseek', 'deepseek-chat', null)).toBe(true);
+    expect(honorable('deepseek', 'deepseek-chat', undefined)).toBe(true);
   });
 });
