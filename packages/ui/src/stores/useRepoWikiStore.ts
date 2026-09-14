@@ -27,6 +27,7 @@ import {
   type RepoWikiGenerateOptions,
   type RepoWikiListEntry,
   type RepoWikiStatusResult,
+  type RepoWikiThoughtLevel,
 } from '@/lib/repoWikiApi';
 
 export interface RepoWikiPageContent {
@@ -36,6 +37,22 @@ export interface RepoWikiPageContent {
 export interface RepoWikiEntryErrorDetail {
   requiredChars: number | null;
   availableChars: number | null;
+}
+
+/**
+ * The panel's generation choices for one project, made this app session.
+ * Deliberately not persisted: when nothing was chosen yet, the options that
+ * produced the wiki on screen (the manifest) are the better default, and the
+ * server already stores them. Same rationale as the walkthrough's
+ * selectedModel/selectedLanguage.
+ */
+export interface RepoWikiFormOptions {
+  language?: string;
+  diagrams?: boolean;
+  /** '' is the model-chain sentinel: no explicit model is sent. */
+  model?: string;
+  retries?: number;
+  thoughtLevel?: '' | RepoWikiThoughtLevel;
 }
 
 /**
@@ -67,10 +84,13 @@ export interface RepoWikiEntry {
 interface RepoWikiState {
   entries: Record<string, RepoWikiEntry>;
   list: RepoWikiListState;
+  formOptions: Record<string, RepoWikiFormOptions>;
 }
 
 interface RepoWikiActions {
   getEntry: (projectPath: string | null | undefined) => RepoWikiEntry;
+  /** Merge one panel option change into the project's session choices. */
+  setFormOptions: (projectId: string, patch: RepoWikiFormOptions) => void;
   load: (projectPath: string, options?: { force?: boolean; silent?: boolean }) => Promise<void>;
   /** Same read as `load`, for a cross-project view that only has the id. */
   loadById: (projectId: string, options?: { force?: boolean; silent?: boolean }) => Promise<void>;
@@ -155,6 +175,15 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
   };
 
   const entryFor = (projectId: string): RepoWikiEntry => get().entries[projectId] ?? EMPTY_REPO_WIKI_ENTRY;
+
+  const setFormOptions = (projectId: string, patch: RepoWikiFormOptions) => {
+    set((state) => ({
+      formOptions: {
+        ...state.formOptions,
+        [projectId]: { ...state.formOptions[projectId], ...patch },
+      },
+    }));
+  };
 
   /** projectId → timer. A timer exists only for a visible panel with an active run. */
   const pollers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -276,6 +305,9 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
   return {
     entries: {},
     list: EMPTY_REPO_WIKI_LIST,
+    formOptions: {},
+
+    setFormOptions,
 
     getEntry: (projectPath) => {
       if (!projectPath) return EMPTY_REPO_WIKI_ENTRY;
@@ -431,7 +463,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
     reset: () => {
       for (const projectId of [...pollers.keys()]) stopPoller(projectId);
       visiblePanels.clear();
-      set({ entries: {}, list: EMPTY_REPO_WIKI_LIST });
+      set({ entries: {}, list: EMPTY_REPO_WIKI_LIST, formOptions: {} });
     },
   };
 });

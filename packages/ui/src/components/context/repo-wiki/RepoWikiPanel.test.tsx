@@ -15,6 +15,25 @@ mock.module('@/sync/sync-context', () => ({
   useDirectorySync: () => ({}),
 }));
 
+/**
+ * The shared picker's module tree pulls Vite-only `import.meta.glob` (provider
+ * logos), which bun:test cannot evaluate. The panel under test only wires
+ * props into the picker, so the mock captures them for assertions.
+ */
+interface ModelSelectorMockProps {
+  providerId: string;
+  modelId: string;
+  allowedProviderIds?: string[];
+  placeholder?: string;
+}
+let modelSelectorProps: ModelSelectorMockProps | null = null;
+mock.module('@/components/sections/agents/ModelSelector', () => ({
+  ModelSelector: (props: ModelSelectorMockProps) => {
+    modelSelectorProps = props;
+    return <button type="button">model-picker</button>;
+  },
+}));
+
 /** Action affordances that must never render under `readOnly`. */
 const FORBIDDEN_CONTROLS = ['Generate', 'Regenerate', 'Stop', 'Retry', 'Delete wiki'];
 /** Generation-option labels that must never render under `readOnly`. */
@@ -185,16 +204,99 @@ test('readOnly renders load failure alongside the empty state instead of a clean
   }
 });
 
-test('default (non-readOnly) panel keeps the generation form and options', async () => {
+test('default (non-readOnly) panel renders the walkthrough-style toolbar controls', async () => {
   useRepoWikiStore.getState().reset();
   seed('/repo', entryWith({}));
   const harness = await setup();
   try {
     await harness.render('/repo', false);
+    const labels = controlLabels(harness.container);
+    expect(labels).toContain('Generate');
+    expect(labels).toContain('Repo Wiki language');
+    expect(labels).toContain('Generation options');
+    // The stacked form is gone: no option labels in the body text.
     const text = harness.container.textContent ?? '';
-    expect(controlLabels(harness.container)).toContain('Generate');
-    expect(text).toContain('Language');
-    expect(text).toContain('Generate diagrams');
+    expect(text).not.toContain('Retries per page');
+    expect(text).toContain('No Repo Wiki yet');
+  } finally {
+    await harness.unmount();
+  }
+});
+
+test('session choices win over the manifest when generating', async () => {
+  useRepoWikiStore.getState().reset();
+  seed('/repo', entryWith({
+    status: {
+      wiki: { ...storedWiki(), language: 'fr', diagrams: false, thoughtLevel: 'low', model: { providerID: 'manifest-provider', modelID: 'manifest-model' } },
+      stale: false,
+      runActive: false,
+    },
+    loaded: true,
+  }));
+  useRepoWikiStore.getState().setFormOptions(resolveRepoWikiProjectId('/repo'), { language: 'de', model: '' });
+  const harness = await setup(async (url, init) => {
+    if (init?.method === 'POST' && url.pathname.endsWith('/generate')) {
+      return Response.json({ started: true });
+    }
+    if (init?.method !== 'POST' && url.pathname.startsWith('/api/repo-wiki/')) {
+      return Response.json({ wiki: null, runActive: false });
+    }
+    return null;
+  });
+  try {
+    await harness.render('/repo', false);
+    const generate = Array.from(harness.container.querySelectorAll('button'))
+      .find((button) => button.textContent?.trim() === 'Generate');
+    expect(generate).toBeDefined();
+    await act(async () => { generate?.click(); });
+    await until(() => harness.postBodies.some((entry) => entry.path.endsWith('/generate')));
+    const body = harness.postBodies.find((entry) => entry.path.endsWith('/generate'))?.body;
+    expect(body?.language).toBe('de');
+    // model '' is the chain sentinel: no explicit model on the wire.
+    expect(body?.model).toBeUndefined();
+  } finally {
+    await harness.unmount();
+  }
+});
+
+test('without session choices the toolbar prefills the manifest options', async () => {
+  useRepoWikiStore.getState().reset();
+  const manifestWiki = {
+    ...storedWiki(),
+    language: 'fr',
+    diagrams: false,
+    thoughtLevel: 'low' as const,
+    model: { providerID: 'manifest-provider', modelID: 'manifest-model' },
+  };
+  const harness = await setup(async (url, init) => {
+    if (init?.method === 'POST' && url.pathname.endsWith('/generate')) {
+      return Response.json({ started: true });
+    }
+    if (init?.method !== 'POST' && url.pathname.startsWith('/api/repo-wiki/')) {
+      return Response.json({ wiki: manifestWiki, stale: false, runActive: false });
+    }
+    return null;
+  });
+  try {
+    await harness.render('/repo', false);
+    // The language trigger shows the manifest's language, localized.
+    const trigger = buttonByAria(harness.container, 'Repo Wiki language');
+    expect(trigger).toBeDefined();
+    expect(trigger?.textContent).toContain('French');
+    // The picker receives the manifest model split into provider/model.
+    expect(modelSelectorProps?.providerId).toBe('manifest-provider');
+    expect(modelSelectorProps?.modelId).toBe('manifest-model');
+    expect(modelSelectorProps?.placeholder).toBe('Default model');
+
+    const generate = Array.from(harness.container.querySelectorAll('button'))
+      .find((button) => button.textContent?.trim() === 'Generate');
+    await act(async () => { generate?.click(); });
+    await until(() => harness.postBodies.some((entry) => entry.path.endsWith('/generate')));
+    const body = harness.postBodies.find((entry) => entry.path.endsWith('/generate'))?.body;
+    expect(body?.language).toBe('fr');
+    expect(body?.diagrams).toBe(false);
+    expect(body?.thoughtLevel).toBe('low');
+    expect(body?.model).toBe('manifest-provider/manifest-model');
   } finally {
     await harness.unmount();
   }
@@ -236,7 +338,7 @@ test('the failed count becomes a bulk-retry button on the active surface only', 
   }
 });
 
-test('the generate form gains the thought-level select and the default sends nothing', async () => {
+test('with nothing chosen the generate body carries the defaults and no model', async () => {
   useRepoWikiStore.getState().reset();
   seed('/repo', entryWith({}));
   // Answer the command chain: a hung generate POST would hold the store's
@@ -252,17 +354,16 @@ test('the generate form gains the thought-level select and the default sends not
   });
   try {
     await harness.render('/repo', false);
-    const text = harness.container.textContent ?? '';
-    expect(text).toContain('Thought level');
-    expect(text).toContain('Ask the model for deeper reasoning');
-
     const generate = Array.from(harness.container.querySelectorAll('button'))
       .find((button) => button.textContent?.trim() === 'Generate');
     expect(generate).toBeDefined();
     await act(async () => { generate?.click(); });
     await until(() => harness.postBodies.some((entry) => entry.path.endsWith('/generate')));
-    // '' (model default) maps to an absent field, exactly the pre-option wire.
     const body = harness.postBodies.find((entry) => entry.path.endsWith('/generate'))?.body;
+    // Interface-locale language, diagrams on, model chain / thought level unset.
+    expect(body?.language).toBe('en');
+    expect(body?.diagrams).toBe(true);
+    expect(body?.model).toBeUndefined();
     expect(body?.thoughtLevel).toBeUndefined();
   } finally {
     await harness.unmount();

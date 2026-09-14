@@ -10,10 +10,20 @@ import React from 'react';
 
 import { Icon } from '@/components/icon/Icon';
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
+import { ModelSelector } from '@/components/sections/agents/ModelSelector';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n, type I18nKey, type I18nParams } from '@/lib/i18n';
 import { type Locale } from '@/lib/i18n/runtime';
+import { parseModelIdentifier } from '@/lib/modelIdentifier';
 import {
   resolveRepoWikiProjectId,
   type RepoWikiPageMeta,
@@ -22,7 +32,13 @@ import {
 import { runtimeFetch } from '@/lib/runtime-fetch';
 import { projectPathFromProjectId } from '@/lib/projectId';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useRepoWikiStore, EMPTY_REPO_WIKI_ENTRY, type RepoWikiEntry, type RepoWikiListState } from '@/stores/useRepoWikiStore';
+import {
+  useRepoWikiStore,
+  EMPTY_REPO_WIKI_ENTRY,
+  type RepoWikiEntry,
+  type RepoWikiFormOptions,
+  type RepoWikiListState,
+} from '@/stores/useRepoWikiStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useDirectorySync } from '@/sync/sync-context';
 import { cn } from '@/lib/utils';
@@ -85,12 +101,18 @@ const resolveSourcePath = (directory: string, filePath: string): string => {
 };
 
 /**
- * Providers the server can actually call, filtered to models the catalog does
- * not flag as schema-incapable — the same rule the walkthrough picker applies
- * (a missing capability field is treated as capable).
+ * Which models the shared picker may offer: providers the server can actually
+ * call, filtered to models the catalog does not flag as schema-incapable —
+ * the same rule the walkthrough picker applies (a missing capability field is
+ * treated as capable). While the auth list is loading nothing is offered —
+ * not every provider.
  */
-const useModelOptions = (): Array<{ value: string; label: string }> => {
-  const providers = useConfigStore((state) => state.providers);
+interface SmallModelFilter {
+  allowedProviderIds: string[];
+  isModelAllowed: (providerId: string, modelId: string) => boolean;
+}
+
+const useSmallModelFilter = (): SmallModelFilter => {
   const modelsMetadata = useConfigStore((state) => state.modelsMetadata);
   const [authenticated, setAuthenticated] = React.useState<Set<string>>(() => new Set());
 
@@ -116,19 +138,11 @@ const useModelOptions = (): Array<{ value: string; label: string }> => {
     };
   }, []);
 
-  return React.useMemo(() => {
-    const options: Array<{ value: string; label: string }> = [];
-    for (const provider of providers) {
-      if (authenticated.size > 0 && !authenticated.has(provider.id)) continue;
-      const models = Array.isArray(provider.models) ? provider.models : [];
-      for (const model of models) {
-        if (model == null || model.id == null) continue;
-        if (modelsMetadata.get(`${provider.id}/${model.id}`)?.structured_output === false) continue;
-        options.push({ value: `${provider.id}/${model.id}`, label: `${provider.id}/${model.id}` });
-      }
-    }
-    return options;
-  }, [providers, modelsMetadata, authenticated]);
+  return React.useMemo(() => ({
+    allowedProviderIds: [...authenticated],
+    isModelAllowed: (providerId: string, modelId: string) =>
+      modelsMetadata.get(`${providerId}/${modelId}`)?.structured_output !== false,
+  }), [modelsMetadata, authenticated]);
 };
 
 // Active work first, failures next, waiting last, finished pages at the end.
@@ -372,7 +386,7 @@ const ProjectSwitcher: React.FC<{
 
 export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnly = false }) => {
   const { t, locale, locales, label } = useI18n();
-  const modelOptions = useModelOptions();
+  const modelFilter = useSmallModelFilter();
 
   const projectId = directory ? resolveRepoWikiProjectId(directory) : '';
   const entry = useRepoWikiStore((state) => (projectId ? state.entries[projectId] : undefined)) ?? EMPTY_REPO_WIKI_ENTRY;
@@ -397,12 +411,32 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
     React.useCallback((state) => (viewingProjectId ? state.entries[viewingProjectId] : undefined), [viewingProjectId]),
   ) ?? EMPTY_REPO_WIKI_ENTRY;
 
-  const [language, setLanguage] = React.useState<Locale>(locale);
-  const [diagrams, setDiagrams] = React.useState(true);
-  const [model, setModel] = React.useState('');
-  const [retries, setRetries] = React.useState(0);
-  // '' is the model-default sentinel: the select sends nothing for it.
-  const [thoughtLevel, setThoughtLevel] = React.useState<'' | RepoWikiThoughtLevel>('');
+  // Generation options follow the walkthrough's precedence: the user's
+  // explicit session choice wins, then the options that produced the wiki on
+  // screen (the manifest), then the defaults — interface locale, diagrams on,
+  // no retries, model chain. Choices live in the store because this panel
+  // unmounts on tab switches. '' is the model-chain sentinel: nothing is sent.
+  const sessionOptions = useRepoWikiStore((state) => (projectId ? state.formOptions[projectId] : undefined));
+  const setFormOptions = useRepoWikiStore((state) => state.setFormOptions);
+  const [languageMenuOpen, setLanguageMenuOpen] = React.useState(false);
+  const [advancedOpen, setAdvancedOpen] = React.useState(false);
+  const activeWiki = entry.status?.wiki ?? null;
+  const updateOptions = React.useCallback((patch: RepoWikiFormOptions) => {
+    if (projectId) setFormOptions(projectId, patch);
+  }, [projectId, setFormOptions]);
+  const resolveLocale = (candidate: string | undefined | null): Locale | null =>
+    // SAFETY: the locales.includes membership check on the same expression
+    // proves the string is one of the app's Locales before the assertion.
+    candidate != null && locales.includes(candidate as Locale) ? (candidate as Locale) : null;
+  const language = resolveLocale(sessionOptions?.language)
+    ?? resolveLocale(activeWiki?.language)
+    ?? locale;
+  const diagrams = sessionOptions?.diagrams ?? activeWiki?.diagrams ?? true;
+  const model = sessionOptions?.model
+    ?? (activeWiki?.model ? `${activeWiki.model.providerID}/${activeWiki.model.modelID}` : '');
+  const retries = sessionOptions?.retries ?? 0;
+  const thoughtLevel = sessionOptions?.thoughtLevel ?? activeWiki?.thoughtLevel ?? '';
+  const parsedModel = React.useMemo(() => parseModelIdentifier(model), [model]);
   const [selectedPageId, setSelectedPageId] = React.useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
@@ -628,7 +662,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <Icon name="book-open" className="size-4 flex-shrink-0 text-muted-foreground" />
         <ProjectSwitcher
           activeProjectId={projectId}
@@ -675,7 +709,156 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
                   )
             )
           : null}
-      </div>
+
+        {!crossView && !readOnly
+          ? (
+              <div className="ml-auto flex min-w-0 items-center gap-1">
+                {/* The prose language is a per-generation choice like the
+                    model — defaulting to the interface language, which is the
+                    best evidence of what the reader reads. */}
+                <DropdownMenu open={languageMenuOpen} onOpenChange={setLanguageMenuOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-8 min-w-0 flex-shrink items-center gap-1.5 rounded-md px-2 typography-ui-label text-muted-foreground outline-none hover:bg-interactive-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={t('repoWiki.language.menuLabel')}
+                      title={t('repoWiki.language.menuLabel')}
+                    >
+                      <Icon name="global" className="size-4 flex-shrink-0 opacity-70" />
+                      <span className="truncate">{label(language)}</span>
+                      <Icon name="arrow-down-s" className="size-4 flex-shrink-0 opacity-60" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel className="typography-meta font-normal text-muted-foreground">
+                      {t('repoWiki.language.menuLabel')}
+                    </DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={language}
+                      onValueChange={(value) => {
+                        setLanguageMenuOpen(false);
+                        updateOptions({ language: value });
+                      }}
+                    >
+                      {locales.map((value) => (
+                        <DropdownMenuRadioItem key={value} value={value}>
+                          {label(value)}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Choosing a roomier model is a per-generation call, so this
+                    is panel state rather than a settings edit. No model picked
+                    means the repo-wiki model chain decides (Settings →
+                    Sessions → Repo Wiki model). */}
+                <ModelSelector
+                  providerId={parsedModel?.providerId ?? ''}
+                  modelId={parsedModel?.modelId ?? ''}
+                  onChange={(providerId, modelId) => {
+                    updateOptions({ model: providerId && modelId ? `${providerId}/${modelId}` : '' });
+                  }}
+                  allowedProviderIds={modelFilter.allowedProviderIds}
+                  isModelAllowed={modelFilter.isModelAllowed}
+                  placeholder={t('repoWiki.options.model.default')}
+                  tooltipsEnabled={false}
+                  dropdownPortalToBody
+                  className="h-8 min-w-0 max-w-48"
+                />
+
+                {/* Diagrams, retries, and thought level have no walkthrough
+                    counterpart; they stay reachable but out of the toolbar. */}
+                <DropdownMenu open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={t('repoWiki.options.advanced')}
+                      title={t('repoWiki.options.advanced')}
+                    >
+                      <Icon name="equalizer-2" className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 space-y-3 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="typography-ui-label">{t('repoWiki.options.diagrams')}</span>
+                      <Button
+                        type="button"
+                        variant="chip"
+                        size="sm"
+                        aria-pressed={diagrams}
+                        onClick={() => updateOptions({ diagrams: !diagrams })}
+                      >
+                        {diagrams ? <Icon name="check" className="size-3.5" /> : null}
+                      </Button>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="typography-ui-label">{t('repoWiki.options.retries')}</span>
+                      <Select
+                        value={String(retries)}
+                        onValueChange={(value) => updateOptions({ retries: Number(value) })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">{t('repoWiki.options.retries.none')}</SelectItem>
+                          {[1, 2, 3].map((value) => (
+                            <SelectItem key={value} value={String(value)}>{String(value)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="typography-micro text-muted-foreground">{t('repoWiki.options.retries.hint')}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="typography-ui-label">{t('repoWiki.options.thoughtLevel')}</span>
+                      <Select
+                        value={thoughtLevel}
+                        onValueChange={(value) => {
+                          // SAFETY: the option values below are the four enum
+                          // values plus the 'default' sentinel, so the string
+                          // is always assignable to the state union.
+                          updateOptions({ thoughtLevel: value as '' | RepoWikiThoughtLevel });
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">{t('repoWiki.options.thoughtLevel.default')}</SelectItem>
+                          {(['off', 'low', 'medium', 'high'] as const).map((value) => (
+                            <SelectItem key={value} value={value}>{t(THOUGHT_LEVEL_LABEL_KEYS[value])}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="typography-micro text-muted-foreground">{t('repoWiki.options.thoughtLevel.hint')}</p>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {runActive
+                  ? (
+                      <Button type="button" variant="outline" size="sm" disabled={working} onClick={() => void requestStop()}>
+                        {t('repoWiki.generate.stop')}
+                      </Button>
+                    )
+                  : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={working}
+                        onClick={() => void startGeneration()}
+                      >
+                        {working ? t('repoWiki.generate.running') : t('repoWiki.generate.action')}
+                      </Button>
+                    )}
+              </div>
+            )
+          : null}
+      </header>
 
       {wiki
         ? (
@@ -774,106 +957,14 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
 
       {!crossView && !readOnly && !wiki && !runActive
         ? (
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-              <div className="mx-auto max-w-sm space-y-4">
-                <div className="space-y-1">
-                  <h2 className="typography-ui-label font-semibold">{t('repoWiki.empty.title')}</h2>
-                  <p className="typography-meta text-muted-foreground">{t('repoWiki.empty.description')}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="typography-ui-label">{t('repoWiki.options.language')}</span>
-                  <Select
-                    value={language}
-                    onValueChange={(value) => {
-                      // SAFETY: every option value is a Locale taken from the
-                      // i18n context, so the string is always a valid locale.
-                      setLanguage(value as Locale);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locales.map((item) => (
-                        <SelectItem key={item} value={item}>{label(item)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="typography-ui-label">{t('repoWiki.options.diagrams')}</span>
-                    <p className="typography-micro text-muted-foreground">{t('repoWiki.options.diagrams.hint')}</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="chip"
-                    size="sm"
-                    aria-pressed={diagrams}
-                    onClick={() => setDiagrams((value) => !value)}
-                  >
-                    {diagrams ? <Icon name="check" className="size-3.5" /> : null}
-                  </Button>
-                </div>
-                <div className="space-y-1">
-                  <span className="typography-ui-label">{t('repoWiki.options.model')}</span>
-                  <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">{t('repoWiki.options.model.default')}</SelectItem>
-                      {modelOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <span className="typography-ui-label">{t('repoWiki.options.retries')}</span>
-                  <Select
-                    value={String(retries)}
-                    onValueChange={(value) => setRetries(Number(value))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">{t('repoWiki.options.retries.none')}</SelectItem>
-                      {[1, 2, 3].map((value) => (
-                        <SelectItem key={value} value={String(value)}>{String(value)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="typography-micro text-muted-foreground">{t('repoWiki.options.retries.hint')}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="typography-ui-label">{t('repoWiki.options.thoughtLevel')}</span>
-                  <Select
-                    value={thoughtLevel}
-                    onValueChange={(value) => {
-                      // SAFETY: the option values below are the four enum
-                      // values plus the 'default' sentinel, so the string is
-                      // always assignable to the state union.
-                      setThoughtLevel(value as '' | RepoWikiThoughtLevel);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">{t('repoWiki.options.thoughtLevel.default')}</SelectItem>
-                      {(['off', 'low', 'medium', 'high'] as const).map((value) => (
-                        <SelectItem key={value} value={value}>{t(THOUGHT_LEVEL_LABEL_KEYS[value])}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="typography-micro text-muted-foreground">{t('repoWiki.options.thoughtLevel.hint')}</p>
-                </div>
-                <Button type="button" variant="default" size="default" className="w-full" disabled={working} onClick={() => void startGeneration()}>
-                  {working ? t('repoWiki.generate.running') : t('repoWiki.generate.action')}
-                </Button>
-              </div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+              <Icon name="book-open" className="size-6 text-muted-foreground" />
+              <h3 className="typography-ui-label font-semibold text-foreground">
+                {t('repoWiki.empty.title')}
+              </h3>
+              <p className="typography-meta max-w-md text-muted-foreground">
+                {t('repoWiki.empty.description')}
+              </p>
             </div>
           )
         : null}
@@ -883,13 +974,6 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
             <div className="flex flex-shrink-0 items-center gap-2 border-b border-border px-3 py-2">
               <Icon name="loader-4" className="size-4 animate-spin text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate typography-meta text-muted-foreground">{stageLabel}</span>
-              {crossView || readOnly
-                ? null
-                : (
-                    <Button type="button" variant="outline" size="xs" disabled={working} onClick={() => void requestStop()}>
-                      {t('repoWiki.generate.stop')}
-                    </Button>
-                  )}
             </div>
           )
         : null}
