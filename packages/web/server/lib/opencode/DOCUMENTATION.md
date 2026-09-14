@@ -389,6 +389,16 @@ within a ten-minute overall deadline.
     - Foreground servers running under a systemd user unit queue installation in
       a separate transient unit and restart the configured service afterwards.
       `OPENCHAMBER_SYSTEMD_UNIT` overrides the default `openchamber.service`.
+    - On Windows the install-and-restart script is written to
+      `<data dir>/update-install.cmd` before the response and run with
+      `cmd.exe /c <file>`. A newline ends a `cmd.exe /c` command line, so the
+      same script passed as an argument ran nothing and exited 0; the batch
+      file keeps every line. The package-manager line is `call`ed because
+      npm, pnpm and yarn are `.cmd` shims that would otherwise end the script,
+      the pre-install pause is a loopback `ping` because `timeout` rejects a
+      detached child's stdin, and the file deletes itself on its last line
+      because the restart command carries the server's flags. If the file
+      cannot be written the route answers 500 and the server keeps running.
   - `GET /api/openchamber/models-metadata`
   - `GET /api/zen/models`
 
