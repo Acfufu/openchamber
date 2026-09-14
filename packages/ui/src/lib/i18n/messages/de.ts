@@ -3383,6 +3383,8 @@ export const dict = {
   'repoWiki.empty.description': 'Erstellt einen Architekturführer für dieses Repository: einen Katalog von Seiten, die anhand des Codes erklären, wie er funktioniert.',
   'repoWiki.empty.readOnlyDescription': 'Das Repo-Wiki für dieses Repository wird über die Web- oder Desktop-Oberfläche erstellt. Dieser Tab dient nur zum Lesen.',
   'repoWiki.options.language': 'Sprache',
+  'repoWiki.language.menuLabel': 'Repo-Wiki-Sprache',
+  'repoWiki.options.advanced': 'Generierungsoptionen',
   'repoWiki.options.diagrams': 'Diagramme erzeugen',
   'repoWiki.options.diagrams.hint': 'Fügt Mermaid-Diagramme hinzu, wo sie wirklich helfen',
   'repoWiki.options.model': 'Modell',

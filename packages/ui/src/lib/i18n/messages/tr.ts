@@ -3383,6 +3383,8 @@ export const dict = {
   'repoWiki.empty.description': 'Bu depo için bir mimari rehberi oluşturun: kodun nasıl çalıştığını açıklayan, kod okunarak yazılan bir sayfa kataloğu.',
   'repoWiki.empty.readOnlyDescription': 'Bu depo için Depo Wiki, web veya masaüstü arayüzünden oluşturulur. Bu sekme yalnızca okumak içindir.',
   'repoWiki.options.language': 'Dil',
+  'repoWiki.language.menuLabel': 'Depo Wiki dili',
+  'repoWiki.options.advanced': 'Oluşturma seçenekleri',
   'repoWiki.options.diagrams': 'Diyagram oluştur',
   'repoWiki.options.diagrams.hint': 'Gerçekten yardımcı olduğu yerlere Mermaid diyagramları ekler',
   'repoWiki.options.model': 'Model',

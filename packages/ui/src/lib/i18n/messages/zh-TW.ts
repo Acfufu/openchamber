@@ -3386,6 +3386,8 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.empty.description': '為本儲存庫產生一份架構指南：透過閱讀程式碼，產生一系列頁面，講解這套程式碼是如何運作的。',
   'repoWiki.empty.readOnlyDescription': '本儲存庫的儲存庫 Wiki 透過 Web 或桌面端產生，此分頁僅供閱讀。',
   'repoWiki.options.language': '語言',
+  'repoWiki.language.menuLabel': '儲存庫 Wiki 語言',
+  'repoWiki.options.advanced': '產生選項',
   'repoWiki.options.diagrams': '產生圖表',
   'repoWiki.options.diagrams.hint': '在真正有助於理解的地方加入 Mermaid 圖表',
   'repoWiki.options.model': '模型',

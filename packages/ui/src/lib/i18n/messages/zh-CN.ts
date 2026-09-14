@@ -3387,6 +3387,8 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.empty.description': '为本仓库生成一份架构指南：通过阅读代码，生成一系列页面，讲解这套代码是如何工作的。',
   'repoWiki.empty.readOnlyDescription': '本仓库的仓库 Wiki 通过 Web 或桌面端生成，此标签页仅用于阅读。',
   'repoWiki.options.language': '语言',
+  'repoWiki.language.menuLabel': '仓库 Wiki 语言',
+  'repoWiki.options.advanced': '生成选项',
   'repoWiki.options.diagrams': '生成示意图',
   'repoWiki.options.diagrams.hint': '在真正有助于理解的地方添加 Mermaid 示意图',
   'repoWiki.options.model': '模型',

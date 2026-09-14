@@ -3386,6 +3386,8 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.empty.description': 'Згенеруйте архітектурний довідник цього репозиторію: каталог сторінок, які пояснюють, як працює код, написаний на основі читання коду.',
   'repoWiki.empty.readOnlyDescription': 'Вікі репозиторію генерується у веб- або настільній версії. Ця вкладка призначена лише для читання.',
   'repoWiki.options.language': 'Мова',
+  'repoWiki.language.menuLabel': 'Мова вікі репозиторію',
+  'repoWiki.options.advanced': 'Параметри створення',
   'repoWiki.options.diagrams': 'Створити діаграми',
   'repoWiki.options.diagrams.hint': 'Додає діаграми Mermaid там, де вони справді допомагають',
   'repoWiki.options.model': 'Модель',

@@ -1308,6 +1308,8 @@ export const dict = {
   'repoWiki.empty.description': 'Generate an architecture guide for this repository: a catalog of pages explaining how the code works, written by reading the code.',
   'repoWiki.empty.readOnlyDescription': 'The Repo Wiki for this repository is generated from the web or desktop surface. This tab is for reading.',
   'repoWiki.options.language': 'Language',
+  'repoWiki.language.menuLabel': 'Repo Wiki language',
+  'repoWiki.options.advanced': 'Generation options',
   'repoWiki.options.diagrams': 'Generate diagrams',
   'repoWiki.options.diagrams.hint': 'Add Mermaid diagrams where they genuinely help',
   'repoWiki.options.model': 'Model',

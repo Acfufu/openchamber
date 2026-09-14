@@ -3385,6 +3385,8 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.empty.description': '이 저장소의 아키텍처 가이드를 생성합니다. 코드를 읽고 그 동작 방식을 설명하는 페이지 목록을 만듭니다.',
   'repoWiki.empty.readOnlyDescription': '저장소 Wiki는 웹 또는 데스크톱에서 생성됩니다. 이 탭은 읽기 전용입니다.',
   'repoWiki.options.language': '언어',
+  'repoWiki.language.menuLabel': '저장소 Wiki 언어',
+  'repoWiki.options.advanced': '생성 옵션',
   'repoWiki.options.diagrams': '다이어그램 생성',
   'repoWiki.options.diagrams.hint': '실제로 이해에 도움이 되는 곳에 Mermaid 다이어그램을 추가합니다',
   'repoWiki.options.model': '모델',

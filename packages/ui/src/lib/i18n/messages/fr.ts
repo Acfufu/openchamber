@@ -3383,6 +3383,8 @@ export const dict = {
   'repoWiki.empty.description': 'Générez un guide d\'architecture de ce dépôt : un catalogue de pages expliquant le fonctionnement du code, rédigé en lisant le code.',
   'repoWiki.empty.readOnlyDescription': 'Le Wiki du dépôt est généré depuis la version web ou de bureau. Cet onglet est en lecture seule.',
   'repoWiki.options.language': 'Langue',
+  'repoWiki.language.menuLabel': 'Langue du wiki du dépôt',
+  'repoWiki.options.advanced': 'Options de génération',
   'repoWiki.options.diagrams': 'Générer les diagrammes',
   'repoWiki.options.diagrams.hint': 'Ajoute des diagrammes Mermaid là où ils aident vraiment',
   'repoWiki.options.model': 'Modèle',

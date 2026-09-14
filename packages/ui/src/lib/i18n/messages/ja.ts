@@ -3385,6 +3385,8 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.empty.description': 'このリポジトリのアーキテクチャガイドを生成します。コードを読んで、その仕組みを説明するページのカタログを作ります。',
   'repoWiki.empty.readOnlyDescription': 'リポジトリ Wiki は Web またはデスクトップから生成されます。このタブは閲覧専用です。',
   'repoWiki.options.language': '言語',
+  'repoWiki.language.menuLabel': 'リポジトリ Wiki の言語',
+  'repoWiki.options.advanced': '生成オプション',
   'repoWiki.options.diagrams': '図を生成',
   'repoWiki.options.diagrams.hint': '本当に役立つ場所に Mermaid 図を追加します',
   'repoWiki.options.model': 'モデル',

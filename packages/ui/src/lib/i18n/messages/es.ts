@@ -3387,6 +3387,8 @@ export const dict: Record<I18nKey, string> = {
   'repoWiki.empty.description': 'Genera una guía de arquitectura de este repositorio: un catálogo de páginas que explican cómo funciona el código, escrito leyendo el código.',
   'repoWiki.empty.readOnlyDescription': 'La wiki del repo de este repositorio se genera en la versión web o de escritorio. Esta pestaña es solo de lectura.',
   'repoWiki.options.language': 'Idioma',
+  'repoWiki.language.menuLabel': 'Idioma del wiki del repo',
+  'repoWiki.options.advanced': 'Opciones de generación',
   'repoWiki.options.diagrams': 'Generar diagramas',
   'repoWiki.options.diagrams.hint': 'Añade diagramas de Mermaid donde ayudan de verdad',
   'repoWiki.options.model': 'Modelo',
