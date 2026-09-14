@@ -71,6 +71,7 @@ export const DefaultsSettings: React.FC = () => {
   const [smallModelOverride, setSmallModelOverride] = React.useState<string | undefined>();
   const [smallModelProviders, setSmallModelProviders] = React.useState<string[]>([]);
   const [walkthroughModelOverride, setWalkthroughModelOverride] = React.useState<string | undefined>();
+  const [repoWikiModelOverride, setRepoWikiModelOverride] = React.useState<string | undefined>();
   const [isLoading, setIsLoading] = React.useState(true);
 
   const parsedModel = React.useMemo(() => getDisplayModel(defaultModel), [defaultModel]);
@@ -95,6 +96,10 @@ export const DefaultsSettings: React.FC = () => {
           const walkthroughOverride = data.walkthroughModelOverride?.trim();
           if (walkthroughOverride) {
             setWalkthroughModelOverride(walkthroughOverride);
+          }
+          const repoWikiOverride = data.repoWikiModelOverride?.trim();
+          if (repoWikiOverride) {
+            setRepoWikiModelOverride(repoWikiOverride);
           }
         }
       } catch (error) {
@@ -221,6 +226,21 @@ export const DefaultsSettings: React.FC = () => {
     []
   );
 
+  const handleRepoWikiModelOverrideChange = React.useCallback(
+    async (providerId: string, modelId: string) => {
+      const newValue = providerId && modelId ? `${providerId}/${modelId}` : undefined;
+      setRepoWikiModelOverride(newValue);
+      try {
+        // Same contract as the walkthrough override: clearing hands the choice
+        // back to the repo-wiki model chain (manifest, then default model).
+        await updateDesktopSettings({ repoWikiModelOverride: newValue ?? '' });
+      } catch (error) {
+        console.warn('Failed to save repo wiki model override:', error);
+      }
+    },
+    []
+  );
+
   // The walkthrough cannot work at all without schema-shaped output, so models
   // the catalog says cannot do it are hidden rather than offered and then
   // refused. A missing capability is not a "no": roughly half the catalog omits
@@ -236,12 +256,17 @@ export const DefaultsSettings: React.FC = () => {
     () => getDisplayModel(walkthroughModelOverride),
     [walkthroughModelOverride]
   );
+  const parsedRepoWikiModel = React.useMemo(
+    () => getDisplayModel(repoWikiModelOverride),
+    [repoWikiModelOverride]
+  );
   React.useEffect(() => {
-    // Both pickers offer the same providers — the walkthrough runs through the
-    // small model — and the walkthrough picker is always visible, so this is
-    // always worth fetching. The server answers with the providers it has a
-    // credential and an endpoint for, including plugin-registered ones that
-    // exist only inside the running OpenCode.
+    // The override pickers offer the same providers — the walkthrough runs
+    // through the small model, and the repo-wiki picker mirrors the panel's
+    // authenticated-provider filter — and one picker here is always visible,
+    // so this is always worth fetching. The server answers with the providers
+    // it has a credential and an endpoint for, including plugin-registered
+    // ones that exist only inside the running OpenCode.
     let cancelled = false;
     (async () => {
       try {
@@ -410,6 +435,32 @@ export const DefaultsSettings: React.FC = () => {
                   allowedProviderIds={smallModelProviders}
                   isModelAllowed={isStructuredOutputCapable}
                   placeholder={t('settings.openchamber.defaults.walkthroughModel.usesSmallModel')}
+                  className={SETTINGS_CUSTOM_TRIGGER_CLASS}
+                />
+              </SettingsFieldRow>
+            </SettingsInset>
+
+            <SettingsInset className={SETTINGS_OPTION_STACK_CLASS}>
+              <div className="flex items-center gap-1.5">
+                <SettingsGroupTitle>
+                  {t('settings.openchamber.defaults.repoWikiModel.title')}
+                </SettingsGroupTitle>
+                <SettingsInfoHint>
+                  {t('settings.openchamber.defaults.repoWikiModel.description')}
+                </SettingsInfoHint>
+              </div>
+
+              <SettingsFieldRow
+                settingsItem="sessions.repo-wiki-model"
+                label={t('settings.openchamber.defaults.repoWikiModel.overrideModel')}
+              >
+                <ModelSelector
+                  providerId={parsedRepoWikiModel.providerId}
+                  modelId={parsedRepoWikiModel.modelId}
+                  onChange={handleRepoWikiModelOverrideChange}
+                  allowedProviderIds={smallModelProviders}
+                  isModelAllowed={isStructuredOutputCapable}
+                  placeholder={t('settings.openchamber.defaults.repoWikiModel.usesDefaultModel')}
                   className={SETTINGS_CUSTOM_TRIGGER_CLASS}
                 />
               </SettingsFieldRow>

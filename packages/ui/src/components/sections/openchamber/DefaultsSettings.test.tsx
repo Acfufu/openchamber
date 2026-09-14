@@ -82,7 +82,10 @@ mock.module('@/components/chat/mobileControlsUtils', () => ({
   isPrimaryMode: (mode: string | undefined) => mode === 'primary',
 }));
 mock.module('@/components/sections/agents/ModelSelector', () => ({
-  ModelSelector: () => <button type="button">model</button>,
+  ModelSelector: (props: { onChange?: (providerId: string, modelId: string) => void }) => {
+    latestModelSelectorChange = props.onChange ?? null;
+    return <button type="button">model</button>;
+  },
 }));
 mock.module('@/components/sections/commands/AgentSelector', () => ({
   AgentSelector: () => <button type="button">agent</button>,
@@ -112,6 +115,8 @@ mock.module('@/components/ui/select', () => ({
 }));
 
 const { DefaultsSettings } = await import('./DefaultsSettings');
+
+let latestModelSelectorChange: ((providerId: string, modelId: string) => void) | null = null;
 
 describe('DefaultsSettings', () => {
   let windowInstance: Window;
@@ -179,5 +184,30 @@ describe('DefaultsSettings', () => {
     expect(host.textContent).toContain('sidecar/model');
     expect(host.textContent).toContain('High');
     expect(updateCalls).toEqual([]);
+  });
+
+  test('renders the repo-wiki model section and persists its override change', async () => {
+    savedSettings = {
+      defaultModel: 'sidecar/model',
+      repoWikiModelOverride: 'wikimodel/provider',
+    };
+
+    await act(async () => {
+      root.render(<DefaultsSettings />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(host.textContent).toContain('settings.openchamber.defaults.repoWikiModel.title');
+    expect(host.textContent).toContain('settings.openchamber.defaults.repoWikiModel.description');
+
+    // Clearing the picker hands the choice back to the repo-wiki model chain:
+    // the empty string is a real write, not a no-op.
+    expect(latestModelSelectorChange).not.toBeNull();
+    await act(async () => {
+      latestModelSelectorChange?.('', '');
+    });
+
+    expect(updateCalls).toEqual([{ repoWikiModelOverride: '' }]);
   });
 });

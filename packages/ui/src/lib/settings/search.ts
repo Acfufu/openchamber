@@ -440,6 +440,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['walkthrough', 'diff', 'review', 'changes', 'structured output', 'model', 'override'],
   },
   {
+    id: 'sessions.repo-wiki-model',
+    page: 'sessions',
+    titleKey: 'settings.openchamber.defaults.repoWikiModel.title',
+    descriptionKey: 'settings.openchamber.defaults.repoWikiModel.description',
+    keywords: ['wiki', 'repo wiki', 'architecture', 'structured output', 'model', 'override'],
+  },
+  {
     id: 'sessions.auto-cleanup',
     page: 'sessions',
     titleKey: 'settings.openchamber.sessionRetention.field.enableAutoCleanup',
