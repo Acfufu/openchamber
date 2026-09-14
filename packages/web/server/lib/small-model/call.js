@@ -57,6 +57,15 @@ const requestSignal = (timeoutMs, signal) => {
 
 const STRUCTURED_OUTPUT_NAME = 'response';
 
+// A clipped-but-nonempty answer is a failure, not prose: the page would
+// silently miss its tail, and nothing else in the chain detects it. Callers'
+// retry machinery covers it like any other page failure. Empty answers keep
+// the pre-existing no-content / output-exhausted classifications.
+const truncatedError = (providerLabel, detail) => Object.assign(
+  new Error(`${providerLabel} hit the output limit and the answer is truncated${detail ? ` (${detail})` : ''}`),
+  { code: 'truncated', provider: providerLabel },
+);
+
 // Google's schema dialect is OpenAPI-flavored and rejects JSON Schema keywords
 // it does not know, so unsupported keys are dropped rather than passed through.
 const GOOGLE_UNSUPPORTED_SCHEMA_KEYS = new Set([
@@ -244,6 +253,9 @@ const callOpenaiCompatible = async ({ baseURL, headers, modelID, prompt, system,
   if (!text.trim()) {
     throw new Error(`${providerLabel} returned no message content`);
   }
+  if (finishReason === 'length') {
+    throw truncatedError(providerLabel, 'finish_reason: length');
+  }
   return text;
 };
 
@@ -296,6 +308,13 @@ const callOpenaiResponses = async ({ baseURL, headers, modelID, prompt, system, 
   if (!text.trim()) {
     throw new Error(`${providerLabel} returned no text output`);
   }
+  if (payload?.status === 'incomplete') {
+    // Clipped output passes silently otherwise — the reason names the flavor.
+    if (payload?.incomplete_details?.reason === 'max_output_tokens') {
+      throw truncatedError(providerLabel, 'incomplete: max_output_tokens');
+    }
+    throw new Error(`${providerLabel} returned an incomplete response (reason: ${payload?.incomplete_details?.reason ?? 'unknown'})`);
+  }
   return text;
 };
 
@@ -340,7 +359,12 @@ const callMessages = async ({ url, headers, modelID, prompt, system, maxOutputTo
     if (!toolUse || typeof toolUse.input !== 'object' || toolUse.input === null) {
       throw new Error(`${providerLabel} returned no structured output`);
     }
-    return JSON.stringify(toolUse.input);
+    const serialized = JSON.stringify(toolUse.input);
+    if (payload?.stop_reason === 'max_tokens') {
+      // The page itself is the tool input here — a clipped call is a clipped page.
+      throw truncatedError(providerLabel, 'stop_reason: max_tokens');
+    }
+    return serialized;
   }
 
   const text = (payload?.content || [])
@@ -349,6 +373,9 @@ const callMessages = async ({ url, headers, modelID, prompt, system, maxOutputTo
     .join('');
   if (!text) {
     throw new Error(`${providerLabel} returned no text content`);
+  }
+  if (payload?.stop_reason === 'max_tokens') {
+    throw truncatedError(providerLabel, 'stop_reason: max_tokens');
   }
   return text;
 };
@@ -460,11 +487,15 @@ const callGoogle = async ({ apiKey, modelID, prompt, system, maxOutputTokens, th
     throw await httpError(response, 'Google');
   }
   const payload = await response.json();
-  const text = (payload?.candidates?.[0]?.content?.parts || [])
+  const candidate = payload?.candidates?.[0];
+  const text = (candidate?.content?.parts || [])
     .map((part) => (typeof part?.text === 'string' ? part.text : ''))
     .join('');
   if (!text) {
     throw new Error('Google returned no text content');
+  }
+  if (candidate?.finishReason === 'MAX_TOKENS') {
+    throw truncatedError('Google', 'finishReason: MAX_TOKENS');
   }
   return text;
 };
@@ -506,6 +537,7 @@ const callCodexResponses = async ({ accessToken, accountId, modelID, prompt, sys
   const raw = await response.text();
   let text = '';
   let completedText = '';
+  let incompleteReason = null;
   for (const line of raw.split('\n')) {
     if (!line.startsWith('data:')) continue;
     const data = line.slice(5).trim();
@@ -522,6 +554,9 @@ const callCodexResponses = async ({ accessToken, accountId, modelID, prompt, sys
     if (event?.type === 'response.output_text.done' && typeof event.text === 'string') {
       completedText = event.text;
     }
+    if (event?.type === 'response.incomplete') {
+      incompleteReason = event?.response?.incomplete_details?.reason ?? 'unknown';
+    }
     if (event?.type === 'response.failed' || event?.type === 'error') {
       const message = event?.response?.error?.message || event?.message || 'response failed';
       throw new Error(`OpenAI (ChatGPT plan) stream error: ${message}`);
@@ -530,6 +565,12 @@ const callCodexResponses = async ({ accessToken, accountId, modelID, prompt, sys
   const result = completedText || text;
   if (!result) {
     throw new Error('OpenAI (ChatGPT plan) returned no text output');
+  }
+  if (incompleteReason) {
+    if (incompleteReason === 'max_output_tokens') {
+      throw truncatedError('OpenAI (ChatGPT plan)', 'incomplete: max_output_tokens');
+    }
+    throw new Error(`OpenAI (ChatGPT plan) stream ended incomplete (reason: ${incompleteReason})`);
   }
   return result;
 };

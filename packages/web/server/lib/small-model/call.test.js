@@ -1312,8 +1312,7 @@ describe('callSmallModel — thought level mapping', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('classifies families and honorability for the route-level check', () => {
-    expect(THOUGHT_LEVEL_VALUES).toEqual(['off', 'low', 'medium', 'high']);
+  it('classifies families and honorability for the route-level check', () => {    expect(THOUGHT_LEVEL_VALUES).toEqual(['off', 'low', 'medium', 'high']);
     expect(resolveThoughtLevelFamily('anthropic', 'claude-haiku-4-5')).toBe('messages');
     expect(resolveThoughtLevelFamily('zhipu', 'glm-4.7')).toBe('thinking-toggle');
     expect(resolveThoughtLevelFamily('custom-proxy', 'glm-4.7')).toBe('thinking-toggle');
@@ -1335,5 +1334,192 @@ describe('callSmallModel — thought level mapping', () => {
     // Absent is always honorable — it means exactly today's behavior.
     expect(honorable('deepseek', 'deepseek-chat', null)).toBe(true);
     expect(honorable('deepseek', 'deepseek-chat', undefined)).toBe(true);
+  });
+});
+
+// A clipped-but-nonempty answer used to pass as prose. Every wire format gets
+// its own stop-signal read; empty answers keep their pre-existing codes, and
+// a user stop aborts before payload parse so it can never classify as this.
+describe('callSmallModel — truncation is failure', () => {
+  let fetchMock;
+  let originalFetch;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock;
+    readConfig.mockReset();
+    readConfig.mockReturnValue({});
+    readConfigLayers.mockReset();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('fails a non-empty page cut off at finish_reason length (openai-compatible)', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: 'half a page' }, finish_reason: 'length' }] }),
+    });
+
+    await expect(callSmallModel({
+      auth: { openai: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'openai',
+      modelID: 'gpt-5.4-mini',
+      prompt: 'hi',
+    })).rejects.toMatchObject({ code: 'truncated' });
+  });
+
+  it('keeps output-exhausted for an empty answer at finish_reason length', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: '', reasoning_content: 'thought hard' }, finish_reason: 'length' }] }),
+    });
+
+    await expect(callSmallModel({
+      auth: { openai: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'openai',
+      modelID: 'gpt-5.4-mini',
+      prompt: 'hi',
+    })).rejects.toMatchObject({ code: 'output-exhausted' });
+  });
+
+  it('fails a non-empty page at stop_reason max_tokens on the messages wire', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: [{ type: 'text', text: 'half a page' }], stop_reason: 'max_tokens' }),
+    });
+
+    await expect(callSmallModel({
+      auth: { anthropic: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'anthropic',
+      modelID: 'claude-haiku-4-5',
+      prompt: 'hi',
+    })).rejects.toMatchObject({ code: 'truncated' });
+  });
+
+  it('keeps the no-content code for an empty messages answer at max_tokens', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: [], stop_reason: 'max_tokens' }),
+    });
+
+    await expect(callSmallModel({
+      auth: { anthropic: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'anthropic',
+      modelID: 'claude-haiku-4-5',
+      prompt: 'hi',
+    })).rejects.toThrow('returned no text content');
+  });
+
+  it('fails a schema-shaped page whose tool call was cut off at max_tokens', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: [{ type: 'tool_use', name: 'response', input: { title: 'ok' } }],
+        stop_reason: 'max_tokens',
+      }),
+    });
+
+    await expect(callSmallModel({
+      auth: { anthropic: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'anthropic',
+      modelID: 'claude-haiku-4-5',
+      prompt: 'hi',
+      responseSchema: { type: 'object' },
+    })).rejects.toMatchObject({ code: 'truncated' });
+
+    // Control: the same shape at a normal stop returns the tool input.
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: [{ type: 'tool_use', name: 'response', input: { title: 'ok' } }],
+        stop_reason: 'end_turn',
+      }),
+    });
+    await expect(callSmallModel({
+      auth: { anthropic: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'anthropic',
+      modelID: 'claude-haiku-4-5',
+      prompt: 'hi',
+      responseSchema: { type: 'object' },
+    })).resolves.toBe('{"title":"ok"}');
+  });
+
+  it('fails a non-empty page at finishReason MAX_TOKENS on the google wire', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: 'half a page' }] }, finishReason: 'MAX_TOKENS' }] }),
+    });
+
+    await expect(callSmallModel({
+      auth: { google: { type: 'api', key: 'k' } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'google',
+      modelID: 'gemini-2.5-flash',
+      prompt: 'hi',
+    })).rejects.toMatchObject({ code: 'truncated' });
+  });
+
+  it('fails a non-empty incomplete responses payload', async () => {
+    const jsonResponse = (payload) => new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: 'mai-code-1-flash-picker', supported_endpoints: ['/responses'] }] }))
+      .mockResolvedValueOnce(jsonResponse({
+        output_text: 'half a page',
+        status: 'incomplete',
+        incomplete_details: { reason: 'max_output_tokens' },
+      }));
+
+    await expect(callSmallModel({
+      auth: { 'github-copilot': { type: 'oauth', access: 't', refresh: 't', expires: 0 } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'github-copilot',
+      modelID: 'mai-code-1-flash-picker',
+      prompt: 'hi',
+    })).rejects.toMatchObject({ code: 'truncated' });
+  });
+
+  it('fails a codex stream that ends with response.incomplete', async () => {
+    const sse = [
+      'data: {"type":"response.output_text.delta","delta":"half"}',
+      'data: {"type":"response.incomplete","response":{"incomplete_details":{"reason":"max_output_tokens"}}}',
+      '',
+    ].join('\n');
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => sse });
+
+    await expect(callSmallModel({
+      auth: { openai: { type: 'oauth', access: 'fresh', refresh: 'r', expires: Date.now() + 60_000 } },
+      catalog: {},
+      workingDirectory: '/proj',
+      providerID: 'openai',
+      modelID: 'gpt-5.4-mini',
+      prompt: 'hi',
+    })).rejects.toMatchObject({ code: 'truncated' });
   });
 });
