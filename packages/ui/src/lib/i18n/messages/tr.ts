@@ -2217,6 +2217,7 @@ export const dict = {
   'chat.container.sessionLoadError.retry': 'Yeniden dene',
   'sessions.sidebar.group.empty.loadingSessions': 'Session\'lar yükleniyor…',
   'sessions.sidebar.group.empty.loadFailed': 'Session\'lar yenilenemedi.',
+  'sessions.sidebar.group.empty.initializationFailed': 'Çalışma alanı başlatılamadı.',
   'sessions.sidebar.group.empty.retry': 'Yeniden dene',
   'sessions.sidebar.group.empty.permissionDenied': 'Klasör erişimi gerekiyor.',
   'sessions.sidebar.group.empty.grantAccess': 'Erişim ver',

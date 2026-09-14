@@ -191,10 +191,11 @@ const formatRelativeShort = (timestamp: number): string => {
 const pathBelongsToRoot = (path: string, root: string): boolean => {
   const normalizedPath = normalizePath(path);
   const normalizedRoot = normalizePath(root);
+  const prefix = normalizedRoot.endsWith('/') ? normalizedRoot : `${normalizedRoot}/`;
   return Boolean(
     normalizedPath &&
       normalizedRoot &&
-      (normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`)),
+      (normalizedPath === normalizedRoot || normalizedPath.startsWith(prefix)),
   );
 };
 

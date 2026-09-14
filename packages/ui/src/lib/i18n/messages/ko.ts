@@ -2275,6 +2275,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.container.sessionLoadError.retry': '다시 시도',
   'sessions.sidebar.group.empty.loadingSessions': '세션을 불러오는 중…',
   'sessions.sidebar.group.empty.loadFailed': '세션을 새로 고칠 수 없습니다.',
+  'sessions.sidebar.group.empty.initializationFailed': '작업 공간을 초기화할 수 없습니다.',
   'sessions.sidebar.group.empty.retry': '다시 시도',
   'sessions.sidebar.group.empty.permissionDenied': '폴더 접근이 필요합니다.',
   'sessions.sidebar.group.empty.grantAccess': '접근 허용',

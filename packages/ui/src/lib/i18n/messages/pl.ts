@@ -923,6 +923,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.container.sessionLoadError.retry': 'Spróbuj ponownie',
   'sessions.sidebar.group.empty.loadingSessions': 'Wczytywanie sesji…',
   'sessions.sidebar.group.empty.loadFailed': 'Nie udało się odświeżyć sesji.',
+  'sessions.sidebar.group.empty.initializationFailed': 'Nie udało się zainicjować obszaru roboczego.',
   'sessions.sidebar.group.empty.retry': 'Spróbuj ponownie',
   'sessions.sidebar.group.empty.permissionDenied': 'Wymagany jest dostęp do folderu.',
   'sessions.sidebar.group.empty.grantAccess': 'Przyznaj dostęp',

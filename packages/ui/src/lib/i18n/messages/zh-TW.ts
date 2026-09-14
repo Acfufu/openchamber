@@ -2243,6 +2243,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.container.sessionLoadError.retry': '再試一次',
   'sessions.sidebar.group.empty.loadingSessions': '正在載入工作階段…',
   'sessions.sidebar.group.empty.loadFailed': '無法重新整理工作階段。',
+  'sessions.sidebar.group.empty.initializationFailed': '無法初始化工作區。',
   'sessions.sidebar.group.empty.retry': '再試一次',
   'sessions.sidebar.group.empty.permissionDenied': '需要資料夾存取權限。',
   'sessions.sidebar.group.empty.grantAccess': '授予存取權限',

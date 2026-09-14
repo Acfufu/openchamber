@@ -2269,6 +2269,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.container.sessionLoadError.retry': '再試行',
   'sessions.sidebar.group.empty.loadingSessions': 'セッションを読み込んでいます…',
   'sessions.sidebar.group.empty.loadFailed': 'セッションを更新できませんでした。',
+  'sessions.sidebar.group.empty.initializationFailed': 'ワークスペースを初期化できませんでした。',
   'sessions.sidebar.group.empty.retry': '再試行',
   'sessions.sidebar.group.empty.permissionDenied': 'フォルダへのアクセスが必要です。',
   'sessions.sidebar.group.empty.grantAccess': 'アクセスを許可',

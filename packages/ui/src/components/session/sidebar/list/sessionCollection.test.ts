@@ -61,6 +61,23 @@ const session = (id: string, directory: string | null): Session => {
 };
 
 describe('projectSidebarActiveSessions', () => {
+  test('keeps case-insensitive membership local to projection without rewriting request paths', () => {
+    const knownDirectories = new Set(['/Users/Developer/Project']);
+    const input = {
+      globalActiveSessions: [session('known', '/users/developer/project'), session('unknown', '/other')],
+      liveSessions: [],
+      knownDirectories,
+      isVSCode: true,
+    };
+    expect(projectSidebarActiveSessions(input).map((entry) => entry.id)).toEqual(['known']);
+    expect(buildSidebarSessionProjection({
+      ...input,
+      pinnedSessionIds: new Set(),
+      sessionOrderRanks: new Map(),
+    }).projectSessions.map((entry) => entry.id)).toEqual(['known']);
+    expect([...knownDirectories]).toEqual(['/Users/Developer/Project']);
+  });
+
   test('keeps global precedence and order, then appends missing live sessions', () => {
     const global = [session('global-b', '/workspace/b'), session('global-a', '/workspace/a')];
     const live = [session('global-a', '/workspace/a'), session('live-c', '/workspace/c')];

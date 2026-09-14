@@ -33,6 +33,7 @@ import { retry } from "./retry"
 import { touchStreamingSession, updateChangedStreamingSessions, updateStreamingState } from "./streaming"
 import { countSyncPerformance } from "./performance-diagnostics"
 import { runBackgroundNetworkTask } from "@/lib/background-network"
+import { recordDirectoryRecoveryEvent } from "./directory-recovery-snapshots"
 import { setActionRefs } from "./session-actions"
 import { setSyncRefs, getAllSyncSessions } from "./sync-refs"
 import { useSessionUIStore } from "./session-ui-store"
@@ -66,6 +67,7 @@ import {
   applyGlobalSessionStatusEvent,
   applyGlobalSessionStatusEvents,
   applyGlobalSessionStatusSnapshot,
+  getDirectoryOwnedSessionIds,
   useGlobalSessionStatusStore,
 } from "./global-session-status"
 import type { State } from "./types"
@@ -762,7 +764,7 @@ async function resyncDirectorySessionStatuses(
   applySessionStatusSnapshot(store, nextStatuses, candidateSessionIds, mode)
   if (mode === "authoritative") {
     store.setState({ sessionStatusReady: true })
-    applyGlobalSessionStatusSnapshot(directory, nextStatuses, candidateSessionIds)
+    applyGlobalSessionStatusSnapshot(directory, nextStatuses, getDirectoryOwnedSessionIds(directory, store.getState().session))
     // An authoritative snapshot that settles sessions previously observed
     // busy/retry can leave their trailing assistant message and tool parts
     // unfinished (managed process died mid-turn, #2577): finalize them now.
@@ -816,11 +818,11 @@ export function maybePollStatusAfterMessageCompletion(
     void (async () => {
       try {
         const statuses = await runBackgroundNetworkTask(() =>
-          resyncDirectorySessionStatuses(directory, store, [sessionID], "monotonic"))
+          resyncDirectorySessionStatuses(directory, store, [sessionID], "monotonic"), "active-session")
         if (!statuses) return
         if (needsSnapshotAfterStatusPoll(store.getState(), sessionID, statuses[sessionID])) {
           await runBackgroundNetworkTask(() =>
-            resyncDirectorySessionStatuses(directory, store, [sessionID], "authoritative"))
+            resyncDirectorySessionStatuses(directory, store, [sessionID], "authoritative"), "active-session")
         }
       } catch {
         // Best-effort — the watchdog poll retries on its own cadence.
@@ -1888,6 +1890,7 @@ export function handleEvent(
     case "session.status":
     case "session.idle":
     case "session.error":
+      recordDirectoryRecoveryEvent(store, payload)
       cloneField("session_status", (value) => ({ ...(value ?? {}) }))
       break
     case "todo.updated":
@@ -1909,11 +1912,13 @@ export function handleEvent(
       break
     case "permission.asked":
     case "permission.replied":
+      recordDirectoryRecoveryEvent(store, payload)
       cloneField("permission", (value) => ({ ...value }))
       break
     case "question.asked":
     case "question.replied":
     case "question.rejected":
+      recordDirectoryRecoveryEvent(store, payload)
       cloneField("question", (value) => ({ ...value }))
       break
     case "lsp.updated":
@@ -1931,6 +1936,9 @@ export function handleEvent(
   })
   const reducerChanged = typeof reducerResult === "boolean" ? reducerResult : reducerResult.changed
   const materializationResult = typeof reducerResult === "boolean" ? undefined : reducerResult.materialization
+  if (reducerChanged && (payload.type === "session.updated" || payload.type === "session.deleted")) {
+    recordDirectoryRecoveryEvent(store, payload)
+  }
 
   if (reducerChanged && updatedPart) {
     sessionEvents.requestGitRefreshForToolTransition(resolvedDirectory, previousPart, updatedPart)
@@ -2342,37 +2350,60 @@ export function SyncProvider(props: {
   }, [props.sdk])
 
   useEffect(() => {
+    const expectedRuntimeKey = getRuntimeKey()
+    const sdkEpoch = opencodeClient.getSdkClient()
     return childStores.configure({
       bootstrapConcurrency: 2,
+      isCurrentScope: () => getRuntimeKey() === expectedRuntimeKey && opencodeClient.getSdkClient() === sdkEpoch,
       onBootstrap: async (context: DirectoryBootstrapContext) => {
         const { directory } = context
+        const isCurrent = context.isCurrent
         const store = childStores.getChild(directory)
-        if (!store || !context.isCurrent()) return
+        if (!store || !isCurrent()) return
+
+        const failBootstrap = async () => {
+          if (!isCurrent()) return
+          // Only the owning filesystem API can establish an OS permission
+          // failure; OpenCode/proxy text is not permission evidence.
+          const files = getRegisteredRuntimeAPIs()?.files
+          if (files) {
+            try {
+              await files.listDirectory(directory)
+            } catch (error) {
+              if (isFilesystemError(error) && error.reason === "os-permission") throw error
+            }
+          }
+          throw new Error(`Directory bootstrap failed for ${directory}`)
+        }
+        let initializationAttempt = 0
 
         const runBootstrap = async (attempt: number): Promise<"complete" | "failed" | "stale"> => {
-          if (!context.isCurrent()) return "stale"
+          if (!isCurrent()) return "stale"
+          const currentAttempt = ++initializationAttempt
           const globalState = useGlobalSyncStore.getState()
-          const result = await bootstrapDirectory({
+          const bootstrap = bootstrapDirectory({
             directory,
             sdk: props.sdk,
-            getState: () => store.getState(),
+            store,
             set: (patch) => {
-              if (!context.isCurrent()) return
+              if (!isCurrent()) return
               store.setState(patch)
               if (patch.session_status) {
-                applyGlobalSessionStatusSnapshot(directory, patch.session_status, store.getState().session.map((session) => session.id))
+                applyGlobalSessionStatusSnapshot(directory, patch.session_status, getDirectoryOwnedSessionIds(directory, store.getState().session))
               }
               if (patch.session || patch.message) {
                 ingestDirectoryStateIntoRoutingIndex(routingIndex, directory, store.getState())
               }
             },
-            isStale: () => !context.isCurrent(),
+            isStale: () => !isCurrent() || currentAttempt !== initializationAttempt,
             global: {
               config: globalState.config,
               projects: globalState.projects,
             },
-            loadSessions: (dir) => retry(async () => {
-              if (!context.isCurrent()) return
+            // Each page owns its bounded retry. Replaying the whole list here
+            // multiplies attempts and holds a bootstrap slot behind failures.
+            loadSessions: async (dir) => {
+              if (!isCurrent()) return
               const baselineRevision = store.getState().sessionRevision ?? 0
               const rootSessions = (await listGlobalSessionPages(props.sdk, {
                 directory: dir,
@@ -2396,7 +2427,7 @@ export function SyncProvider(props: {
               } catch {
                 // Child load is best-effort; fall back to roots only.
               }
-              if (!context.isCurrent()) return
+              if (!isCurrent()) return
 
               // A cold OpenCode process can briefly return children before its
               // roots query catches up. Recover referenced parents from the
@@ -2414,13 +2445,18 @@ export function SyncProvider(props: {
                 limit: Math.max(sessions.length, 50),
               })
               ingestDirectoryStateIntoRoutingIndex(routingIndex, directory, store.getState())
-            }),
+            },
           })
-          if (result !== "complete" || !context.isCurrent()) return result
+          context.trackInitialization(bootstrap.environment.then((result) => {
+            if (result === "failed") return failBootstrap()
+          }))
+          const result = await bootstrap.sessions
+          if (!isCurrent()) return "stale"
+          if (result !== "complete") return result
 
           // VS Code-only race: the bridge can answer with an empty 200 (instead
-          // of a retryable 503) while OpenCode is still warming up, which the two
-          // retry layers inside loadSessions can't catch. Re-run a few times there.
+          // of a retryable 503) while OpenCode is still warming up, which the
+          // page retries inside loadSessions can't catch. Re-run a few times there.
           //
           // On web/desktop this retry is both redundant and harmful: loadSessions
           // already retries transient failures (listGlobalSessionPages throws on
@@ -2428,12 +2464,12 @@ export function SyncProvider(props: {
           // the directory genuinely has no sessions (e.g. a deleted worktree only
           // referenced by archived sessions). Re-running the full bootstrap 6×2s
           // per such directory is the startup log storm.
-          if (isVSCodeRuntime() && context.isCurrent()) {
+          if (isVSCodeRuntime() && isCurrent()) {
             const state = store.getState()
             if (state.session.length === 0 && attempt < 5) {
               console.warn(`[bootstrap] sessions empty for ${directory} after attempt ${attempt + 1}; retrying in 2s`)
               await new Promise((r) => setTimeout(r, 2000))
-              if (!context.isCurrent()) return "stale"
+              if (!isCurrent()) return "stale"
               store.setState({ status: "loading" as const })
               return runBootstrap(attempt + 1)
             } else if (state.session.length === 0) {
@@ -2444,21 +2480,7 @@ export function SyncProvider(props: {
         }
 
         const result = await runBootstrap(0)
-        if (result === "failed") {
-          // OpenCode can mask the underlying errno while initializing an
-          // inaccessible workspace. Probe the exact directory through the
-          // owning runtime filesystem API so only an authoritative local
-          // EPERM/EACCES becomes an actionable grant-access failure.
-          const files = getRegisteredRuntimeAPIs()?.files
-          if (files) {
-            try {
-              await files.listDirectory(directory)
-            } catch (error) {
-              if (isFilesystemError(error) && error.reason === "os-permission") throw error
-            }
-          }
-          throw new Error(`Directory bootstrap failed for ${directory}`)
-        }
+        if (result === "failed") await failBootstrap()
 
         // Selecting a session whose directory this client had not indexed yet
         // routes it through the active directory as a documented guess. This is
@@ -2663,7 +2685,7 @@ export function SyncProvider(props: {
       polling.add(directory)
       try {
         const before = store.getState()
-        const statuses = await runBackgroundNetworkTask(() => resyncDirectorySessionStatuses(directory, store, candidateSessionIds, "monotonic"))
+        const statuses = await runBackgroundNetworkTask(() => resyncDirectorySessionStatuses(directory, store, candidateSessionIds, "monotonic"), "active-session")
         if (!statuses) return
         const needsSnapshot = candidateSessionIds.some((sessionId) => (
           needsSnapshotAfterStatusPoll(before, sessionId, statuses[sessionId])

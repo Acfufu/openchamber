@@ -2251,6 +2251,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.container.sessionLoadError.retry": "Спробувати знову",
   "sessions.sidebar.group.empty.loadingSessions": "Завантаження сесій…",
   "sessions.sidebar.group.empty.loadFailed": "Не вдалося оновити сесії.",
+  "sessions.sidebar.group.empty.initializationFailed": "Не вдалося підготувати робочий простір.",
   "sessions.sidebar.group.empty.retry": "Спробувати знову",
   "sessions.sidebar.group.empty.permissionDenied": "Потрібен доступ до папки.",
   "sessions.sidebar.group.empty.grantAccess": "Надати доступ",

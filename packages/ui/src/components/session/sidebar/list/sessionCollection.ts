@@ -79,6 +79,7 @@ export const projectSidebarActiveSessions = ({
 }: ProjectSidebarActiveSessionsArgs): Session[] => {
   const sessions = [...globalActiveSessions];
   const knownIds = new Set(globalActiveSessions.map((session) => session.id));
+  const knownDirectoryKeys = new Set([...knownDirectories].map((directory) => directory.toLowerCase()));
 
   for (const session of liveSessions) {
     if (knownIds.has(session.id)) continue;
@@ -86,7 +87,7 @@ export const projectSidebarActiveSessions = ({
   }
 
   return partitionSidebarSessions(sessions, isVSCode).projectSessions
-    .filter((session) => isKnownActiveSessionDirectory(session, knownDirectories, isVSCode));
+    .filter((session) => isKnownActiveSessionDirectory(session, knownDirectoryKeys, isVSCode));
 };
 
 export const projectSidebarCollection = (args: ProjectSidebarActiveSessionsArgs): Session[] => {
@@ -171,8 +172,9 @@ const buildSidebarSessionStructure = ({
   const indexedGlobalSessions = globalActiveSessions ?? [];
   const visibleSessions = mergeSidebarSessionSources(indexedGlobalSessions, liveSessions);
   const partition = partitionSidebarSessions(visibleSessions, isVSCode);
+  const knownDirectoryKeys = new Set([...knownDirectories].map((directory) => directory.toLowerCase()));
   const projectSessions = partition.projectSessions
-    .filter((session) => isKnownActiveSessionDirectory(session, knownDirectories, isVSCode));
+    .filter((session) => isKnownActiveSessionDirectory(session, knownDirectoryKeys, isVSCode));
   const sessions = [...projectSessions, ...partition.chatSessions];
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
   const projectSessionIds = new Set(projectSessions.map((session) => session.id));
