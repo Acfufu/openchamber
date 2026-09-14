@@ -29,6 +29,9 @@ export interface RepoWikiPageMeta {
 
 export type RepoWikiRunStatus = 'running' | 'done' | 'stopped' | 'failed';
 
+/** Coarse thought level enum; null (absent) means the model's own default. */
+export type RepoWikiThoughtLevel = 'off' | 'low' | 'medium' | 'high';
+
 export interface RepoWikiRunState {
   status: RepoWikiRunStatus;
   stage: string | null;
@@ -53,6 +56,8 @@ export interface RepoWikiStatus {
   branch: string | null;
   language: string;
   diagrams: boolean;
+  /** The generation option's recorded level; null = model default. */
+  thoughtLevel: RepoWikiThoughtLevel | null;
   model: RepoWikiModelRef | null;
   generatedAt: string | null;
   run: RepoWikiRunState | null;
@@ -71,6 +76,8 @@ export interface RepoWikiGenerateOptions {
   model?: string;
   /** Consented retry budget per page call (integer 0-3, default 0). */
   retries?: number;
+  /** Coarse thought level; absent sends nothing (model default). */
+  thoughtLevel?: RepoWikiThoughtLevel;
 }
 
 export class RepoWikiRequestError extends Error {
@@ -99,6 +106,7 @@ const asString = (value: any, fallback: string | null = null): string | null => 
 const DIAGRAM_KINDS: readonly RepoWikiDiagramKind[] = ['architecture', 'flow', 'sequence', 'state', 'component'];
 const PAGE_STATUSES: readonly RepoWikiPageStatus[] = ['pending', 'writing', 'done', 'failed'];
 const RUN_STATUSES: readonly RepoWikiRunStatus[] = ['running', 'done', 'stopped', 'failed'];
+const THOUGHT_LEVELS: readonly RepoWikiThoughtLevel[] = ['off', 'low', 'medium', 'high'];
 
 const parsePageMeta = (value: any): RepoWikiPageMeta | null => {
   if (value == null || value.constructor !== Object) return null;
@@ -147,6 +155,7 @@ const parseStatus = (payload: any): RepoWikiStatusResult => {
       branch: asString(wikiValue.branch),
       language: asString(wikiValue.language) ?? 'en',
       diagrams: wikiValue.diagrams === true,
+      thoughtLevel: THOUGHT_LEVELS.includes(wikiValue.thoughtLevel) ? wikiValue.thoughtLevel : null,
       model: modelValue != null && modelValue.constructor === Object
         ? { providerID: asString(modelValue.providerID) ?? '', modelID: asString(modelValue.modelID) ?? '' }
         : null,
@@ -312,6 +321,7 @@ interface RepoWikiGenerateBody {
   model?: string;
   diagrams?: boolean;
   retries?: number;
+  thoughtLevel?: RepoWikiThoughtLevel;
 }
 
 export const startRepoWikiGeneration = async (
@@ -323,6 +333,7 @@ export const startRepoWikiGeneration = async (
   if (options.model) body.model = options.model;
   if (options.diagrams != null) body.diagrams = options.diagrams === true;
   if (options.retries != null) body.retries = options.retries;
+  if (options.thoughtLevel != null) body.thoughtLevel = options.thoughtLevel;
 
   const response = await runtimeFetch(`${basePath(resolveRepoWikiProjectId(projectPath))}/generate`, {
     method: 'POST',

@@ -17,6 +17,7 @@ import { type Locale } from '@/lib/i18n/runtime';
 import {
   resolveRepoWikiProjectId,
   type RepoWikiPageMeta,
+  type RepoWikiThoughtLevel,
 } from '@/lib/repoWikiApi';
 import { runtimeFetch } from '@/lib/runtime-fetch';
 import { projectPathFromProjectId } from '@/lib/projectId';
@@ -170,6 +171,8 @@ const ERROR_MESSAGE_KEYS = [
   ['malformed-response', 'repoWiki.error.malformedResponse'],
   ['interrupted', 'repoWiki.error.interrupted'],
   ['invalid-retries', 'repoWiki.error.invalidRetries'],
+  ['truncated', 'repoWiki.error.truncated'],
+  ['thought-level-unsupported', 'repoWiki.error.thoughtLevelUnsupported'],
   ['read-status', 'repoWiki.error.readStatus'],
   ['read-page', 'repoWiki.error.readPage'],
   ['start-generation', 'repoWiki.error.startGeneration'],
@@ -177,6 +180,13 @@ const ERROR_MESSAGE_KEYS = [
   ['retry-page', 'repoWiki.error.retryPage'],
   ['delete-wiki', 'repoWiki.error.deleteWiki'],
 ] as const satisfies ReadonlyArray<readonly [string, I18nKey]>;
+
+const THOUGHT_LEVEL_LABEL_KEYS = {
+  off: 'repoWiki.options.thoughtLevel.off',
+  low: 'repoWiki.options.thoughtLevel.low',
+  medium: 'repoWiki.options.thoughtLevel.medium',
+  high: 'repoWiki.options.thoughtLevel.high',
+} as const satisfies Readonly<Record<RepoWikiThoughtLevel, I18nKey>>;
 
 const localizedError = (t: TranslateFn, message: string | null, errorCode: string | null): string | null => {
   if (!message && errorCode == null) return null;
@@ -391,11 +401,25 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
   const [diagrams, setDiagrams] = React.useState(true);
   const [model, setModel] = React.useState('');
   const [retries, setRetries] = React.useState(0);
+  // '' is the model-default sentinel: the select sends nothing for it.
+  const [thoughtLevel, setThoughtLevel] = React.useState<'' | RepoWikiThoughtLevel>('');
   const [selectedPageId, setSelectedPageId] = React.useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [pageMarkdown, setPageMarkdown] = React.useState<string | null>(null);
   const [working, setWorking] = React.useState(false);
+  // Bulk retry of every failed page: loop-long flags so the button neither
+  // flickers re-enabled between pages (runActive dips) nor keeps firing after
+  // navigation, and the in-flight page still settles server-side.
+  const [bulkRetrying, setBulkRetrying] = React.useState(false);
+  const bulkStopRef = React.useRef(false);
+  const bulkAliveRef = React.useRef(true);
+  React.useEffect(() => {
+    bulkAliveRef.current = true;
+    return () => {
+      bulkAliveRef.current = false;
+    };
+  }, [projectId]);
 
   React.useEffect(() => {
     if (!directory) return;
@@ -517,6 +541,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
         diagrams,
         model: model || undefined,
         retries: retries > 0 ? retries : undefined,
+        thoughtLevel: thoughtLevel || undefined,
       });
     } finally {
       setWorking(false);
@@ -524,6 +549,9 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
   };
 
   const requestStop = async () => {
+    // A stop during the bulk retry breaks the loop once the in-flight page
+    // settles; the remaining failed pages stay failed.
+    bulkStopRef.current = true;
     setWorking(true);
     try {
       await stopGeneration(directory);
@@ -540,6 +568,37 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
       await retryPage(directory, pageId, { retries: retries > 0 ? retries : undefined });
     } finally {
       setWorking(false);
+    }
+  };
+
+  /** Resolves once the project's background run is no longer active. */
+  const waitRunSettled = async (timeoutMs = 20 * 60_000): Promise<boolean> => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (useRepoWikiStore.getState().entries[projectId]?.status?.runActive !== true) return true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return false;
+  };
+
+  const retryFailedPages = async () => {
+    if (bulkRetrying || bulkStopRef.current) return;
+    setBulkRetrying(true);
+    bulkStopRef.current = false;
+    try {
+      // Snapshot at press time: this press consents to exactly these pages,
+      // each with the panel's configured per-page retry budget.
+      const failedIds = pages.filter((page) => page.status === 'failed').map((page) => page.id);
+      for (const pageId of failedIds) {
+        if (bulkStopRef.current || !bulkAliveRef.current) break;
+        const retried = await retryPage(directory, pageId, { retries: retries > 0 ? retries : undefined });
+        if (!retried || !bulkAliveRef.current) break;
+        const settled = await waitRunSettled();
+        if (!settled || bulkStopRef.current || !bulkAliveRef.current) break;
+      }
+    } finally {
+      bulkStopRef.current = false;
+      setBulkRetrying(false);
     }
   };
 
@@ -664,6 +723,14 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
                     </div>
                   )
                 : null}
+              {wiki.thoughtLevel
+                ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{t('repoWiki.meta.thoughtLevel')}</span>
+                      <span className="min-w-0 truncate">{t(THOUGHT_LEVEL_LABEL_KEYS[wiki.thoughtLevel])}</span>
+                    </div>
+                  )
+                : null}
               {runActive && stageLabel
                 ? (
                     <div className="flex items-center justify-between gap-3">
@@ -780,6 +847,29 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
                   </Select>
                   <p className="typography-micro text-muted-foreground">{t('repoWiki.options.retries.hint')}</p>
                 </div>
+                <div className="space-y-1">
+                  <span className="typography-ui-label">{t('repoWiki.options.thoughtLevel')}</span>
+                  <Select
+                    value={thoughtLevel}
+                    onValueChange={(value) => {
+                      // SAFETY: the option values below are the four enum
+                      // values plus the 'default' sentinel, so the string is
+                      // always assignable to the state union.
+                      setThoughtLevel(value as '' | RepoWikiThoughtLevel);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">{t('repoWiki.options.thoughtLevel.default')}</SelectItem>
+                      {(['off', 'low', 'medium', 'high'] as const).map((value) => (
+                        <SelectItem key={value} value={value}>{t(THOUGHT_LEVEL_LABEL_KEYS[value])}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="typography-micro text-muted-foreground">{t('repoWiki.options.thoughtLevel.hint')}</p>
+                </div>
                 <Button type="button" variant="default" size="default" className="w-full" disabled={working} onClick={() => void startGeneration()}>
                   {working ? t('repoWiki.generate.running') : t('repoWiki.generate.action')}
                 </Button>
@@ -814,9 +904,31 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
                     ? (
                         <>
                           {' · '}
-                          <span className="text-destructive">
-                            {t('repoWiki.pages.failedCount', { count: pageCounts.failed })}
-                          </span>
+                          {/* The failed count becomes the bulk-retry button on
+                              generatable surfaces only (mirrors canRetry):
+                              cross-project and readOnly tabs keep the plain
+                              count. The gate includes !bulkRetrying so the
+                              control never flickers back on between pages. */}
+                          {!crossView && !readOnly && !runActive && !bulkRetrying
+                            ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="xs"
+                                  className="h-auto p-0 text-destructive hover:text-destructive"
+                                  aria-label={t('repoWiki.pages.retryFailed')}
+                                  title={t('repoWiki.pages.retryFailed')}
+                                  disabled={working}
+                                  onClick={() => void retryFailedPages()}
+                                >
+                                  {t('repoWiki.pages.failedCount', { count: pageCounts.failed })}
+                                </Button>
+                              )
+                            : (
+                                <span className="text-destructive">
+                                  {t('repoWiki.pages.failedCount', { count: pageCounts.failed })}
+                                </span>
+                              )}
                         </>
                       )
                     : null}

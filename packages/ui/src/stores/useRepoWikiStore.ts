@@ -245,6 +245,7 @@ export const useRepoWikiStore = create<RepoWikiStore>((set, get) => {
             branch: item.branch,
             language: item.language ?? 'en',
             diagrams: false,
+            thoughtLevel: null,
             model: null,
             generatedAt: null,
             run: item.run
