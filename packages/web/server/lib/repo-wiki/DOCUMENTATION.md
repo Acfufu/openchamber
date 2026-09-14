@@ -37,11 +37,12 @@ ambiguity.
 
 `manifest.json` records the project id, the prompt revision that produced the wiki, the commit it was generated at,
 the branch name at generation time (display metadata only; a detached HEAD
-records null), the language, the diagrams flag, the model that produced it,
-the run state, and the catalog (ordered pages with id, title, purpose, files,
-diagram kind, and per-page status). Page bodies live beside it as markdown.
-Staleness is compared commit-to-commit only — the branch name never
-participates.
+records null), the language, the diagrams flag, the generation option's
+thought level (`off | low | medium | high`, null = model default), the model
+that produced it, the run state, and the catalog (ordered pages with id,
+title, purpose, files, diagram kind, and per-page status). Page bodies live
+beside it as markdown. Staleness is compared commit-to-commit only — the
+branch name never participates.
 
 Every write is atomic, so a crash leaves the previous state parseable. A run
 still marked `running` after a server restart died with the old process:
@@ -78,6 +79,27 @@ Stages: `digesting → catalog → pages → done | stopped | failed`.
   after a fixed 2s pause; a provider that refuses structured output still
   gets its one in-prompt fallback per attempt. A terminal failure keeps the
   last attempt's stable error code on the page.
+- The Generate press also carries `thoughtLevel` (`off | low | medium |
+  high`; absent = model default, the manifest records null and sends
+  nothing). The manifest records it top-level and the run mirrors it; a
+  combination the resolved model's wire format cannot express exactly — a
+  no-switch family with any level, gemini-3 × off, gemini-2 × a positive
+  level — answers 400 `thought-level-unsupported` at start, and the same
+  check re-runs on every retry's model re-resolution so a mapping-table
+  change across a server upgrade can never let an unhonorable level through.
+  Retries follow the manifest's recorded level (the same rail as
+  language/diagrams), not any panel select. See the small-model module doc
+  for the per-family wire mapping.
+- A page that comes back clipped-but-nonempty — any wire path's stop signal
+  says truncation — fails with the stable code `truncated` instead of
+  passing as complete prose. Empty answers keep their existing
+  no-content/`output-exhausted` codes.
+- The panel's failed-count chip becomes a bulk-retry button on the active
+  surface while the run is idle and at least one page failed: it loops the
+  single-page retry serially client-side (each page awaited before the
+  next) and breaks after the in-flight page when Stop is pressed or the
+  panel navigates away — finished pages stay, remaining failed pages stay
+  failed. There is deliberately no server bulk endpoint.
 
 ## Model chain
 
@@ -95,7 +117,10 @@ Providers that refuse structured output get the JSON shape in the prompt
 instead, once, and the refusal is remembered for the process lifetime — the
 same memo the walkthrough keeps. `context-too-small` (409) refuses the run
 with its numbers rather than shipping a clipped repo; a digest a model saw
-only half of produces a confidently wrong wiki.
+only half of produces a confidently wrong wiki. `truncated` deliberately
+joins `output-exhausted` in bypassing that fallback: the re-prompt reshapes
+output *format*, not the required content budget, so a clipped page would
+clip again.
 
 ## Routes
 
@@ -104,7 +129,7 @@ only half of produces a confidently wrong wiki.
 | `GET /api/repo-wiki` | stored-wiki list for the panel's read-only switcher; display fields only, no git |
 | `GET /api/repo-wiki/:projectId?directory=` | status: manifest, `stale`, runActive; without `directory` the manifest is served and `stale` is omitted |
 | `GET /api/repo-wiki/:projectId/pages/:pageId` | page markdown |
-| `POST /api/repo-wiki/:projectId/generate` | `{directory, language?, diagrams?, model?, retries?}`; answers `{started}` immediately |
+| `POST /api/repo-wiki/:projectId/generate` | `{directory, language?, diagrams?, model?, retries?, thoughtLevel?}`; answers `{started}` immediately |
 | `POST /api/repo-wiki/:projectId/stop` | stop the active run |
 | `POST /api/repo-wiki/:projectId/pages/:pageId/retry` | `{directory, retries?}`; validates, then runs in background |
 | `DELETE /api/repo-wiki/:projectId` | remove the stored wiki |

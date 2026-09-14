@@ -74,7 +74,44 @@ other runtime API.
   nothing. That case (empty content with `finish_reason: 'length'`, or content
   empty while `reasoning_content` is populated) throws with
   `code: 'output-exhausted'` so callers can offer a different model instead of
-  showing a transport error.
+  showing a transport error. A **clipped-but-nonempty** answer fails too: every
+  wire path reads its stop signal after the payload parses (openai
+  `finish_reason === 'length'`, messages `stop_reason === 'max_tokens'` on the
+  prose and schema tool-call branches alike, google `finishReason ===
+  'MAX_TOKENS'`, and the Responses paths' `status: 'incomplete'` /
+  `response.incomplete` stream event) and throws `code: 'truncated'` — prose
+  that silently misses its tail is a failure, not an answer. A user abort fires
+  before the payload parses and can never classify as either code.
+- Thought level: `generateSmallModelText`/`callSmallModel` accept
+  `thoughtLevel` — a fixed coarse enum `off | low | medium | high` mapped per
+  provider family inside the same explicit-allowlist policy as everything else
+  (there is NO universal parameter; unknown body fields 400 on some providers).
+  The mapping table, in `call.js`:
+  - **messages** (Anthropic, Copilot-via-messages): `off` omits the thinking
+    field; `low`/`medium`/`high` send `thinking: {type: 'enabled',
+    budget_tokens: 1024/2048/3072}` — net-new wire values for this codebase,
+    with ZCode's default-1024 as the reference point; all three sit below the
+    smallest output budget a wiki page requests.
+  - **thinking-toggle** (zai/zhipu provider ids, `glm`/`minimax-m3` model-id
+    substrings on chat completions): `off` keeps today's
+    `thinking: {type: 'disabled'}`; levels send `{type: 'enabled'}`.
+  - **gemini-3**: levels map to same-named `thinkingLevel` values; `off` is
+    rejected (the wire has no off).
+  - **gemini-2**: `off` is honorable-as-identity (its native state already is
+    `thinkingBudget: 0`); positive levels are rejected — positive budgets are
+    an unpinned capability, not a guess to be invented.
+  - **everything else** (DeepSeek/Qwen/Kimi-class no-switch chat completions,
+    both Responses backends): any level, `off` included, throws
+    `statusCode: 400, code: 'thought-level-unsupported'` — a family that
+    cannot switch never pretends it did.
+  `github-copilot` is the one deferred family: its endpoint is discovered at
+  call time, so the mapping applies per discovered wire (messages → messages
+  row, responses → reject, chat → toggle allowlist by model id). An
+  absent/undefined level means exactly the pre-option behavior for every
+  family. The family classifier (`resolveThoughtLevelFamily`) and honorability
+  check (`isThoughtLevelHonorable`) are exported so route-level callers (the
+  repo wiki) reject an unhonorable combination before spending any call; the
+  chain re-checks so nothing reaches a provider as a made-up body field.
 - `timeoutMs` overrides the 60s default per call; `signal` lets a caller abort
   a request that is no longer wanted. Both apply to every wire format.
 - `describeSmallModel()` additionally reports `inputCharBudget`,
