@@ -44,6 +44,7 @@ const createApp = ({ environment = {}, storedOptions = {}, desktopUpdater, platf
     },
     server: {
       address: () => ({ port: 7897 }),
+      close: vi.fn(),
     },
     __dirname: '/opt/openchamber/server',
     openchamberDataDir: '/tmp/openchamber',
@@ -309,6 +310,10 @@ describe('OpenChamber web update route on Windows', () => {
       ['/c', scriptPath],
       expect.objectContaining({ detached: true, windowsHide: true }),
     );
+    // The listener is closed before the batch is spawned, so the detached
+    // child cannot inherit the socket and hold the port against the restart.
+    expect(dependencies.server.close).toHaveBeenCalledOnce();
+    expect(dependencies.server.close.mock.invocationCallOrder[0]).toBeLessThan(childProcess.spawn.mock.invocationCallOrder[0]);
     expect(dependencies.process.exit).toHaveBeenCalledWith(0);
   });
 

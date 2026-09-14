@@ -399,6 +399,10 @@ within a ten-minute overall deadline.
       detached child's stdin, and the file deletes itself on its last line
       because the restart command carries the server's flags. If the file
       cannot be written the route answers 500 and the server keeps running.
+      The listener is closed before the batch is spawned: on Windows the
+      detached child inherits the listening socket and would hold the port
+      for the whole batch, so the restart inside it failed with "port already
+      in use" and the update ended with no server.
   - `GET /api/openchamber/models-metadata`
   - `GET /api/zen/models`
 

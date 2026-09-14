@@ -394,6 +394,19 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
           console.warn('Failed to open update log file, continuing without log capture:', logError);
         }
 
+        if (isWindows) {
+          // On Windows the detached child inherits this process's listening
+          // socket, and keeps the port for as long as the batch runs. The
+          // restart inside that batch then fails with "port already in use",
+          // and the update ends with no server. Closing the listener first
+          // leaves nothing to inherit; the process exits right after anyway.
+          try {
+            server.close();
+          } catch (closeError) {
+            console.warn('Failed to close the listener before the update script:', closeError);
+          }
+        }
+
         const child = spawnChild(shell, [shellFlag, script], {
           detached: true,
           stdio: logFd !== null ? ['ignore', logFd, logFd] : 'ignore',
