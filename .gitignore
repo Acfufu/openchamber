@@ -1,5 +1,6 @@
 # Agent memory
 .graymatter/
+.lazyzcode/
 
 # Logs
 logs
