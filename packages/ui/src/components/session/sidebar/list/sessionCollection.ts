@@ -16,6 +16,7 @@ import { isChatDirectoryPath } from '@/lib/chatDirectories';
 import { isBtwSession } from '@/lib/sessionBtwMetadata';
 import type { GlobalSessionStructure } from '@/stores/globalSessionStructure';
 import { countSyncPerformance } from '@/sync/performance-diagnostics';
+import type { SessionNode } from '../types';
 
 type ProjectSidebarActiveSessionsArgs = {
   globalActiveSessions: Session[];
@@ -124,6 +125,29 @@ export const getDescendantIds = (
   };
   visit(sessionId);
   return descendants;
+};
+
+// Recent and managed Chats render their rows from this tree, and the row's
+// archive/delete actions collect descendants from it as well. Building it to
+// full depth here keeps a grandchild reachable everywhere: a projection that
+// stopped at direct children rendered correctly but left grandchildren active
+// after their root was archived. Archived children are cut at every depth,
+// as they were for direct children before.
+export const buildActiveSessionNode = (
+  childrenMap: ReadonlyMap<string, readonly Session[]>,
+  session: Session,
+): SessionNode => {
+  const visited = new Set<string>([session.id]);
+  const build = (current: Session): SessionNode => ({
+    session: current,
+    children: (childrenMap.get(current.id) ?? []).flatMap((child) => {
+      if (child.time?.archived || visited.has(child.id)) return [];
+      visited.add(child.id);
+      return [build(child)];
+    }),
+    worktree: null,
+  });
+  return build(session);
 };
 
 type SidebarSessionProjectionArgs = ProjectSidebarActiveSessionsArgs & {

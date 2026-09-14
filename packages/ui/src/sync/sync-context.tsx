@@ -43,6 +43,7 @@ import {
   applySessionEventsToGlobalSessions,
 } from "./session-event-router"
 import { shouldConsumeBulkArchiveEcho } from "./bulk-archive-echo"
+import { selectNewChildSessions } from "./child-session-discovery"
 import { syncDebug } from "./debug"
 import { getReconnectCandidateSessionIds, mergeBootstrapSessions } from "./reconnect-recovery"
 import { messagesBefore } from "./message-ordering"
@@ -55,6 +56,7 @@ import {
   processVSCodeReconciledPermissionAutoAccept,
 } from "./vscode-permission-auto-accept"
 import { useConfigStore } from "@/stores/useConfigStore"
+import { useGlobalSessionsStore } from "@/stores/useGlobalSessionsStore"
 import { useTodosPersistStore } from "@/stores/useTodosPersistStore"
 import { cleanupPersistedSessionState } from "./session-deletion-cleanup"
 import { toast } from "@/components/ui"
@@ -2619,19 +2621,13 @@ export function SyncProvider(props: {
           pageSize: 200,
         })
         const state = store.getState()
-        const existingIds = new Set(state.session.map((s) => s.id))
-        const parentIdSet = new Set(parentSessionIds)
-        const newChildSessions: Session[] = []
-        for (const session of allSessions) {
-          if (
-            session?.id
-            && !existingIds.has(session.id)
-            && (session as { parentID?: string | null }).parentID
-            && parentIdSet.has((session as { parentID: string }).parentID)
-          ) {
-            newChildSessions.push(session)
-          }
-        }
+        const globalEntities = useGlobalSessionsStore.getState().entityById
+        const newChildSessions = selectNewChildSessions(
+          allSessions,
+          new Set(state.session.map((s) => s.id)),
+          new Set(parentSessionIds),
+          (sessionId) => Boolean(globalEntities.get(sessionId)?.time?.archived),
+        )
         if (newChildSessions.length === 0) return
         // Collect unique parent IDs for materialization
         const parentIdsForMaterialization = new Set<string>()

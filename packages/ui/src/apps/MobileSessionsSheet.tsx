@@ -43,8 +43,9 @@ import { toast } from '@/components/ui';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { getProjectLabel, normalizePath } from './mobilePaths';
 import { CHAT_DRAFT_PROJECT_ID, isChatDirectoryPath } from '@/lib/chatDirectories';
-import { partitionSidebarSessions } from '@/components/session/sidebar/list/sessionCollection';
+import { getDescendantIds, partitionSidebarSessions } from '@/components/session/sidebar/list/sessionCollection';
 import { sortProjectsByOrder } from '@/components/session/sidebar/list/projectSort';
+import { collectSessionSubtreeIds, runSessionSubtreeAction, type SessionSubtreeAction } from '@/components/session/sidebar/sessions/sessionSubtreeActions';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useI18n } from '@/lib/i18n';
 import { matchesRankQuery, rankByQuery } from '@/lib/search/fuzzySearch';
@@ -943,7 +944,9 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
   const setCurrentSession = useSessionUIStore((state) => state.setCurrentSession);
   const archiveSession = useSessionUIStore((state) => state.archiveSession);
+  const archiveSessions = useSessionUIStore((state) => state.archiveSessions);
   const deleteSession = useSessionUIStore((state) => state.deleteSession);
+  const deleteSessions = useSessionUIStore((state) => state.deleteSessions);
   const updateSessionTitle = useSessionUIStore((state) => state.updateSessionTitle);
   const openNewSessionDraft = useSessionUIStore((state) => state.openNewSessionDraft);
   const setActiveProject = useProjectsStore((state) => state.setActiveProject);
@@ -1107,6 +1110,21 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     // surface in search and then "disappear" once the overlay refreshes.
     return merged.filter((session) => !session.time?.archived);
   }, [globalActiveSessions, liveSessions]);
+
+  // Archive and delete take a session's subagents with it. Lineage is resolved
+  // over the whole active list rather than the rendered bucket: a subagent can
+  // sit in another worktree and still belongs to its parent.
+  const childrenBySessionId = React.useMemo(() => {
+    const children = new Map<string, Session[]>();
+    for (const session of sessions) {
+      const parentId = getParentId(session);
+      if (!parentId) continue;
+      const siblings = children.get(parentId) ?? [];
+      siblings.push(session);
+      children.set(parentId, siblings);
+    }
+    return children;
+  }, [sessions]);
 
   // Managed Chats (sessions under ~/.config/openchamber/chats) are not owned
   // by any registered project; they get their own section above the project
@@ -1373,21 +1391,21 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     setConfirmingDeleteSessionId(null);
   };
 
-  const handleArchive = async (session: Session) => {
+  const runSubtreeAction = (action: SessionSubtreeAction, session: Session) => {
     setRevealedSessionId(null);
     setConfirmingDeleteSessionId(null);
-    const ok = await archiveSession(session.id);
-    if (ok) toast.success(t('sessions.sidebar.session.archive.success'));
-    else toast.error(t('sessions.sidebar.session.archive.error'));
+    return runSessionSubtreeAction(
+      action,
+      session,
+      collectSessionSubtreeIds(session.id, getDescendantIds(childrenBySessionId, session.id), action === 'delete'),
+      { archiveSession, archiveSessions, deleteSession, deleteSessions },
+      t,
+    );
   };
 
-  const handleConfirmDelete = async (session: Session) => {
-    setRevealedSessionId(null);
-    setConfirmingDeleteSessionId(null);
-    const ok = await deleteSession(session.id);
-    if (ok) toast.success(t('sessions.sidebar.session.delete.success'));
-    else toast.error(t('sessions.sidebar.session.delete.error'));
-  };
+  const handleArchive = (session: Session) => runSubtreeAction('archive', session);
+
+  const handleConfirmDelete = (session: Session) => runSubtreeAction('delete', session);
 
   const handleRequestRename = (sessionId: string) => {
     setRevealedSessionId(null);

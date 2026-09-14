@@ -8,6 +8,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { deriveRecentSessions } from '../recent/activitySections';
 import { applyGlobalSessionStatusEvent, replaceGlobalSessionStatusById } from '@/sync/global-session-status';
 import {
+  buildActiveSessionNode,
   buildSidebarSessionProjection,
   getDescendantIds,
   partitionSidebarSessions,
@@ -331,6 +332,55 @@ describe('getDescendantIds', () => {
 
     expect(getDescendantIds(childrenMap, 'root')).toEqual(['a', 'b', 'c']);
     expect(new Set(getDescendantIds(childrenMap, 'root')).size).toBe(3);
+  });
+});
+
+describe('buildActiveSessionNode', () => {
+  const archived = (id: string): Session => ({ ...session(id, '/workspace'), time: { created: 1, updated: 1, archived: 2 } });
+
+  test('nests every active descendant so archive reaches grandchildren', () => {
+    const child = session('child', '/workspace');
+    const grandchild = session('grandchild', '/workspace');
+    const childrenMap = new Map([
+      ['root', [child]],
+      ['child', [grandchild]],
+    ]);
+
+    const node = buildActiveSessionNode(childrenMap, session('root', '/workspace'));
+
+    expect(node.children.map((entry) => entry.session.id)).toEqual(['child']);
+    expect(node.children[0]?.children.map((entry) => entry.session.id)).toEqual(['grandchild']);
+    expect(node.worktree).toBeNull();
+  });
+
+  test('cuts archived children at every depth', () => {
+    const activeChild = session('active-child', '/workspace');
+    const archivedChild = archived('archived-child');
+    const archivedGrandchild = archived('archived-grandchild');
+    const childrenMap = new Map([
+      ['root', [activeChild, archivedChild]],
+      ['active-child', [archivedGrandchild]],
+      ['archived-child', [session('hidden-leaf', '/workspace')]],
+    ]);
+
+    const node = buildActiveSessionNode(childrenMap, session('root', '/workspace'));
+
+    expect(node.children.map((entry) => entry.session.id)).toEqual(['active-child']);
+    expect(node.children[0]?.children).toEqual([]);
+  });
+
+  test('stops on a parent cycle', () => {
+    const a = session('a', '/workspace');
+    const root = session('root', '/workspace');
+    const childrenMap = new Map([
+      ['root', [a]],
+      ['a', [root]],
+    ]);
+
+    const node = buildActiveSessionNode(childrenMap, root);
+
+    expect(node.children.map((entry) => entry.session.id)).toEqual(['a']);
+    expect(node.children[0]?.children).toEqual([]);
   });
 });
 
