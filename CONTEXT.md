@@ -35,3 +35,10 @@ The project's current HEAD commit differs from the commit recorded when the
 Repo Wiki was generated. Commit is the only staleness authority — a branch
 name says nothing about content and is display metadata only.
 _Avoid_: outdated, dirty, changed (bare)
+
+**Thought Level**:
+A Generation Run option selecting how much reasoning the model spends
+before answering: off, low, medium, or high. Unset means the model's own
+default behavior; a level the chosen model cannot honor exactly is
+rejected, never silently reinterpreted.
+_Avoid_: thinking (bare), reasoning level, reasoning effort, variant
