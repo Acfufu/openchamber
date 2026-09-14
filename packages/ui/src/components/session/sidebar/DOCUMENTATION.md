@@ -67,6 +67,13 @@ and held Enter does not submit repeatedly.
 
 ## Search
 
+Dedicated search fields in the sidebar, mobile session list, and archive submit
+only on Enter. `SessionSearchInput` owns draft text locally; list owners receive
+only committed queries, so typing does not invalidate the session tree. Clearing
+the field resets the applied query immediately. IME confirmation and held Enter
+do not submit. Escape clears text first, then closes the sidebar search when
+already empty. Closing a retained mobile search discards unsubmitted text.
+
 Sidebar and Recent queries beginning with `ses_` match only the full session ID,
 case-insensitively and ignoring surrounding whitespace. Partial IDs and typos
 return no matches, without falling back to titles, directories, group labels,

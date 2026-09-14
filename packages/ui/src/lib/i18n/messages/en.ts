@@ -2274,6 +2274,7 @@ export const dict = {
   'sessions.sidebar.group.empty.loadingSessions': 'Loading sessions…',
   'sessions.sidebar.group.empty.loadFailed': 'Could not refresh sessions.',
   'sessions.sidebar.group.empty.initializationFailed': 'Could not initialize workspace.',
+  'sessions.search.submitHint': 'Press Enter to search',
   'sessions.sidebar.group.empty.retry': 'Try again',
   'sessions.sidebar.group.empty.permissionDenied': 'Folder access is required.',
   'sessions.sidebar.group.empty.grantAccess': 'Grant access',

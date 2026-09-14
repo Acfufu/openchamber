@@ -2240,6 +2240,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.empty.loadingSessions': '正在加载会话…',
   'sessions.sidebar.group.empty.loadFailed': '无法刷新会话。',
   'sessions.sidebar.group.empty.initializationFailed': '无法初始化工作区。',
+  'sessions.search.submitHint': '按 Enter 键搜索',
   'sessions.sidebar.group.empty.retry': '重试',
   'sessions.sidebar.group.empty.permissionDenied': '需要文件夹访问权限。',
   'sessions.sidebar.group.empty.grantAccess': '授予访问权限',

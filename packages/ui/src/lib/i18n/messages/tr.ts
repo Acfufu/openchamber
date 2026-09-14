@@ -2218,6 +2218,7 @@ export const dict = {
   'sessions.sidebar.group.empty.loadingSessions': 'Session\'lar yükleniyor…',
   'sessions.sidebar.group.empty.loadFailed': 'Session\'lar yenilenemedi.',
   'sessions.sidebar.group.empty.initializationFailed': 'Çalışma alanı başlatılamadı.',
+  'sessions.search.submitHint': 'Aramak için Enter tuşuna basın',
   'sessions.sidebar.group.empty.retry': 'Yeniden dene',
   'sessions.sidebar.group.empty.permissionDenied': 'Klasör erişimi gerekiyor.',
   'sessions.sidebar.group.empty.grantAccess': 'Erişim ver',

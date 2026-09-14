@@ -6,13 +6,11 @@ import {
   RiArrowDownSLine,
   RiArrowUpSLine,
   RiCheckLine,
-  RiCloseLine,
   RiDeleteBinLine,
   RiDragMove2Line,
   RiEdit2Line,
   RiFolder6Line,
   RiFolderAddLine,
-  RiSearchLine,
 } from '@remixicon/react';
 import type { Session } from '@opencode-ai/sdk/v2/client';
 import {
@@ -37,11 +35,11 @@ import { Icon } from '@/components/icon/Icon';
 import { NewWorktreeDialog } from '@/components/session/NewWorktreeDialog';
 import { Button } from '@/components/ui/button';
 import { MobileOverlayPanel } from '@/components/ui/MobileOverlayPanel';
-import { Input } from '@/components/ui/input';
 import { ScrollShadow } from '@/components/ui/ScrollShadow';
 import { toast } from '@/components/ui';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { getProjectLabel, normalizePath } from './mobilePaths';
+import { SessionSearchInput } from '@/components/session/SessionSearchInput';
 import { CHAT_DRAFT_PROJECT_ID, isChatDirectoryPath } from '@/lib/chatDirectories';
 import { getDescendantIds, partitionSidebarSessions } from '@/components/session/sidebar/list/sessionCollection';
 import { sortProjectsByOrder } from '@/components/session/sidebar/list/projectSort';
@@ -1620,26 +1618,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
               auto-scroll to the current session naturally tucks it away, and
               scrolling to the very top brings it back. */}
           <div className={cn('px-4 pb-2 pt-1', editingOrder && 'hidden')}>
-            <div className="relative">
-              <RiSearchLine className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t('mobile.sessions.search.placeholder')}
-                className={cn('h-11 pl-9', query && 'pr-10')}
-              />
-              {query ? (
-                <button
-                  type="button"
-                  className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-interactive-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  aria-label={t('mobile.sessions.clearSearchAria')}
-                  onClick={() => setQuery('')}
-                  style={{ touchAction: 'manipulation' }}
-                >
-                  <RiCloseLine className="size-4" />
-                </button>
-              ) : null}
-            </div>
+            <SessionSearchInput
+              value={query}
+              onSearch={setQuery}
+              active={open || variant === 'sidebar'}
+              mobile
+              placeholder={t('mobile.sessions.search.placeholder')}
+              clearLabel={t('mobile.sessions.clearSearchAria')}
+            />
           </div>
           {projectsMeta.length === 0 && chatSessions.length === 0 ? (
             <MobileSessionsEmpty

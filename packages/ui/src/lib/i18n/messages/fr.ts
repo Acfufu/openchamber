@@ -2000,6 +2000,7 @@ export const dict = {
   'sessions.sidebar.group.empty.loadingSessions': 'Chargement des sessions…',
   'sessions.sidebar.group.empty.loadFailed': 'Impossible d’actualiser les sessions.',
   'sessions.sidebar.group.empty.initializationFailed': 'Impossible d’initialiser l’espace de travail.',
+  'sessions.search.submitHint': 'Appuyez sur Entrée pour rechercher',
   'sessions.sidebar.group.empty.retry': 'Réessayer',
   'sessions.sidebar.group.empty.permissionDenied': 'L’accès au dossier est requis.',
   'sessions.sidebar.group.empty.grantAccess': 'Autoriser l’accès',

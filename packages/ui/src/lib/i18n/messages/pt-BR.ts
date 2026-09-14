@@ -2254,6 +2254,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.group.empty.loadingSessions": "Carregando sessões…",
   "sessions.sidebar.group.empty.loadFailed": "Não foi possível atualizar as sessões.",
   "sessions.sidebar.group.empty.initializationFailed": "Não foi possível inicializar o espaço de trabalho.",
+  "sessions.search.submitHint": "Pressione Enter para pesquisar",
   "sessions.sidebar.group.empty.retry": "Tentar novamente",
   "sessions.sidebar.group.empty.permissionDenied": "É necessário acesso à pasta.",
   "sessions.sidebar.group.empty.grantAccess": "Conceder acesso",
