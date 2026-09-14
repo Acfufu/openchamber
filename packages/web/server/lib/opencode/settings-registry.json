@@ -429,6 +429,9 @@
     "walkthroughModelOverride": {
       "scope": "profile"
     },
+    "repoWikiModelOverride": {
+      "scope": "profile"
+    },
     "zenModel": {
       "scope": "profile"
     },
