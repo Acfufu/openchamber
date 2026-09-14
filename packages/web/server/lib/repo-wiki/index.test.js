@@ -489,6 +489,74 @@ describe('repo-wiki runtime', () => {
     expect(described[described.length - 1]).toEqual({ providerID: 'request-provider', modelID: 'request-model' });
   });
 
+  it('uses the repo-wiki model override when no request or manifest model exists', async () => {
+    const described = [];
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({
+        repoWikiModelOverride: 'override-provider/override-model',
+        defaultModel: 'settings-provider/settings-model',
+      }),
+      describeModel: async ({ model }) => {
+        described.push(model);
+        return { ...describedModel, providerID: model.providerID, modelID: model.modelID };
+      },
+      modelCall: async ({ prompt }) => (prompt.includes('Repository digest:')
+        ? { text: JSON.stringify(catalogResponse) }
+        : markdownFor('overview')),
+    });
+
+    await runtime.startGeneration({ projectId: 'path_override', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_override', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect(described[0]).toEqual({ providerID: 'override-provider', modelID: 'override-model' });
+  });
+
+  it('prefers the manifest model over the repo-wiki model override', async () => {
+    const described = [];
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({
+        repoWikiModelOverride: 'override-provider/override-model',
+        defaultModel: 'settings-provider/settings-model',
+      }),
+      describeModel: async ({ model }) => {
+        described.push(model);
+        return { ...describedModel, providerID: model.providerID, modelID: model.modelID };
+      },
+      modelCall: async ({ prompt }) => (prompt.includes('Repository digest:')
+        ? { text: JSON.stringify(catalogResponse) }
+        : markdownFor('overview')),
+    });
+
+    // A manifest recorded before the override was ever set keeps regenerating
+    // with its own model — the override must not jump the queue.
+    await runtime.store.writeManifest('path_manifestwins', {
+      projectId: 'path_manifestwins',
+      commit: 'abc123',
+      branch: 'dev',
+      language: 'en',
+      catalog: { pages: [] },
+      run: { status: 'done', stage: 'done', startedAt: 't0', finishedAt: 't1' },
+      model: { providerID: 'manifest-provider', modelID: 'manifest-model' },
+    });
+
+    await runtime.startGeneration({ projectId: 'path_manifestwins', directory: repoRoot, options: {} });
+    await waitFor(async () => (await runtime.getStatus({ projectId: 'path_manifestwins', directory: repoRoot })).wiki?.run?.status === 'done');
+    expect(described[0]).toEqual({ providerID: 'manifest-provider', modelID: 'manifest-model' });
+  });
+
+  it('ignores a malformed repo-wiki model override and reports no-model when nothing else is set', async () => {
+    runtime = createRepoWikiRuntime({
+      dataDir,
+      readSettings: () => ({ repoWikiModelOverride: 'no-slash' }),
+      describeModel: async () => ({ ...describedModel }),
+      modelCall: async () => markdownFor('overview'),
+    });
+
+    await expect(runtime.startGeneration({ projectId: 'path_badoverride', directory: repoRoot, options: {} }))
+      .rejects.toMatchObject({ code: 'no-model', statusCode: 404 });
+  });
+
   it('refuses to delete or retry while a run is active, and delete clears storage', async () => {
     inject({
       modelCall: async ({ prompt }) => {

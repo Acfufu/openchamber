@@ -105,9 +105,12 @@ Stages: `digesting → catalog → pages → done | stopped | failed`.
 
 The model is resolved per run: the request's explicit choice, then the model
 recorded in the manifest (regenerating keeps what produced the current wiki),
-then the user's default model from settings. The small-model chain is
-deliberately not a fallback: a wiki wants the biggest context the user has,
-not the cheapest model. No choice anywhere fails with `no-model` (404).
+then the Repo Wiki model override (`repoWikiModelOverride` in settings, set
+from Settings → Sessions → 仓库 Wiki 模型), then the user's default model from
+settings. The override never jumps the manifest: a recorded wiki keeps
+regenerating with what produced it. The small-model chain is deliberately not
+a fallback: a wiki wants the biggest context the user has, not the cheapest
+model. No choice anywhere fails with `no-model` (404).
 
 `describeModel` reports the input character budget before anything is read,
 and a provider with no usable login fails with `no-provider-login` (401)

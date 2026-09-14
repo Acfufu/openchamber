@@ -549,6 +549,10 @@ export const createSettingsHelpers = (dependencies) => {
       const trimmed = candidate.walkthroughModelOverride.trim();
       result.walkthroughModelOverride = trimmed.length > 0 ? trimmed : undefined;
     }
+    if (typeof candidate.repoWikiModelOverride === 'string') {
+      const trimmed = candidate.repoWikiModelOverride.trim();
+      result.repoWikiModelOverride = trimmed.length > 0 ? trimmed : undefined;
+    }
     if (typeof candidate.defaultGitIdentityId === 'string') {
       const trimmed = candidate.defaultGitIdentityId.trim();
       result.defaultGitIdentityId = trimmed.length > 0 ? trimmed : undefined;

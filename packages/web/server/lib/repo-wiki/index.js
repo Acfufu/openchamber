@@ -201,8 +201,9 @@ export const createRepoWikiRuntime = ({
   };
 
   /**
-   * Request-explicit choice → the model recorded in the manifest → the user's
-   * default model. Anything unparseable is treated as absent.
+   * Request-explicit choice → the model recorded in the manifest → the Repo
+   * Wiki model override (Settings) → the user's default model. Anything
+   * unparseable is treated as absent.
    */
   const resolveModelRef = ({ requestedModel, manifest }) => {
     const explicit = parseModelRef(requestedModel);
@@ -214,6 +215,9 @@ export const createRepoWikiRuntime = ({
     }
 
     const settings = asObject(readSettings());
+    const override = parseModelRef(settings.repoWikiModelOverride);
+    if (override) return override;
+
     const fallback = parseModelRef(settings.defaultModel);
     if (fallback) return fallback;
 
