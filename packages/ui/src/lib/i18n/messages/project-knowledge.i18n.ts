@@ -28,6 +28,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Memory tidy-up',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'No model to run the tidy-up on. Choose a default model in Settings.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Could not start the memory tidy-up.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Done',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{done} of {total} steps done',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Open the session working on this plan',
   },
   uk: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Виберіть нотатку, щоб прочитати чи змінити її.',
@@ -57,6 +60,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Прибирання памʼяті',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Немає моделі для прибирання. Виберіть модель за замовчуванням у Налаштуваннях.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Не вдалося почати прибирання памʼяті.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Готово',
+    'rightSidebar.contextNotesTodo.plans.progress.title': 'Виконано кроків: {done} з {total}',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Відкрити сесію, яка працює над цим планом',
   },
   de: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Wähle eine Notiz, um sie zu lesen oder zu bearbeiten.',
@@ -86,6 +92,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Gedächtnis aufräumen',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Kein Modell für das Aufräumen. Wähle in den Einstellungen ein Standardmodell.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Das Aufräumen des Gedächtnisses konnte nicht gestartet werden.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Fertig',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{done} von {total} Schritten erledigt',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Sitzung öffnen, die an diesem Plan arbeitet',
   },
   fr: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Sélectionnez une note pour la lire ou la modifier.',
@@ -115,6 +124,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Rangement de la mémoire',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Aucun modèle pour lancer le rangement. Choisissez un modèle par défaut dans les Paramètres.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Impossible de lancer le rangement de la mémoire.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Terminé',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{done} étapes sur {total} terminées',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Ouvrir la session qui travaille sur ce plan',
   },
   es: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Selecciona una nota para leerla o editarla.',
@@ -144,6 +156,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Ordenar la memoria',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'No hay modelo para ordenar la memoria. Elige un modelo predeterminado en Ajustes.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'No se pudo iniciar el orden de la memoria.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Hecho',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{done} de {total} pasos hechos',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Abrir la sesión que trabaja en este plan',
   },
   'pt-BR': {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Selecione uma nota para ler ou editar.',
@@ -173,6 +188,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Organização da memória',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Nenhum modelo para organizar a memória. Escolha um modelo padrão nas Configurações.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Não foi possível iniciar a organização da memória.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Concluído',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{done} de {total} etapas concluídas',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Abrir a sessão que trabalha neste plano',
   },
   nl: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Kies een notitie om die te lezen of te bewerken.',
@@ -202,6 +220,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Geheugen opruimen',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Geen model om het opruimen mee te doen. Kies een standaardmodel in Instellingen.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Opruimen van het geheugen kon niet worden gestart.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Klaar',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{done} van {total} stappen klaar',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Open de sessie die aan dit plan werkt',
   },
   pl: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Wybierz notatkę, aby ją przeczytać lub edytować.',
@@ -231,6 +252,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Porządkowanie pamięci',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Brak modelu do uporządkowania pamięci. Wybierz model domyślny w Ustawieniach.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Nie udało się rozpocząć porządkowania pamięci.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Gotowe',
+    'rightSidebar.contextNotesTodo.plans.progress.title': 'Ukończone kroki: {done} z {total}',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Otwórz sesję, która pracuje nad tym planem',
   },
   tr: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'Okumak veya düzenlemek için bir not seçin.',
@@ -260,6 +284,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'Hafızayı toparlama',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'Toparlamayı çalıştıracak model yok. Ayarlar\'dan varsayılan bir model seçin.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'Hafıza toparlama başlatılamadı.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'Tamamlandı',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{total} adımdan {done} tanesi tamamlandı',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'Bu plan üzerinde çalışan oturumu aç',
   },
   ja: {
     'rightSidebar.contextNotesTodo.notes.selectHint': '読む・編集するノートを選択してください。',
@@ -289,6 +316,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'メモリの整理',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': '整理に使うモデルがありません。設定でデフォルトモデルを選択してください。',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'メモリの整理を開始できませんでした。',
+    'rightSidebar.contextNotesTodo.plans.progress.done': '完了',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{total} ステップ中 {done} 完了',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'この計画に取り組んでいるセッションを開く',
   },
   ko: {
     'rightSidebar.contextNotesTodo.notes.selectHint': '읽거나 편집할 노트를 선택하세요.',
@@ -318,6 +348,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': '메모리 정리',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': '정리에 사용할 모델이 없습니다. 설정에서 기본 모델을 선택하세요.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': '메모리 정리를 시작하지 못했습니다.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': '완료',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '{total}단계 중 {done}단계 완료',
+    'rightSidebar.contextNotesTodo.plans.session.open': '이 계획을 진행 중인 세션 열기',
   },
   'zh-CN': {
     'rightSidebar.contextNotesTodo.notes.selectHint': '选择一条笔记来阅读或编辑。',
@@ -347,6 +380,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': '整理记忆',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': '没有可用于整理的模型。请在设置中选择默认模型。',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': '无法开始整理记忆。',
+    'rightSidebar.contextNotesTodo.plans.progress.done': '已完成',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '已完成 {done}/{total} 步',
+    'rightSidebar.contextNotesTodo.plans.session.open': '打开正在执行此计划的会话',
   },
   'zh-TW': {
     'rightSidebar.contextNotesTodo.notes.selectHint': '選擇一則筆記來閱讀或編輯。',
@@ -376,6 +412,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': '整理記憶',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': '沒有可用於整理的模型。請在設定中選擇預設模型。',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': '無法開始整理記憶。',
+    'rightSidebar.contextNotesTodo.plans.progress.done': '已完成',
+    'rightSidebar.contextNotesTodo.plans.progress.title': '已完成 {done}/{total} 步',
+    'rightSidebar.contextNotesTodo.plans.session.open': '開啟正在執行此計畫的工作階段',
   },
   ar: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'اختر ملاحظة لقراءتها أو تعديلها.',
@@ -405,6 +444,9 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'ترتيب الذاكرة',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'لا يوجد نموذج لتشغيل الترتيب. اختر نموذجًا افتراضيًا في الإعدادات.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'تعذّر بدء ترتيب الذاكرة.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'مكتمل',
+    'rightSidebar.contextNotesTodo.plans.progress.title': 'اكتملت {done} من {total} خطوات',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'فتح الجلسة التي تعمل على هذه الخطة',
   },
   he: {
     'rightSidebar.contextNotesTodo.notes.selectHint': 'בחרו הערה כדי לקרוא או לערוך אותה.',
@@ -434,5 +476,8 @@ export const projectKnowledgeI18n = {
     'rightSidebar.contextNotesTodo.memory.tidy.sessionTitle': 'סידור הזיכרון',
     'rightSidebar.contextNotesTodo.memory.tidy.noModel': 'אין מודל להפעלת הסידור. בחרו מודל ברירת מחדל בהגדרות.',
     'rightSidebar.contextNotesTodo.memory.tidy.failed': 'לא ניתן היה להתחיל את סידור הזיכרון.',
+    'rightSidebar.contextNotesTodo.plans.progress.done': 'הושלם',
+    'rightSidebar.contextNotesTodo.plans.progress.title': 'הושלמו {done} מתוך {total} שלבים',
+    'rightSidebar.contextNotesTodo.plans.session.open': 'פתיחת ההפעלה שעובדת על התוכנית הזו',
   },
 } as const;

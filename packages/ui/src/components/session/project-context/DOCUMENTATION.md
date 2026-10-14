@@ -191,6 +191,20 @@ within two seconds for a file edit, which `PlanView` finds with the same
 next save writes it over the agent's version. The editor ignores its own echo
 of text it was handed, so opening a plan no longer writes it back.
 
+### Progress and the session working on a plan
+
+A plan row shows how many steps of its `## Steps` checklist are ticked ("2/4"),
+and Done once all are; the server counts them (`project-context`, *Plan
+progress*). Done is a label only: finished plans are deleted from the row menu,
+not archived. Agents tick steps with their own file tools, which announce
+nothing, so `PlansSection` re-reads the list every 10 seconds while it is
+mounted and the window is visible. The answer carries counts, never plan text.
+
+Implement and Improve in `PlanView` record the session they create on the plan
+(`linkPlanSession`), and the row gets a button that opens that session. A
+failed link costs only the button and never holds up the send. A plan an agent
+picked up on its own has no session to show.
+
 The panel owns the only source of truth for which project a plan belongs to,
 and it never lets the editor guess. `PlanView` receives the owner as
 `savedProjectPlan={{ projectRef, planId }}` — load and autosave both go to that
