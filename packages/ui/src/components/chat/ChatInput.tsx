@@ -1737,14 +1737,15 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         const spaceRefusal = spaceTarget ? spaceModelRefusal(spaceTarget, providerIdToSend) : null;
         if (spaceRefusal) {
             const provider = useConfigStore.getState().providers.find((entry) => entry.id === spaceRefusal.providerId)?.name ?? spaceRefusal.providerId;
-            toast.error(spaceRefusal.reason === 'domain_blocked'
-                ? t('spaces.draft.modelDomainBlocked', { domain: spaceRefusal.domain })
+            // No grant gives a space OpenCode's models, so that dialog opens on no provider.
+            toast.error(spaceRefusal.reason === 'opencode'
+                ? t('spaces.draft.modelOpenCode')
                 : spaceRefusal.reason === 'needs_again'
                     ? t('spaces.draft.modelNeedsKeyAgain', { provider })
                     : t('spaces.draft.modelNotGranted', { provider }), {
                 action: {
                     label: t('spaces.group.access.give'),
-                    onClick: () => useSpacesStore.getState().openAccessDialog(spaceRefusal.spaceId, spaceRefusal.providerId, spaceRefusal.reason === 'domain_blocked' ? spaceRefusal.domain : undefined),
+                    onClick: () => useSpacesStore.getState().openAccessDialog(spaceRefusal.spaceId, spaceRefusal.reason === 'opencode' ? null : spaceRefusal.providerId),
                 },
             });
             return;
