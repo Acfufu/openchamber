@@ -11,6 +11,7 @@ import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 import type { CachedValue } from './referenceCache';
+import { ReferenceMarkdownRewriteContext, useGitLabUploadRewrite } from './gitlabUploads';
 import { getSourceControlProviderLabel } from '@/lib/source-control/identity';
 import { ReferenceComments, type ReferenceThreadActions } from './ReferenceComments';
 import { buildReferenceTimeline, type ReferenceCommentItem, type ReferenceTimelineEntry } from './referenceTimeline';
@@ -112,9 +113,11 @@ const REVIEW_KEYS = {
 const Pending = () => <Icon name="loader-4" className="size-3.5 animate-spin text-muted-foreground" />;
 
 /** Description with images and the HTML GitHub allows; the agent gets the source. */
-const ReferenceBody: React.FC<{ content: string }> = ({ content }) => (
-    <SimpleMarkdownRenderer content={content} className={MARKDOWN_CLASS} enableFileReferences={false} allowRawHtml />
-);
+const ReferenceBody: React.FC<{ content: string }> = ({ content }) => {
+    const rewrite = React.useContext(ReferenceMarkdownRewriteContext);
+    const shown = React.useMemo(() => (rewrite ? rewrite(content) : content), [content, rewrite]);
+    return <SimpleMarkdownRenderer content={shown} className={MARKDOWN_CLASS} enableFileReferences={false} allowRawHtml />;
+};
 
 /** The thread section under the body: loading, failure, empty, or the comments. */
 const CommentsSection: React.FC<{
@@ -619,6 +622,8 @@ const LinearPreview: React.FC<{
 
 export const ReferencePreview: React.FC<{
     item: ReferencePickerItem | null;
+    /** The project the item was listed for; GitLab attachments are read through it. */
+    directory: string | null;
     /** The previewed PR's checks and mergeability, as its row has them. */
     pullStatus: CachedValue<GitHubPullStatus | null>;
     linearDetail: CachedValue<LinearIssue>;
@@ -652,8 +657,9 @@ export const ReferencePreview: React.FC<{
     onRefresh?: () => Promise<void>;
     /** Answer and resolve a PR's review threads; without it they are read only. */
     threadActions?: ReferenceThreadActions;
-}> = ({ item, pullStatus, linearDetail, githubDetail, purpose, pinned, includeDiff, onIncludeDiffChange, now, footer, pullLinks, linearStateControl, reply, labelsControl, reviewersControl, onOpenChecks, commentAttachments, stateMenu, onOpenLinearIssue, onRefresh, threadActions }) => {
+}> = ({ item, directory, pullStatus, linearDetail, githubDetail, purpose, pinned, includeDiff, onIncludeDiffChange, now, footer, pullLinks, linearStateControl, reply, labelsControl, reviewersControl, onOpenChecks, commentAttachments, stateMenu, onOpenLinearIssue, onRefresh, threadActions }) => {
     const { t } = useI18n();
+    const rewriteMarkdown = useGitLabUploadRewrite(directory, item?.source === 'github' ? item.reference : null);
     if (!item) {
         return (
             <div className="flex h-full items-center justify-center px-6 text-center typography-meta text-muted-foreground">
@@ -665,25 +671,27 @@ export const ReferencePreview: React.FC<{
         return <LinearPreview issue={item.issue} detail={linearDetail} purpose={purpose} pinned={pinned} now={now} footer={footer} stateControl={linearStateControl} onOpenIssue={onOpenLinearIssue} />;
     }
     return (
-        <GitHubPreview
-            reference={item.reference}
-            pullStatus={pullStatus}
-            detail={githubDetail}
-            purpose={purpose}
-            pinned={pinned}
-            includeDiff={includeDiff}
-            onIncludeDiffChange={onIncludeDiffChange}
-            now={now}
-            footer={footer}
-            pullLinks={pullLinks}
-            reply={reply}
-            labelsControl={labelsControl}
-            reviewersControl={reviewersControl}
-            onOpenChecks={onOpenChecks}
-            commentAttachments={commentAttachments}
-            stateMenu={stateMenu}
-            onRefresh={onRefresh}
-            threadActions={threadActions}
-        />
+        <ReferenceMarkdownRewriteContext.Provider value={rewriteMarkdown}>
+            <GitHubPreview
+                reference={item.reference}
+                pullStatus={pullStatus}
+                detail={githubDetail}
+                purpose={purpose}
+                pinned={pinned}
+                includeDiff={includeDiff}
+                onIncludeDiffChange={onIncludeDiffChange}
+                now={now}
+                footer={footer}
+                pullLinks={pullLinks}
+                reply={reply}
+                labelsControl={labelsControl}
+                reviewersControl={reviewersControl}
+                onOpenChecks={onOpenChecks}
+                commentAttachments={commentAttachments}
+                stateMenu={stateMenu}
+                onRefresh={onRefresh}
+                threadActions={threadActions}
+            />
+        </ReferenceMarkdownRewriteContext.Provider>
     );
 };

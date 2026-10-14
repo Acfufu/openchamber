@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { isIMECompositionEvent } from '@/lib/ime';
 import { cn } from '@/lib/utils';
 
+import { ReferenceMarkdownRewriteContext } from './gitlabUploads';
 import { REFERENCE_META_TEXT, relativeTimeOf } from './referencePickerItems';
 import type { ReferenceCommentItem, ReferenceCommentThread, ReferenceCommitGroup, ReferenceTimelineEntry } from './referenceTimeline';
 
@@ -32,14 +33,18 @@ const Avatar: React.FC<{ comment: ReferenceCommentItem; className: string }> = (
     </div>
 );
 
-const CommentBody: React.FC<{ body: string }> = ({ body }) => (body.trim() ? (
-    <SimpleMarkdownRenderer
-        content={body}
-        className="mt-1 [&_img]:h-auto [&_img]:max-w-full"
-        enableFileReferences={false}
-        allowRawHtml
-    />
-) : null);
+const CommentBody: React.FC<{ body: string }> = ({ body }) => {
+    const rewrite = React.useContext(ReferenceMarkdownRewriteContext);
+    const shown = React.useMemo(() => (rewrite ? rewrite(body) : body), [body, rewrite]);
+    return shown.trim() ? (
+        <SimpleMarkdownRenderer
+            content={shown}
+            className="mt-1 [&_img]:h-auto [&_img]:max-w-full"
+            enableFileReferences={false}
+            allowRawHtml
+        />
+    ) : null;
+};
 
 /**
  * What follows a thread's first comment: its answers, and a way to answer or

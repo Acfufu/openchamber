@@ -152,7 +152,7 @@ function liveIssueSummary(ref, raw) {
 const MAX_FULL_FILE_BYTES = 5 * 1024 * 1024;
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
 
-export function createGitLabResourceService({ origin, client, resolveProjects = resolveGitLabProjectsFromDirectory, canonicalReads = false }) {
+export function createGitLabResourceService({ origin, client, download, resolveProjects = resolveGitLabProjectsFromDirectory, canonicalReads = false }) {
   const identity = { provider: 'gitlab', instance: origin };
 
   const showProject = async (path, remoteName) => {
@@ -631,6 +631,17 @@ export function createGitLabResourceService({ origin, client, resolveProjects = 
         if (!isPlainObject(label) || !isString(label.name) || !label.name) return [];
         return [isString(label.color) && label.color ? { name: label.name, color: label.color.replace(/^#/, '') } : { name: label.name }];
       });
+    },
+
+    /**
+     * A file attached in a description or a note of a project in the bound
+     * network, as the upstream response. GitLab lets any member with the
+     * Guest role or above read it by secret and file name.
+     */
+    async readUpload(directory, selector, remote, { secret, filename, range, signal }) {
+      if (!download) throw new Error('GitLab file downloads are unavailable');
+      const target = await constrainedProject(directory, selector, remote);
+      return download(`projects/${target.project.id}/uploads/${secret}/${encodeURIComponent(filename)}`, { range, signal });
     },
 
     /** One page of the project's active members, inherited ones too: who can be asked to review. */

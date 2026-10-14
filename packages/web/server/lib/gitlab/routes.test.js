@@ -650,6 +650,38 @@ describe('GitLab routes', () => {
       .query({ instance: origin, directory: '/repo', owner: 'team', repo: 'repo' }).expect(501);
   });
 
+  it('streams a picture or a clip attached on GitLab, and nothing a page could run from', async () => {
+    const account = { id: `${origin}#9`, token: 'stored', user: { id: 9, login: 'user' }, source: 'pat', scope: '' };
+    const secret = '66dbcd21ec5d24ed6ea225176098d52b';
+    const readUpload = vi.fn(async (_directory, _project, _remote, { filename }) => (filename === 'page.html'
+      ? new Response('<script>alert(1)</script>', { headers: { 'content-type': 'text/html' } })
+      : new Response('clip', { status: 206, headers: { 'content-type': 'video/mp4', 'content-range': 'bytes 0-3/9' } })));
+    const app = appWith({ store: makeStore(account), createResourceService: vi.fn(() => ({ readUpload })) });
+    const query = {
+      instance: origin, directory: '/repo', repositoryId: 'repo_one', bindingRevision: 3,
+      accountId: account.id, primaryRemote: 'origin', owner: 'team', repo: 'repo',
+    };
+
+    const uploads = '/api/source-control/gitlab/uploads';
+    const clip = await request(app).get(`${uploads}/${secret}/demo%20clip.mp4`)
+      .query(query).set('range', 'bytes=0-3').expect(206);
+    expect(clip.headers['content-type']).toBe('video/mp4');
+    expect(clip.headers['content-range']).toBe('bytes 0-3/9');
+    expect(clip.headers['content-security-policy']).toContain('sandbox');
+    expect(readUpload).toHaveBeenCalledWith('/repo', { owner: 'team', name: 'repo' }, 'origin', expect.objectContaining({
+      secret, filename: 'demo clip.mp4', range: 'bytes=0-3',
+    }));
+
+    await request(app).get(`${uploads}/${secret}/page.html`).query(query).expect(415);
+    await request(app).get(`${uploads}/short/x.png`).query(query).expect(400);
+    await request(app).get(`${uploads}/${secret}/a%2Fb.png`).query(query).expect(400);
+    // Clients may resolve `..` before sending; either way GitLab is not asked.
+    const parent = await request(app).get(`${uploads}/${secret}/%2E%2E`).query(query);
+    expect(parent.status).toBeGreaterThanOrEqual(400);
+    await request(app).get(`${uploads}/${secret}/x.png`).query({ ...query, owner: '' }).expect(400);
+    expect(readUpload).toHaveBeenCalledTimes(2);
+  });
+
   it('uses matching bound context and rejects it before provider creation when stale', async () => {
     const account = { id: `${origin}#9`, token: 'stored', user: { id: 9, login: 'user' }, source: 'pat', scope: '' };
     const store = makeStore(account);

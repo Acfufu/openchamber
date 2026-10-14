@@ -428,6 +428,7 @@ const SourceBoardBody: React.FC<{
     const preview = (
         <ReferencePreview
             item={previewItem}
+            directory={browser.directory}
             pullStatus={previewItem?.source === 'github' ? browser.pullStatusOf(previewItem.reference) : IDLE_PULL_STATUS}
             linearDetail={browser.linearDetail}
             githubDetail={browser.githubDetail}

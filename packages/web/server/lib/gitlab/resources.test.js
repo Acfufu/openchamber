@@ -46,6 +46,18 @@ function setup(overrides = {}, options = {}) {
 }
 
 describe('GitLab resource service', () => {
+  it('reads an upload from a project in the bound network only', async () => {
+    const download = vi.fn(async () => new Response('clip'));
+    const { service } = setup({}, { download });
+    const upload = { secret: '66dbcd21ec5d24ed6ea225176098d52b', filename: 'demo clip.mp4', range: 'bytes=0-' };
+
+    await service.readUpload('/repo', { owner: 'team', name: 'repo' }, 'origin', upload);
+    expect(download).toHaveBeenCalledWith('projects/2/uploads/66dbcd21ec5d24ed6ea225176098d52b/demo%20clip.mp4', { range: 'bytes=0-', signal: undefined });
+
+    await expect(service.readUpload('/repo', { owner: 'other', name: 'secret' }, 'origin', upload)).rejects.toMatchObject({ status: 404 });
+    expect(download).toHaveBeenCalledOnce();
+  });
+
   it('finds a fork merge request in its upstream and keeps CI separate', async () => {
     const { service, client } = setup();
     const result = await service.changeRequestStatus('/repo', 'feature');

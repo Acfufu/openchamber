@@ -335,6 +335,8 @@ const isUrlAuthReadableHttpPath = (pathname) => {
     || pathname === '/api/openchamber/realtime-proxy/sse'
     || pathname === '/api/notifications/stream'
     || pathname === '/api/fs/raw'
+    // GitLab pictures and clips in an issue or merge request, loaded by `img` and `video`.
+    || pathname.startsWith('/api/source-control/gitlab/uploads/')
     || pathname.startsWith('/api/preview/proxy/')
     || /^\/api\/projects\/[^/]+\/icon$/.test(pathname)
     || pathname === '/api/guests'

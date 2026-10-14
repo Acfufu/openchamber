@@ -45,6 +45,7 @@ import {
 } from './markdown/decorate';
 import type { RenderedCopyFormat } from './markdown/selectionMarkdown';
 import { attachInlineMarkdownImages } from './markdown/inlineMarkdownImages';
+import { attachMarkdownVideoFallback } from './markdown/markdownVideo';
 import { observeMarkdownTableWidth } from './markdown/tableWidthObserver';
 import { findTextPosition } from './markdown/textPosition';
 import { createMermaidViewerRegistry, MERMAID_BLOCK_SELECTOR, shouldRefreshMermaidViewers } from './markdown/mermaidViewer';
@@ -87,6 +88,13 @@ const resolveOwnOrigins = (): string[] => {
     // An unparseable runtime address adds nothing.
   }
   return origins;
+};
+
+const useMarkdownVideoFallback = (containerRef: React.RefObject<HTMLDivElement | null>) => {
+  React.useEffect(() => {
+    const container = containerRef.current;
+    return container ? attachMarkdownVideoFallback(container) : undefined;
+  }, [containerRef]);
 };
 
 const useLinkInteractions = ({
@@ -1404,6 +1412,7 @@ const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({
     enabled: enableFileReferences && !isStreaming,
   });
   useLinkInteractions({ containerRef, directory: effectiveDirectory });
+  useMarkdownVideoFallback(containerRef);
 
   const syntaxVars = React.useMemo(() => getMarkdownSyntaxVars(currentTheme), [currentTheme]);
   // With links opening in the browser panel anyway, the preview button next to
@@ -1542,6 +1551,7 @@ const SimpleMarkdownRendererImpl: React.FC<{
     enabled: enableFileReferences,
   });
   useLinkInteractions({ containerRef, enabled: !disableLinkSafety, directory: effectiveDirectory });
+  useMarkdownVideoFallback(containerRef);
 
   const syntaxVars = React.useMemo(() => getMarkdownSyntaxVars(currentTheme), [currentTheme]);
   const ctx = useDecorateContext(currentTheme, undefined, mermaidControls);

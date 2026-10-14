@@ -83,6 +83,7 @@ export const BranchPullRequestPreview: React.FC<{
         <>
             <ReferencePreview
                 item={item}
+                directory={directory}
                 pullStatus={IDLE_PULL_STATUS}
                 linearDetail={{ status: 'idle' }}
                 githubDetail={detail}
