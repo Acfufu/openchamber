@@ -225,7 +225,8 @@ Both never expand, with subsessions feeding the badges; a run row there opens
 its overview. Search
 keeps a root whose subsession matches (`sessionTreeMatchesSidebarQuery`): those
 subsessions are nowhere else in the sidebar. The zone counts only sessions that match
-themselves (`countSessionTreeQueryMatches`), and a group subtracts the trees
+themselves (`countSessionTreeQueryMatches`) over the whole tree; the row drops
+its children, so the item carries that count as `searchMatchCount`. A group subtracts the trees
 that moved out of it with the same counter its search data used
 (`countSessionSearchMatches`), so one exact id is one match; a group or project
 whose only matches moved renders nothing. Track / Done captures the runtime key at the

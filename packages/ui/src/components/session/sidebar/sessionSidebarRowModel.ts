@@ -18,6 +18,8 @@ export type SessionSidebarActivityItem = {
   groupDirectory: string | null;
   secondaryMeta: { projectLabel?: string | null; branchLabel?: string | null } | null;
   getSecondaryMeta?: (sessionId: string) => SessionSidebarActivityItem['secondaryMeta'];
+  /** Search matches in the session's whole tree, for zone rows whose node drops its children. */
+  searchMatchCount?: number;
 };
 
 export type SessionSidebarActivityKey = 'pinned' | 'work' | 'chats';
@@ -749,7 +751,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
   const appendZone = (activityKey: 'pinned' | 'work', items: readonly SessionSidebarActivityItem[]): void => {
     if (items.length === 0) return;
     const collapsed = appendActivityHeader(activityKey);
-    if (!collapsed) appendActivityItems(items, `activity:${activityKey}`, zoneRenderContext, (item) => countSessionTreeQueryMatches(item.node, args.normalizedQuery));
+    if (!collapsed) appendActivityItems(items, `activity:${activityKey}`, zoneRenderContext, (item) => item.searchMatchCount ?? countSessionTreeQueryMatches(item.node, args.normalizedQuery));
   };
   appendZone('pinned', args.pinnedItems ?? []);
   appendZone('work', args.workItems ?? []);

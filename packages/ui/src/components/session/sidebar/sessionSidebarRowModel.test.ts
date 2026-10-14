@@ -3,6 +3,7 @@ import type { Session } from '@/lib/opencode/model';
 import type { SessionGroup, SessionNode } from './types';
 import type { ProjectSection } from './projects/sessionProjectRender';
 import { buildSessionSidebarRowModel, countSessionSearchMatches, resolveSessionSidebarStickyHeader, runExpansionKey, timelineProjectContainerKey, type SessionSidebarActivityItem, type SessionSidebarRowModelArgs } from './sessionSidebarRowModel';
+import { countSessionTreeQueryMatches } from './recent/activitySections';
 import { buildMultiRunIndex } from '@/lib/multirun/runs';
 import { withMultiRunMembership } from '@/lib/multirun/identity';
 import { getPinnedSessionKey } from '@/stores/useSessionPinnedStore';
@@ -171,14 +172,14 @@ describe('buildSessionSidebarRowModel', () => {
       groupMatches: false,
       hasMatch: true,
     });
-    input.workItems = [{ ...timelineItem('ses_parent'), node: parent }];
+    input.workItems = [{ ...timelineItem('ses_parent'), searchMatchCount: countSessionTreeQueryMatches(parent, 'ses_child') }];
     input.zoneSessionIds = new Set(['ses_parent']);
 
     const model = buildSessionSidebarRowModel(input);
     const rows = model.rows.flatMap((row) => (row.kind === 'session' ? [row.node.session.id] : []));
 
     expect(model.searchMatchCount).toBe(1);
-    expect(rows).toEqual(['ses_parent', 'ses_child', 'ses_other']);
+    expect(rows).toEqual(['ses_parent']);
     expect(model.selectionEntries.filter((entry) => entry.id === 'ses_parent')).toHaveLength(1);
   });
 
@@ -292,14 +293,16 @@ describe('buildSessionSidebarRowModel', () => {
       groupMatches: false,
       hasMatch: true,
     });
-    input.workItems = [{ ...timelineItem('ses_parent'), node: parent }];
+    // As the sidebar builds it: the zone row drops its children and carries
+    // the count of its whole tree.
+    input.workItems = [{ ...timelineItem('ses_parent'), searchMatchCount: countSessionTreeQueryMatches(parent, 'ses_child') }];
     input.zoneSessionIds = new Set(['ses_parent']);
 
     const model = buildSessionSidebarRowModel(input);
     const rows = model.rows.flatMap((row) => (row.kind === 'session' ? [row.node.session.id] : []));
 
     expect(model.searchMatchCount).toBe(1);
-    expect(rows).toEqual(['ses_parent', 'ses_child', 'ses_other']);
+    expect(rows).toEqual(['ses_parent']);
     // The project had no other match: no empty project header.
     expect(model.rows.some((row) => row.kind === 'project-header')).toBe(false);
   });
@@ -310,7 +313,7 @@ describe('buildSessionSidebarRowModel', () => {
     const input = args([]);
     input.mode = 'search';
     input.normalizedQuery = 'header';
-    input.workItems = [{ ...timelineItem('ses_parent'), node: parent }];
+    input.workItems = [{ ...timelineItem('ses_parent'), node: { ...parent, children: [] }, searchMatchCount: countSessionTreeQueryMatches(parent, 'header') }];
     input.zoneSessionIds = new Set(['ses_parent']);
 
     expect(buildSessionSidebarRowModel(input).searchMatchCount).toBe(2);
