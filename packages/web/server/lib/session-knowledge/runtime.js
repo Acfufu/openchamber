@@ -66,7 +66,9 @@ const MEMORY_SAVE_GUIDANCE = 'You have memory that persists across sessions, thr
   + ' a non-obvious approach worked; or you learn a project fact that took real'
   + ' effort to find and is not in the code or docs. One fact per entry. The user'
   + ' can review and remove what you save, so save when it fits and mention it'
-  + ' briefly.';
+  + ' briefly. Save before you write your final reply and mention the save in it:'
+  + ' the app shows only the text after a turn\'s last tool call as the reply and'
+  + ' folds everything earlier into its activity log.';
 
 /**
  * When to link, stated in every session that has the `openchamber` tool. The
@@ -78,7 +80,8 @@ export const SESSION_LINK_GUIDANCE = "When the user gives you an issue or a chan
   + " review (a pull or merge request) to work on, fix, investigate or review, when you"
   + " open one for this work, and when the work resolves one, link it to this session"
   + " with the openchamber tool's session.link as soon as you know it, so the user"
-  + " sees it with the session. Not one merely mentioned in passing.";
+  + " sees it with the session. Not one merely mentioned in passing. No need to"
+  + " mention in your reply that you linked it.";
 
 /**
  * When to leave a busy branch, in the form the user chose: `ask` offers the

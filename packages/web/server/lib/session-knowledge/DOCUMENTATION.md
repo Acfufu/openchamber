@@ -57,6 +57,10 @@ store. The tool description alone is read only when the agent already means to
 call it, so agents told nothing here saved only when the user said "remember".
 The session hears "nothing is stored yet" only when both scopes loaded.
 
+The save rule also says to save before the final reply. The chat shows only the
+last step's text as the answer, so an agent that answered, then saved, then
+wrote one closing line had its whole answer folded into Activity.
+
 A source that will not load never blanks the rest: an unreadable memory store
 still delivers the pinned notes. A memory scope that failed to load is left out
 rather than indexed as empty, which would teach the agent to store again what it
