@@ -862,12 +862,12 @@ During this session, save no new memories: you only restructure what is already 
 
 1. Go through every entry. For project entries, check the files, flags, commands, routes and decisions they name against the project: the code, git history, docs, instructions and skills, plans and notes, and whatever else you can reach, such as issues and linked trackers. A reference to something that is gone is a sign the entry is stale, not proof: a decision can outlive renamed code.
 
-2. Decide what changes:
+2. Decide what changes. The first test for every entry: would an agent that reads the relevant code, docs and skills learn everything this entry says, including why it is so and whether it may be changed? If yes, the entry only duplicates the project and drifts from it over time: delete it. Where the entry and a doc or skill disagree, the doc or skill is current. Code shows what was done, not why, nor that it was deliberate: an entry that holds a decision, its reason, a rejected alternative or a "leave this as it is" that the project does not state stays, trimmed to that part if the rest is readable elsewhere. Do not move anything into docs or skills; this session changes memory only.
 - Obsolete: what it describes is gone or was reversed. Delete it.
 - Duplicates and overlapping entries: merge them into one entry, rewritten with memory.save and the surviving entry's memoryId, then delete the rest.
 - Partly outdated: rewrite it by memoryId with what is true now.
 - Wrong scope: something about this project filed under the user (global), or the other way round. Save it in the right scope, then delete the original.
-- One-off task state, things anyone can read from the code, and anything the save rules exclude: delete.
+- One-off task state and anything the save rules exclude: delete.
 - A date in a title that only records when a decision was made: keep the decision; drop the date if the title needs the room.
 - Entries marked flagged: leave them alone; the user decides on those.
 An entry nothing contradicts still holds. Leave it as it is.
