@@ -2,6 +2,7 @@ import React from 'react';
 import { useSessionTurnActivity } from '@/sync/global-session-status';
 import { SessionActivityIndicator } from '@/components/session/SessionActivityIndicator';
 import { createPortal } from 'react-dom';
+import { isIMECompositionEvent } from '@/lib/ime';
 import {
   RiAddLine,
   RiArrowDownSLine,
@@ -2678,7 +2679,7 @@ const MobileSessionsDrawerContainer: React.FC<{
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key === 'Escape' && !isIMECompositionEvent(event)) onCloseRef.current();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => {
