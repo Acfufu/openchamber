@@ -1644,7 +1644,9 @@ const emitAgentMemoryChangedEvent = (event) => {
   for (const client of uiOpenChamberEventClients) {
     try {
       writeSseEvent(client, {
-        type: 'openchamber:service-memory-changed',
+        // The UI listens for exactly this name (`lib/openchamberEvents.ts`);
+        // under any other name the Memory panel only catches up on reload.
+        type: 'openchamber:agent-memory-changed',
         properties: {
           scope: event.scope,
           ...(event.projectId ? { projectId: event.projectId } : {}),
