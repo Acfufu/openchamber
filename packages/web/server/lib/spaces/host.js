@@ -127,8 +127,10 @@ export function readOrCreateOwner(dataDir) {
  * `readHostLogin(provider)` reads the host's own browser login for a provider from the host's
  * OpenCode, for a login grant, and `renewHostLogin(provider, exchange)` replaces it with the one
  * the issuer gives for its refresh token; the tests give a login of their own, and `loginWindowOf`
- * lets the live test point that grant's upstream at its stand-in. `userAgent` names this
- * OpenChamber to the issuer.
+ * lets the live test point that grant's upstream at its stand-in. `hostProviders` reads the
+ * providers the user defined in the host's OpenCode configuration, `host-providers.js` over the
+ * host's configuration and OpenCode's stored keys unless a test gives its own. `userAgent` names
+ * this OpenChamber to the issuer.
  */
 export function createSpacesHost({
   dataDir,
@@ -144,6 +146,7 @@ export function createSpacesHost({
   readHostLogin = getStoredLogin,
   renewHostLogin = renewStoredLogin,
   loginWindowOf = undefined,
+  hostProviders = null,
   userAgent = 'OpenChamber',
   runCommand = runCommandProcess,
   openCommandStream = openCommandStreamProcess,
@@ -322,7 +325,7 @@ export function createSpacesHost({
     readHostLogin: keeper.fresh,
     loginWindowOf,
     // A custom provider's key is OpenCode's stored one, else the variable its entry names, read now and kept nowhere.
-    hostProviders: createHostProviders({ readStoredKey: async (providerId) => (await getProviderAuth(providerId))?.key ?? null, hostEnvironment }),
+    hostProviders: hostProviders ?? createHostProviders({ readStoredKey: async (providerId) => (await getProviderAuth(providerId))?.key ?? null, hostEnvironment }),
     readIdleStop,
     saveIdleStop,
     announce: (spaceId, payload) => { hub?.injectEvent({ payload, directory: 'global', spaceId }); },

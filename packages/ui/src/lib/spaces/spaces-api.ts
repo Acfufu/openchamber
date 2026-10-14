@@ -219,8 +219,7 @@ export type SpaceHostLogin = z.infer<typeof hostLoginSchema>;
 
 // A provider the user defined in Settings → Providers, as a space can be given it: never a key.
 // `hasKey` says whether the host has one to give, `loopback` whether its address names the machine
-// the space runs on, `supported` whether the gatekeeper can carry its SDK's key, and `hasHeaders`
-// whether it sets headers of its own, which the gatekeeper cannot carry yet.
+// the space runs on, and `supported` whether the gatekeeper can carry its SDK's key.
 const customProviderSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -229,7 +228,6 @@ const customProviderSchema = z.object({
   loopback: z.boolean(),
   models: z.array(z.string()),
   hasKey: z.boolean(),
-  hasHeaders: z.boolean(),
   supported: z.boolean(),
 });
 

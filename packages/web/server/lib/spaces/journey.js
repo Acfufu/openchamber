@@ -409,14 +409,17 @@ export function createSpaceJourney({
   /**
    * The window grant a custom provider's definition makes, or null for one the window cannot
    * serve: its base URL with "this machine" sent to the Docker host, its key under the header its
-   * SDK reads, and no header and no key for a provider that has none.
+   * SDK reads, no header and no key for a provider that has none, and the provider's own headers
+   * beside either, which the gatekeeper keeps with the key and the space never sees.
    */
   const customWindowOf = (definition) => {
     if (!definition) return null;
     const upstream = definition.baseURL === null ? null : windowUpstreamOf(definition.baseURL);
     const header = headerOfPackage(definition.package);
-    if (upstream === null || header === null || Object.keys(definition.headers).length > 0) return null;
-    return definition.key === null ? { upstream, header: null, secret: null } : { upstream, header, secret: definition.key };
+    if (upstream === null || header === null) return null;
+    const window = definition.key === null ? { upstream, header: null, secret: null } : { upstream, header, secret: definition.key };
+    if (Object.keys(definition.headers).length > 0) window.headers = definition.headers;
+    return window;
   };
 
   /**
@@ -448,6 +451,7 @@ export function createSpaceJourney({
     let secret = null;
     let upstream = grant.kind === 'login' || grant.kind === 'custom' ? null : grant.upstream;
     let header = grant.kind === 'model' ? grant.header : null;
+    let headers;
     if (grant.kind === 'model') {
       if (grant.source.kind === 'typed') return false;
       secret = readHostSecret(grant.source.name);
@@ -461,10 +465,12 @@ export function createSpaceJourney({
     if (grant.kind === 'custom') {
       const window = customWindowOf(await hostProviders.read(grant.provider, repository).catch(() => null));
       if (!window) return false;
-      ({ upstream, header, secret } = window);
+      ({ upstream, header, secret, headers } = window);
     }
     try {
-      await gatekeeper.addGrant(spaceId, { id: grant.id, upstream, header, secret });
+      const said = { id: grant.id, upstream, header, secret };
+      if (headers) said.headers = headers;
+      await gatekeeper.addGrant(spaceId, said);
       return true;
     } catch (error) {
       logger.warn?.(`[spaces] the grant ${grant.id} of space ${spaceId} could not be said again: ${error?.code ?? error?.message ?? error}`);
@@ -896,7 +902,6 @@ export function createSpaceJourney({
       const definition = await hostProviders.read(asked.provider, current.record.repository);
       if (!definition) throw new SpaceError('provider_not_found', `${asked.provider} is not a provider of your own in Settings. Add it there, then grant.`);
       if (headerOfPackage(definition.package) === null) throw new SpaceError('provider_not_supported', `${definition.name} cannot be given through the network filter yet: its SDK reads a key in a way the network filter does not know.`);
-      if (Object.keys(definition.headers).length > 0) throw new SpaceError('provider_headers_not_supported', `${definition.name} sets headers of its own, which the network filter cannot carry yet.`);
       window = customWindowOf(definition);
       if (!window) throw new SpaceError('provider_not_supported', `${definition.name} has no http(s) address in Settings.`);
       grant = { kind: 'custom', id: asked.provider, provider: asked.provider };

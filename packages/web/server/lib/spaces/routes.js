@@ -39,7 +39,6 @@ const STATUS_BY_CODE = new Map([
   ['invalid_request_body', 400],
   ['invalid_grant_request', 400],
   ['provider_not_supported', 400],
-  ['provider_headers_not_supported', 400],
   ['provider_not_found', 404],
   ['invalid_domain', 400],
   ['invalid_idle_stop', 400],

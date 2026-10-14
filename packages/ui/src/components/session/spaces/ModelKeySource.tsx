@@ -20,7 +20,6 @@ export const ModelKeySource: React.FC<{ provider: SpaceModelProviderOption; logi
     const { custom } = provider;
     return (
       <div className="space-y-1">
-        {custom.blocked === 'headers' ? <p className="typography-meta text-status-warning">{t('spaces.create.access.customHeaders')}</p> : null}
         {custom.blocked === 'unsupported' ? <p className="typography-meta text-status-warning">{t('spaces.create.access.customUnsupported')}</p> : null}
         {custom.blocked === null ? <p className="typography-meta text-muted-foreground">{t(custom.hasKey ? 'spaces.create.access.customHostKey' : 'spaces.create.access.customNoKey')}</p> : null}
         {custom.blocked === null && custom.loopback && machine ? <p className="typography-meta text-status-warning">{t('spaces.create.access.customLoopbackOnMachine', { machine })}</p> : null}

@@ -147,14 +147,13 @@ export function createHostProviders({ readLayers = readConfigLayers, readStoredK
     for (const providerId of definedIds(layers)) {
       const entity = entryOf(layers, providerId);
       if (!entity) continue;
-      const { headers, models, ...rest } = definition(providerId, entity);
+      const { headers: _headers, models, ...rest } = definition(providerId, entity);
       providers.push({
         ...rest,
         // Whether the address names the machine the space runs on: the dialogs say so under a machine over SSH.
         loopback: rest.baseURL !== null && isLoopbackUrl(rest.baseURL),
         models: Object.keys(models),
         hasKey: (await resolveKey(providerId, entity, { storedKey })) !== null,
-        hasHeaders: Object.keys(headers).length > 0,
         // What a grant checks too: an SDK the window can carry a key for, and an http(s) address.
         supported: headerOfPackage(entity.package) !== null && rest.baseURL !== null && httpUrlOf(rest.baseURL) !== null,
       });

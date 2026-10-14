@@ -23,14 +23,14 @@ export type SpaceModelProviderOption = {
   id: string;
   name: string;
   key: { upstream: string; envName: string } | null;
-  custom: { hasKey: boolean; loopback: boolean; blocked: 'headers' | 'unsupported' | null } | null;
+  custom: { hasKey: boolean; loopback: boolean; blocked: 'unsupported' | null } | null;
 };
 
 const customOptionOf = (provider: SpaceCustomProvider): SpaceModelProviderOption => ({
   id: provider.id,
   name: provider.name,
   key: null,
-  custom: { hasKey: provider.hasKey, loopback: provider.loopback, blocked: !provider.supported ? 'unsupported' : provider.hasHeaders ? 'headers' : null },
+  custom: { hasKey: provider.hasKey, loopback: provider.loopback, blocked: provider.supported ? null : 'unsupported' },
 });
 
 /**

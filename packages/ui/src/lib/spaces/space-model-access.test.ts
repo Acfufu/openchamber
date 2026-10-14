@@ -49,7 +49,7 @@ describe('spaceModelRefusal', () => {
     listed(running());
     // The host has not been asked about this project yet: nothing is refused on a guess.
     expect(spaceModelRefusal(session, 'ollama-local')).toBeNull();
-    useSpacesStore.getState().noteCustomProviders('/home/me/app', [{ id: 'ollama-local', name: 'Ollama (local)', package: 'aisdk:@ai-sdk/openai-compatible', baseURL: 'http://localhost:11434/v1', loopback: true, models: ['qwen3:8b'], hasKey: false, hasHeaders: false, supported: true }]);
+    useSpacesStore.getState().noteCustomProviders('/home/me/app', [{ id: 'ollama-local', name: 'Ollama (local)', package: 'aisdk:@ai-sdk/openai-compatible', baseURL: 'http://localhost:11434/v1', loopback: true, models: ['qwen3:8b'], hasKey: false, supported: true }]);
     expect(spaceModelRefusal(session, 'ollama-local')).toEqual({ spaceId: ID, providerId: 'ollama-local', reason: 'not_granted' });
     const custom = { kind: 'custom' as const, id: 'ollama-local', provider: 'ollama-local', url: 'http://gatekeeper:8080/model/ollama-local' };
     listed(running({ grants: [anthropic, custom] }));

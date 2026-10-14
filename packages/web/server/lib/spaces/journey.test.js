@@ -1167,7 +1167,7 @@ describe('the journey: grants', () => {
 
 describe('the journey: a provider of the user\'s own', () => {
   const OLLAMA = { name: 'Ollama (local)', package: 'aisdk:@ai-sdk/openai-compatible', baseURL: 'http://localhost:11434/v1', headers: {}, models: { 'qwen3:8b': { modelID: 'qwen3:8b', name: 'Qwen3 8B' } }, key: null };
-  const MAGPIE = { name: 'Magpie', package: 'aisdk:@ai-sdk/openai', baseURL: 'https://magpie-gw.example.dev/v1', headers: {}, models: { 'gpt-5.5': { modelID: 'gpt-5.5' } }, key: 'sk-magpie' };
+  const LIGHTHOUSE = { name: 'Lighthouse', package: 'aisdk:@ai-sdk/openai', baseURL: 'https://lighthouse-gw.example.dev/v1', headers: { 'x-team': 'platform' }, models: { 'gpt-5.5': { modelID: 'gpt-5.5' } }, key: 'sk-lighthouse' };
   /** The host's providers as a stand-in reads them, by id; `reads` records which directory each read named. */
   const hostProvidersOf = (definitions, reads = []) => ({
     read: async (providerId, directory) => { reads.push([providerId, directory]); return definitions[providerId] ?? null; },
@@ -1184,11 +1184,11 @@ describe('the journey: a provider of the user\'s own', () => {
 
   it('reads the provider from the host for the space\'s project, sends "this machine" to the Docker host, and tells OpenCode inside the provider as the host defines it', async () => {
     const reads = [];
-    const { journey, records, calls, id } = await ready({ hostProviders: hostProvidersOf({ 'ollama-local': OLLAMA, magpie: MAGPIE }, reads) });
+    const { journey, records, calls, id } = await ready({ hostProviders: hostProvidersOf({ 'ollama-local': OLLAMA, lighthouse: LIGHTHOUSE }, reads) });
     const ollama = await journey.grantAccess(id, { kind: 'custom', provider: 'ollama-local' });
     expect(ollama.grant).toEqual({ kind: 'custom', id: 'ollama-local', provider: 'ollama-local', url: 'http://gatekeeper:8080/model/ollama-local' });
-    const magpie = await journey.grantAccess(id, { kind: 'custom', provider: 'magpie' });
-    expect(magpie.grant).toMatchObject({ kind: 'custom', id: 'magpie' });
+    const lighthouse = await journey.grantAccess(id, { kind: 'custom', provider: 'lighthouse' });
+    expect(lighthouse.grant).toMatchObject({ kind: 'custom', id: 'lighthouse' });
     expect(reads.every(([, directory]) => directory === PROJECT)).toBe(true);
 
     const definitionOf = (definition) => { const { key: _key, ...rest } = definition; return rest; };
@@ -1196,25 +1196,26 @@ describe('the journey: a provider of the user\'s own', () => {
       // No key: the window forwards the request as the space made it, less its credential headers.
       ['addGrant', id, { id: 'ollama-local', upstream: 'http://host.docker.internal:11434/v1', header: null, secret: null }],
       ['writeProviderConfig', id, [expect.objectContaining({ id: 'ollama-local' })], new Map([['ollama-local', definitionOf(OLLAMA)]])],
-      ['addGrant', id, { id: 'magpie', upstream: 'https://magpie-gw.example.dev/v1', header: 'authorization', secret: 'sk-magpie' }],
-      ['writeProviderConfig', id, [expect.objectContaining({ id: 'ollama-local' }), expect.objectContaining({ id: 'magpie' })], new Map([['ollama-local', definitionOf(OLLAMA)], ['magpie', definitionOf(MAGPIE)]])],
+      // The provider's own headers go with the key to the gatekeeper, and nowhere else.
+      ['addGrant', id, { id: 'lighthouse', upstream: 'https://lighthouse-gw.example.dev/v1', header: 'authorization', secret: 'sk-lighthouse', headers: { 'x-team': 'platform' } }],
+      ['writeProviderConfig', id, [expect.objectContaining({ id: 'ollama-local' }), expect.objectContaining({ id: 'lighthouse' })], new Map([['ollama-local', definitionOf(OLLAMA)], ['lighthouse', definitionOf(LIGHTHOUSE)]])],
     ]);
+    // The headers are read on the host and go to the gatekeeper; the record names none of them.
+    expect(JSON.stringify(records.read(id).record)).not.toContain('platform');
     // The record names the providers and nothing of them: no address, no key.
-    expect(records.read(id).record.grants).toEqual([{ kind: 'custom', id: 'ollama-local', provider: 'ollama-local' }, { kind: 'custom', id: 'magpie', provider: 'magpie' }]);
+    expect(records.read(id).record.grants).toEqual([{ kind: 'custom', id: 'ollama-local', provider: 'ollama-local' }, { kind: 'custom', id: 'lighthouse', provider: 'lighthouse' }]);
     const onDisk = JSON.stringify(records.read(id).record);
     expect(onDisk).not.toContain('11434');
-    expect(onDisk).not.toContain('sk-magpie');
-    expect(JSON.stringify(await journey.listSpaces({ access: true }))).not.toContain('sk-magpie');
+    expect(onDisk).not.toContain('sk-lighthouse');
+    expect(JSON.stringify(await journey.listSpaces({ access: true }))).not.toContain('sk-lighthouse');
   });
 
-  it('refuses a provider the host does not define, one whose SDK the window cannot serve, and one with headers of its own', async () => {
-    const bedrock = { ...MAGPIE, package: 'aisdk:@ai-sdk/amazon-bedrock' };
-    const withHeaders = { ...MAGPIE, headers: { 'x-team': 'platform' } };
-    const noAddress = { ...MAGPIE, baseURL: null };
-    const { journey, records, calls, id } = await ready({ hostProviders: hostProvidersOf({ bedrock, 'with-headers': withHeaders, 'no-address': noAddress }) });
+  it('refuses a provider the host does not define, one whose SDK the window cannot serve, and one without an address', async () => {
+    const bedrock = { ...LIGHTHOUSE, package: 'aisdk:@ai-sdk/amazon-bedrock' };
+    const noAddress = { ...LIGHTHOUSE, baseURL: null };
+    const { journey, records, calls, id } = await ready({ hostProviders: hostProvidersOf({ bedrock, 'no-address': noAddress }) });
     await expect(journey.grantAccess(id, { kind: 'custom', provider: 'nowhere' })).rejects.toMatchObject({ code: 'provider_not_found' });
     await expect(journey.grantAccess(id, { kind: 'custom', provider: 'bedrock' })).rejects.toMatchObject({ code: 'provider_not_supported' });
-    await expect(journey.grantAccess(id, { kind: 'custom', provider: 'with-headers' })).rejects.toMatchObject({ code: 'provider_headers_not_supported' });
     await expect(journey.grantAccess(id, { kind: 'custom', provider: 'no-address' })).rejects.toMatchObject({ code: 'provider_not_supported' });
     await expect(journey.grantAccess(id, { kind: 'custom', provider: 'bedrock', upstream: 'https://x.example/' })).rejects.toMatchObject({ code: 'invalid_grant_request' });
     expect(calls).toEqual([]);
@@ -1222,30 +1223,30 @@ describe('the journey: a provider of the user\'s own', () => {
   });
 
   it('says the grant again after a start from the host\'s definition as it is then, and leaves one the host no longer defines as "needs access"', async () => {
-    const definitions = { 'ollama-local': OLLAMA, magpie: MAGPIE };
+    const definitions = { 'ollama-local': OLLAMA, lighthouse: LIGHTHOUSE };
     const { journey, calls, gatekeeper, id } = await ready({ hostProviders: hostProvidersOf(definitions) });
     await journey.grantAccess(id, { kind: 'custom', provider: 'ollama-local' });
-    await journey.grantAccess(id, { kind: 'custom', provider: 'magpie' });
+    await journey.grantAccess(id, { kind: 'custom', provider: 'lighthouse' });
     await journey.stopSpace(id);
     // Like the program's memory: a stop forgets every grant.
     gatekeeper.forget(id);
-    // Meanwhile the user changed Magpie's key in Settings and deleted Ollama there.
-    definitions.magpie = { ...MAGPIE, key: 'sk-magpie-2' };
+    // Meanwhile the user changed Lighthouse's key in Settings and deleted Ollama there.
+    definitions.lighthouse = { ...LIGHTHOUSE, key: 'sk-lighthouse-2' };
     delete definitions['ollama-local'];
     calls.splice(0);
 
     const started = await journey.startSpace(id);
-    expect(started).toMatchObject({ grantsRestored: ['magpie'], needsAccess: ['ollama-local'] });
-    expect(calls.filter(([name]) => name === 'addGrant')).toEqual([['addGrant', id, { id: 'magpie', upstream: 'https://magpie-gw.example.dev/v1', header: 'authorization', secret: 'sk-magpie-2' }]]);
+    expect(started).toMatchObject({ grantsRestored: ['lighthouse'], needsAccess: ['ollama-local'] });
+    expect(calls.filter(([name]) => name === 'addGrant')).toEqual([['addGrant', id, { id: 'lighthouse', upstream: 'https://lighthouse-gw.example.dev/v1', header: 'authorization', secret: 'sk-lighthouse-2', headers: { 'x-team': 'platform' } }]]);
     // The configuration inside is written from what the host defines now; the deleted provider is left out.
     const [write] = calls.filter(([name]) => name === 'writeProviderConfig');
-    expect(write[2].map((grant) => grant.id)).toEqual(['ollama-local', 'magpie']);
-    expect(Array.from(write[3].keys())).toEqual(['magpie']);
+    expect(write[2].map((grant) => grant.id)).toEqual(['ollama-local', 'lighthouse']);
+    expect(Array.from(write[3].keys())).toEqual(['lighthouse']);
     expect((await journey.listSpaces({ access: true }))[0]).toMatchObject({ access: 'needs_access', needsAccess: ['ollama-local'] });
   });
 
   it('lists the host\'s own providers for the dialogs and leaves the catalog\'s providers to their own rows', async () => {
-    const { journey } = await ready({ hostProviders: hostProvidersOf({ 'ollama-local': OLLAMA, openai: MAGPIE, 'github-copilot': MAGPIE }) });
+    const { journey } = await ready({ hostProviders: hostProvidersOf({ 'ollama-local': OLLAMA, openai: LIGHTHOUSE, 'github-copilot': LIGHTHOUSE }) });
     expect(await journey.readHostCustomProviders(PROJECT)).toEqual({ providers: [{ id: 'ollama-local', name: 'Ollama (local)', hasKey: false }] });
   });
 });
