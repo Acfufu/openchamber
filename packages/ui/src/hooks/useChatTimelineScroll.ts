@@ -219,20 +219,23 @@ const lastMatch = (node: HTMLElement, selector: string): HTMLElement | null => {
     return matches[matches.length - 1] ?? null;
 };
 
-const contentTop = (node: HTMLElement, element: HTMLElement): number => (
-    element.getBoundingClientRect().top - node.getBoundingClientRect().top + node.scrollTop
-);
-
-// The scroll offset that puts an element's start at the top of the viewport.
-const readStartScrollLimit = (node: HTMLElement, element: HTMLElement): number => (
-    Math.max(0, contentTop(node, element) - REPLY_START_GAP_PX)
-);
-
 interface FollowStop {
     readonly element: HTMLElement;
     // The scroll offset that puts the element's start at the top.
     readonly limit: number;
+    // The content offset of the element's end.
+    readonly bottom: number;
 }
+
+const readFollowStop = (node: HTMLElement, element: HTMLElement): FollowStop => {
+    const rect = element.getBoundingClientRect();
+    const offset = node.scrollTop - node.getBoundingClientRect().top;
+    return {
+        element,
+        limit: Math.max(0, rect.top + offset - REPLY_START_GAP_PX),
+        bottom: rect.bottom + offset,
+    };
+};
 
 // The list places rows in pooled containers, so document order is not
 // timeline order: a new turn often lands in a container that comes earlier in
@@ -264,8 +267,8 @@ const findFollowStops = (node: HTMLElement, stopAfterUserMessage: boolean, reply
     // The turn's work starts right after the reader's message row.
     const turn = stopAfterUserMessage ? findLatestTurn(node) : null;
     const work = turn?.children[1];
-    if (work instanceof HTMLElement) stops.push({ element: work, limit: readStartScrollLimit(node, work) });
-    if (reply) stops.push({ element: reply, limit: readStartScrollLimit(node, reply) });
+    if (work instanceof HTMLElement) stops.push(readFollowStop(node, work));
+    if (reply) stops.push(readFollowStop(node, reply));
     return stops;
 };
 
@@ -1014,10 +1017,12 @@ export const useChatTimelineScroll = ({
             const endedReply = lastStreamingReplyRef.current;
             lastStreamingReplyRef.current = streamingReply;
             const reply = streamingReply ?? (endedReply?.isConnected ? endedReply : null);
+            // The tail spacer is the band the composer covers at the end.
+            const visibleLength = viewportLength - listFooterSizeRef.current;
             for (const stop of findFollowStops(node, stopAfterUserMessageRef.current, reply)) {
                 if (!eligibility.has(stop.element)) eligibility.set(stop.element, scroll <= stop.limit + 1);
                 if (stopped || eligibility.get(stop.element) !== true) continue;
-                const held = resolveFollowStop(glideTarget, stop.limit);
+                const held = resolveFollowStop(glideTarget, stop, visibleLength);
                 if (!held.hold) continue;
                 target = held.target;
                 stopped = true;
