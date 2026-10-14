@@ -146,6 +146,9 @@ interface UseChatTimelineScrollResult {
      * from the scroll position on every scroll event rather than from the
      * list's at-end transitions (which follow logic may swallow). For
      * chrome that mirrors the reader's actual position, like the recap hint.
+     * False while the scroll-to-bottom pill is offered: the measurement
+     * runs only on scroll, so growth below a reader the follow stopped for
+     * (the turn footer arriving) left it true under the pill.
      */
     viewportAtEnd: boolean;
     /**
@@ -1506,7 +1509,7 @@ export const useChatTimelineScroll = ({
         onTimelineDataChange,
         showScrollButton,
         userOwnsScroll,
-        viewportAtEnd,
+        viewportAtEnd: viewportAtEnd && !showScrollButton,
         nearContentStart,
         isFollowingProgrammatically,
         goToBottom,
