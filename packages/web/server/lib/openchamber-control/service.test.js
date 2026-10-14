@@ -247,6 +247,18 @@ describe('OpenChamber control service', () => {
     });
   });
 
+  it('passes a branch that already exists through to the move', async () => {
+    const moveToWorktree = vi.fn(async () => ({}));
+    const { service } = createService({ sessionService: { moveToWorktree } });
+
+    await service.execute('session.moveToWorktree', { worktree: 'review', existingBranch: ' origin/review ' }, '/repo', { contextSessionId: 'ses_me' });
+
+    expect(moveToWorktree).toHaveBeenCalledWith('ses_me', {
+      directory: '/repo',
+      worktree: { name: 'review', existingBranch: 'origin/review' },
+    });
+  });
+
   it('moves a named session from where that session lives', async () => {
     const moveToWorktree = vi.fn(async () => ({}));
     const { service, client } = createService({ sessionService: { moveToWorktree } });

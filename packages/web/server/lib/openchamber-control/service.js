@@ -829,6 +829,8 @@ export const createOpenChamberControlService = (dependencies) => {
         if (branch) worktree.branchName = branch.trim();
         const startRef = asNonEmptyString(input.startRef);
         if (startRef) worktree.startRef = startRef.trim();
+        const existingBranch = asNonEmptyString(input.existingBranch);
+        if (existingBranch) worktree.existingBranch = existingBranch.trim();
         const payload = { worktree };
         if (directory) payload.directory = directory;
         return sessionService.moveToWorktree(sessionID, payload);

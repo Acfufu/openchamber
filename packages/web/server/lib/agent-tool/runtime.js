@@ -86,6 +86,7 @@ const ALL_PARAMETER_PROPERTIES = {
   worktree: { type: 'string', description: 'Folder name of a new worktree. For session.create omit it by default and use it only when the user explicitly asks for an isolated worktree; uncommitted changes do not carry over there. Required for session.moveToWorktree: short and named after the task, such as fix-login-timeout' },
   branch: { type: 'string', description: 'Branch name for the new worktree; defaults to the worktree name' },
   startRef: { type: 'string', description: 'Git ref the new worktree branches from; session.moveToWorktree defaults to the repository\'s default branch' },
+  existingBranch: { type: 'string', description: 'session.moveToWorktree: check out this branch that already exists instead of making a new one; a local branch, or a remote one such as origin/feature, which gets a local branch tracking it. Do not combine with branch or startRef' },
   setUpstream: { type: 'boolean', description: 'Make the new worktree branch track its upstream' },
   pullRequest: { type: 'integer', minimum: 1, description: "Pull or merge request number in this project for session.create: the session starts in a new worktree on that request's branch, made the way the New worktree dialog makes it. worktree and branch only rename the folder and the local branch. Use only when the user asks to work on that pull request" },
   goal: { type: 'boolean', description: 'Run the dispatched prompt in Goal Mode; use only when the user explicitly requests it' },

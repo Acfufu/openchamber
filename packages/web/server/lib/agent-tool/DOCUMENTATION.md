@@ -127,7 +127,10 @@ both settings are `false`.
 - `session.moveToWorktree` moves the calling session (or `sessionId`) into a
   new worktree of its repository, carrying the checkout's uncommitted changes
   along (`../openchamber-sessions/worktree-move.js`). `worktree` is required
-  there and `startRef` defaults to the repository's default branch. When to
+  there and `startRef` defaults to the repository's default branch;
+  `existingBranch` checks out a branch that already exists instead, local or
+  remote (`origin/feature`), and cannot be combined with `branch` or
+  `startRef`. When to
   offer it is stated at the head of the tool description, in the form the
   `agentWorktreeMoveWithoutAsking` setting selects: asking first by default,
   or moving unasked and saying so. The setting is read into the plugin source
