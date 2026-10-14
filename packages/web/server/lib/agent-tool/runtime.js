@@ -118,7 +118,7 @@ const ALL_PARAMETER_PROPERTIES = {
   tabId: { type: 'string', description: 'Browser tab to act on, an id from the tabs a browser.snapshot lists. Omit to use the tab this session last opened or worked in; a session with no tab of its own uses the tab the user is looking at, only when the user opened it and it is in this session\'s project' },
   body: { type: 'string', description: 'Full text of the memory, at most 2000 characters; a longer body is rejected rather than trimmed. State it so it still makes sense in a session that has none of this conversation' },
   scope: { type: 'string', enum: ['global', 'project', 'both'], description: 'global is about the user and applies everywhere; project is about this codebase. both is only valid for memory.list' },
-  memoryId: { type: 'string', description: 'Memory ID from a memory.list or memory.read result' },
+  memoryId: { type: 'string', description: 'Memory ID from a memory.list or memory.read result. On memory.save it rewrites that entry instead of matching one by wording' },
   type: { type: 'string', enum: ['fact', 'preference', 'reference'], description: 'fact is something true, preference is how the user wants work done, reference points at a resource that is hard to find again' },
 };
 
