@@ -2274,6 +2274,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - bootstrapping in background',
   'session.newWorktree.toast.fetchSourceFailed': 'Couldn\'t fetch from remote — created from local state',
   'session.newWorktree.toast.fetchSourceAccess': 'Couldn\'t fetch: this repository\'s access needs attention in Configure repository. Created from local state.',
+  'session.newWorktree.toast.branchBackup': '{branch} now matches the remote. Its previous commits are kept in {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'Pull Requests',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch is already checked out in a worktree',
   'session.githubIntegration.validation.failed': 'Validation failed',

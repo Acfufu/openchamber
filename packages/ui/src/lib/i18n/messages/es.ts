@@ -2240,6 +2240,7 @@ export const dict: Record<I18nKey, string> = {
   "session.newWorktree.toast.worktreeCreatedDescription": "{target} - configurando en segundo plano",
   "session.newWorktree.toast.fetchSourceFailed": "No se pudo obtener del remoto; se creó a partir del estado local",
   "session.newWorktree.toast.fetchSourceAccess": "No se pudo obtener: el acceso a este repositorio necesita atención en Configurar repositorio. Se creó a partir del estado local.",
+  "session.newWorktree.toast.branchBackup": "{branch} ahora coincide con el remoto. Sus commits anteriores se guardaron en {backup}.",
   "session.githubIntegration.tabs.pullRequests": "PR",
   "session.githubIntegration.validation.branchAlreadyCheckedOut": "La rama ya está en uso en un worktree",
   "session.githubIntegration.validation.failed": "No se pudo validar",

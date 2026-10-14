@@ -2012,6 +2012,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - démarrage en arrière-plan',
   'session.newWorktree.toast.fetchSourceFailed': 'Impossible de récupérer depuis le dépôt distant — création à partir de l\'état local',
   'session.newWorktree.toast.fetchSourceAccess': 'Récupération impossible : l\'accès à ce dépôt doit être vérifié dans Configurer le dépôt. Création à partir de l\'état local.',
+  'session.newWorktree.toast.branchBackup': '{branch} correspond maintenant au distant. Ses commits précédents sont conservés dans {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'PR',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'La branche est déjà active dans un worktree',
   'session.githubIntegration.validation.failed': 'Échec de la validation',

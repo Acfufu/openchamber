@@ -2240,6 +2240,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - 正在后台初始化',
   'session.newWorktree.toast.fetchSourceFailed': '无法从远程获取 — 已基于本地状态创建',
   'session.newWorktree.toast.fetchSourceAccess': '无法获取：需要在“配置仓库”中处理此仓库的访问权限。已基于本地状态创建。',
+  'session.newWorktree.toast.branchBackup': '{branch} 现在与远程一致。之前的提交保留在 {backup} 中。',
   'session.githubIntegration.tabs.pullRequests': '拉取请求',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': '该分支已在某个工作树中检出',
   'session.githubIntegration.validation.failed': '校验失败',

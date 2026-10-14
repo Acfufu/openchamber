@@ -2249,6 +2249,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - 正在背景初始化',
   'session.newWorktree.toast.fetchSourceFailed': '無法從遠端擷取 — 已基於本機狀態建立',
   'session.newWorktree.toast.fetchSourceAccess': '無法擷取：需要在「設定儲存庫」中處理此儲存庫的存取權限。已基於本機狀態建立。',
+  'session.newWorktree.toast.branchBackup': '{branch} 現在與遠端一致。先前的提交保留在 {backup} 中。',
   'session.githubIntegration.tabs.pullRequests': 'Pull Requests',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': '該分支已在某個 worktree 中簽出',
   'session.githubIntegration.validation.failed': '驗證失敗',

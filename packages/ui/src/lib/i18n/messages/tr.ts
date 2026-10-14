@@ -2132,6 +2132,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - arka planda hazırlanıyor',
   'session.newWorktree.toast.fetchSourceFailed': 'Uzak depodan fetch edilemedi — yerel durumdan oluşturuldu',
   'session.newWorktree.toast.fetchSourceAccess': 'Fetch yapılamadı: bu deponun erişimi Repository\'yi yapılandır bölümünde ilgi bekliyor. Yerel durumdan oluşturuldu.',
+  'session.newWorktree.toast.branchBackup': '{branch} artık uzak dalla aynı. Önceki commit\'leri {backup} dalında saklandı.',
   'session.githubIntegration.tabs.pullRequests': 'Pull Request\'ler',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch zaten bir worktree\'de checkout edilmiş',
   'session.githubIntegration.validation.failed': 'Doğrulama başarısız',

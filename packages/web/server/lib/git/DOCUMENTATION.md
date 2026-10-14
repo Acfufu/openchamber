@@ -160,7 +160,15 @@ provider's exact head revision; validation and creation reject a local or
 remote branch that does not resolve to that revision. A new local PR branch is
 created from that immutable revision rather than the mutable remote-tracking ref,
 and creation verifies the attached worktree HEAD before bootstrap, removing the
-worktree and any branch created by that attempt on mismatch. Failed creation removes
+worktree and any branch created by that attempt on mismatch. A local branch of
+the same name that an earlier, since removed worktree left behind is reused and
+moved to the head (`git worktree add -B`) when it is not checked out elsewhere.
+When it only trails the head nothing else happens; when it diverged, because the
+head was force-pushed, its old tip is first kept in `<branch>-backup-<short sha>`
+and the create result names it in `branchBackup`, which the UI shows in a toast.
+A failed attempt puts a moved branch back on its old tip. The head transfer
+fetches with a forced refspec, so a force-pushed head replaces the stale
+remote-tracking ref instead of failing as non-fast-forward. Failed creation removes
 a remote added by that attempt. An existing remote is reused only when its endpoint
 is byte-for-byte equal; a different endpoint returns `CONTRIBUTOR_REMOTE_COLLISION`
 and no `remote set-url` command runs. OpenChamber

@@ -2229,6 +2229,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - جارٍ التهيئة في الخلفية',
   'session.newWorktree.toast.fetchSourceFailed': 'تعذّر الجلب من المستودع البعيد — أُنشئت من الحالة المحلية',
   'session.newWorktree.toast.fetchSourceAccess': 'تعذّر الجلب: يحتاج وصول هذا المستودع إلى مراجعة في «إعداد المستودع». أُنشئت من الحالة المحلية.',
+  'session.newWorktree.toast.branchBackup': 'أصبح الفرع {branch} مطابقًا للفرع البعيد. حُفظت إيداعاته السابقة في {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'طلبات السحب',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'الفرع مسحوب بالفعل في شجرة عمل (worktree)',
   'session.githubIntegration.validation.failed': 'تعذّر التحقق',

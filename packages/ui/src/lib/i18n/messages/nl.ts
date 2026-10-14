@@ -2274,6 +2274,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - wordt op de achtergrond opgezet',
   'session.newWorktree.toast.fetchSourceFailed': 'Kon niet van de remote ophalen — gemaakt vanuit de lokale status',
   'session.newWorktree.toast.fetchSourceAccess': 'Ophalen mislukt: de toegang tot deze repository vraagt aandacht in Repository configureren. Gemaakt vanuit de lokale status.',
+  'session.newWorktree.toast.branchBackup': '{branch} komt nu overeen met de remote. De vorige commits staan in {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'Pull requests',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch is al uitgecheckt in een worktree',
   'session.githubIntegration.validation.failed': 'Kan niet valideren',

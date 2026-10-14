@@ -2240,6 +2240,7 @@ export const dict: Record<I18nKey, string> = {
   "session.newWorktree.toast.worktreeCreatedDescription": "{target} - завантаження у фоні",
   "session.newWorktree.toast.fetchSourceFailed": "Не вдалося отримати з віддаленого — створено з локального стану",
   "session.newWorktree.toast.fetchSourceAccess": "Не вдалося отримати: доступ до цього репо потребує уваги в «Налаштувати репозиторій». Створено з локального стану.",
+  "session.newWorktree.toast.branchBackup": "Гілка {branch} тепер збігається з віддаленою. Її попередні коміти збережено в {backup}.",
   "session.githubIntegration.tabs.pullRequests": "PR",
   "session.githubIntegration.validation.branchAlreadyCheckedOut": "Гілку вже відкрито в worktree",
   "session.githubIntegration.validation.failed": "Помилка перевірки",

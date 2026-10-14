@@ -2270,6 +2270,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - バックグラウンドでブートストラップ中',
   'session.newWorktree.toast.fetchSourceFailed': 'リモートから取得できませんでした — ローカルの状態で作成しました',
   'session.newWorktree.toast.fetchSourceAccess': '取得できませんでした: このリポジトリのアクセスを「リポジトリを設定」で確認してください。ローカルの状態で作成しました。',
+  'session.newWorktree.toast.branchBackup': '{branch} をリモートに合わせました。以前のコミットは {backup} に残してあります。',
   'session.githubIntegration.tabs.pullRequests': 'プルリクエスト',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'ブランチはすでにワークツリーでチェックアウトされています',
   'session.githubIntegration.validation.failed': '検証に失敗しました',

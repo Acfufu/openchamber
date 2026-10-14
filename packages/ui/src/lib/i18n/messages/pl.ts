@@ -3147,6 +3147,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} — inicjalizacja w tle',
   'session.newWorktree.toast.fetchSourceFailed': 'Nie udało się pobrać ze zdalnego — utworzono na podstawie stanu lokalnego',
   'session.newWorktree.toast.fetchSourceAccess': 'Nie udało się pobrać: dostęp do tego repozytorium wymaga uwagi w „Skonfiguruj repozytorium”. Utworzono na podstawie stanu lokalnego.',
+  'session.newWorktree.toast.branchBackup': 'Gałąź {branch} odpowiada teraz zdalnej. Jej poprzednie commity zachowano w {backup}.',
   'session.newWorktree.worktreeDirectory': 'Katalog drzewa pracy',
   'session.newWorktree.worktreeDirectoryPlaceholder': 'my-worktree-directory',
   'sessionAuth.actions.addPasskey': 'Add passkey',

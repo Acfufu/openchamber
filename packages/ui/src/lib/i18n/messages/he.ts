@@ -2229,6 +2229,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - ההכנה מתבצעת ברקע',
   'session.newWorktree.toast.fetchSourceFailed': 'לא ניתן היה להביא מהמאגר המרוחק — נוצר מהמצב המקומי',
   'session.newWorktree.toast.fetchSourceAccess': 'לא ניתן היה להביא: הגישה למאגר הזה דורשת טיפול ב„הגדרת מאגר”. נוצר מהמצב המקומי.',
+  'session.newWorktree.toast.branchBackup': 'הענף {branch} תואם עכשיו לענף המרוחק. הקומיטים הקודמים שלו נשמרו ב-{backup}.',
   'session.githubIntegration.tabs.pullRequests': 'בקשות משיכה',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'הענף כבר פתוח בעץ עבודה',
   'session.githubIntegration.validation.failed': 'האימות נכשל',

@@ -2026,6 +2026,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - im Hintergrund initialisiert',
   'session.newWorktree.toast.fetchSourceFailed': 'Remote konnte nicht abgerufen werden – aus dem lokalen Stand erstellt',
   'session.newWorktree.toast.fetchSourceAccess': 'Abruf nicht möglich: Der Zugriff auf dieses Repository muss unter „Repository konfigurieren“ geprüft werden. Aus dem lokalen Stand erstellt.',
+  'session.newWorktree.toast.branchBackup': '{branch} entspricht jetzt dem Remote. Die vorherigen Commits liegen in {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'Pull Requests',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch ist bereits in einem Worktree ausgecheckt',
   'session.githubIntegration.validation.failed': 'Validierung fehlgeschlagen',

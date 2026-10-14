@@ -2274,6 +2274,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - 백그라운드에서 초기 설정 중',
   'session.newWorktree.toast.fetchSourceFailed': '원격에서 가져오지 못했습니다. 로컬 상태로 생성했습니다',
   'session.newWorktree.toast.fetchSourceAccess': '가져오지 못했습니다: 이 저장소의 접근 권한을 저장소 구성에서 확인해야 합니다. 로컬 상태로 생성했습니다.',
+  'session.newWorktree.toast.branchBackup': '{branch}을(를) 원격과 맞췄습니다. 이전 커밋은 {backup}에 보관했습니다.',
   'session.githubIntegration.tabs.pullRequests': 'PR',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': '브랜치가 이미 워크트리에 체크아웃되어 있습니다',
   'session.githubIntegration.validation.failed': '유효성 검사에 실패했습니다',
