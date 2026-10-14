@@ -12,13 +12,14 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { getStoredLogin, renewStoredLogin } from '../opencode/auth.js';
+import { getProviderAuth, getStoredLogin, renewStoredLogin } from '../opencode/auth.js';
 import { createCodeIn } from './code-in.js';
 import { createCodeOut } from './code-out.js';
 import { createSpaceDispatcher } from './dispatcher.js';
 import { SpaceError } from './errors.js';
 import { createGatekeeperChannel } from './gatekeeper-channel.js';
 import { createHostGit } from './host-git.js';
+import { createHostProviders } from './host-providers.js';
 import { createSpaceJourney } from './journey.js';
 import { KEEP_INTERVAL_MS, createLoginExchange, createLoginKeeper } from './login-keeper.js';
 import { hashProjectDirectory } from './labels.js';
@@ -320,6 +321,8 @@ export function createSpacesHost({
     readHostSecret: (name) => hostEnvironment[name],
     readHostLogin: keeper.fresh,
     loginWindowOf,
+    // A custom provider's key is OpenCode's stored one, else the variable its entry names, read now and kept nowhere.
+    hostProviders: createHostProviders({ readStoredKey: async (providerId) => (await getProviderAuth(providerId))?.key ?? null, hostEnvironment }),
     readIdleStop,
     saveIdleStop,
     announce: (spaceId, payload) => { hub?.injectEvent({ payload, directory: 'global', spaceId }); },
