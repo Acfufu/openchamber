@@ -1922,7 +1922,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
         </button>
         <MobileDisclosure open={expanded}>{() => (
           <div className="pb-2">
-            <MobileTimelineRows entries={entries} showProject compact={compactZoneRows} handlers={timelineHandlers} />
+            <MobileTimelineRows entries={entries} showProject compact={compactZoneRows} pinMarker={sectionId !== PINNED_SECTION_ID} handlers={timelineHandlers} />
           </div>
         )}</MobileDisclosure>
       </section>

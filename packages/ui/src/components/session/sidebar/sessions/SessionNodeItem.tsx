@@ -86,6 +86,7 @@ import { streamPerfCount } from '@/stores/utils/streamDebug';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useSessionFoldersStore } from '@/stores/useSessionFoldersStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
 import { resolveEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import type { WorktreeMetadata } from '@/types/worktree';
 import {
@@ -406,6 +407,11 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // view's Pinned and In work rows keep it on one line.
   const isOneLineTimelineRow = renderContext === 'timeline-chat' || renderContext === 'mixed-compact';
   const isTimelineRow = isTwoLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  // While the Pinned section is shown it holds every pinned zone session, and
+  // its header already says they are pinned; In work then has none of them.
+  const isZoneRow = renderContext === 'timeline-mixed' || renderContext === 'mixed-compact';
+  const pinnedSectionShown = useSessionDisplayStore((state) => state.showPinnedSection);
+  const hidePinnedMarker = isZoneRow && pinnedSectionShown;
   // Two-line rows in Pinned and In work show the project's own icon; the row
   // reads exactly that one project record, and `find` keeps the reference
   // stable between renders.
@@ -1638,7 +1644,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       branchLabel={tooltipBranchLabel}
       spaceMark={branchInSpace ? t('sessions.sidebar.group.space') : null}
       statusDot={isSessionActionPending ? sessionActionSpinner : showStatusMarker ? statusMarkerContent : null}
-      pinnedMarker={isPinnedSession && !isSessionActionPending ? pinnedMarkerContent : null}
+      pinnedMarker={isPinnedSession && !isSessionActionPending && !hidePinnedMarker ? pinnedMarkerContent : null}
       timeSlot={showActivityDuration
         ? <SessionActivityDuration sessionId={session.id} running={isStreaming} className="typography-micro" />
         : sessionCompactUpdatedLabel}

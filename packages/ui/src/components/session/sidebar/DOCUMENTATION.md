@@ -267,7 +267,9 @@ top-level, unarchived project sessions in the shared lifecycle order; pinned
 chats stay pinned at the top of Chats. A pinned session in work is listed in
 Pinned only. Like In work, its sessions also stay in their projects, search
 lists each of them once, in the zone (`zoneSessionIds` carries both zones' ids),
-and the rows follow the same render context. Pins are the device-local
+and the rows follow the same render context. Its rows show no pin marker,
+because the header already says they are pinned; In work rows show it only
+while the zone is hidden, since otherwise no pinned session reaches In work. Pins are the device-local
 `useSessionPinnedStore`, so the zone differs between devices. The phone sheet
 mirrors both toggles: its display menu offers Show pinned section and, in
 Tree, Detailed rows, and its Pinned and In work sections render
