@@ -934,8 +934,8 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
         : hasSecondHeaderAction
         ? '[--oc-actions-reserve:44px]'
         : '[--oc-actions-reserve:18px]');
-  const headerActionsMaskClass = alwaysShowActions ? undefined : 'group-hover/gh:oc-actions-mask group-focus-within/gh:oc-actions-mask';
-  const headerCoveredFadeClass = alwaysShowActions ? undefined : 'transition-opacity group-hover/gh:opacity-0 group-focus-within/gh:opacity-0';
+  const headerActionsMaskClass = alwaysShowActions ? undefined : 'group-hover/gh:oc-actions-mask group-has-[:focus-visible]/gh:oc-actions-mask';
+  const headerCoveredFadeClass = alwaysShowActions ? undefined : 'transition-opacity group-hover/gh:opacity-0 group-has-[:focus-visible]/gh:opacity-0';
   // An empty group keeps the chevron's place, so its label stays in line.
   const headerChevron = isEmpty
     ? <span aria-hidden className="size-3.5 flex-shrink-0" />
@@ -1276,7 +1276,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
             would replace on the spot. */}
         <TooltipProvider delayDuration={400}>
         {group.isArchivedBucket && allGroupSessions.length > 0 ? (
-          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -1299,12 +1299,12 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
           </div>
         ) : null}
         {group.directory && !group.isMain && group.worktree && !worktreeRemoving ? (
-          <div className={cn('absolute inset-e-7 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-7 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <WorktreeDeleteAction label={group.label} sessions={allGroupSessions} worktree={group.worktree} />
           </div>
         ) : null}
         {group.space ? (
-          <div className={cn('absolute inset-e-7 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-7 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -1324,12 +1324,12 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
           </div>
         ) : null}
         {group.space ? (
-          <div className={cn('absolute inset-e-[3.25rem] top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100 has-[[data-popup-open]]:opacity-100')}>
+          <div className={cn('absolute inset-e-[3.25rem] top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100 has-[[data-popup-open]]:opacity-100')}>
             <SpaceActionsMenu spaceId={group.space.id} label={group.label} />
           </div>
         ) : null}
         {group.directory ? (
-          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-focus-within/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

@@ -236,7 +236,11 @@ whose only matches moved renders nothing. Track / Done captures the runtime key 
 click (`setSessionWorkState`), so a server switch mid-request writes nothing to
 the new server.
 
-Row actions revealed on hover are the same three in both views: Track / Done
+Everything a row or header reveals on hover (actions, chevrons, the label
+mask) also shows for keyboard focus, through `group-has-[:focus-visible]`,
+never `group-focus-within`: a mouse click focuses the row or button, and
+`:focus-within` kept the revealed chrome on screen after the pointer left until
+focus moved elsewhere. Row actions revealed on hover are the same three in both views: Track / Done
 (eye in the muted action color like its neighbours / check in
 `status.success`, one icon size up because the glyph draws small), quick
 archive/delete, the menu. Pin/unpin lives in the menu only. Touch layouts (`alwaysShowActions`)

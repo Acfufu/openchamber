@@ -185,11 +185,11 @@ const SessionFolderItemBase = <TSessionNode,>({
         <div className={cn(
           'min-w-0 flex items-center gap-0.5 flex-1',
           archivedBucket
-            ? (alwaysShowActions ? 'pe-7' : 'group-hover/folder:pe-7 group-focus-within/folder:pe-7')
+            ? (alwaysShowActions ? 'pe-7' : 'group-hover/folder:pe-7 group-has-[:focus-visible]/folder:pe-7')
             // Actions overlay on hover (new session, rename, delete = three
             // 24px buttons anchored at the right edge); reserve room only
             // while they are revealed, mirroring session-row behavior.
-            : (alwaysShowActions ? 'pe-20' : 'group-hover/folder:pe-20 group-focus-within/folder:pe-20'),
+            : (alwaysShowActions ? 'pe-20' : 'group-hover/folder:pe-20 group-has-[:focus-visible]/folder:pe-20'),
         )}>
           {canExpand
             ? <FileTreeChevron expanded={!isCollapsed} />
@@ -282,7 +282,7 @@ const SessionFolderItemBase = <TSessionNode,>({
               'absolute inset-e-0.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 transition-opacity',
               alwaysShowActions
                 ? 'opacity-100'
-                : 'opacity-0 pointer-events-none group-hover/folder:opacity-100 group-hover/folder:pointer-events-auto group-focus-within/folder:opacity-100 group-focus-within/folder:pointer-events-auto',
+                : 'opacity-0 pointer-events-none group-hover/folder:opacity-100 group-hover/folder:pointer-events-auto group-has-[:focus-visible]/folder:opacity-100 group-has-[:focus-visible]/folder:pointer-events-auto',
             )}
           >
             <div className="flex items-center gap-0.5">
