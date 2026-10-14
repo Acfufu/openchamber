@@ -8,10 +8,13 @@ import {
   OPENCHAMBER_MEMORY_ACTIONS,
   OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS,
   OPENCHAMBER_NOTIFY_ACTIONS,
+  OPENCHAMBER_RENDER_ACTION_DEFINITIONS,
+  OPENCHAMBER_RENDER_ACTIONS,
   resolveAgentToolAction,
   OPENCHAMBER_WEB_ACTION_DEFINITIONS,
   OPENCHAMBER_WEB_ACTIONS,
 } from '../openchamber-control/actions.js';
+import { RENDER_PAGE_MAX_HTML_LENGTH, RENDER_PAGE_MAX_TITLE_LENGTH, RENDER_PAGE_WHEN } from '../openchamber-control/render-page.js';
 import { createCallbackAddress } from './callback-address.js';
 
 const TOOL_SCHEMA_VERSION = 1;
@@ -24,6 +27,7 @@ const ACTIONS = new Set([
   ...OPENCHAMBER_MEMORY_ACTIONS,
   ...OPENCHAMBER_KNOWLEDGE_ACTIONS,
   ...OPENCHAMBER_NOTIFY_ACTIONS,
+  ...OPENCHAMBER_RENDER_ACTIONS,
 ]);
 const AGENT_TOOL_ACTION_TITLES = Object.fromEntries(
   [
@@ -32,6 +36,7 @@ const AGENT_TOOL_ACTION_TITLES = Object.fromEntries(
     ...OPENCHAMBER_MEMORY_ACTION_DEFINITIONS,
     ...OPENCHAMBER_KNOWLEDGE_ACTION_DEFINITIONS,
     ...OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS,
+    ...OPENCHAMBER_RENDER_ACTION_DEFINITIONS,
   ].map(({ action, title }) => [action, title]),
 );
 
@@ -156,6 +161,12 @@ const NOTIFY_PARAMETER_PROPERTIES = {
   showWhenFocused: { type: 'boolean', description: 'Show it even while the user is looking at OpenChamber. Only for something that cannot wait' },
 };
 
+// Its own names: `title` here names the page.
+const RENDER_PARAMETER_PROPERTIES = {
+  html: { type: 'string', description: `One complete, self-contained HTML document, at most ${RENDER_PAGE_MAX_HTML_LENGTH} characters` },
+  title: { type: 'string', description: `Short name for the page, at most ${RENDER_PAGE_MAX_TITLE_LENGTH} characters` },
+};
+
 // The linking rule leads: stated only inside the session.link action, an
 // agent handed an issue to investigate never opened this tool and never
 // linked it. SESSION_LINK_GUIDANCE in ../session-knowledge/runtime.js states
@@ -179,6 +190,18 @@ const KNOWLEDGE_TOOL_DESCRIPTION = "The project's Notes, Todos and Plans: what t
 
 const NOTIFY_TOOL_DESCRIPTION = "Send the user a notification through OpenChamber, so they learn about something without watching the session. Use it when you finish work that took long enough for the user to step away, when you are blocked on something only the user can resolve, or when the user asked to be told about something. Do not use it for routine progress, for every finished step, or to repeat what your reply already says to a user who is present. Keep the title short and put detail in the body.";
 
+// The variables are the ones packages/ui/src/components/chat/message/parts/htmlRender.ts
+// injects; change both together.
+const RENDER_TOOL_DESCRIPTION = [
+  "Show the user a finished HTML page (a chart, table, diagram, comparison or mockup) inline in the chat.",
+  RENDER_PAGE_WHEN,
+  "Call it before you write your final reply. The user already sees the page above that reply, so the reply does not announce it, say where it is or restate it; add only what the page does not say.",
+  "The page can be interactive with its own script: hover tooltips on a chart, tabs, toggles, sorting or filtering a table. On a phone a tap shows a hover tooltip and the page is about 360px wide, so place tooltips and popups inside the page, flipping them to the other side near an edge. It cannot send anything back to you or the chat, so put nothing on it that waits for an answer.",
+  "Write one self-contained document with inline <style> and <script>. Draw charts with inline SVG or your own script: remote scripts and stylesheets do not load in every OpenChamber client. Images must be https URLs or data: URLs. The page runs in a sandbox with no access to OpenChamber, the network session or local files; links open in the user's browser.",
+  "The page sits on the chat's own background, as wide as the reply column (about 720px on desktop, about 360px on phones), and the frame grows to the page's height up to 1200px, then scrolls. Leave html, body and the outermost element without a background color, use a fluid width with no horizontal padding on the outermost element and nothing wider than the column (stack or wrap on narrow widths, and give a wide table its own overflow-x:auto box rather than making the whole page scroll sideways), and add no outer card, border or banner title: the page is part of your reply. A box that needs its own background gets at least 16px of padding and var(--radius) corners. Give charts fixed pixel heights, and never use 100vh or height:100% on html or body.",
+  "OpenChamber sets its active theme as CSS custom properties on :root and updates them live when the user switches theme: --background, --foreground, --muted, --muted-foreground, --card, --card-foreground, --border, --primary, --primary-foreground, --destructive, --warning, --success, --info, --code-background, --code-foreground, --chart-1 to --chart-6 (categorical series), --radius, --font-sans, --font-mono. Style with them so the page matches the app in light and dark themes; a base stylesheet already sets the page's text color and font from them.",
+].join(' ');
+
 // A field means the same thing in every tool that declares it, so one set
 // covers them all.
 const BOOLEAN_PARAMETER_NAMES = [...new Set([
@@ -186,6 +209,7 @@ const BOOLEAN_PARAMETER_NAMES = [...new Set([
   MEMORY_PARAMETER_PROPERTIES,
   KNOWLEDGE_PARAMETER_PROPERTIES,
   NOTIFY_PARAMETER_PROPERTIES,
+  RENDER_PARAMETER_PROPERTIES,
 ].flatMap((properties) => Object.entries(properties)
   .filter(([, schema]) => schema.type === 'boolean')
   .map(([name]) => name)))];
@@ -328,7 +352,7 @@ const createToolEntry = ({ name, description, definitions, parameters, codeMode 
     })
 `;
 
-const createPluginSource = ({ includeControl, includeWeb, includeMemory, includeKnowledge, includeNotify, codeMode, worktreeMoveWithoutAsking }) => {
+const createPluginSource = ({ includeControl, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode, worktreeMoveWithoutAsking }) => {
   const entries = [];
   if (includeControl) {
     entries.push(createToolEntry({
@@ -372,6 +396,15 @@ const createPluginSource = ({ includeControl, includeWeb, includeMemory, include
       description: NOTIFY_TOOL_DESCRIPTION,
       definitions: OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS,
       parameters: NOTIFY_PARAMETER_PROPERTIES,
+      codeMode,
+    }));
+  }
+  if (includeRender) {
+    entries.push(createToolEntry({
+      name: 'openchamber_render',
+      description: RENDER_TOOL_DESCRIPTION,
+      definitions: OPENCHAMBER_RENDER_ACTION_DEFINITIONS,
+      parameters: RENDER_PARAMETER_PROPERTIES,
       codeMode,
     }));
   }
@@ -438,13 +471,13 @@ export const createAgentToolRuntime = (dependencies) => {
    * change while it runs, so the source on disk always matches the settings —
    * the running OpenCode reloads the directory it already has configured.
    */
-  const materializePlugin = async ({ includeControl = true, includeWeb = true, includeMemory = true, includeKnowledge = false, includeNotify = false, codeMode = false, worktreeMoveWithoutAsking = false } = {}) => {
-    if (!includeControl && !includeWeb && !includeMemory && !includeKnowledge && !includeNotify) {
+  const materializePlugin = async ({ includeControl = true, includeWeb = true, includeMemory = true, includeKnowledge = false, includeNotify = false, includeRender = false, codeMode = false, worktreeMoveWithoutAsking = false } = {}) => {
+    if (!includeControl && !includeWeb && !includeMemory && !includeKnowledge && !includeNotify && !includeRender) {
       throw new Error('At least one OpenChamber managed tool must be enabled to inject the plugin');
     }
     await fsPromises.mkdir(pluginDirectory, { recursive: true });
     await fsPromises.writeFile(pluginManifestPath, PLUGIN_PACKAGE_JSON, { mode: 0o600 });
-    await fsPromises.writeFile(pluginPath, createPluginSource({ includeControl, includeWeb, includeMemory, includeKnowledge, includeNotify, codeMode, worktreeMoveWithoutAsking }), { mode: 0o600 });
+    await fsPromises.writeFile(pluginPath, createPluginSource({ includeControl, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode, worktreeMoveWithoutAsking }), { mode: 0o600 });
     return pluginDirectory;
   };
 

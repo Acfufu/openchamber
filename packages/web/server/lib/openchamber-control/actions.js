@@ -111,6 +111,20 @@ export const OPENCHAMBER_NOTIFY_ACTIONS = Object.freeze(
 );
 
 /**
+ * Render is its own tool: a page drawn into the chat is a distinct intent from
+ * any of the others, and its long layout guidance should cost context only for
+ * users who keep it on. The page itself travels in the call's input, which the
+ * chat already stores and syncs, so the action only checks it.
+ */
+export const OPENCHAMBER_RENDER_ACTION_DEFINITIONS = Object.freeze([
+  { action: 'render.page', title: 'Show a page', description: 'Show one finished, self-contained HTML page to the user inline in the chat; requires html and title' },
+]);
+
+export const OPENCHAMBER_RENDER_ACTIONS = Object.freeze(
+  OPENCHAMBER_RENDER_ACTION_DEFINITIONS.map(({ action }) => action),
+);
+
+/**
  * Which actions each managed tool may ask for.
  *
  * The callback needs this because models routinely drop the namespace: asked
@@ -126,6 +140,7 @@ const ACTIONS_BY_TOOL = Object.freeze({
   openchamber_memory: OPENCHAMBER_MEMORY_ACTIONS,
   openchamber_knowledge: OPENCHAMBER_KNOWLEDGE_ACTIONS,
   openchamber_notify: OPENCHAMBER_NOTIFY_ACTIONS,
+  openchamber_render: OPENCHAMBER_RENDER_ACTIONS,
 });
 
 const bareName = (action) => {
@@ -174,4 +189,5 @@ export const OPENCHAMBER_ALL_ACTIONS = Object.freeze([
   ...OPENCHAMBER_MEMORY_ACTIONS,
   ...OPENCHAMBER_KNOWLEDGE_ACTIONS,
   ...OPENCHAMBER_NOTIFY_ACTIONS,
+  ...OPENCHAMBER_RENDER_ACTIONS,
 ]);

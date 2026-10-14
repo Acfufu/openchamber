@@ -5,6 +5,7 @@ import { OpenChamberControlError, asControlError } from './error.js';
 import { OPENCHAMBER_ALL_ACTIONS, OPENCHAMBER_KNOWLEDGE_ACTIONS } from './actions.js';
 import { writeScreenshot } from './screenshots.js';
 import { createProjectKnowledgeActions } from './project-knowledge.js';
+import { createRenderPageAction } from './render-page.js';
 
 const DEFAULT_WAIT_TIMEOUT_SECONDS = 600;
 const MAX_WAIT_TIMEOUT_SECONDS = 86_400;
@@ -222,6 +223,7 @@ export const createOpenChamberControlService = (dependencies) => {
     projectContextRuntime = null,
     resolveProjectContextId = null,
     isKnowledgeToolEnabled = async () => true,
+    isRenderToolEnabled = async () => true,
     // Puts a plan in front of the user; answers how many windows it reached.
     showPlan = null,
     // Delivers a dispatched session's result back to the session that asked
@@ -308,6 +310,8 @@ export const createOpenChamberControlService = (dependencies) => {
     showPlan,
     resolveDirectory: (input) => sessionService.resolveDirectory(input),
   });
+
+  const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled });
 
   const models = async () => {
     const settings = await readSettingsFromDiskMigrated();
@@ -741,6 +745,9 @@ export const createOpenChamberControlService = (dependencies) => {
           throw new OpenChamberControlError(result.body.error, result.status);
         }
         return result.body;
+      }
+      if (action === 'render.page') {
+        return await renderPage(input);
       }
       if (action === 'file.open') {
         if (!fileOpen) {

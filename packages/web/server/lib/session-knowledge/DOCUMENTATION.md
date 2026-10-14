@@ -91,6 +91,19 @@ there. It is part of the signature (`w:ask`, `w:auto`), so flipping the setting
 re-sends the rule. The tool description carries the same text
 (`../agent-tool/runtime.js`, `WORKTREE_MOVE_RULES`); change both together.
 
+## When to draw a page
+
+A session whose agent has the managed `openchamber_render` tool (the setting is
+on and OpenChamber launched OpenCode, read through `isPageRenderingAvailable`)
+is told when a chart, table, diagram or interface mockup beats prose
+(`RENDER_PAGE_GUIDANCE`).
+Stated only in the tool description, it went unread: asked for a breakdown of
+lines of code per package, an agent answered with a list and drew the chart
+only when asked again. The cases and the limits (no page for a few numbers, at
+most one per answer) are `RENDER_PAGE_WHEN` in
+`../openchamber-control/render-page.js`, which the tool description shares. It
+rides the signature as `r:on`.
+
 ## Entries that read as instructions
 
 Memory is the one place where text from outside can settle permanently. The

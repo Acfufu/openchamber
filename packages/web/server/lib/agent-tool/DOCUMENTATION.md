@@ -26,6 +26,19 @@ the user can want independently:
   `agentKnowledgeToolEnabled` is not `false`, and the control service refuses
   these actions when it is, so a stale plugin cannot keep writing. Writes are
   attributed to the session OpenCode reported, never to a payload field.
+- `openchamber_render` — `render.page`, a self-contained HTML page (`html`,
+  `title`) the chat draws inline above the agent's answer, such as a chart or
+  table. The page travels in the call's input, which OpenCode stores and
+  syncs, so the server keeps no copy: `../openchamber-control/render-page.js`
+  only checks the input (`html` at most 200,000 characters so the callback
+  body stays under its 1 MB limit, `title` at most 120) and the setting.
+  On by default: enabled while `agentRenderToolEnabled` is not `false`, and the
+  control service refuses the action when it is, so a stale plugin cannot
+  keep drawing. When to draw (`RENDER_PAGE_WHEN`) is shared with the line
+  every session carries (`../session-knowledge/DOCUMENTATION.md`, *When to
+  draw a page*). The description lists the theme variables the chat injects
+  (`packages/ui/src/components/chat/message/parts/htmlRender.ts`); change both
+  together.
 
 Both default to on, are toggled in Settings → General → OpenChamber Tools, and take
 effect in the running OpenCode within a couple of seconds — OpenChamber rewrites

@@ -42,6 +42,10 @@ other.
   knowledge Plans list does: in place in the panel on desktop and web, in the
   drawer's plan viewer on mobile. No
   window reached is `503`.
+- `render-page.js` runs `render.page` for the `openchamber_render` agent tool.
+  The chat draws the page from the call's own input, so the action stores
+  nothing: it checks `html` (at most 200,000 characters) and `title` (at most
+  120) and answers `403` while `agentRenderToolEnabled` is `false`.
 - `routes.js` is the authenticated CLI HTTP adapter. It forwards one action,
   preserves service status and partial-result details, and propagates request
   cancellation.

@@ -9,6 +9,7 @@ import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -136,6 +137,7 @@ export const dict: Record<I18nKey, string> = {
   ...pluginPanelI18n.ko,
   ...surfacePanelI18n.ko,
   ...fileArtifactsI18n.ko,
+  ...htmlRenderI18n.ko,
   ...usageStatsI18n.ko,
   ...webSearchI18n.ko,
   ...isolatedSpacesI18n.ko,
