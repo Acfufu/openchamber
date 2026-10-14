@@ -114,6 +114,20 @@ preview's footer holds actions instead of what the agent gets.
   item's preview. Cmd or Ctrl-click, VS Code, a session outside any
   project, Linear while disconnected and links the board does not list open in
   the browser. A badge's `+N` does nothing; its tooltip lists the others.
+- A PR's review threads read as the comment that opened them with the
+  replies under it (`ReferenceCommentItem.thread`); a reply is not an entry of
+  its own. A resolved thread folds to one line ("Resolved · N replies") and
+  opens on click; resolving folds it, reopening unfolds it. On the board
+  (`threadActions`, `sourceBoard/threadActions.ts`) a thread can be answered
+  and resolved or reopened, as far as the host says this account may. GitLab
+  merge requests can also start a thread from the reply box; GitHub threads
+  start only from a line in a review, so GitHub has no such button.
+- The board's issue or PR preview has a refresh button beside the host link
+  (`onRefresh`). It asks the server to forget that host's short-lived answers
+  (`sourceControl.refreshProviderReads`, `POST <provider>/read-cache/refresh`)
+  and then reads the item's detail and the list again, so a change made on the
+  host's own site shows without waiting out the cache. VS Code has no board and
+  answers the call as unsupported.
 - The side panel and its rail stay beside the board. A board under 960 px
   wide shows the kinds by icon and drops the list column: a trigger left of the search names the previewed
   item (`#12`, `!12`, `ENG-7`) and opens the list as a dropdown over the

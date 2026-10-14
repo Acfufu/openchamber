@@ -120,8 +120,8 @@ class KeyedStore<R> {
 }
 
 export type ListCache<T> = {
-    /** Show what `key` has and fetch it when missing or stale. */
-    ensure: (key: string, fetchPage: PageFetcher<T>, options?: { force?: boolean }) => void;
+    /** Show what `key` has and fetch it when missing or stale; settles when that fetch does, or at once when none starts. */
+    ensure: (key: string, fetchPage: PageFetcher<T>, options?: { force?: boolean }) => Promise<void>;
     loadMore: (key: string) => void;
     read: (key: string) => CachedList<T> | null;
     subscribe: (key: string, listener: Listener) => () => void;
@@ -140,7 +140,7 @@ export function createListCache<T>(limit = 40, now: () => number = Date.now): Li
         const existing = store.get(key);
         if (existing && (existing.refreshing || (!options?.force && now() - existing.fetchedAt < FRESH_MS))) {
             if (existing.fetchPage !== fetchPage) update(key, existing, { fetchPage });
-            return;
+            return Promise.resolve();
         }
         const generation = (existing?.generation ?? 0) + 1;
         store.set(key, existing
@@ -158,7 +158,7 @@ export function createListCache<T>(limit = 40, now: () => number = Date.now): Li
                 generation,
                 fetchPage,
             });
-        void settle(fetchPage(null)).then((outcome) => {
+        return settle(fetchPage(null)).then((outcome) => {
             const current = store.get(key);
             if (!current || current.generation !== generation) return;
             if (!outcome.ok) {
@@ -334,7 +334,7 @@ export function useCachedList<T>(
     cache: ListCache<T>,
     key: string | null,
     fetchPage: PageFetcher<T>,
-): CachedList<T> & { loadMore: () => void; retry: () => void } {
+): CachedList<T> & { loadMore: () => void; retry: () => Promise<void> } {
     const subscribe = React.useCallback(
         (listener: Listener) => (key ? cache.subscribe(key, listener) : noSubscription()),
         [cache, key],
@@ -342,15 +342,17 @@ export function useCachedList<T>(
     const snapshot = React.useSyncExternalStore(subscribe, () => (key ? cache.read(key) : null));
 
     React.useEffect(() => {
-        if (key) cache.ensure(key, fetchPage);
+        if (key) void cache.ensure(key, fetchPage);
     }, [cache, fetchPage, key]);
 
     const loadMore = React.useCallback(() => {
         if (key) cache.loadMore(key);
     }, [cache, key]);
-    const retry = React.useCallback(() => {
-        if (key) cache.ensure(key, fetchPage, { force: true });
-    }, [cache, fetchPage, key]);
+    /** Settles once the list is read again. */
+    const retry = React.useCallback(
+        () => (key ? cache.ensure(key, fetchPage, { force: true }) : Promise.resolve()),
+        [cache, fetchPage, key],
+    );
 
     return {
         ...(snapshot ?? { status: 'loading', unavailable: null, items: [], hasMore: false, refreshing: false, loadingMore: false, error: null }),

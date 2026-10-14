@@ -825,6 +825,59 @@ export function registerGitLabRoutes(app, options = {}) {
     }
   });
 
+  // A discussion id (a SHA on GitLab); the request path keeps it on the target merge request.
+  const threadIdOf = (value) => {
+    if (!isString(value) || !/^[A-Za-z0-9_-]{1,100}$/.test(value)) throw invalidMutationContext('threadId is invalid');
+    return value;
+  };
+
+  app.post('/api/source-control/gitlab/pr/thread/start', async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      return res.json(await executeMutation(body, 'change-request-thread-start', (input, context) => {
+        if (!context.target.number) throw invalidMutationContext('target number is required');
+        const text = noteText(input.body, true);
+        return { body: text, digest: { body: text } };
+      }, (service, normalized, resolved) => service.startThread({ providerTarget: resolved.providerTarget, body: normalized.body }),
+      unknownOutcome));
+    } catch (error) {
+      return sendMutationError(res, error);
+    }
+  });
+
+  app.post('/api/source-control/gitlab/pr/thread/reply', async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      return res.json(await executeMutation(body, 'change-request-thread-reply', (input, context) => {
+        if (!context.target.number) throw invalidMutationContext('target number is required');
+        const threadId = threadIdOf(input.threadId);
+        const text = noteText(input.body, true);
+        return { threadId, body: text, digest: { threadId, body: text } };
+      }, (service, normalized, resolved) => service.replyToThread({
+        providerTarget: resolved.providerTarget, threadId: normalized.threadId, body: normalized.body,
+      }), unknownOutcome));
+    } catch (error) {
+      return sendMutationError(res, error);
+    }
+  });
+
+  app.post('/api/source-control/gitlab/pr/thread/resolve', async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      return res.json(await executeMutation(body, 'change-request-thread-resolve', (input, context) => {
+        if (!context.target.number || ![true, false].includes(input.resolved)) {
+          throw invalidMutationContext('target number and resolved are required');
+        }
+        const threadId = threadIdOf(input.threadId);
+        return { threadId, resolved: input.resolved, digest: { threadId, resolved: input.resolved } };
+      }, (service, normalized, resolved) => service.resolveThread({
+        providerTarget: resolved.providerTarget, threadId: normalized.threadId, resolved: normalized.resolved,
+      }), (service, resolved, normalized) => service.reconcileThreadResolve(resolved.providerTarget, normalized.threadId, normalized.resolved)));
+    } catch (error) {
+      return sendMutationError(res, error);
+    }
+  });
+
   app.post('/api/source-control/gitlab/issues/comment', async (req, res) => {
     try {
       const body = req.body ?? {};

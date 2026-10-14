@@ -297,10 +297,12 @@ export function useGitHubReferenceDetail(directory: string | null, reference: Gi
         return result.detail;
     }, [context, number, owner, reference, repo, sourceControl]);
     const detail = useCachedValue(githubDetails, key, fetch, settled);
-    // After a write (a comment, a review) the feed shows it without waiting for staleness.
-    const refresh = React.useCallback(() => {
-        if (key) githubDetails.ensure(key, fetch, { force: true }).catch(() => undefined);
-    }, [fetch, key]);
+    // After a write (a comment, a review) the feed shows it without waiting for
+    // staleness. Settles once it is read again; a failure shows in the preview.
+    const refresh = React.useCallback(
+        () => (key ? githubDetails.ensure(key, fetch, { force: true }).then(() => undefined, () => undefined) : Promise.resolve()),
+        [fetch, key],
+    );
     return { detail, refresh };
 }
 
@@ -312,6 +314,9 @@ const githubPullStatuses = createValueCache<GitHubPullStatus | null>(200);
 // timeout, so the first rows (and the preview) waited for the slowest PR.
 const PULL_STATUS_BATCH = 10;
 const IDLE: CachedValue<GitHubPullStatus | null> = { status: 'idle' };
+
+/** Forgets every PR's checks and mergeability, so the lists showing them ask again: the board's refresh. */
+export const forgetGitHubPullStatuses = (): void => githubPullStatuses.clear();
 
 /** An open PR, draft or not: its preview shows checks, and a ready one is coloured by them. */
 const needsPullStatus = (reference: GitHubReference): reference is GitHubPullReference => (
@@ -350,8 +355,10 @@ export function useGitHubPullStatuses(directory: string | null, references: read
         const stops = keys.map((key) => githubPullStatuses.subscribe(key, listener));
         return () => stops.forEach((stop) => stop());
     }, [keys]);
-    React.useSyncExternalStore(subscribe, githubPullStatuses.version, githubPullStatuses.version);
+    const version = React.useSyncExternalStore(subscribe, githubPullStatuses.version, githubPullStatuses.version);
 
+    // Runs again on every change too, so statuses forgotten by a refresh are
+    // asked again; answered and pending ones are skipped by `ensureMany`.
     React.useEffect(() => {
         if (!github || pulls.length === 0) return;
         const byKey = new Map(pulls.map((pull) => [keyOf(pull), pull]));
@@ -368,7 +375,7 @@ export function useGitHubPullStatuses(directory: string | null, references: read
             }
             return answers;
         }, PULL_STATUS_BATCH);
-    }, [github, keyOf, keys, pulls, sourceControl]);
+    }, [github, keyOf, keys, pulls, sourceControl, version]);
 
     return (reference: GitHubReference): CachedValue<GitHubPullStatus | null> => {
         if (!scope || !needsPullStatus(reference)) return IDLE;

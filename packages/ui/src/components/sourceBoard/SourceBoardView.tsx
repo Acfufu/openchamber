@@ -22,7 +22,7 @@ import { ReferenceBrowserList, ReferenceBrowserSearch } from '@/components/refer
 import { IDLE_PULL_STATUS, useReferenceBrowser } from '@/components/references/useReferenceBrowser';
 import { ReferencePreview } from '@/components/references/ReferencePreview';
 import { DEFAULT_REPOSITORY_FILTER, referenceNumberLabel, referencePickerItemKey, type ReferencePickerItem, type ReferencePickerSelection } from '@/components/references/referencePickerItems';
-import { useGitHubReadContext, useGitHubReferenceList, useLinearIssueDetail, useRepositoryHostProvider } from '@/components/references/referenceSources';
+import { forgetGitHubPullStatuses, useGitHubReadContext, useGitHubReferenceList, useLinearIssueDetail, useRepositoryHostProvider } from '@/components/references/referenceSources';
 import { openExternalUrl } from '@/lib/url';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
@@ -45,6 +45,7 @@ import { SourceBoardLabels, SourceBoardReviewers } from './SourceBoardMetaEditor
 import { SourceBoardProjectPicker, SourceBoardTeamPicker } from './SourceBoardPickers';
 import { isSameRepositoryItemLink } from './openOnBoard';
 import { usePullAttachments } from './pullAttachments';
+import { useThreadActions } from './threadActions';
 
 const LIST_MIN_WIDTH = 280;
 /** Below this the list leaves its column for a dropdown, so the preview keeps the width. */
@@ -257,6 +258,7 @@ const SourceBoardBody: React.FC<{
 }> = ({ tab, project, directory, linearTeamId, mapping, projects, scopePicker, kinds, initialRepositoryKind, onSelectKind, layout, onLeave, onClose }) => {
     const isMobile = layout === 'mobile';
     const { t } = useI18n();
+    const { sourceControl } = useRuntimeAPIs();
     const source = tab === 'linear' ? 'linear' : 'github';
     // An item another surface asked to show: an issue or PR by its link, a
     // Linear issue by its identifier. It is read on its own, not typed into the
@@ -404,9 +406,19 @@ const SourceBoardBody: React.FC<{
     ) : null;
 
     // After a change to an issue or PR: its detail and the list read again.
-    const refreshRepositoryItem = () => {
-        browser.refreshGithubDetail();
-        browser.list.retry();
+    const { refreshGithubDetail, list: { retry: retryList } } = browser;
+    const refreshRepositoryItem = React.useCallback(
+        () => Promise.all([refreshGithubDetail(), retryList()]).then(() => undefined),
+        [refreshGithubDetail, retryList],
+    );
+    const threadActions = useThreadActions(previewItem?.source === 'github' ? previewItem.reference : null, context, refreshRepositoryItem);
+    // The refresh button: for a change made on the host's own site, which the
+    // server's short-lived answers would otherwise hide for up to half a minute.
+    const refreshFromHost = async () => {
+        if (context) await sourceControl.refreshProviderReads(context).catch(() => undefined);
+        forgetGitHubPullStatuses();
+        // The button spins until the item and the list are read again.
+        await refreshRepositoryItem();
     };
 
     const preview = (
@@ -424,6 +436,8 @@ const SourceBoardBody: React.FC<{
             linearStateControl={previewItem?.source === 'linear' ? <SourceBoardLinearStatus issue={previewItem.issue} onChanged={browser.list.retry} /> : undefined}
             onOpenLinearIssue={(issue) => browser.openItem({ source: 'linear', issue })}
             onOpenChecks={previewPull && context ? () => setChecksOpenFor(previewKey) : undefined}
+            onRefresh={previewItem?.source === 'github' && context ? refreshFromHost : undefined}
+            threadActions={threadActions}
             stateMenu={previewItem?.source === 'github' && previewItem.reference.state !== 'merged' && context ? (
                 <SourceBoardStateMenuItems item={previewItem} context={context} onChanged={refreshRepositoryItem} />
             ) : undefined}

@@ -111,6 +111,9 @@ function canonicalMutationOptions(overrides = {}) {
     reconcileState: vi.fn(async (_target, _kind, state) => ({ state: 'succeeded', result: { state } })),
     setLabels: vi.fn(async () => ({})),
     setReviewers: vi.fn(async () => ({})),
+    startThread: vi.fn(async () => ({})),
+    replyToThread: vi.fn(async () => ({})),
+    resolveThread: vi.fn(async () => ({})),
     listLabels: vi.fn(async () => [{ name: 'bug', color: 'd73a4a' }]),
     listReviewers: vi.fn(async () => [{ id: '7', login: 'ann' }]),
     resolveIssue: vi.fn(async (context) => ({
@@ -141,6 +144,10 @@ function canonicalMutationOptions(overrides = {}) {
     setLabels: calls.setLabels,
     setReviewers: calls.setReviewers,
     reconcileSetMutation: vi.fn(async () => ({ state: 'outcome-unknown' })),
+    startThread: calls.startThread,
+    replyToThread: calls.replyToThread,
+    resolveThread: calls.resolveThread,
+    reconcileThreadResolve: vi.fn(async () => ({ state: 'succeeded', result: {} })),
     listLabels: calls.listLabels,
     listReviewerCandidates: calls.listReviewers,
   };
@@ -458,6 +465,26 @@ describe('GitLab routes', () => {
     await request(app).post('/api/source-control/gitlab/pr/review').send({ ...existing('review-three', 5), verdict: 'approve' }).expect(400);
     expect(setup.calls.review).toHaveBeenCalledOnce();
     expect(setup.calls.comment).toHaveBeenCalledOnce();
+  });
+
+  it('starts, answers and resolves merge request threads through the canonical executor', async () => {
+    const setup = canonicalMutationOptions();
+    const app = appWith(setup.options);
+    const existing = (key) => mutationBody({ idempotencyKey: key, target: { project: { owner: 'team', name: 'repo' }, number: 5 } });
+    const providerTarget = { projectId: '2', number: 5 };
+
+    await request(app).post('/api/source-control/gitlab/pr/thread/start').send({ ...existing('thread-one'), body: 'Please rename' }).expect(200);
+    await request(app).post('/api/source-control/gitlab/pr/thread/reply').send({ ...existing('thread-two'), threadId: 'abc123', body: 'Done' }).expect(200);
+    await request(app).post('/api/source-control/gitlab/pr/thread/resolve').send({ ...existing('thread-three'), threadId: 'abc123', resolved: true }).expect(200);
+
+    expect(setup.calls.startThread).toHaveBeenCalledWith({ providerTarget, body: 'Please rename' });
+    expect(setup.calls.replyToThread).toHaveBeenCalledWith({ providerTarget, threadId: 'abc123', body: 'Done' });
+    expect(setup.calls.resolveThread).toHaveBeenCalledWith({ providerTarget, threadId: 'abc123', resolved: true });
+
+    await request(app).post('/api/source-control/gitlab/pr/thread/reply').send({ ...existing('thread-four'), threadId: '../x', body: 'Done' }).expect(400);
+    await request(app).post('/api/source-control/gitlab/pr/thread/resolve').send({ ...existing('thread-five'), threadId: 'abc123' }).expect(400);
+    expect(setup.calls.replyToThread).toHaveBeenCalledOnce();
+    expect(setup.calls.resolveThread).toHaveBeenCalledOnce();
   });
 
   it('closes and reopens through the canonical executor and reconciles by state after a restart', async () => {
