@@ -1639,6 +1639,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             );
             const argument = commandPlan.command.argument.trim();
             handoffDraft(targetIdentity, isBtwActive ? argument : argument || null);
+            // Files pasted with the question go with it; their `[image-1.png]` citations moved above.
+            useInputStore.getState().moveAttachedFiles(chatDraftIdentity, targetIdentity);
             if (argument && targetIdentity) immediateBtwSubmitRef.current = { identity: targetIdentity, text: argument };
             if (btwSessionId) {
                 useBtwStore.getState().setPanelState(currentSessionId, { collapsed: false });
