@@ -35,7 +35,7 @@ project.
 
 ## Lists and the cache
 
-- A list is cached per key `[runtime, account or Linear workspace, project, kind, filter, search text]`. Switching tabs or filters, or reopening the picker, shows the cached list at once; one older than 60 s refreshes in the background and is replaced when the answer lands.
+- A list is cached per key `[runtime, account or Linear workspace, project, kind, filter, search text]`. Switching tabs or filters, or reopening the picker, shows the cached list at once; one older than 60 s refreshes in the background and is replaced when the answer lands. `revalidateReferences` makes every mounted list, preview and PR status check its age again.
 - A failed first load is an `error` state with Retry. A failed refresh keeps the shown items and shows the error above them. Failure never becomes an empty list.
 - Every first-page request bumps the key's generation; an answer or a later page from an older generation is dropped.
 - Keys someone is subscribed to are never evicted; the 40-entry bound is a soft target.
@@ -83,6 +83,10 @@ preview's footer holds actions instead of what the agent gets.
   scope picker share one row, then the switch, then the search with the
   filter beside it; an open item puts a back button and its number in that
   header instead.
+- What the board shows stays current through `sourceBoard/useBoardRevalidation.ts`.
+  While the board is on screen, lists, the preview and PR statuses read more
+  than 60 s ago are read again when it opens and when the window gets focus
+  back.
 - The repository tab is the project's host only: GitHub or GitLab, whichever
   `useRepositoryHostProvider` names; a project with no supported remote shows
   Linear alone.

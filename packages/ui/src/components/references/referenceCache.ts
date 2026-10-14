@@ -8,7 +8,9 @@
  * an empty list.
  *
  * Keys carry everything that changes the answer (runtime, account, project,
- * kind, filter, search text), so nothing here is invalidated by hand.
+ * kind, filter, search text). What a key holds can still go out of date on
+ * the host: `revalidateReferences` makes the lists and values on screen check
+ * their age again, for a surface that stays mounted while nobody looks at it.
  */
 
 import * as React from 'react';
@@ -326,6 +328,27 @@ export function createValueCache<T>(limit = 40, now: () => number = Date.now): V
 
 const noSubscription = () => () => undefined;
 
+let revalidation = 0;
+const revalidationListeners = new Set<Listener>();
+
+const subscribeRevalidation = (listener: Listener) => {
+    revalidationListeners.add(listener);
+    return () => {
+        revalidationListeners.delete(listener);
+    };
+};
+
+/** Lists and values on screen older than `FRESH_MS` are read again; fresh ones stay as they are. */
+export function revalidateReferences(): void {
+    revalidation += 1;
+    for (const listener of revalidationListeners) listener();
+}
+
+/** Changes on every `revalidateReferences`; an effect that fetches lists it among its dependencies. */
+export function useReferenceRevalidation(): number {
+    return React.useSyncExternalStore(subscribeRevalidation, () => revalidation, () => revalidation);
+}
+
 /**
  * The cached list for `key`, refreshed when stale. A null key shows nothing
  * and fetches nothing.
@@ -340,10 +363,11 @@ export function useCachedList<T>(
         [cache, key],
     );
     const snapshot = React.useSyncExternalStore(subscribe, () => (key ? cache.read(key) : null));
+    const revalidation = useReferenceRevalidation();
 
     React.useEffect(() => {
         if (key) void cache.ensure(key, fetchPage);
-    }, [cache, fetchPage, key]);
+    }, [cache, fetchPage, key, revalidation]);
 
     const loadMore = React.useCallback(() => {
         if (key) cache.loadMore(key);
@@ -377,10 +401,11 @@ export function useCachedValue<T>(
         [cache, key],
     );
     const snapshot = React.useSyncExternalStore(subscribe, () => (key ? cache.read(key) : null));
+    const revalidation = useReferenceRevalidation();
 
     React.useEffect(() => {
         if (key && fetchNow) cache.ensure(key, fetch).catch(() => undefined);
-    }, [cache, fetch, fetchNow, key]);
+    }, [cache, fetch, fetchNow, key, revalidation]);
 
     return snapshot ?? { status: 'idle' };
 }

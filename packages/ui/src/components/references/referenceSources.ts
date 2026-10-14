@@ -42,7 +42,7 @@ import {
 
 
 import { fetchGitLabReferenceDetail, fetchGitLabReferencePage } from './gitlabReferences';
-import { createListCache, createValueCache, useCachedList, useCachedValue, type CachedValue, type ListPage } from './referenceCache';
+import { createListCache, createValueCache, useCachedList, useCachedValue, useReferenceRevalidation, type CachedValue, type ListPage } from './referenceCache';
 import type { LinearReferenceFilter } from './referencePickerItems';
 
 const githubLists = createListCache<GitHubReference>();
@@ -356,9 +356,11 @@ export function useGitHubPullStatuses(directory: string | null, references: read
         return () => stops.forEach((stop) => stop());
     }, [keys]);
     const version = React.useSyncExternalStore(subscribe, githubPullStatuses.version, githubPullStatuses.version);
+    const revalidation = useReferenceRevalidation();
 
-    // Runs again on every change too, so statuses forgotten by a refresh are
-    // asked again; answered and pending ones are skipped by `ensureMany`.
+    // Runs again on every change and revalidation too, so statuses forgotten
+    // by a refresh or gone old are asked again; fresh and pending ones are
+    // skipped by `ensureMany`.
     React.useEffect(() => {
         if (!github || pulls.length === 0) return;
         const byKey = new Map(pulls.map((pull) => [keyOf(pull), pull]));
@@ -375,7 +377,7 @@ export function useGitHubPullStatuses(directory: string | null, references: read
             }
             return answers;
         }, PULL_STATUS_BATCH);
-    }, [github, keyOf, keys, pulls, sourceControl, version]);
+    }, [github, keyOf, keys, pulls, revalidation, sourceControl, version]);
 
     return (reference: GitHubReference): CachedValue<GitHubPullStatus | null> => {
         if (!scope || !needsPullStatus(reference)) return IDLE;

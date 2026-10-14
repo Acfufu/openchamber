@@ -46,6 +46,7 @@ import { SourceBoardProjectPicker, SourceBoardTeamPicker } from './SourceBoardPi
 import { isSameRepositoryItemLink } from './openOnBoard';
 import { usePullAttachments } from './pullAttachments';
 import { useThreadActions } from './threadActions';
+import { useBoardRevalidation } from './useBoardRevalidation';
 
 const LIST_MIN_WIDTH = 280;
 /** Below this the list leaves its column for a dropdown, so the preview keeps the width. */
@@ -151,6 +152,9 @@ const SourceBoard: React.FC<{ layout: SourceBoardLayout; onLeave?: () => void; o
     const updateChoice = useSourceBoardStore((state) => state.update);
     // The repository tab to land on when switching back from Linear.
     const [repositoryKind, setRepositoryKind] = React.useState<GitHubReferenceKind | undefined>(undefined);
+    // The phone's board page is mounted only while shown.
+    const desktopBoardOpen = useUIStore((state) => state.isSourceBoardOpen);
+    useBoardRevalidation(layout === 'mobile' || desktopBoardOpen);
 
     // The remembered project while it still exists, else the app's own.
     const project = projects.find((entry) => entry.id === choice.projectId)
