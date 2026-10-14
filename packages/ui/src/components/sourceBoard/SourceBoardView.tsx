@@ -43,6 +43,7 @@ import { SourceBoardReply } from './SourceBoardReply';
 import { SourceBoardChecksDialog } from './SourceBoardChecksDialog';
 import { SourceBoardLabels, SourceBoardReviewers } from './SourceBoardMetaEditors';
 import { SourceBoardProjectPicker, SourceBoardTeamPicker } from './SourceBoardPickers';
+import { isSameRepositoryItemLink } from './openOnBoard';
 import { usePullAttachments } from './pullAttachments';
 
 const LIST_MIN_WIDTH = 280;
@@ -262,6 +263,9 @@ const SourceBoardBody: React.FC<{
     // search: the list stays as it was, and the preview opens on the item.
     const [pinnedLink, setPinnedLink] = React.useState<{ kind: GitHubReferenceKind; url: string } | null>(null);
     const [pinnedLinearId, setPinnedLinearId] = React.useState<string | null>(null);
+    // Counts the requests to show an item, so each is shown once, and the one
+    // shown before never answers for the one just asked.
+    const [pinRequest, setPinRequest] = React.useState(0);
     const pinnedLookup = useGitHubReferenceList({
         enabled: tab === 'repository' && pinnedLink !== null,
         directory,
@@ -270,7 +274,10 @@ const SourceBoardBody: React.FC<{
         query: pinnedLink?.url ?? '',
     });
     const { detail: pinnedLinear } = useLinearIssueDetail(tab === 'linear' ? pinnedLinearId : null, true);
-    const pinnedReference = tab === 'repository' && pinnedLink ? pinnedLookup.items[0] ?? null : null;
+    // Only the item the link names: a lookup that fell back to a search lists others.
+    const pinnedReference = tab === 'repository' && pinnedLink
+        ? pinnedLookup.items.find((item) => isSameRepositoryItemLink(item.url, pinnedLink.url)) ?? null
+        : null;
     const pinnedLinearIssue = tab === 'linear' && pinnedLinear.status === 'ready' ? pinnedLinear.value : null;
     const pinnedItem = React.useMemo<ReferencePickerItem | null>(() => {
         if (pinnedReference) return { source: 'github', reference: pinnedReference };
@@ -286,11 +293,11 @@ const SourceBoardBody: React.FC<{
         pinnedItem,
     });
     const { previewItem, setQuery, selectGitHubKind, showItem } = browser;
-    const shownPinnedKeyRef = React.useRef<string | null>(null);
+    const shownPinRequestRef = React.useRef(0);
     const linearFocus = useSourceBoardStore((state) => (tab === 'linear' ? state.linearFocus : null));
     React.useEffect(() => {
         if (!linearFocus) return;
-        shownPinnedKeyRef.current = null;
+        setPinRequest((request) => request + 1);
         setQuery('');
         setPinnedLinearId(linearFocus);
         useSourceBoardStore.getState().clearLinearFocus();
@@ -298,20 +305,20 @@ const SourceBoardBody: React.FC<{
     const repositoryFocus = useSourceBoardStore((state) => (tab === 'repository' ? state.repositoryFocus : null));
     React.useEffect(() => {
         if (!repositoryFocus) return;
-        shownPinnedKeyRef.current = null;
+        setPinRequest((request) => request + 1);
         selectGitHubKind(repositoryFocus.kind);
         setQuery('');
         setPinnedLink({ kind: repositoryFocus.kind, url: repositoryFocus.query });
         useSourceBoardStore.getState().clearRepositoryFocus();
     }, [repositoryFocus, selectGitHubKind, setQuery]);
-    // Shown once found; the user then moves on from it like from any row.
+    // Shown once found; the user then moves on from it like from any row. The
+    // commit that takes a new request still holds the previous item, and the
+    // previous request was already shown, so it is not shown over again.
     React.useEffect(() => {
-        if (!pinnedItem) return;
-        const key = referencePickerItemKey(pinnedItem);
-        if (shownPinnedKeyRef.current === key) return;
-        shownPinnedKeyRef.current = key;
-        showItem(key);
-    }, [pinnedItem, showItem]);
+        if (!pinnedItem || shownPinRequestRef.current === pinRequest) return;
+        shownPinRequestRef.current = pinRequest;
+        showItem(referencePickerItemKey(pinnedItem));
+    }, [pinRequest, pinnedItem, showItem]);
     // Not found: a link the project's host does not know opens in the browser;
     // a Linear identifier is searched for instead.
     const pinnedLinkStatus = pinnedLookup.status;

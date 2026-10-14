@@ -106,7 +106,10 @@ preview's footer holds actions instead of what the agent gets.
   link, `focusLinearIssue` with its identifier, then the browser's
   `pinnedItem`) while the search stays empty and the list as it was. A link
   finds that one item whatever its state, on GitLab too, where a number or link
-  is read rather than searched; one the host does not know opens in the
+  is read rather than searched. The board takes from that answer only the item
+  whose link names the same repository and number, never just the first row, and
+  each request is shown once, so the item shown for the previous link never
+  answers for a new one. One the host does not know opens in the
   browser, and a Linear identifier Linear cannot read is searched for. The phone opens the found
   item's preview. Cmd or Ctrl-click, VS Code, a session outside any
   project, Linear while disconnected and links the board does not list open in
