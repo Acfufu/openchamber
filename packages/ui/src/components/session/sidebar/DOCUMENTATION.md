@@ -64,7 +64,10 @@ session's own run first, then the subagent), and a finished unseen turn is
 unread. The local Appearance preference `animatedActivityIndicators`
 is off by default. Enabling it swaps every running kind for a stepped spinner,
 even when the OS requests reduced motion; the unread icon stays. Permission/question badges and per-session
-elapsed counters retain their existing precedence and behavior. The display
+elapsed counters retain their existing precedence and behavior. A session
+row's title carries its state too: semibold at full strength while a finished
+turn is unseen or a permission or question waits on the user, full strength
+while it runs, muted otherwise; the active row keeps the selection colors. The display
 store is at version 10 (v10 dropped the Recent toggle): missing preferences inherit the default during hydration,
 while an explicitly saved choice survives reload.
 
@@ -289,10 +292,13 @@ current choice (Tree only; VS Code keeps the project sort), then the section
 toggles (Chats, Pinned, In work) and, in Tree, Detailed rows, then Collapse
 all / Expand all.
 
-- Chats rows render with `renderContext: 'timeline-chat'` in both views: one
-  line, no left gutter, pin marker and status icon on the right beside the
-  time; the goal glyph and badges ride in the same cluster. Its Show more and
-  empty rows carry `flat`, so they line up with that text. Both views, on
+- Chats rows are one line in both views. In List they render with
+  `renderContext: 'timeline-chat'`: no left gutter, pin marker and status icon
+  on the right beside the time; the goal glyph and badges ride in the same
+  cluster, and its Show more and empty rows carry `flat`, so they line up with
+  that text. In Tree they render with `'tree-chat'`: the tree's geometry at
+  level 0 with the status in the slot (`hasTreeSlotContext`), and Show more
+  lines up with the titles after the slot. Both views, on
   every surface, open Chats with a reveal of 3 and 7 more per Show more;
   pinned chats are always shown and never spend that limit, so Show more/Show
   fewer count only unpinned rows. Pinned sessions under a project do spend
@@ -427,7 +433,9 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   edge (the Files trees use 8px; 6px puts root session titles where the
   project label starts) plus 12px per level, then a 14px slot and a 6px gap
   before the text. Unlike the Files trees it draws no level guides: the
-  indent, the worktree gaps and the header weights carry the structure. Tree session rows are a little
+  indent, the worktree gaps and the header weights carry the structure.
+  Worktree and folder labels are medium weight a step below full strength,
+  between the project header and the muted session titles at rest. Tree session rows are a little
   tighter than timeline rows, and each worktree header opens with a small gap.
   An empty worktree group or folder (no sessions, no folders, nothing loading)
   shows no chevron, does not toggle, lists nothing under its header, and is
@@ -439,11 +447,26 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   root's folders sit at level 0; worktree, space and archive headers sit at
   level 0 with their folders and sessions at level 1; a folder's sessions sit
   one level under the folder, and subsessions one level under their parent.
-  The slot holds the rotating chevron of a folder, a worktree header, a run, or
-  a session with subsessions, and stays empty on other sessions so titles line
-  up. Session rows use the one-line form of `SessionTimelineRowBody`: live
-  state, pin, done hint and time on the right, as on timeline rows. Rows and
-  headers take the same faint hover fill as timeline rows. Show more, empty and
+  The slot holds the rotating chevron of a folder or a run. A worktree, space
+  or archive header holds its icon there (the PR-tinted branch, the space's
+  box, the archive) and shows its chevron in its place while the header is
+  hovered or focused; touch layouts keep the icon and toggle on a tap. Its
+  label therefore starts where root session titles start, and its sessions
+  sit one level in. On a session row it holds the live state (running kind, unread, or the
+  move/rename spinner), so the state reads down the left edge with the titles,
+  and stays empty otherwise so titles line up. A session with subsessions shows
+  its state there at rest and its chevron while the row is hovered or focused;
+  touch layouts (`alwaysShowActions`) have no hover, so a parent keeps its
+  chevron and its state goes to the right. Session rows use the one-line form
+  of `SessionTimelineRowBody`: pin, done hint and time on the right. The Tree
+  view's one-line Chats, Pinned and In work rows (`'tree-chat'`,
+  `'mixed-compact'`, session and run rows) take the same geometry at level 0
+  with the state in the slot, so it reads down one edge from the zones into
+  the projects. List rows and Tree's detailed zone rows are flat and keep the
+  live state on the right. Session and run titles are muted at rest. Session
+  and run rows take the same faint hover fill as timeline rows; worktree,
+  space, archive and folder headers take none, so a pointer moving down the
+  sidebar tells sessions from their containers. Show more, empty and
   status rows carry the level whose text they line up with.
 - A row's `depth` is its tree level as above, not its parentage. Do not read
   `depth > 0` as "this is a subagent".

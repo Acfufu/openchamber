@@ -419,6 +419,21 @@ describe('buildSessionSidebarRowModel', () => {
     expect(buildSessionSidebarRowModel(input).rows.filter((row) => row.kind === 'session' && row.projectId === 'project-a')).toHaveLength(20);
   });
 
+  test('Chats keep the tree slot in Tree and stay flat in List', () => {
+    const input = args([]);
+    input.chatGroup = group(Array.from({ length: 5 }, (_, index) => node(`chat-${index}`)), { id: 'managed-chats' });
+    const chatRows = (viewMode: SessionSidebarRowModelArgs['viewMode']) => {
+      const rows = buildSessionSidebarRowModel({ ...input, viewMode }).rows;
+      return {
+        contexts: [...new Set(rows.flatMap((row) => (row.kind === 'session' ? [row.renderContext] : [])))],
+        control: rows.find((row) => row.kind === 'show-control'),
+      };
+    };
+
+    expect(chatRows('projects')).toMatchObject({ contexts: ['tree-chat'], control: { flat: false } });
+    expect(chatRows('timeline')).toMatchObject({ contexts: ['timeline-chat'], control: { flat: true } });
+  });
+
   test('Chats failure stays visible beside retained sessions', () => {
     const input = args([]);
     input.chatGroup = group([node('retained-chat')], { id: 'managed-chats' });

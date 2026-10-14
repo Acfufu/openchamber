@@ -940,6 +940,23 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
   const headerChevron = isEmpty
     ? <span aria-hidden className="size-3.5 flex-shrink-0" />
     : <FileTreeChevron expanded={!isCollapsed} />;
+  // Worktree, space and archive headers put their icon in the tree slot, the
+  // column where session rows show their state, and trade it for the chevron
+  // while the header is hovered or has keyboard focus (a click focuses it too,
+  // and must not leave the chevron behind). Their label then starts where the
+  // titles of the root sessions beside them start. Touch layouts have no
+  // hover: the icon stays, and the header still toggles on a tap.
+  const headerSlot = (icon: React.ReactNode): React.ReactNode => (
+    // 6px to the label, like a session row's slot.
+    <span className="relative me-1 inline-flex size-3.5 flex-shrink-0 items-center justify-center">
+      {isEmpty || alwaysShowActions ? icon : <>
+        <span className="inline-flex items-center justify-center transition-opacity group-hover/gh:opacity-0 group-has-[:focus-visible]/gh:opacity-0">{icon}</span>
+        <span className="absolute inset-0 inline-flex items-center justify-center text-muted-foreground opacity-0 transition-opacity group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100">
+          {headerChevron}
+        </span>
+      </>}
+    </span>
+  );
   const groupPrLinks: SidebarRefLink[] = groupPrSummary && groupPrStatusLabel ? [{
     key: `pr:${groupPrSummary.number}`,
     icon: 'git-pull-request',
@@ -1107,7 +1124,9 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
 
   return (
     <><div className={cn('oc-group', worktreeRemoving && 'opacity-60')} aria-busy={worktreeRemoving || undefined}>
-      <div className={cn('oc-ref-tint-scope group/gh relative flex items-start justify-between gap-1 py-1 min-w-0 rounded-md hover:bg-interactive-hover/60', 'cursor-pointer')}>
+      {/* No hover fill: only session rows take one, so a pointer moving
+          down the sidebar tells sessions from their containers. */}
+      <div className={cn('oc-ref-tint-scope group/gh relative flex items-start justify-between gap-1 py-1 min-w-0 rounded-md', 'cursor-pointer')}>
       <Tooltip disabled={groupPrSummary ? !groupPrStatusLabel : !primaryGroupIssue}>
       <TooltipTrigger asChild closeDelay={SIDEBAR_REF_TOOLTIP_CLOSE_DELAY_MS}>
       <div
@@ -1143,36 +1162,30 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
             <p className="typography-ui-label font-normal truncate text-foreground/92">
               {group.isArchivedBucket ? (
                 <span className="inline-flex min-w-0 max-w-full items-center gap-0.5">
-                  {headerChevron}
-                  <Icon name="archive" className="mx-px h-3 w-3 shrink-0 text-muted-foreground" />
+                  {headerSlot(<Icon name="archive" className="h-3 w-3 shrink-0 text-muted-foreground" />)}
                   <span className="min-w-0 flex-1 truncate">{renderHighlightedText(group.label, normalizedSessionSearchQuery)}</span>
                   {worktreeMissingIndicator}
                   {groupActivityIndicator}
                 </span>
               ) : (!group.isMain || group.worktree) ? (
                 // Worktree header: a file tree folder row with a PR-tinted
-                // branch icon and the PR badge on the right.
-                // 2px gaps: chevron, icon and gaps span the 34px a child row
-                // spends on its indent, slot and gap, so the label starts
-                // where the titles of its sessions start.
+                // branch icon in the slot and the PR badge on the right. Its
+                // sessions sit one level in, under the label.
                 <span className="flex w-full min-w-0 items-center gap-0.5">
-                  {headerChevron}
-                  {worktreeRemoving ? (
+                  {headerSlot(worktreeRemoving ? (
                     <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-muted-foreground" title={t('sessions.sidebar.group.worktreeRemoving')} role="status" aria-label={t('sessions.sidebar.group.worktreeRemoving')}>
                       <Icon name="loader-4" className="h-3.5 w-3.5 animate-spin" />
                     </span>
                   ) : (
-                    // 12px glyph in the 14px icon slot (mx-px), so the label
-                    // stays aligned with the session titles below.
                     <Icon name={group.space ? 'box-3' : 'git-branch'}
-                      className={cn('mx-px h-3 w-3 shrink-0', groupPrColor ? 'oc-ref-tint' : 'text-muted-foreground')}
+                      className={cn('h-3 w-3 shrink-0', groupPrColor ? 'oc-ref-tint' : 'text-muted-foreground')}
                       style={groupPrColor ? refTintStyle(groupPrColor) : undefined}
                       aria-label={group.space ? t('sessions.sidebar.group.space') : undefined}
                     />
-                  )}
-                  {/* Medium weight at full strength: a group among the normal
-                      session titles under it, a step below project headers. */}
-                  <span className="min-w-0 truncate typography-ui-label font-medium text-foreground">
+                  ))}
+                  {/* Medium weight a step down from full strength: above the
+                      muted session titles at rest, below the project header. */}
+                  <span className="min-w-0 truncate typography-ui-label font-medium text-foreground/85">
                     {renderHighlightedText(group.label, normalizedSessionSearchQuery)}
                   </span>
                   {worktreeMissingIndicator}

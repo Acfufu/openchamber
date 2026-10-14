@@ -155,7 +155,9 @@ const SessionFolderItemBase = <TSessionNode,>({
         className={cn(
           'group/folder relative flex items-center justify-between gap-1.5 py-1 min-w-0 rounded-md',
           'cursor-pointer',
-          isDropTarget ? 'bg-primary/10 ring-1 ring-inset ring-primary/30' : 'hover:bg-interactive-hover/60',
+          // No hover fill: only session rows take one, so a pointer moving
+          // down the sidebar tells sessions from their containers.
+          isDropTarget && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
         )}
         onClick={!toggleable ? undefined : (event) => {
           // SAFETY: this handler is attached to the div rendered directly above.
@@ -253,7 +255,8 @@ const SessionFolderItemBase = <TSessionNode,>({
             <div className="min-w-0 flex items-center gap-1.5 flex-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className={cn('typography-ui-label font-medium truncate', isDropTarget ? 'text-primary' : 'text-foreground')}>
+                  {/* Like a worktree label: a step below full strength. */}
+                  <span className={cn('typography-ui-label font-medium truncate', isDropTarget ? 'text-primary' : 'text-foreground/85')}>
                     {displayName ?? folder.name}
                   </span>
                 </TooltipTrigger>
