@@ -48,6 +48,8 @@ import { attachInlineMarkdownImages } from './markdown/inlineMarkdownImages';
 import { attachMarkdownVideoFallback } from './markdown/markdownVideo';
 import { observeMarkdownTableWidth } from './markdown/tableWidthObserver';
 import { findTextPosition } from './markdown/textPosition';
+import { splitFrontmatter } from './markdown/frontmatter';
+import { FrontmatterProperties } from './markdown/FrontmatterProperties';
 import { createMermaidViewerRegistry, MERMAID_BLOCK_SELECTOR, shouldRefreshMermaidViewers } from './markdown/mermaidViewer';
 import {
   BLOCK_PATH_TOKEN_RE,
@@ -133,18 +135,6 @@ const DEFAULT_MERMAID_CONTROLS: MermaidControlOptions = {
   showPanZoomControls: true,
 };
 const DEFAULT_MERMAID_FULLSCREEN_ENABLED = true;
-
-const stripLeadingFrontmatter = (markdown: string): string => {
-  const frontmatterMatch = markdown.match(
-    /^(?:\uFEFF)?(---|\+\+\+)[^\S\r\n]*\r?\n[\s\S]*?\r?\n\1[^\S\r\n]*(?:\r?\n|$)/,
-  );
-
-  if (!frontmatterMatch) {
-    return markdown;
-  }
-
-  return markdown.slice(frontmatterMatch[0].length);
-};
 
 export type MarkdownVariant = 'assistant' | 'tool' | 'reasoning';
 
@@ -1507,7 +1497,8 @@ const SimpleMarkdownRendererImpl: React.FC<{
   variant?: MarkdownVariant;
   // App links remain confirmed even where ordinary HTTP link handling is off.
   disableLinkSafety?: boolean;
-  stripFrontmatter?: boolean;
+  /** A leading frontmatter block: `hide` drops it, `properties` shows it above the body. Without it the block renders as Markdown. */
+  frontmatter?: 'hide' | 'properties';
   onShowPopup?: (content: ToolPopupContent) => void;
   mermaidControls?: MermaidControlOptions;
   allowMermaidWheelEvents?: boolean;
@@ -1519,7 +1510,7 @@ const SimpleMarkdownRendererImpl: React.FC<{
   className,
   variant = 'assistant',
   disableLinkSafety,
-  stripFrontmatter = false,
+  frontmatter: frontmatterMode,
   onShowPopup,
   mermaidControls = DEFAULT_MERMAID_CONTROLS,
   allowMermaidWheelEvents = false,
@@ -1531,9 +1522,9 @@ const SimpleMarkdownRendererImpl: React.FC<{
   const containerRef = React.useRef<HTMLDivElement>(null);
   const effectiveDirectory = useEffectiveDirectory() ?? '';
 
-  const renderedContent = React.useMemo(
-    () => (stripFrontmatter ? stripLeadingFrontmatter(content) : content),
-    [content, stripFrontmatter],
+  const { frontmatter, body: renderedContent } = React.useMemo(
+    () => (frontmatterMode ? splitFrontmatter(content) : { frontmatter: null, body: content }),
+    [content, frontmatterMode],
   );
 
   useMermaidInlineInteractions({
@@ -1571,6 +1562,7 @@ const SimpleMarkdownRendererImpl: React.FC<{
 
   return (
     <div className={cn('break-words w-full min-w-0', className)} ref={containerRef}>
+      {frontmatterMode === 'properties' && frontmatter ? <FrontmatterProperties frontmatter={frontmatter} /> : null}
       <div className={markdownContentClassName(variant)} data-markdown-content data-markdown-html={allowRawHtml ? '' : undefined} />
     </div>
   );
@@ -1585,7 +1577,7 @@ export const SimpleMarkdownRenderer = React.memo(SimpleMarkdownRendererImpl, (pr
     && prev.variant === next.variant
     && prev.className === next.className
     && prev.disableLinkSafety === next.disableLinkSafety
-    && prev.stripFrontmatter === next.stripFrontmatter
+    && prev.frontmatter === next.frontmatter
     && prev.onShowPopup === next.onShowPopup
     && prevMermaidControls.download === nextMermaidControls.download
     && prevMermaidControls.copy === nextMermaidControls.copy

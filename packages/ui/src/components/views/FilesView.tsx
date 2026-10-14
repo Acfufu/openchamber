@@ -5121,7 +5121,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                     <SimpleMarkdownRenderer
                       content={fileContent}
                       className="typography-markdown-body"
-                      stripFrontmatter
+                      frontmatter="properties"
                       enableFileReferences={false}
                       allowRawHtml
                     />
@@ -5436,7 +5436,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                   <SimpleMarkdownRenderer
                     content={fileContent}
                     className="typography-markdown-body"
-                    stripFrontmatter
+                    frontmatter="properties"
                     enableFileReferences={false}
                     allowRawHtml
                   />
