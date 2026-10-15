@@ -7,6 +7,30 @@ description: Verbind de diensten en abonnementen waarmee OpenChamber werkt.
 
 Bij **Instellingen → Integraties** meldt u zich aan bij diensten waarmee OpenChamber werkt. De aanmelding wordt op de OpenChamber-server bewaard, zodat web, desktop en een gekoppelde telefoon haar delen.
 
+## Integratiecatalogus
+
+De integratiecatalogus bevat meer dan 150 diensten die u de agent met één klik geeft: Linear, Notion, Sentry, Supabase, Figma, observability-tools, CRM's, vergadernotities en meer. Een installatie voegt meestal de MCP-server van de dienst toe, de verbinding waarmee de agent daar dingen leest en wijzigt, en soms skills of een plugin die erbij horen. De installatie geldt voor uw gebruiker, dus elk project krijgt haar.
+
+1. Kies het winkelpictogram in de kop van de zijbalk.
+2. Zoek een dienst op naam, of beperk de lijst met een categorie zoals **Code** of **Kwaliteit en beheer**. Onder **OpenChamber** staan onze eigen extensies en plugins.
+3. Kies **+** op de rij van de dienst, of open hem en kies **Installeren**.
+4. Meld u aan zoals de dienst vraagt:
+   - **OAuth**: de aanmeldpagina van de dienst opent in uw browser. Geef daar toegang.
+   - **Token**: plak een API-token in **API-token**. **Token aanmaken** opent de pagina waar de dienst er een uitgeeft.
+   - **Zonder aanmelding**: u hoeft niets te doen.
+
+Daarna krijgt de dienst een vinkje en staat hij links onder **Geïnstalleerd**. De tools zijn beschikbaar vanaf uw volgende bericht. Een gele stip of **Aanmelden vereist** betekent dat de aanmelding niet is afgerond. Open de dienst en meld u opnieuw aan.
+
+Sommige vermeldingen vragen meer dan een aanmelding:
+
+- **Lokale servers** draaien op de computer waarop OpenCode draait en hebben soms Node.js, Python met uv of Docker nodig. De eerste start kan even duren.
+- **Plugins** zijn code die binnen OpenCode draait. Daarom vraagt de catalogus om bevestiging en toont hij eerst de licentie van de plugin.
+- **Skills** die bij een dienst horen, worden met de dienst geïnstalleerd. Ontbreekt er een, dan verschijnt op de pagina van de dienst een eigen knop **Installeren**.
+
+Om een dienst te verwijderen opent u hem, kiest u **Meer acties** (**⋯**) en daarna **Verwijderen**. Dat verwijdert alleen wat de catalogus heeft toegevoegd; uw account bij de dienst blijft zoals het is. MCP-servers, plugins en skills kunt u ook gewoon in Instellingen beheren.
+
+De catalogus zit in de webapp en de desktopapp. In [enterprise-modus](/nl/security/#enterprise-modus) is hij verborgen.
+
 ## GitHub
 
 Klap de kaart **GitHub** open en kies **GitHub verbinden** om u met een korte apparaatcode aan te melden. Daarna kan OpenChamber sessies vanuit issues en pull requests starten, ze aan berichten koppelen en PR's openen of bijwerken. Alle mogelijkheden staan bij [GitHub-issues en PR's](/nl/github/).

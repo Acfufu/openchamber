@@ -7,6 +7,30 @@ description: Verbinde die Dienste und Abonnements, mit denen OpenChamber arbeite
 
 Unter **Einstellungen → Integrationen** meldest du dich bei den Diensten an, mit denen OpenChamber arbeitet. Die Anmeldung wird auf dem OpenChamber-Server gespeichert, sodass Web, Desktop und ein gekoppeltes Telefon sie teilen.
 
+## Integrationskatalog
+
+Der Integrationskatalog listet über 150 Dienste, die du dem Agenten mit einem Klick geben kannst: Linear, Notion, Sentry, Supabase, Figma, Observability-Tools, CRMs, Meeting-Notizen und mehr. Eine Installation fügt meist den MCP-Server des Dienstes hinzu (die Verbindung, über die der Agent dort Dinge liest und ändert), manchmal auch Skills oder ein Plugin, die dazugehören. Sie gilt für deinen Benutzer, also für jedes Projekt.
+
+1. Wähle das Store-Symbol im Kopf der Seitenleiste.
+2. Such einen Dienst: nach Name, oder grenze die Liste mit einer Kategorie wie **Code** oder **Qualität und Betrieb** ein. Unter **OpenChamber** stehen unsere eigenen Erweiterungen und Plugins.
+3. Wähle **+** in seiner Zeile, oder öffne ihn und wähle **Installieren**.
+4. Melde dich so an, wie der Dienst es verlangt:
+   - **OAuth**: Die Anmeldeseite des Dienstes öffnet sich im Browser. Bestätige dort den Zugriff.
+   - **Token**: Füge ein API-Token in **API-Token** ein. **Token erstellen** öffnet die Seite, auf der der Dienst eines ausgibt.
+   - **Ohne Anmeldung**: Es ist nichts zu tun.
+
+Danach zeigt der Dienst ein Häkchen und erscheint links unter **Installiert**, und seine Tools stehen in deiner nächsten Nachricht bereit. Ein gelber Punkt oder **Anmeldung nötig** heißt, dass die Anmeldung nicht abgeschlossen wurde; öffne den Dienst und melde dich erneut an.
+
+Manche Einträge brauchen mehr als eine Anmeldung:
+
+- **Lokale Server** laufen auf dem Rechner, auf dem OpenCode läuft, und brauchen eventuell Node.js, Python mit uv oder Docker. Der erste Start kann etwas dauern.
+- **Plugins** sind Code, der in OpenCode läuft. Deshalb fragt der Katalog vorher nach einer Bestätigung und zeigt die Lizenz des Plugins.
+- **Skills**, die zu einem Dienst gehören, werden mit ihm installiert. Fehlt einer, erscheint auf der Seite des Dienstes ein eigenes **Installieren** dafür.
+
+Um einen Dienst zu entfernen, öffne ihn, wähle **Weitere Aktionen** (**⋯**) und dann **Entfernen**. Das entfernt nur, was der Katalog hinzugefügt hat; dein Konto beim Dienst bleibt, wie es ist. MCP-Server, Plugins und Skills kannst du wie gewohnt auch in den Einstellungen verwalten.
+
+Den Katalog gibt es in der Web-App und der Desktop-App. Im [Enterprise-Modus](/de/security/#enterprise-modus) ist er ausgeblendet.
+
 ## GitHub
 
 Klappe die Karte **GitHub** auf und wähle **Connect GitHub**, um dich mit einem kurzen Gerätecode anzumelden. Danach kann OpenChamber Sessions aus Issues und Pull Requests starten, sie an Nachrichten hängen und PRs öffnen oder aktualisieren. Alles, was GitHub kann, steht unter [GitHub Issues & PRs](/de/github/).

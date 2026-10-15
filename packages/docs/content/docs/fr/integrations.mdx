@@ -7,6 +7,30 @@ description: Connecte les services et abonnements avec lesquels OpenChamber trav
 
 **Paramètres → Intégrations** est l'endroit où tu te connectes aux services avec lesquels OpenChamber travaille. La connexion est enregistrée sur le serveur OpenChamber, donc le web, le bureau et un téléphone appairé la partagent.
 
+## Catalogue d'intégrations
+
+Le catalogue d'intégrations liste plus de 150 services que tu peux donner à l'agent en un clic : Linear, Notion, Sentry, Supabase, Figma, des outils d'observabilité, des CRM, des notes de réunion et plus encore. En installer un ajoute en général le serveur MCP du service (la connexion que l'agent utilise pour y lire et y modifier des choses), et parfois des skills ou un plugin qui l'accompagnent. Il s'installe pour ton utilisateur, donc tous les projets en profitent.
+
+1. Choisis l'icône de boutique dans l'en-tête de la barre latérale.
+2. Trouve un service : cherche par nom, ou réduis la liste avec une catégorie comme **Code** ou **Qualité et opérations**. **OpenChamber** liste nos propres extensions et plugins.
+3. Choisis **+** sur sa ligne, ou ouvre-le et choisis **Installer**.
+4. Connecte-toi comme le service le demande :
+   - **OAuth** : la page de connexion du service s'ouvre dans ton navigateur. Approuve l'accès là-bas.
+   - **Jeton** : colle un jeton API dans **Jeton API**. **Obtenir un jeton** ouvre la page où le service en délivre un.
+   - **Sans connexion** : rien à faire.
+
+Une fois terminé, le service affiche une coche et apparaît sous **Installées** à gauche, et ses outils sont disponibles dès ton prochain message. Un point jaune ou **Connexion requise** signifie que la connexion n'a pas abouti ; ouvre le service et reconnecte-toi.
+
+Certaines entrées demandent plus qu'une connexion :
+
+- Les **serveurs locaux** tournent sur la machine où tourne OpenCode et peuvent nécessiter Node.js, Python avec uv, ou Docker. Le premier démarrage peut prendre un moment.
+- Les **plugins** sont du code qui s'exécute dans OpenCode, donc le catalogue te demande de confirmer et affiche d'abord la licence du plugin.
+- Les **skills** fournis avec un service s'installent avec lui. S'il en manque un, son propre bouton **Installer** apparaît sur la page du service.
+
+Pour retirer un service, ouvre-le, choisis **Autres actions** (**⋯**), puis **Désinstaller**. Seul ce que le catalogue a ajouté est retiré ; ton compte sur le service reste tel quel. Tu peux aussi gérer les serveurs MCP, les plugins et les skills dans les Paramètres comme d'habitude.
+
+Le catalogue est disponible dans l'app web et l'app de bureau. Il est masqué en [mode entreprise](/fr/security/#mode-entreprise).
+
 ## GitHub
 
 Déplie la carte **GitHub** et choisis **Connect GitHub** pour te connecter avec un code d'appareil court. Une fois connecté, OpenChamber peut démarrer des sessions depuis des issues et des pull requests, les attacher à des messages, et ouvrir ou mettre à jour des PR. Tout ce que GitHub sait faire est sur [Issues et PR GitHub](/fr/github/).

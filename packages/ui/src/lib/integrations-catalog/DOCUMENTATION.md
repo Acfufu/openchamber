@@ -26,8 +26,10 @@ An entry earns its place when all of these hold:
 
 - **Work-team use.** Engineering, product, design, data or ops work in a company. Consumer services (music, travel, fitness, finance apps) stay out.
 - **Vendor-run.** The server, plugin or skill is published by the service itself (`verified: true` means exactly this). Community wrappers of someone else's API stay out.
+
+OpenChamber's own extensions and OpenCode plugins belong too, in the `openchamber` category, with OpenChamber as the publisher. Their Settings cards stay where they are; the catalog is one more place to find them.
 - **Installs from the catalog.** One-click OAuth, a token field, or a local command the user's machine can run. A service that first needs an app registered by us or by the user is not suitable yet (see Not suitable yet).
-- **Licensed to install.** Skills and plugins come from sources with an open license (MIT, Apache-2.0). Vendor terms instead of a license go in `termsUrl`, which the detail page links. A skill repository with no license is acceptable only when the vendor plainly publishes it for installation (a `skills.sh.json` or install instructions); otherwise leave it out.
+- **Licensed to install.** Skills and plugins come from sources with an open license (MIT, Apache-2.0, ISC, MPL-2.0). Vendor terms instead of a license go in `termsUrl`, which the detail page links. A skill repository with no license is acceptable only when the vendor plainly publishes it for installation (a `skills.sh.json` or install instructions); otherwise leave it out.
 
 Candidates come from vendor docs and from integrations.sh, whose credential notes mark servers that need no app registration as "self-onboarding". Use it to find candidates; the app never fetches it, and nothing is imported from it wholesale.
 
