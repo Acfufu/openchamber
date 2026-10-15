@@ -19,6 +19,10 @@ const BACKOFF_CAP_MS = 30000;
 // replica. Reconnecting after the usual 1 s evicts that host in turn, and the
 // pair trade the slot every second for as long as both run.
 const CONTROL_REPLACED_RECONNECT_MS = 60_000;
+// One 4001 is an ordinary takeover, such as a local instance claiming the host
+// for a pairing link. Two within this window mean another host keeps taking the
+// slot back, and the user has to decide which copy keeps the identity.
+const IDENTITY_CONFLICT_WINDOW_MS = 10 * 60_000;
 // A data socket dial that never opens is retried while the relay still reports
 // its client: the relay holds the client and buffers its frames, and sends no
 // new `connected` for it. Without a retry the client waits for the relay's 15 s
@@ -66,7 +70,7 @@ export const describeRelayError = (error) => redactSensitiveText(error?.message 
  *   identity: { serverId: string, hostEncPrivateKey: CryptoKey, signRelayAuth: (role: string, connectionId?: string | null) => { ts: number, sig: string, pk: string } },
  *   localPort?: number,
  *   getLocalPort?: () => number,
- *   onStatus?: (status: { state: string, lastError: string | null, connectedClients: number }) => void,
+ *   onStatus?: (status: { state: string, lastError: string | null, connectedClients: number, identityConflict: boolean }) => void,
  *   logger?: Pick<Console, 'warn'>,
  *   createSocket?: (url: string) => WebSocket,
  * }} options
@@ -81,6 +85,8 @@ export const startRelayHost = ({ relayUrl, identity, localPort, getLocalPort, on
   let stopped = false;
   let state = 'connecting';
   let lastError = null;
+  /** @type {number[]} */
+  let controlReplacedAt = [];
   let controlSocket = null;
   let reconnectTimer = null;
   let consecutiveFailures = 0;
@@ -90,9 +96,17 @@ export const startRelayHost = ({ relayUrl, identity, localPort, getLocalPort, on
   /** @type {Map<string, { failedDials: number, redialTimer: NodeJS.Timeout | null }>} */
   const announcedClients = new Map();
 
+  const hasIdentityConflict = () => {
+    const now = Date.now();
+    controlReplacedAt = controlReplacedAt.filter((at) => now - at < IDENTITY_CONFLICT_WINDOW_MS);
+    return controlReplacedAt.length >= 2;
+  };
+
+  const currentStatus = () => ({ state, lastError, connectedClients: dataSockets.size, identityConflict: hasIdentityConflict() });
+
   const emitStatus = () => {
     try {
-      onStatus?.({ state, lastError, connectedClients: dataSockets.size });
+      onStatus?.(currentStatus());
     } catch {
       // status consumers must not break the transport
     }
@@ -452,7 +466,9 @@ export const startRelayHost = ({ relayUrl, identity, localPort, getLocalPort, on
       // Data sockets ride their own relay connections; the relay keeps clients
       // alive through a 30 s control-reconnect grace window, so leave them up.
       cancelRedials();
-      scheduleReconnect(code === RelayCloseCode.ControlReplaced ? CONTROL_REPLACED_RECONNECT_MS : 0);
+      const replaced = code === RelayCloseCode.ControlReplaced;
+      if (replaced) controlReplacedAt.push(Date.now());
+      scheduleReconnect(replaced ? CONTROL_REPLACED_RECONNECT_MS : 0);
     });
   };
 
@@ -496,6 +512,6 @@ export const startRelayHost = ({ relayUrl, identity, localPort, getLocalPort, on
 
   return {
     stop,
-    getStatus: () => ({ state, lastError, connectedClients: dataSockets.size }),
+    getStatus: currentStatus,
   };
 };

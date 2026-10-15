@@ -46,6 +46,7 @@ import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type { PendingPairingRecord, RemoteClientRecord } from '@/lib/api/types';
 import { buildPairingConnectionPayload, encodePairingConnectionPayload, parsePairingConnectionPayload, type PairingEndpointCandidate } from '@/lib/connectionPayload';
 import { readPairingResponse } from '@/lib/pairingResponse';
+import { RelayConflictNotice } from './RelayConflictNotice';
 import {
   desktopSshLogsClear,
   desktopSshLogs,
@@ -1589,6 +1590,7 @@ export const RemoteInstancesPage: React.FC = () => {
             settingsItem="remote-instances.client-auth"
             contentClassName="space-y-3"
           >
+              <RelayConflictNotice clientAuth={clientAuth} />
               <div>
                 <Button type="button" size="xs" className="!font-normal" onClick={() => void openAddDevice()}>
                   <Icon name="add" className="h-3.5 w-3.5" />
