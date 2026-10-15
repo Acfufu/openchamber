@@ -100,6 +100,7 @@ const requiresNoteKey = {
 
 const CATEGORY_LABEL_KEY = {
   product: 'integrationsCatalog.category.product',
+  openchamber: 'integrationsCatalog.category.openchamber',
   code: 'integrationsCatalog.category.code',
   design: 'integrationsCatalog.category.design',
   cloud: 'integrationsCatalog.category.cloud',
@@ -748,16 +749,13 @@ export function IntegrationsCatalogView(): React.ReactNode {
   };
 
   const renderBrowse = (): React.ReactNode => (
-    <div className="mx-auto w-full max-w-[920px] px-8 pb-12 pt-8">
-      <div className="flex flex-col gap-5">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-foreground">{t('integrationsCatalog.page.title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('integrationsCatalog.page.subtitle')}</p>
-        </div>
-        <div className="relative w-full max-w-md">
+    <div className="mx-auto w-full max-w-[920px] px-8 pb-12">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <h1 className="min-w-0 text-2xl font-semibold text-foreground">{t('integrationsCatalog.page.title')}</h1>
+        <div className="relative w-full max-w-xs">
           <Icon
             name="search"
-            className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute inset-s-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
           <Input
@@ -765,7 +763,7 @@ export function IntegrationsCatalogView(): React.ReactNode {
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t('integrationsCatalog.search.placeholder')}
             aria-label={t('integrationsCatalog.search.placeholder')}
-            className="h-9 rounded-full ps-9"
+            className="ps-8"
           />
         </div>
       </div>
@@ -1067,7 +1065,7 @@ export function IntegrationsCatalogView(): React.ReactNode {
     const sources = [...new Set(entry.components.flatMap((component) => component.kind === 'skill' ? [component.source] : []))];
 
     return (
-      <div className="mx-auto w-full max-w-3xl px-8 pb-12 pt-6">
+      <div className="mx-auto w-full max-w-3xl px-8 pb-12 pt-4">
         <nav className="flex items-center gap-1 text-sm" aria-label={t('integrationsCatalog.page.title')}>
           <button type="button" onClick={() => showEntry(null)} className="rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {t('integrationsCatalog.page.title')}

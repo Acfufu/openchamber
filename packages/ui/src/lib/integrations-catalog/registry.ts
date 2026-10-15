@@ -18,7 +18,7 @@ import type { IconName } from '@/components/icon/icons';
 import type { I18nKey } from '@/lib/i18n';
 
 /** Card groups behind the category filter chips. */
-export type CatalogCategory = 'product' | 'code' | 'design' | 'cloud' | 'data' | 'quality' | 'ai' | 'other';
+export type CatalogCategory = 'product' | 'openchamber' | 'code' | 'design' | 'cloud' | 'data' | 'quality' | 'ai' | 'other';
 
 export type CatalogEntryStatus = 'stable' | 'beta';
 
@@ -2453,6 +2453,19 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     status: 'stable',
     components: [{ kind: 'plugin', spec: '@langchain/langsmith-opencode@^1', license: 'MIT' }],
   },
+  {
+    id: 'opencode-claude',
+    name: 'Claude Code',
+    publisher: 'OpenChamber',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.opencode-claude.description',
+    detailsKey: 'integrationsCatalog.entry.opencode-claude.details',
+    categories: ['openchamber', 'ai'],
+    icon: 'ai-agent',
+    homepage: 'https://github.com/openchamber/opencode-claude',
+    status: 'stable',
+    components: [{ kind: 'plugin', spec: '@openchamber/opencode-claude@^1', license: 'MIT' }],
+  },
 
   // --- OpenChamber extensions (installed from Git like Settings → Integrations) ---
   {
@@ -2462,18 +2475,31 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     verified: true,
     descriptionKey: 'integrationsCatalog.entry.excalidraw.description',
     detailsKey: 'integrationsCatalog.entry.excalidraw.details',
-    categories: ['other'],
+    categories: ['openchamber'],
     icon: 'pencil-ruler-2',
     homepage: 'https://github.com/openchamber/openchamber-excalidraw',
     status: 'stable',
     components: [{ kind: 'extension', guestId: 'excalidraw', gitUrl: 'https://github.com/openchamber/openchamber-excalidraw' }],
+  },
+  {
+    id: 'resource-monitor',
+    name: 'Resource Monitor',
+    publisher: 'OpenChamber',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.resource-monitor.description',
+    detailsKey: 'integrationsCatalog.entry.resource-monitor.details',
+    categories: ['openchamber'],
+    icon: 'pulse',
+    homepage: 'https://github.com/openchamber/openchamber-resource-monitor',
+    status: 'stable',
+    components: [{ kind: 'extension', guestId: 'resource-monitor', gitUrl: 'https://github.com/openchamber/openchamber-resource-monitor' }],
   },
 ];
 
 /** The opening section of the catalog: widely used services that show what an integration does. */
 export const CATALOG_FEATURED_IDS: readonly string[] = ['linear', 'github', 'atlassian', 'figma', 'supabase', 'cloudflare'];
 
-export const CATALOG_CATEGORY_ORDER: readonly CatalogCategory[] = ['product', 'code', 'design', 'cloud', 'data', 'quality', 'ai', 'other'];
+export const CATALOG_CATEGORY_ORDER: readonly CatalogCategory[] = ['product', 'openchamber', 'code', 'design', 'cloud', 'data', 'quality', 'ai', 'other'];
 
 export const getCatalogEntry = (id: string): CatalogEntry | undefined =>
   CATALOG_ENTRIES.find((entry) => entry.id === id);

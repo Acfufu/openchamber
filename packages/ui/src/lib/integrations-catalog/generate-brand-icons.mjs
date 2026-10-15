@@ -50,6 +50,7 @@ const BRANDS = {
   render: 'render',
   'mcp-toolbox': 'googlecloud',
   swaggerhub: 'swagger',
+  'opencode-claude': 'claude',
   todoist: 'todoist',
   'cal-com': 'caldotcom',
   surveymonkey: 'surveymonkey',
