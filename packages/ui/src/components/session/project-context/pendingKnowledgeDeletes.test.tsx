@@ -26,6 +26,9 @@ const { createRoot } = await import('react-dom/client');
 const { scheduleKnowledgeDelete, usePendingKnowledgeDeletes } = await import('./pendingKnowledgeDeletes');
 
 afterAll(async () => {
+  // The Undo toast outlives the last test; unmount it while the DOM globals
+  // still exist, or its scheduled render runs after they are removed.
+  await act(async () => root.unmount());
   await browser.happyDOM.close();
   for (const [name, descriptor] of descriptors) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);
