@@ -2,7 +2,8 @@
  * The curated external-services catalog: one bundled, typed list of services
  * worth connecting to OpenChamber. Adding or removing entries and changing
  * their URLs is a reviewed change; a URL change reaches users with the next
- * release. A remote overlay from openchamber.dev can come later.
+ * release. What belongs here and how to vet a candidate before adding it:
+ * DOCUMENTATION.md next to this file.
  *
  * An entry is one integration and may bundle several components: an MCP
  * server, an OpenCode plugin, and skills can arrive together the way vendors
@@ -18,7 +19,7 @@ import type { I18nKey } from '@/lib/i18n';
 /** Card groups behind the category filter chips. */
 export type CatalogCategory = 'product' | 'code' | 'design' | 'cloud' | 'data' | 'quality' | 'ai' | 'other';
 
-export type CatalogEntryStatus = 'stable' | 'beta' | 'coming-soon';
+export type CatalogEntryStatus = 'stable' | 'beta';
 
 /** How a service authenticates. `none` covers no-auth remotes and local servers. */
 export type CatalogAuthKind = 'oauth' | 'token' | 'none';
@@ -43,7 +44,6 @@ export type CatalogMcpComponent = {
   kind: 'mcp';
   auth: CatalogAuthKind;
   /**
-   * Absent on `coming-soon` entries, whose endpoint is not announced yet.
    * Carries `{inputId}` tokens for entries with `inputs`.
    */
   remote?: {
@@ -87,10 +87,15 @@ export type CatalogSkillComponent = {
    * the uninstall lookup.
    */
   skillName?: string;
+  /**
+   * Vendor terms that govern the skill instead of an open-source license;
+   * installing it accepts them, so the detail page links them.
+   */
+  termsUrl?: string;
 };
 
 /** An OpenChamber extension installed from its Git repository. */
-export type CatalogExtensionComponent = {
+type CatalogExtensionComponent = {
   kind: 'extension';
   /** The extension's `panel.id`, which is its id once installed. */
   guestId: string;
@@ -196,6 +201,45 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.monday.com/mcp' } }],
   },
   {
+    id: 'granola',
+    name: 'Granola',
+    publisher: 'Granola',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.granola.description',
+    detailsKey: 'integrationsCatalog.entry.granola.details',
+    categories: ['product'],
+    icon: 'mic',
+    homepage: 'https://www.granola.ai',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.granola.ai/mcp' } }],
+  },
+  {
+    id: 'clickup',
+    name: 'ClickUp',
+    publisher: 'ClickUp',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.clickup.description',
+    detailsKey: 'integrationsCatalog.entry.clickup.details',
+    categories: ['product'],
+    icon: 'task',
+    homepage: 'https://clickup.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.clickup.com/mcp' } }],
+  },
+  {
+    id: 'shortcut',
+    name: 'Shortcut',
+    publisher: 'Shortcut',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.shortcut.description',
+    detailsKey: 'integrationsCatalog.entry.shortcut.details',
+    categories: ['product'],
+    icon: 'task',
+    homepage: 'https://www.shortcut.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.shortcut.com/mcp' } }],
+  },
+  {
     id: 'gitlab',
     name: 'GitLab',
     publisher: 'GitLab',
@@ -221,8 +265,34 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     status: 'stable',
     components: [
       { kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.figma.com/mcp' } },
-      { kind: 'skill', source: 'openai/skills', subpath: 'skills/.curated/figma', skillDir: 'figma' },
+      { kind: 'skill', source: 'openai/skills', subpath: 'skills/.curated/figma', skillDir: 'figma', termsUrl: 'https://www.figma.com/legal/developer-terms/' },
     ],
+  },
+  {
+    id: 'canva',
+    name: 'Canva',
+    publisher: 'Canva',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.canva.description',
+    detailsKey: 'integrationsCatalog.entry.canva.details',
+    categories: ['design'],
+    icon: 'palette',
+    homepage: 'https://www.canva.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.canva.com/mcp' } }],
+  },
+  {
+    id: 'miro',
+    name: 'Miro',
+    publisher: 'Miro',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.miro.description',
+    detailsKey: 'integrationsCatalog.entry.miro.details',
+    categories: ['design'],
+    icon: 'pencil-ruler-2',
+    homepage: 'https://miro.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.miro.com/' } }],
   },
 
   // --- Cloud and infrastructure (remote, OAuth) ---
@@ -255,6 +325,19 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     homepage: 'https://neon.tech',
     status: 'stable',
     components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.neon.tech/mcp' } }],
+  },
+  {
+    id: 'airtable',
+    name: 'Airtable',
+    publisher: 'Airtable',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.airtable.description',
+    detailsKey: 'integrationsCatalog.entry.airtable.details',
+    categories: ['data'],
+    icon: 'table-2',
+    homepage: 'https://airtable.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.airtable.com/mcp' } }],
   },
   {
     id: 'stripe',
@@ -338,6 +421,19 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://huggingface.co/mcp' } }],
   },
   {
+    id: 'zapier',
+    name: 'Zapier',
+    publisher: 'Zapier',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.zapier.description',
+    detailsKey: 'integrationsCatalog.entry.zapier.details',
+    categories: ['other'],
+    icon: 'flashlight',
+    homepage: 'https://zapier.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.zapier.com/mcp' } }],
+  },
+  {
     id: 'aws',
     name: 'AWS',
     publisher: 'Amazon Web Services',
@@ -364,6 +460,48 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     status: 'stable',
     components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.{site}/v1/mcp' } }],
     inputs: [{ id: 'site', labelKey: 'integrationsCatalog.input.site', placeholder: 'datadoghq.com', defaultValue: 'datadoghq.com' }],
+  },
+  {
+    id: 'posthog',
+    name: 'PostHog',
+    publisher: 'PostHog',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.posthog.description',
+    detailsKey: 'integrationsCatalog.entry.posthog.details',
+    categories: ['quality', 'data'],
+    icon: 'bar-chart-box',
+    homepage: 'https://posthog.com',
+    status: 'stable',
+    components: [
+      { kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.posthog.com/mcp' } },
+      { kind: 'skill', source: 'PostHog/skills', subpath: 'skills/posthog/all/skills/tools-and-features-hogql', skillDir: 'tools-and-features-hogql' },
+    ],
+  },
+  {
+    id: 'mixpanel',
+    name: 'Mixpanel',
+    publisher: 'Mixpanel',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.mixpanel.description',
+    detailsKey: 'integrationsCatalog.entry.mixpanel.details',
+    categories: ['quality', 'data'],
+    icon: 'bar-chart-box',
+    homepage: 'https://mixpanel.com',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.mixpanel.com/mcp' } }],
+  },
+  {
+    id: 'incident-io',
+    name: 'incident.io',
+    publisher: 'incident.io',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.incident-io.description',
+    detailsKey: 'integrationsCatalog.entry.incident-io.details',
+    categories: ['quality'],
+    icon: 'alarm-warning',
+    homepage: 'https://incident.io',
+    status: 'stable',
+    components: [{ kind: 'mcp', auth: 'oauth', remote: { url: 'https://mcp.incident.io/mcp' } }],
   },
 
   // --- Remote with a token ---
@@ -402,6 +540,29 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     }],
   },
   {
+    id: 'render',
+    name: 'Render',
+    publisher: 'Render',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.render.description',
+    detailsKey: 'integrationsCatalog.entry.render.details',
+    categories: ['cloud'],
+    icon: 'rocket',
+    homepage: 'https://render.com',
+    status: 'stable',
+    components: [
+      {
+        kind: 'mcp',
+        auth: 'token',
+        remote: { url: 'https://mcp.render.com/mcp', tokenHeader: { name: 'Authorization', valuePrefix: 'Bearer ' } },
+        tokenHelpUrl: 'https://dashboard.render.com/u/settings#api-keys',
+      },
+      { kind: 'skill', source: 'render-oss/skills', subpath: 'skills/render-deploy', skillDir: 'render-deploy' },
+      { kind: 'skill', source: 'render-oss/skills', subpath: 'skills/render-debug', skillDir: 'render-debug' },
+      { kind: 'skill', source: 'render-oss/skills', subpath: 'skills/render-monitor', skillDir: 'render-monitor' },
+    ],
+  },
+  {
     id: 'context7',
     name: 'Context7',
     publisher: 'Upstash',
@@ -418,6 +579,24 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
       remote: { url: 'https://mcp.context7.com/mcp', tokenHeader: { name: 'Authorization', valuePrefix: 'Bearer ' }, tokenOptional: true },
       tokenHelpUrl: 'https://context7.com/dashboard',
     }],
+  },
+  {
+    id: 'exa',
+    name: 'Exa',
+    publisher: 'Exa',
+    verified: true,
+    descriptionKey: 'integrationsCatalog.entry.exa.description',
+    detailsKey: 'integrationsCatalog.entry.exa.details',
+    categories: ['ai'],
+    icon: 'global',
+    homepage: 'https://exa.ai',
+    status: 'stable',
+    components: [{
+      kind: 'mcp',
+      auth: 'token',
+      remote: { url: 'https://mcp.exa.ai/mcp', tokenHeader: { name: 'x-api-key' }, tokenOptional: true },
+      tokenHelpUrl: 'https://dashboard.exa.ai/api-keys',
+    }, { kind: 'skill', source: 'exa-labs/exa-mcp-server', subpath: 'skills/search', skillDir: 'search' }],
   },
 
   // --- Remote, no auth ---
@@ -616,48 +795,10 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     status: 'stable',
     components: [{ kind: 'extension', guestId: 'excalidraw', gitUrl: 'https://github.com/openchamber/openchamber-excalidraw' }],
   },
-
-  // --- Coming soon (preview, needs admin or program enrolment) ---
-  {
-    id: 'google-workspace',
-    name: 'Google Workspace',
-    publisher: 'Google',
-    verified: true,
-    descriptionKey: 'integrationsCatalog.entry.google-workspace.description',
-    detailsKey: 'integrationsCatalog.entry.google-workspace.details',
-    categories: ['product'],
-    icon: 'calendar',
-    homepage: 'https://workspace.google.com',
-    status: 'coming-soon',
-    components: [{ kind: 'mcp', auth: 'oauth' }],
-  },
-  {
-    id: 'microsoft-365',
-    name: 'Microsoft 365',
-    publisher: 'Microsoft',
-    verified: true,
-    descriptionKey: 'integrationsCatalog.entry.microsoft-365.description',
-    detailsKey: 'integrationsCatalog.entry.microsoft-365.details',
-    categories: ['product'],
-    icon: 'window',
-    homepage: 'https://www.microsoft.com/microsoft-365',
-    status: 'coming-soon',
-    components: [{ kind: 'mcp', auth: 'oauth' }],
-  },
-  {
-    id: 'google-cloud',
-    name: 'Google Cloud',
-    publisher: 'Google',
-    verified: true,
-    descriptionKey: 'integrationsCatalog.entry.google-cloud.description',
-    detailsKey: 'integrationsCatalog.entry.google-cloud.details',
-    categories: ['cloud'],
-    icon: 'cloud',
-    homepage: 'https://cloud.google.com',
-    status: 'coming-soon',
-    components: [{ kind: 'mcp', auth: 'oauth' }],
-  },
 ];
+
+/** The opening section of the catalog: widely used services that show what an integration does. */
+export const CATALOG_FEATURED_IDS: readonly string[] = ['linear', 'github', 'atlassian', 'figma', 'supabase', 'cloudflare'];
 
 export const CATALOG_CATEGORY_ORDER: readonly CatalogCategory[] = ['product', 'code', 'design', 'cloud', 'data', 'quality', 'ai', 'other'];
 
