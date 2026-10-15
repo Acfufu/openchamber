@@ -1159,6 +1159,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             text: initialDraftRef.current ?? '',
             identity: initialDraftIdentityRef.current,
         },
+        newSessionDraftId: newSessionDraftOpen ? newSessionDraft.draftId : null,
         onIdentityChange: () => {
             setInputMode('normal');
             draftCaretModeRef.current.atEnd = isBtwActive || draftCaretModeRef.current.btw;
