@@ -4232,7 +4232,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     className={cn(
                         'flex flex-col',
                         isComposerExpanded && 'flex-1 min-h-0',
-                        'shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.12)]',
                     )}
                     style={{ borderRadius: chatInputRadius }}
                 >
@@ -4240,11 +4239,13 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     className={cn(
                         "flex flex-col relative overflow-visible",
                         isComposerExpanded && 'flex-1 min-h-0',
-                        "border border-border/80",
                         // Opaque: always on screen over the moving transcript
                         // (see .oc-surface-floating in design-system.css).
                         'oc-surface-floating',
-                        isDragging && "ring-2 ring-primary ring-offset-2"
+                        // Lit like a dropdown (top edge, hairline, shadow). Its
+                        // box-shadow would hide the drag ring, so it steps aside
+                        // while a file is dragged over.
+                        isDragging ? "ring-2 ring-primary ring-offset-2" : 'oc-glass-floating oc-composer-sheen',
                     )}
                     style={{ borderRadius: chatInputRadius }}
                     ref={dropZoneRef}

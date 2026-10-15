@@ -15,6 +15,7 @@ import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
+import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
@@ -144,6 +145,7 @@ export const dict: Record<I18nKey, string> = {
   ...isolatedSpacesI18n.ko,
   ...sourceBoardI18n.ko,
   ...projectActionsI18n.ko,
+  ...gitIdentityEditorI18n.ko,
   ...environmentI18n.ko,
   ...providersI18n.ko,
   ...mcpGridI18n.ko,

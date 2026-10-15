@@ -193,7 +193,7 @@ const OpenInAppListIcon = ({ label, iconDataUrl }: { label: string; iconDataUrl?
     <span
       className={cn(
         'size-4 rounded-sm flex items-center justify-center',
-        'bg-[var(--surface-muted)] text-[9px] font-medium text-muted-foreground'
+        'oc-tile-inset text-[9px] font-medium text-muted-foreground'
       )}
     >
       {initial}
@@ -3860,7 +3860,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         <div className="h-full min-h-0 overflow-hidden">
           <ErrorBoundary
             fallback={
-              <div className="m-3 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+              <div className="m-3 rounded-md bg-destructive/10 px-3 py-2">
                 <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
                 <div className="text-sm text-muted-foreground">{t('filesView.error.switchToEditMode')}</div>
               </div>
@@ -5084,7 +5084,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           ) : selectedFile && isJson && jsonViewMode === 'tree' ? (
             <ErrorBoundary
               fallback={
-                <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+                <div className="rounded-md bg-destructive/10 px-3 py-2">
                   <div className="mb-1 font-medium text-destructive">{t('filesView.error.jsonViewerUnavailable')}</div>
                   <div className="text-sm text-muted-foreground">
                     {t('filesView.error.switchToTextMode')}
@@ -5118,13 +5118,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                   fileContent={fileContent}
                 />
                 {fileContent.length > 500 * 1024 && (
-                  <div className="mb-3 rounded-md border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
+                  <div className="mb-3 rounded-md bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
                     {t('filesView.warning.largeFilePreviewLimited', { sizeKb: Math.round(fileContent.length / 1024) })}
                   </div>
                 )}
                 <ErrorBoundary
                   fallback={
-                    <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+                    <div className="rounded-md bg-destructive/10 px-3 py-2">
                       <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
                       <div className="text-sm text-muted-foreground">
                         {t('filesView.error.switchToEditMode')}
@@ -5433,13 +5433,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 />
               ) : null}
               {fileContent.length > 500 * 1024 && (
-                  <div className="mb-3 rounded-md border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
+                  <div className="mb-3 rounded-md bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
                     {t('filesView.warning.largeFilePreviewLimited', { sizeKb: Math.round(fileContent.length / 1024) })}
                   </div>
                 )}
               <ErrorBoundary
                 fallback={
-                  <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+                  <div className="rounded-md bg-destructive/10 px-3 py-2">
                     <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
                     <div className="text-sm text-muted-foreground">
                       {t('filesView.error.switchToEditMode')}

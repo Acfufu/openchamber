@@ -59,7 +59,7 @@ export function RelayConflictNotice({ clientAuth }: { clientAuth: ClientAuthAPI 
   return (
     <>
       {conflict ? (
-        <div className="flex max-w-[40rem] items-start gap-3 rounded-lg border border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 p-3">
+        <div className="flex max-w-[40rem] items-start gap-3 rounded-lg bg-[var(--status-warning)]/10 p-3">
           <Icon name="error-warning" className="mt-0.5 size-4 shrink-0 text-[var(--status-warning)]" />
           <div className="min-w-0 flex-1 space-y-1">
             <p className="typography-ui-label text-foreground">{t('settings.remoteInstances.clientAuth.relayConflict.title')}</p>
