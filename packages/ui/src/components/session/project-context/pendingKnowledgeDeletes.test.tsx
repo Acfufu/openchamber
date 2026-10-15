@@ -34,6 +34,9 @@ afterAll(async () => {
 });
 
 const UNDO_WINDOW_MS = 20;
+// Undo has to land inside the window. On a loaded CI runner rendering the
+// toast and clicking took longer than 20ms, so the delete was already sent.
+const UNDO_CLICK_WINDOW_MS = 500;
 const wait = (ms: number) => act(async () => { await new Promise(resolve => setTimeout(resolve, ms)); });
 
 let pending: ReadonlySet<string> = new Set();
@@ -56,7 +59,7 @@ const clickUndo = async () => {
 test('the entry hides at once and Undo keeps the delete from being sent', async () => {
   let runs = 0;
   act(() => scheduleKnowledgeDelete({
-    key: 'note:p:1', message: 'Note deleted', undoLabel: 'Undo', undoWindowMs: UNDO_WINDOW_MS,
+    key: 'note:p:1', message: 'Note deleted', undoLabel: 'Undo', undoWindowMs: UNDO_CLICK_WINDOW_MS,
     run: async () => { runs += 1; return true; },
     onFailure: () => { throw new Error('unexpected failure'); },
   }));
@@ -64,7 +67,7 @@ test('the entry hides at once and Undo keeps the delete from being sent', async 
 
   await clickUndo();
   expect(pending.has('note:p:1')).toBe(false);
-  await wait(UNDO_WINDOW_MS * 3);
+  await wait(UNDO_CLICK_WINDOW_MS + 100);
   expect(runs).toBe(0);
 });
 
