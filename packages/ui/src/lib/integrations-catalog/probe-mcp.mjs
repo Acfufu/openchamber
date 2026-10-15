@@ -126,7 +126,10 @@ const probe = async (mcpUrl, register) => {
   authorize.searchParams.set('redirect_uri', redirectUri);
   authorize.searchParams.set('code_challenge', 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
   authorize.searchParams.set('code_challenge_method', 'S256');
-  authorize.searchParams.set('state', 'probe');
+  // OpenCode sends a random state and the RFC 8707 resource, as the MCP SDK
+  // does; some servers reject a short state or a missing resource.
+  authorize.searchParams.set('state', crypto.randomUUID());
+  authorize.searchParams.set('resource', mcpUrl);
   const page = await fetch(authorize, { redirect: 'manual' });
   const location = page.headers.get('location') ?? '';
   const body = page.status >= 400 ? (await page.text()).slice(0, 300) : '';

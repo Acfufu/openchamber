@@ -82,7 +82,10 @@ describe('integrations catalog registry', () => {
       for (const component of entry.components) {
         if (component.kind !== 'skill') continue;
         expect(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(component.source)).toBe(true);
-        expect(component.subpath.startsWith('skills/')).toBe(true);
+        // Vendors keep skills under `skills/`, `plugins/<name>/skills/` or
+        // `src/skills/`; the installer takes any repo-relative folder.
+        expect(component.subpath.startsWith('/') || component.subpath.split('/').includes('..')).toBe(false);
+        expect(component.subpath.split('/').at(-1)).toBe(component.skillDir);
       }
     }
   });

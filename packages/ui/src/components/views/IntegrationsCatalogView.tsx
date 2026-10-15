@@ -37,6 +37,7 @@ import { installGuest, uninstallGuest } from '@/lib/guests/install';
 import { loadGuestCatalog } from '@/lib/guests/load-catalog';
 import { useUIStore } from '@/stores/useUIStore';
 import { brandIconFor } from '@/lib/integrations-catalog/brand-icons';
+import { vendorLogoFor } from '@/lib/integrations-catalog/vendor-logos';
 import {
   CATALOG_CATEGORY_ORDER,
   CATALOG_ENTRIES,
@@ -159,11 +160,16 @@ const TILE_SIZE = {
 
 /**
  * The entry's mark: its official glyph on a tile in the brand's own color,
- * or the generic sprite icon on a neutral tile for brands without one.
+ * else the vendor's own app icon, else the generic sprite icon on a neutral
+ * tile.
  */
 function BrandTile({ entry, size }: { entry: CatalogEntry; size: keyof typeof TILE_SIZE }): React.ReactNode {
   const brand = brandIconFor(entry.id);
+  const logo = brand ? undefined : vendorLogoFor(entry.id);
   const { tile, glyph } = TILE_SIZE[size];
+  if (logo) {
+    return <img src={logo} alt="" draggable={false} className={cn(tile, 'shrink-0 object-cover ring-1 ring-[var(--interactive-border)]')} />;
+  }
   return (
     <div
       className={cn(tile, 'flex shrink-0 items-center justify-center ring-1 ring-inset ring-[var(--interactive-border)]', brand ? null : 'bg-[var(--surface-muted)] text-muted-foreground')}
