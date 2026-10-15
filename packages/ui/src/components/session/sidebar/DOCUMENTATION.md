@@ -109,11 +109,17 @@ manual project order with reordering, one header per project over its root
 sessions from every worktree and space, 7 at a time with Show more / Show
 fewer (collapsing a project resets it), two-line rows with a fixed-height
 second line, and the project's icon on that line in In work. The
-phone's Tree view follows the desktop tree: Pinned and In work use one-line
-rows unless Detailed rows is on, Chats one-line rows without a gutter, and project sessions are
+phone's Tree view follows the desktop tree: Chats, Pinned and In work list
+tree rows at level 0 (two-line timeline rows when Detailed rows is on, the
+zones showing all their sessions at once), and project sessions are
 tree rows (12px per level, subsession chevron on the left with a
-thumb-sized target, live state on the right) under worktree headers drawn as
-folder rows (chevron, 12px icon, medium-weight label), each opening with a
+thumb-sized target). A tree row shows its live state in the slot left of the
+title; a row with subsessions keeps its chevron there, since a phone has no
+hover to trade them, and shows its state on the right. Titles carry the state
+as on the desktop (`apps/mobileSessionTitle.ts`), and run titles are muted.
+Worktree headers are drawn as
+folder rows (chevron, 12px icon, medium-weight label a step below full
+strength), each opening with a
 small gap. Zone and project labels share the header size and no rule
 separates projects, as zones and projects are sections of equal weight. Its tree starts 32px in
 (`MOBILE_TREE_BASE_PADDING_PX`), so root session titles start where the
@@ -224,12 +230,15 @@ row, the PR or issue as a coloured mark without its number (its tooltip lists
 the links), the branch, project and model in the whole-row tooltip. The display
 menu's Detailed rows toggle (`detailedZoneRows`, `sidebarDetailedZoneRows`, per
 surface, off by default, offered in Tree only) gives Tree the two-line rows.
-Both never expand, with subsessions feeding the badges; a run row there opens
-its overview. Search
+The one-line Tree rows open to their subsessions like the project tree, with
+their own expansion state; in search they show the branches that lead to a
+match (`pruneSessionTreeForSidebarQuery`). The two-line rows, in List and with
+Detailed rows, never expand: their node drops its children, which feed the
+badges instead. A run row in either opens its overview. Search
 keeps a root whose subsession matches (`sessionTreeMatchesSidebarQuery`): those
 subsessions are nowhere else in the sidebar. The zone counts only sessions that match
-themselves (`countSessionTreeQueryMatches`) over the whole tree; the row drops
-its children, so the item carries that count as `searchMatchCount`. A group subtracts the trees
+themselves (`countSessionTreeQueryMatches`) over the whole tree, carried on the
+item as `searchMatchCount`, since a two-line row drops its children. A group subtracts the trees
 that moved out of it with the same counter its search data used
 (`countSessionSearchMatches`), so one exact id is one match; a group or project
 whose only matches moved renders nothing. Track / Done captures the runtime key at the
@@ -280,8 +289,8 @@ because the header already says they are pinned; In work rows show it only
 while the zone is hidden, since otherwise no pinned session reaches In work. Pins are the device-local
 `useSessionPinnedStore`, so the zone differs between devices. The phone sheet
 mirrors both toggles: its display menu offers Show pinned section and, in
-Tree, Detailed rows, and its Pinned and In work sections render
-`MobileTimelineRows` with `compact` in Tree unless detailed rows are on. VS Code
+Tree, Detailed rows, and its Pinned and In work sections render tree rows in
+Tree unless detailed rows are on. VS Code
 shows no section toggles, so it has no Pinned zone and its In work rows stay on
 one line.
 

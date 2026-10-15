@@ -655,9 +655,11 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     </RowMarkTooltip>
   ) : null;
   const sessionTitle = resolvedSession.title || t('sessions.sidebar.session.untitled');
-  // Timeline is a flat list: a node that still carries children renders as a
-  // leaf, without a chevron and without an expansion state.
-  const hasChildren = !isTimelineRow && node.children.length > 0;
+  // Rows with the tree slot open to their subsessions, the Tree view's
+  // Chats, Pinned and In work rows included. List is a flat list: a node that
+  // still carries children renders as a leaf, without a chevron and without
+  // an expansion state.
+  const hasChildren = hasTreeSlot && node.children.length > 0;
   const isPinnedSession = isSessionPinned(pinnedSessionIds, sessionDirectory, session.id);
   // Per-render-context expansion key: the same session can appear in both
   // the project's root and the "Recent" list, and expanding one should not
