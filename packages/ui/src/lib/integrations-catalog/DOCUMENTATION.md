@@ -75,5 +75,3 @@ Probed, with the reason, so they are not retried blind. Recheck when the reason 
 | Microsoft 365 | No public hosted server for third-party clients. |
 | Anthropic office skills (docx, xlsx, pptx, pdf) | Proprietary license forbids redistribution and use outside Anthropic's products. |
 | Figma skill | Kept, with `termsUrl`: governed by Figma Developer Terms. |
-
-Probed one-click but not added yet: Dropbox (`mcp.dropbox.com/mcp`) and Hex (`app.hex.tech/mcp`).

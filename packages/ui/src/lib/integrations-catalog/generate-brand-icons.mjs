@@ -27,6 +27,7 @@ const BRANDS = {
   airtable: 'airtable',
   mixpanel: 'mixpanel',
   zapier: 'zapier',
+  dropbox: 'dropbox',
   supabase: 'supabase',
   stripe: 'stripe',
   cloudflare: 'cloudflare',
