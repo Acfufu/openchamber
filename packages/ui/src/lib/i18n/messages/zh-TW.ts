@@ -834,6 +834,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.pr.status.mergeConflicts': '存在合併衝突',
   'sessions.sidebar.group.pr.status.mergeBlocked': '合併被阻止',
   'sessions.sidebar.group.pr.status.checksFailing': '檢查未通過',
+  'sessions.sidebar.group.pr.status.checksRunning': '檢查進行中',
   'sessions.sidebar.group.issue.status.open': 'Issue 已開啟',
   'sessions.sidebar.group.issue.status.completed': '已完成',
   'sessions.sidebar.group.issue.status.notPlanned': '不計畫處理',
