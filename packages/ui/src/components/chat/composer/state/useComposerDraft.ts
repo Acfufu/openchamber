@@ -4,8 +4,9 @@
  * A draft belongs to a (runtime, directory, session) identity. Switching any
  * of those saves the outgoing draft and restores the incoming one, so moving
  * between sessions never loses typed text and never leaks it into the wrong
- * conversation. The one exception is the open new-session draft: changing
- * its project or worktree moves its text and files to the new directory.
+ * conversation. The exception is the same draft changing directory: the open
+ * new-session draft changing its project or worktree, or a session moved to
+ * another directory. Its text and files move to the new directory.
  *
  * Writes are debounced while typing but forced at every edge where the page
  * may stop running — tab hidden, frozen, unloading, unmounting — because a
@@ -207,13 +208,17 @@ export function useComposerDraft(options: ComposerDraftOptions): ComposerDraftCo
         // changes where it will run, not which draft it is, so its text and
         // files go along instead of staying with the old directory. A new
         // draft opened elsewhere gets a new id and leaves this one in place.
-        const retargetsNewSessionDraft = sameNewSessionDraft
-            && !skipOutgoingDraftRef.current
-            && previous?.sessionId === null
-            && identity?.sessionId === null
-            && previous.runtimeKey === identity.runtimeKey;
-        const carriesText = retargetsNewSessionDraft && outgoing.text.length > 0;
-        if (retargetsNewSessionDraft) useInputStore.getState().moveAttachedFiles(previous, identity);
+        // A session moved to another directory keeps its id, so the same
+        // session in a new directory is the same draft too.
+        const sameDraftMoved = !skipOutgoingDraftRef.current
+            && previous !== null
+            && identity !== null
+            && previous.runtimeKey === identity.runtimeKey
+            && (previous.sessionId === null
+                ? sameNewSessionDraft && identity.sessionId === null
+                : previous.sessionId === identity.sessionId);
+        const carriesText = sameDraftMoved && outgoing.text.length > 0;
+        if (sameDraftMoved) useInputStore.getState().moveAttachedFiles(previous, identity);
         if (carriesText && previousKey) {
             draftMemoryRef.current.set(previousKey, { text: '', confirmedMentions: new Set() });
             if (persistEnabled) persistNow(previous, '');

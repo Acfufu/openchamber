@@ -168,3 +168,47 @@ describe('new-session draft changing its directory', () => {
         }
     });
 });
+
+describe('session moved to another directory', () => {
+    const movedSession: ChatDraftIdentity = { ...session, directory: '/repo-a-worktree' };
+
+    test('takes the typed text and files along and leaves nothing behind', () => {
+        writeChatDraft(session, 'typed before the move', []);
+        const composer = renderComposer('');
+        try {
+            composer.render(session, null);
+            useInputStore.getState().addRestoredAttachment(file);
+            composer.flushFrames();
+            composer.result.restored.length = 0;
+
+            composer.render(movedSession, null);
+            composer.flushFrames();
+
+            expect(composer.result.text).toBe('typed before the move');
+            expect(composer.result.restored).toEqual([]);
+            expect(readChatDraft(movedSession).text).toBe('typed before the move');
+            expect(readChatDraft(session).text).toBe('');
+            const input = useInputStore.getState();
+            expect(input.attachmentDraftKey).toBe(getChatDraftIdentityKey(movedSession));
+            expect(input.attachedFiles.map((attached) => attached.filename)).toEqual(['notes.txt']);
+            expect(input.attachmentDrafts.get(getChatDraftIdentityKey(session)) ?? []).toEqual([]);
+        } finally {
+            composer.teardown();
+        }
+    });
+
+    test('another session keeps its own draft', () => {
+        const otherSession: ChatDraftIdentity = { ...movedSession, sessionId: 'session-2' };
+        writeChatDraft(session, 'session one', []);
+        writeChatDraft(otherSession, 'session two', []);
+        const composer = renderComposer('');
+        try {
+            composer.render(session, null);
+            composer.render(otherSession, null);
+            expect(composer.result.text).toBe('session two');
+            expect(readChatDraft(session).text).toBe('session one');
+        } finally {
+            composer.teardown();
+        }
+    });
+});
