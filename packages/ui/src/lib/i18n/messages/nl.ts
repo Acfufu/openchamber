@@ -682,6 +682,8 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Markeer als afgerond',
   'sessions.sidebar.session.work.doneSuggested': 'Lijkt afgerond',
   'sessions.sidebar.session.work.updateFailed': 'Sessie kon niet worden bijgewerkt',
+  'sessions.sidebar.session.pin.pinFailed': 'Sessie kon niet worden vastgezet',
+  'sessions.sidebar.session.pin.unpinFailed': 'Sessie kon niet worden losgemaakt',
   'chat.work.doneHint.text': 'Dit werk lijkt afgerond.',
   'chat.work.doneHint.action': 'Markeer als afgerond',
   'chat.work.reviewHint.text': 'De wijzigingen zijn klaar om te bekijken.',

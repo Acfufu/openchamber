@@ -74,7 +74,9 @@ import { useMobileSessionExpansionStore } from '@/stores/useMobileSessionExpansi
 import { useMobileSessionTreeStore } from '@/stores/useMobileSessionTreeStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useSessionDisplayStore, type ProjectSortOrder } from '@/stores/useSessionDisplayStore';
-import { isSessionPinned, useSessionPinnedStore } from '@/stores/useSessionPinnedStore';
+import { useSessionPinnedStore } from '@/stores/useSessionPinnedStore';
+import { isSessionPinned } from '@/lib/sessionPins';
+import { toggleSessionPin } from '@/sync/session-pins';
 import { orderWorktrees, useWorktreeOrderStore } from '@/stores/useWorktreeOrderStore';
 import {
   EMPTY_SESSION_ORDER_RANKS,
@@ -837,7 +839,6 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   const setShowPinnedSection = useSessionDisplayStore((state) => state.setShowPinnedSection);
   const detailedZoneRows = useSessionDisplayStore((state) => state.detailedZoneRows);
   const setDetailedZoneRows = useSessionDisplayStore((state) => state.setDetailedZoneRows);
-  const togglePinnedSession = useSessionPinnedStore((state) => state.toggle);
     // Branch per directory, for the second line of timeline-style rows (In
   // work, the List view): worktree sessions read their worktree's
   // branch, root sessions the project root's checked-out branch, which only
@@ -1495,10 +1496,12 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
 
   const handleTogglePin = (session: Session) => {
     const directory = getSessionDirectory(session);
-    if (directory) togglePinnedSession({ directory, sessionId: session.id });
+    if (!directory) return;
+    const failedKey = isPinned(session) ? 'sessions.sidebar.session.pin.unpinFailed' : 'sessions.sidebar.session.pin.pinFailed';
+    toggleSessionPin({ directory, sessionId: session.id }).catch(() => toast.error(t(failedKey)));
   };
 
-  /** Pin / Unpin for a top-level row, the same local pin the desktop menu sets. */
+  /** Pin / Unpin for a top-level row, the same server-side pin the desktop menu sets. */
   const pinActionFor = (session: Session): MobileSessionPinAction | undefined => {
     if (getParentId(session) || !getSessionDirectory(session)) return undefined;
     return { pinned: isPinned(session), onToggle: () => handleTogglePin(session) };

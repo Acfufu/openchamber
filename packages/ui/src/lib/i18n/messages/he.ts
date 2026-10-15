@@ -664,6 +664,8 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'סמן כהושלם',
   'sessions.sidebar.session.work.doneSuggested': 'נראה שהושלם',
   'sessions.sidebar.session.work.updateFailed': 'לא ניתן היה לעדכן את ההפעלה',
+  'sessions.sidebar.session.pin.pinFailed': 'לא ניתן היה להצמיד את ההפעלה',
+  'sessions.sidebar.session.pin.unpinFailed': 'לא ניתן היה לבטל את הצמדת ההפעלה',
   'chat.work.doneHint.text': 'נראה שהעבודה הזו הושלמה.',
   'chat.work.doneHint.action': 'סמן כהושלם',
   'chat.work.reviewHint.text': 'השינויים מוכנים לסקירה.',

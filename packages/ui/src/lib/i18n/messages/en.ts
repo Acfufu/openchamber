@@ -690,6 +690,8 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Mark done',
   'sessions.sidebar.session.work.doneSuggested': 'Looks done',
   'sessions.sidebar.session.work.updateFailed': 'Couldn\'t update the session',
+  'sessions.sidebar.session.pin.pinFailed': 'Couldn\'t pin the session',
+  'sessions.sidebar.session.pin.unpinFailed': 'Couldn\'t unpin the session',
   'chat.work.doneHint.text': 'This work looks done.',
   'chat.work.doneHint.action': 'Mark done',
   'chat.work.reviewHint.text': 'Changes are ready to look over.',

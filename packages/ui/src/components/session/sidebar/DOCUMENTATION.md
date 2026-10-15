@@ -264,8 +264,8 @@ rows. Mobile swipe actions run left to right by how often they are used on a
 phone, because a short drag exposes the leftmost first: archive, pin (top-level
 rows), Track / Done (top-level rows, feature on), delete, rename; AI rename sits
 inside the rename editor. Top-level rows also show a pin marker beside the
-time; pins are the same device-local `useSessionPinnedStore` the desktop menu
-writes, so a pin set on one device does not appear on another. Mobile rows
+time; it is the same pin the desktop menu sets, so a pin set on one device
+shows on every other client of the server. Mobile rows
 also show the goal glyph and the permission/question badges
 (`apps/MobileSessionStateBadges.tsx`): before the time on grouped rows, at the
 end of the branch line on timeline rows. Counts come from the cross-directory
@@ -286,8 +286,19 @@ Pinned only. Like In work, its sessions also stay in their projects, search
 lists each of them once, in the zone (`zoneSessionIds` carries both zones' ids),
 and the rows follow the same render context. Its rows show no pin marker,
 because the header already says they are pinned; In work rows show it only
-while the zone is hidden, since otherwise no pinned session reaches In work. Pins are the device-local
-`useSessionPinnedStore`, so the zone differs between devices. The phone sheet
+while the zone is hidden, since otherwise no pinned session reaches In work.
+
+A pin lives in the session's metadata (`openchamber.pinned: { at }`,
+`lib/sessionPins.ts`), written through the metadata route like the work state,
+so every client of the server sees it; VS Code keeps it in its own metadata
+store. `useSessionPinnedStore` derives the pinned keys (runtime, directory,
+session) from the global session list and overlays a click until the server
+answers (`sync/session-pins.ts`, which reverts it and the caller toasts on
+failure). Older versions kept pins in this device's storage
+(`oc.sessions.pinned.v2`); those count as pinned until the first complete
+session list of their server, when they move into metadata, a pin whose
+session is gone is dropped, and one that fails to write stays for the next
+load. The phone sheet
 mirrors both toggles: its display menu offers Show pinned section and, in
 Tree, Detailed rows, and its Pinned and In work sections render tree rows in
 Tree unless detailed rows are on. VS Code

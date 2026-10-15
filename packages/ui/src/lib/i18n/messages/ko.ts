@@ -691,6 +691,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '완료로 표시',
   'sessions.sidebar.session.work.doneSuggested': '완료된 것 같습니다',
   'sessions.sidebar.session.work.updateFailed': '세션을 업데이트할 수 없습니다',
+  'sessions.sidebar.session.pin.pinFailed': '세션을 고정할 수 없습니다',
+  'sessions.sidebar.session.pin.unpinFailed': '세션 고정을 해제할 수 없습니다',
   'chat.work.doneHint.text': '이 작업은 완료된 것 같습니다.',
   'chat.work.doneHint.action': '완료로 표시',
   'chat.work.reviewHint.text': '변경 사항을 검토할 준비가 되었습니다.',

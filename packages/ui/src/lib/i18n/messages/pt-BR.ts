@@ -692,6 +692,8 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Marcar como concluído",
   "sessions.sidebar.session.work.doneSuggested": "Parece concluído",
   "sessions.sidebar.session.work.updateFailed": "Não foi possível atualizar a sessão",
+  "sessions.sidebar.session.pin.pinFailed": "Não foi possível fixar a sessão",
+  "sessions.sidebar.session.pin.unpinFailed": "Não foi possível desafixar a sessão",
   "chat.work.doneHint.text": "Este trabalho parece concluído.",
   "chat.work.doneHint.action": "Marcar como concluído",
   "chat.work.reviewHint.text": "As alterações estão prontas para revisão.",

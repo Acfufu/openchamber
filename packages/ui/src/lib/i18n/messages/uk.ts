@@ -692,6 +692,8 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Позначити готовим",
   "sessions.sidebar.session.work.doneSuggested": "Схоже, готово",
   "sessions.sidebar.session.work.updateFailed": "Не вдалося оновити сесію",
+  "sessions.sidebar.session.pin.pinFailed": "Не вдалося закріпити сесію",
+  "sessions.sidebar.session.pin.unpinFailed": "Не вдалося відкріпити сесію",
   "chat.work.doneHint.text": "Схоже, тут усе готово.",
   "chat.work.doneHint.action": "Позначити готовим",
   "chat.work.reviewHint.text": "Зміни готові до перегляду.",

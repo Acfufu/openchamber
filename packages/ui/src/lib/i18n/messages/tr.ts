@@ -600,6 +600,8 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Tamamlandı olarak işaretle',
   'sessions.sidebar.session.work.doneSuggested': 'Tamamlanmış görünüyor',
   'sessions.sidebar.session.work.updateFailed': 'Oturum güncellenemedi',
+  'sessions.sidebar.session.pin.pinFailed': 'Oturum sabitlenemedi',
+  'sessions.sidebar.session.pin.unpinFailed': 'Oturumun sabitlemesi kaldırılamadı',
   'chat.work.doneHint.text': 'Bu iş tamamlanmış görünüyor.',
   'chat.work.doneHint.action': 'Tamamlandı olarak işaretle',
   'chat.work.reviewHint.text': 'Değişiklikler incelenmeye hazır.',

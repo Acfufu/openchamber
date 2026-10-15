@@ -21,6 +21,8 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useGlobalSessionsStore, resolveGlobalSessionDirectory } from '@/stores/useGlobalSessionsStore';
 import { isBtwSession } from '@/lib/sessionBtwMetadata';
 import { useSessionPinnedStore } from '@/stores/useSessionPinnedStore';
+import { isSessionPinned } from '@/lib/sessionPins';
+import { toggleSessionPin } from '@/sync/session-pins';
 import {
   EMPTY_SESSION_ORDER_RANKS,
   orderSessionsByLifecycleScopes,
@@ -146,7 +148,6 @@ export const CommandPalette: React.FC = () => {
   const openNewSessionDraft = useSessionUIStore((s) => s.openNewSessionDraft);
   const setCurrentSession = useSessionUIStore((s) => s.setCurrentSession);
   const currentSessionId = useSessionUIStore((s) => s.currentSessionId);
-  const togglePinnedSession = useSessionPinnedStore((s) => s.toggle);
 
   const activeSessions = useGlobalSessionsStore(React.useCallback(
     (state) => isCommandPaletteOpen ? state.activeSessions : EMPTY_SESSIONS,
@@ -364,7 +365,10 @@ export const CommandPalette: React.FC = () => {
         searchText: t('commandPalette.item.pinSession'),
         onSelect: run(() => {
           if (currentSessionId && currentDirectory) {
-            togglePinnedSession({ directory: currentDirectory, sessionId: currentSessionId });
+            const failedKey = isSessionPinned(useSessionPinnedStore.getState().ids, currentDirectory, currentSessionId)
+              ? 'sessions.sidebar.session.pin.unpinFailed'
+              : 'sessions.sidebar.session.pin.pinFailed';
+            toggleSessionPin({ directory: currentDirectory, sessionId: currentSessionId }).catch(() => toast.error(t(failedKey)));
           }
         }),
       },
@@ -525,7 +529,6 @@ export const CommandPalette: React.FC = () => {
     activeProject?.id,
     activeProject?.path,
     currentSessionId,
-    togglePinnedSession,
     setArchivePageOpen,
     setProjectContextTab,
     projectActions,

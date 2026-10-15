@@ -612,6 +612,8 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Als erledigt markieren',
   'sessions.sidebar.session.work.doneSuggested': 'Sieht erledigt aus',
   'sessions.sidebar.session.work.updateFailed': 'Sitzung konnte nicht aktualisiert werden',
+  'sessions.sidebar.session.pin.pinFailed': 'Sitzung konnte nicht angeheftet werden',
+  'sessions.sidebar.session.pin.unpinFailed': 'Sitzung konnte nicht losgelöst werden',
   'chat.work.doneHint.text': 'Diese Arbeit scheint erledigt.',
   'chat.work.doneHint.action': 'Als erledigt markieren',
   'chat.work.reviewHint.text': 'Die Änderungen sind bereit zur Durchsicht.',

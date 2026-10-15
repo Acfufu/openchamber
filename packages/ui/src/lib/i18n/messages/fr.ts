@@ -512,6 +512,8 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Marquer comme terminé',
   'sessions.sidebar.session.work.doneSuggested': 'Semble terminé',
   'sessions.sidebar.session.work.updateFailed': 'Impossible de mettre à jour la session',
+  'sessions.sidebar.session.pin.pinFailed': 'Impossible d\'épingler la session',
+  'sessions.sidebar.session.pin.unpinFailed': 'Impossible de désépingler la session',
   'chat.work.doneHint.text': 'Ce travail semble terminé.',
   'chat.work.doneHint.action': 'Marquer comme terminé',
   'chat.work.reviewHint.text': 'Les modifications sont prêtes à être relues.',

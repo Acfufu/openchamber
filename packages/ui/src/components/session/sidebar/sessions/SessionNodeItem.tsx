@@ -23,7 +23,8 @@ import { canUseElectronDesktopIPC, getMiniChatRuntimeArgs, invokeDesktop, isVSCo
 import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { isSessionPinned, useSessionPinnedStore } from '@/stores/useSessionPinnedStore';
+import { isSessionPinned } from '@/lib/sessionPins';
+import { toggleSessionPin } from '@/sync/session-pins';
 import { Icon } from "@/components/icon/Icon";
 import { buildExportFilename, downloadAsMarkdown, formatSessionAsMarkdown, getExportRevealLabelKey, revealExportedMarkdown, saveAsMarkdownDesktop } from '@/lib/exportSession';
 import type { ChildSessionExport } from '@/lib/exportSession';
@@ -342,7 +343,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     dragKey,
     children,
   } = props;
-  const togglePinnedSession = useSessionPinnedStore((state) => state.toggle);
   const getFoldersForScope = useSessionFoldersStore((state) => state.getFoldersForScope);
   const getSessionFolderId = useSessionFoldersStore((state) => state.getSessionFolderId);
   const removeSessionFromFolder = useSessionFoldersStore((state) => state.removeSessionFromFolder);
@@ -1305,7 +1305,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       </Item>
       </SessionMenuItemHint>
       <SessionMenuItemHint hint={isPinnedSession ? t('sessions.sidebar.session.menuHint.unpin') : t('sessions.sidebar.session.menuHint.pin')}>
-      <Item onClick={() => sessionDirectory && togglePinnedSession({ directory: sessionDirectory, sessionId: session.id })} className="[&>svg]:me-1">
+      <Item
+        onClick={() => {
+          if (!sessionDirectory) return;
+          const failedKey = isPinnedSession ? 'sessions.sidebar.session.pin.unpinFailed' : 'sessions.sidebar.session.pin.pinFailed';
+          toggleSessionPin({ directory: sessionDirectory, sessionId: session.id }).catch(() => toast.error(t(failedKey)));
+        }}
+        className="[&>svg]:me-1"
+      >
         {isPinnedSession ? <Icon name="unpin" className="me-1 h-4 w-4" /> : <Icon name="pushpin" className="me-1 h-4 w-4" />}
         {isPinnedSession ? t('sessions.sidebar.session.menu.unpin') : t('sessions.sidebar.session.menu.pin')}
       </Item>
