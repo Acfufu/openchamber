@@ -43,6 +43,7 @@ import { DraggableSessionRow } from '../folders/sessionFolderDnd';
 import { useSessionRowOrderRegistry } from './sessionRowOrder';
 import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
 import { useSessionRowMenuState } from './useSessionRowMenuState';
+import { collectSessionMoveDescendants } from './sessionSubtreeActions';
 import type { SessionNode } from '../types';
 import { hasTreeSlotContext, isTwoLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
@@ -1375,7 +1376,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                       requestSessionTreeMove({
                         kind: 'existing',
                         root: resolvedSession,
-                        descendants: collectNodeDescendantSessions(node),
+                        descendants: collectSessionMoveDescendants(resolvedSession, collectNodeDescendantSessions(node)),
                         sourceDirectory: sessionDirectory,
                         destination: target.metadata,
                         messages: buildSessionTreeMoveMessages(t, {
@@ -1408,7 +1409,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                     requestSessionTreeMove({
                       kind: 'quick',
                       root: resolvedSession,
-                      descendants: collectNodeDescendantSessions(node),
+                      descendants: collectSessionMoveDescendants(resolvedSession, collectNodeDescendantSessions(node)),
                       sourceDirectory: sessionDirectory,
                       messages: buildSessionTreeMoveMessages(t, {
                         success: 'sessions.sidebar.session.moveToWorktree.success',

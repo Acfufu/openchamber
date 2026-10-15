@@ -7,7 +7,8 @@ import { describeSessionActionError } from './sessionActionError';
 import type { I18nKey, I18nParams } from '@/lib/i18n';
 import { resolveGlobalSessionDirectory, useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
 import { useSessionUIStore, type SessionUIState } from '@/sync/session-ui-store';
-import { getDescendantIds } from '../list/sessionCollection';
+import { buildActiveSessionNode, getDescendantIds } from '../list/sessionCollection';
+import type { SessionNode } from '../types';
 
 type Translate = (key: I18nKey, params?: I18nParams) => string;
 
@@ -56,6 +57,38 @@ export const collectSessionSubtreeIds = (
   }
   ids.delete(rootId);
   return [...ids];
+};
+
+/**
+ * Every descendant a move to another worktree takes along, resolved when the
+ * user acts rather than while rows render.
+ *
+ * `knownDescendants` is the row's rendered tree. In work, Pinned and the List
+ * view render a root with no children, so a move from those rows took the root
+ * alone and left its subagents behind. The global cache holds the whole active
+ * tree, walked here the way the project tree builds it: a move stops at an
+ * archived session and leaves everything below it, as moving from the project
+ * tree always did.
+ */
+export const collectSessionMoveDescendants = (root: Session, knownDescendants: readonly Session[]): Session[] => {
+  const childrenByParentId = new Map<string, Session[]>();
+  for (const session of useGlobalSessionsStore.getState().activeSessions) {
+    const parentId = session.parentID;
+    if (!parentId) continue;
+    const siblings = childrenByParentId.get(parentId) ?? [];
+    siblings.push(session);
+    childrenByParentId.set(parentId, siblings);
+  }
+  const descendants = new Map(knownDescendants.map((session) => [session.id, session]));
+  const walk = (node: SessionNode): void => {
+    for (const child of node.children) {
+      if (!descendants.has(child.session.id)) descendants.set(child.session.id, child.session);
+      walk(child);
+    }
+  };
+  walk(buildActiveSessionNode(childrenByParentId, root));
+  descendants.delete(root.id);
+  return [...descendants.values()];
 };
 
 // The first recorded server answer for the failed ids, as a toast description.
