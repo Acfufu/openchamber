@@ -47,6 +47,7 @@ import { ZoneMoveMenuItems } from './ZoneMoveMenuItems';
 import { beginZoneDrag, cancelZoneDrag, finishZoneDrag, startZoneDragGesture, updateZoneDrag } from './zoneDrag';
 import { setZoneBody, setZoneHeaderSlot } from './zoneHosts';
 import { useOpenUntilSettled } from './useOpenUntilSettled';
+import { DockedPanelSurfaceContext } from '@/hooks/usePageColors';
 
 const CONTEXT_PANEL_MIN_WIDTH = 320;
 const CONTEXT_PANEL_DEFAULT_WIDTH = 600;
@@ -1158,11 +1159,14 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
         // tree, and aria-hidden on top cost a second pass when it flipped.
         inert={contentHidden || undefined}
       >
+      <DockedPanelSurfaceContext.Provider value>
       {header}
-      {/* Keep-alive surfaces (ContextSurfacePanes) are portalled in here. */}
+      {/* Keep-alive surfaces (ContextSurfacePanes) are portalled in here and
+          take the docked surface from their own pane (ZonePane). */}
       <div ref={registerBody} className={cn('relative min-h-0 flex-1 overflow-hidden', isResizing && 'pointer-events-none')}>
         {activeTab && isRemountedSurface(activeTab.mode) ? activeNonChatContent : null}
       </div>
+      </DockedPanelSurfaceContext.Provider>
       </div>
     </aside>
     </>

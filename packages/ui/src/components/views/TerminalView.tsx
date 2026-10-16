@@ -9,6 +9,7 @@ import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { useFontPreferences } from '@/hooks/useFontPreferences';
 import { CODE_FONT_OPTION_MAP, DEFAULT_MONO_FONT } from '@/lib/fontOptions';
 import { convertThemeToXterm } from '@/lib/terminalTheme';
+import { usePageColors } from '@/hooks/usePageColors';
 import { TerminalViewport, type TerminalController } from '@/components/terminal/TerminalViewport';
 import { focusChatInput } from '@/components/chat/composer/editor/dom';
 import type { MonoFontOption } from '@/lib/fontOptions';
@@ -113,8 +114,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
     const { t } = useI18n();
     const { terminal, runtime } = useRuntimeAPIs();
     const { currentTheme } = useThemeSystem();
+    const pageBackground = usePageColors().background;
     const terminalAppearanceRef = React.useRef<{ themeMode: 'light' | 'dark'; terminalBackground: string; terminalForeground: string }>({ themeMode: 'dark', terminalBackground: '', terminalForeground: '' });
-    terminalAppearanceRef.current = { themeMode: currentTheme.metadata.variant === 'light' ? 'light' : 'dark', terminalBackground: currentTheme.colors.surface.background, terminalForeground: currentTheme.colors.syntax.base.foreground };
+    terminalAppearanceRef.current = { themeMode: currentTheme.metadata.variant === 'light' ? 'light' : 'dark', terminalBackground: pageBackground, terminalForeground: currentTheme.colors.syntax.base.foreground };
     const { monoFont } = useFontPreferences();
     const terminalFontSize = useUIStore(state => state.terminalFontSize);
     const terminalShell = useUIStore(state => state.terminalShell);
@@ -263,7 +265,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
     React.useEffect(() => {
         if (!terminalSessionId || !terminal.updateAppearance) return;
         void terminal.updateAppearance(terminalSessionId, terminalAppearanceRef.current, terminalDirectory).catch(() => {});
-    }, [currentTheme.colors.surface.background, currentTheme.colors.syntax.base.foreground, currentTheme.metadata.variant, terminal, terminalDirectory, terminalSessionId]);
+    }, [pageBackground, currentTheme.colors.syntax.base.foreground, currentTheme.metadata.variant, terminal, terminalDirectory, terminalSessionId]);
 
     React.useEffect(() => {
         activeTabIdRef.current = activeTabId;
@@ -1044,7 +1046,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
         return definition.stack ?? defaultStack;
     }, [monoFont]);
 
-    const xtermTheme = React.useMemo(() => convertThemeToXterm(currentTheme), [currentTheme]);
+    const xtermTheme = React.useMemo(() => convertThemeToXterm(currentTheme, pageBackground), [currentTheme, pageBackground]);
 
     // Viewport identity is the tab, not the PTY session. Including the session id
     // here tore down and rebuilt the Ghostty terminal (WASM VT + canvas + font

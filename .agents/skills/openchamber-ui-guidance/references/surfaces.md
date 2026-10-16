@@ -16,7 +16,7 @@ the source of the values. Its comments say why each value is what it is.
 | Choice of one among a few | `SettingsChipGroup`, or `SortableTabsStrip variant="active-pill"` for tabs | A recessed track (`oc-recessed`) with the chosen option raised. Independent toggles stay chips. |
 | Menu, popover, autocomplete, floating comment field | `oc-glass-popover oc-glass-floating` | No border and no extra `shadow-*` on it or a wrapper: either replaces the light. |
 | Surface always on screen over the transcript (composer, status pills) | `oc-surface-floating` + `oc-glass-floating` | Opaque on purpose: a blur there is redrawn every streamed frame. The composer adds `oc-composer-sheen`. |
-| Panel in the layout beside the chat (context panel card, work status card) | `oc-panel-edge` | A hairline ring by maintainer decision; it gains the full dropdown edge only while floating over the chat. |
+| Panel in the layout beside the chat (context panel card, work status card) | `oc-panel-edge` | A hairline ring and a short shadow, plus a faint lit top line in dark themes, by maintainer decision; it gains the full dropdown edge only while floating over the chat. |
 | Modal window | `DialogContent` (`oc-modal-shadow`) | Focus on open goes to the first text field, else the window, so no ring lands on the close cross. |
 | Banner: warning, error, info | status background fill | No border. A very faint fill gets a stronger tint rather than a border back. |
 | Large code canvas (Files editor and tree, a diff) | its existing frame | The one place a full border stays: without it the canvas merges with the page. |
@@ -28,8 +28,8 @@ themes a raised control takes the canvas colour
 (`bg-[var(--surface-background)] dark:bg-surface-elevated`) and lifts on a
 short shadow, while a text field is pressed into the page by a faint inner
 shadow. Dark themes paint elevated lighter, and controls and fields take a lit
-top line, a faint sheen and a shadow below. Fields and the composer use a
-quieter top line and shadow than buttons and pickers.
+top line, a faint sheen and a shadow below, the same on fields, buttons and
+pickers.
 
 Tone steps (`oc-tile`, `oc-tile-inset`, `oc-tile-hover`) mix the text colour
 into whatever is underneath, so one class reads correctly in both themes and

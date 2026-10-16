@@ -37,6 +37,7 @@ import { useZoneHostsStore } from './zoneHosts';
 import { useRightSlotStore } from './rightSlot';
 import { useOpenUntilSettled } from './useOpenUntilSettled';
 import { PauseClock } from '@/components/ui/pause-clock';
+import { DockedPanelSurfaceContext } from '@/hooks/usePageColors';
 
 // Heavy views stay on-demand (same as MainLayout): importing DiffView/FilesView
 // or the walkthrough statically pulls the CodeMirror and @pierre/diffs stacks
@@ -244,7 +245,9 @@ const ZonePane: React.FC<{
   return (
     <MovablePane zone={zone}>
       <div className={className} onKeyDownCapture={handleKeyDownCapture}>
-        <PauseClock paused={!isOpen || hidden}>{children}</PauseClock>
+        <DockedPanelSurfaceContext.Provider value>
+          <PauseClock paused={!isOpen || hidden}>{children}</PauseClock>
+        </DockedPanelSurfaceContext.Provider>
       </div>
     </MovablePane>
   );

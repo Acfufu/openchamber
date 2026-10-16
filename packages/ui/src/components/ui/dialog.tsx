@@ -4,6 +4,7 @@ import { Dialog as BaseDialog } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { useI18n } from '@/lib/i18n'
 import { Icon } from "@/components/icon/Icon";
+import { DockedPanelSurfaceContext } from "@/hooks/usePageColors";
 
 let openDialogCount = 0;
 
@@ -136,7 +137,9 @@ function DialogContent({
           )}
           {...props}
         >
-        {children}
+        {/* A dialog opened from a docked panel floats over the app, off the
+            panel's page colour. */}
+        <DockedPanelSurfaceContext.Provider value={false}>{children}</DockedPanelSurfaceContext.Provider>
         {showCloseButton && (
           <BaseDialog.Close
             data-slot="dialog-close"
