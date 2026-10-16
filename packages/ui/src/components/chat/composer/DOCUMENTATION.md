@@ -587,9 +587,17 @@ and the send path reading the same grammar.
   including for **Insert and send**, and a toast says where it went.
 - `state/useDraftTarget.ts` — the draft can target a directory that does not
   exist yet (a worktree being created). It must survive not appearing in the
-  branch list, or the selector snaps back to the project root mid-creation. It
-  also owns the advisory dirty state for the selected directory, clearing it as
-  soon as the target changes so a warning never names a previous branch.
+  branch list, or the selector snaps back to the project root mid-creation. A
+  draft opened on a given directory (Mini Chat, a worktree or space row) pins
+  it with `preserveDirectoryOverride`: the app does not move the draft until
+  the directory shows up as a known branch. The pin stops only the app. A pick
+  in the project or worktree picker always applies and clears it, because a
+  project without git never lists a branch and its pin never clears by itself.
+  Re-picking what a pinned draft already shows changes nothing, so one click
+  cannot drop an unlisted space or worktree directory. Only a worktree still being created (`pendingWorktreeRequestId`,
+  `bootstrapPendingDirectory`) keeps both pickers inert. The hook also owns the
+  advisory dirty state for the selected directory, clearing it as soon as the
+  target changes so a warning never names a previous branch.
 - `ui/DraftTargetSelectors.tsx` owns the controlled project/worktree picker
   state and registers its application shortcuts locally. The desktop project
   picker is a searchable popup: it ranks the current projects with
