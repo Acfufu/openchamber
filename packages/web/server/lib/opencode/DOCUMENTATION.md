@@ -959,6 +959,7 @@ The VS Code extension owns its separate Git and proxy implementation.
   - Can still create its own `/api/event` reader when no shared hub is provided, which keeps module tests and isolated reuse simple.
   - Reuses event-stream parsing, `Last-Event-ID`, stall timeout, and reconnect behavior.
   - Translates each v2 wire event through `lib/event-stream/translate-v2.js` before handing it to notification/session side effects, so those consumers keep speaking the server's own event vocabulary.
+  - Calls `onPayload(payload, { spaceId })`: `spaceId` is the isolated space an event came from, `null` for the host's own. A space's session exists only in the OpenCode inside that space, so a consumer that reads a session must read it there.
 
 ## Storage and configuration
 - Provider auth: read from the running OpenCode over `GET /api/credential` (2.0.20+); OpenCode 2.x owns credentials.

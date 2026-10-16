@@ -27,6 +27,7 @@ import { spaceProjectPath } from './layout.js';
 import { createSpaceManager } from './manager.js';
 import { createSpaceRecords } from './space-records.js';
 import { createSpaceEventSources } from './space-events.js';
+import { createSpaceFetch } from './space-fetch.js';
 import { createSpaceOpenCode } from './space-opencode.js';
 import { createSpaceSessionIndex, mergeSessionLists } from './space-sessions.js';
 import { createSpaceWebSocketForwarder } from './websocket.js';
@@ -411,6 +412,8 @@ export function createSpacesHost({
     dispatcher,
     index,
     journey,
+    /** A `fetch` for the host's own reads of one space's sessions, for its notifications. */
+    openCodeFetchFor: createSpaceFetch({ requestInside: dispatcher.requestInside }),
     /** The places a space can be made on, for the funnel. */
     places: () => registry.list(),
     /** What gets Docker going on this computer, and the action that does it, for the local place. */
