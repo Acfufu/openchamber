@@ -443,14 +443,26 @@
     0 4px 8px -3px rgb(0 0 0 / 0.45);
 }
 
-/* A docked panel takes the theme's muted surface (the sidebar's fill) in dark
-   themes, so the chat sits between two side surfaces of one tone; tiles
+/* A docked panel takes the theme's muted surface (the sidebar's fill), so the
+   chat sits between two side surfaces of one tone; tiles
    inside mix from it. It redefines the page colour for the whole card rather
    than painting the card: this rule sits in the components layer, below the
    card's bg-background utility, and the panes inside paint the page colour
    over the card anyway. Surfaces coloured from the theme object (terminal,
    extension frames) follow through usePageColors (hooks/usePageColors.ts).
-   Floating, the card keeps its glass. */
+   Floating, the card keeps its glass. Light themes go only halfway to the
+   sidebar's fill: the full step read too heavy against a light chat. */
+:root {
+  /* The chat's page colour, kept under its own name because the panel rules
+     below redefine --surface-background and cannot mix from themselves. */
+  --oc-chat-background: var(--surface-background);
+}
+
+.oc-panel-edge:not([data-edge-floating]) {
+  --background: color-mix(in srgb, var(--surface-muted) 50%, var(--oc-chat-background));
+  --surface-background: color-mix(in srgb, var(--surface-muted) 50%, var(--oc-chat-background));
+}
+
 .dark .oc-panel-edge:not([data-edge-floating]) {
   --background: var(--surface-muted);
   --surface-background: var(--surface-muted);
