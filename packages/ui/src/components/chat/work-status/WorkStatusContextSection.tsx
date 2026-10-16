@@ -19,7 +19,7 @@ import { useProjectsStore } from '@/stores/useProjectsStore';
 import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
 import { resolveProjectContextId } from '@/lib/projectContextApi';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useOpenOnBoard } from '@/components/sourceBoard/openOnBoard';
+import { useOpenTrackerItem } from '@/components/sourceBoard/openTrackerItem';
 import { WorkStatusCollapsibleSection, WorkStatusRow, WorkStatusValue } from './WorkStatusPrimitives';
 import { useReportWorkStatusPresence } from './presenceContext';
 import { resolveDraftPinnedKnowledge } from './draftKnowledge';
@@ -247,7 +247,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
     });
     return looks;
   }, [gitlabChangeSummaries, gitlabIssueStates, linkedGitLabChanges, linkedGitLabIssues, linkedIssueRefs, linkedIssueStates, linkedLinearIdentifiers, linkedLinearStates, linkedPrSummaries, t]);
-  const openOnBoard = useOpenOnBoard();
+  const openTrackerItem = useOpenTrackerItem();
   // Connected servers only. A disabled server contributes nothing to the
   // context, so counting it here contradicts the MCP section right above,
   // which shows the same servers switched off.
@@ -365,9 +365,9 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
           leading={renderLinkedIcon(entry)}
           label={renderLinkedLabel(entry)}
           muted
-          // On the board, selected, in this session's project; Cmd or Ctrl,
-          // and anything the board does not list, opens the link.
-          onClick={(event) => openOnBoard(entry.url, directory, event)}
+          // In the Tracker, read through this session's project; Cmd or Ctrl,
+          // and anything the app cannot show, opens the link.
+          onClick={(event) => openTrackerItem(entry.url, directory, event)}
           ariaLabel={entry.kind === 'linear'
             ? t('chat.workStatus.linkedIssues.openLinear', { identifier: entry.identifier })
             : entry.kind === 'guest' || entry.kind === 'external'

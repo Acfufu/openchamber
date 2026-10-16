@@ -2474,7 +2474,7 @@ export const settingsDict = {
   'settings.openchamber.visual.field.openLinksInBrowserPanel': 'Links im integrierten Browser öffnen',
   'settings.openchamber.visual.field.openLinksInBrowserPanelInfo': 'Links im Chat öffnen sich in einem Browser-Tab neben dem Chat. Cmd+Klick oder Strg+Klick öffnet sie in deinem Standardbrowser.',
   'settings.openchamber.visual.field.openTrackerLinksOnBoard': 'Issues und Pull Requests in OpenChamber öffnen',
-  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': 'Links zu GitHub- und GitLab-Issues, Pull und Merge Requests sowie Linear-Issues öffnen sich auf dem Board Issues und PRs, wenn ihr Projekt hier geöffnet ist. Cmd+Klick oder Strg+Klick öffnet den Link selbst.',
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "Links zu GitHub- und GitLab-Issues, Pull und Merge Requests sowie Linear-Issues öffnen sich im Tracker neben dem Chat, wenn ihr Projekt hier geöffnet ist, und auf dem Smartphone auf dem Board Issues und PRs. Cmd+Klick oder Strg+Klick öffnet den Link selbst.",
   'settings.openchamber.visual.field.fileTreeSide': 'Seite des Dateibaums',
   'settings.openchamber.visual.option.fileTreeSide.left': 'Links',
   'settings.openchamber.visual.option.fileTreeSide.right': 'Rechts',

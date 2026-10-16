@@ -467,6 +467,7 @@ export const ContextSurfacePanes: React.FC = () => {
     openContextPanelTab(directoryKey, {
       mode: 'diff',
       targetPath: diffActiveTab.targetPath,
+      targetDirectory: diffActiveTab.targetDirectory,
       stagedDiff: nextScope === 'staged',
       diffScope: nextScope,
     });
@@ -519,7 +520,7 @@ export const ContextSurfacePanes: React.FC = () => {
   );
   // Keep-alive: the walkthrough holds reading progress and scroll position that
   // a remount would silently throw away.
-  const hasWalkthroughTab = React.useMemo(() => tabs.some((tab) => tab.mode === 'walkthrough'), [tabs]);
+  const walkthroughTab = React.useMemo(() => tabs.find((tab) => tab.mode === 'walkthrough') ?? null, [tabs]);
   const pluginTabs = React.useMemo(() => tabs.filter((tab) => isPluginContextPanelMode(tab.mode)), [tabs]);
   const guests = useGuestsStore((state) => state.guests);
   const surfaceGuestIds = React.useMemo(
@@ -638,6 +639,7 @@ export const ContextSurfacePanes: React.FC = () => {
             <React.Suspense fallback={null}>
               <ContextPanelHeaderSlotProvider value={headerSlotFor(diffZone.zone, active)}>
                 <DiffView
+                  directory={tab.targetDirectory}
                   visible={diffZone.isOpen && active}
                   hideStackedFileSidebar
                   stackedDefaultCollapsedAll
@@ -673,7 +675,7 @@ export const ContextSurfacePanes: React.FC = () => {
           </ContextPanelHeaderSlotProvider>
         </ZonePane>
       ) : null}
-      {hasWalkthroughTab ? (
+      {walkthroughTab ? (
         <ZonePane
           zone={walkthroughZone.zone}
           interactive={interactive[walkthroughZone.zone]}
@@ -684,7 +686,7 @@ export const ContextSurfacePanes: React.FC = () => {
         >
           <React.Suspense fallback={null}>
             <ContextPanelHeaderSlotProvider value={headerSlotFor(walkthroughZone.zone, walkthroughZone.activeTab?.mode === 'walkthrough')}>
-              <WalkthroughView directory={effectiveDirectory} visible={walkthroughZone.isOpen && walkthroughZone.activeTab?.mode === 'walkthrough'} />
+              <WalkthroughView directory={walkthroughTab.targetDirectory ?? effectiveDirectory} visible={walkthroughZone.isOpen && walkthroughZone.activeTab?.mode === 'walkthrough'} />
             </ContextPanelHeaderSlotProvider>
           </React.Suspense>
         </ZonePane>

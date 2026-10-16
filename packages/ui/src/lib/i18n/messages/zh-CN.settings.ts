@@ -2292,7 +2292,7 @@ export const settingsDict = {
   'settings.openchamber.visual.field.openLinksInBrowserPanel': '在内置浏览器中打开链接',
   'settings.openchamber.visual.field.openLinksInBrowserPanelInfo': '聊天中的链接会在聊天旁边的浏览器标签页中打开。Cmd+点击或 Ctrl+点击会在默认浏览器中打开。',
   'settings.openchamber.visual.field.openTrackerLinksOnBoard': '在 OpenChamber 中打开 Issue 和拉取请求',
-  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': 'GitHub 和 GitLab 的 Issue、拉取请求、合并请求以及 Linear Issue 的链接，在其项目已在此打开时会在“Issue 和 PR”看板中打开。Cmd+点击或 Ctrl+点击会打开链接本身。',
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "GitHub 和 GitLab 的 Issue、拉取请求、合并请求以及 Linear Issue 的链接，在其项目已在此打开时会在聊天旁的“跟踪”中打开，在手机上则在“Issue 和 PR”看板中打开。Cmd+点击或 Ctrl+点击会打开链接本身。",
   'settings.openchamber.visual.field.fileTreeSide': '文件树位置',
   'settings.openchamber.visual.option.fileTreeSide.left': '左侧',
   'settings.openchamber.visual.option.fileTreeSide.right': '右侧',

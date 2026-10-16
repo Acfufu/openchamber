@@ -354,7 +354,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
   })));
   const isMobile = useUIStore((state) => state.isMobile);
   const openContextDiff = useUIStore((state) => state.openContextDiff);
-  const openContextSurface = useUIStore((state) => state.openContextSurface);
+  const openContextPanelTab = useUIStore((state) => state.openContextPanelTab);
   const [remotes, setRemotes] = React.useState<GitRemote[]>([]);
   const binding = useRepositoryBinding(gitDirectory, sourceControl, isActive);
   const [isRepositoryConfigurationOpen, setRepositoryConfigurationOpen] = React.useState(false);
@@ -2455,7 +2455,8 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
             pullRequestProvider={prChipStatus?.changeRequest?.provider ?? null}
             prChecks={prChipStatus?.ci?.summary ?? prChipStatus?.checks ?? null}
             onOpenPullRequest={
-              gitDirectory ? () => openContextSurface(gitDirectory, 'pr') : undefined
+              // The branch's own tab of the Tracker, in the panel this view is in.
+              gitDirectory ? () => openContextPanelTab(currentDirectory ?? gitDirectory, { mode: 'pr' }) : undefined
             }
             repositoryOptions={
               gitDirectory !== currentDirectory && Array.isArray(nestedRepos) ? nestedRepos : undefined

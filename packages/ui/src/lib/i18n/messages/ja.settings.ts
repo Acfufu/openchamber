@@ -2325,7 +2325,7 @@ export const settingsDict = {
   'settings.openchamber.visual.field.openLinksInBrowserPanel': 'リンクを内蔵ブラウザで開く',
   'settings.openchamber.visual.field.openLinksInBrowserPanelInfo': 'チャット内のリンクはチャットの横のブラウザタブで開きます。Cmd+クリックまたは Ctrl+クリックで既定のブラウザで開きます。',
   'settings.openchamber.visual.field.openTrackerLinksOnBoard': 'Issue とプルリクエストを OpenChamber で開く',
-  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': 'GitHub と GitLab の Issue、プルリクエスト、マージリクエスト、Linear の Issue へのリンクは、そのプロジェクトがここで開いていれば「Issue と PR」ボードで開きます。Cmd+クリックまたは Ctrl+クリックでリンク自体を開きます。',
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "GitHub と GitLab の Issue、プルリクエスト、マージリクエスト、Linear の Issue へのリンクは、そのプロジェクトがここで開いていればチャットの横のトラッカーで、スマートフォンでは「Issue と PR」ボードで開きます。Cmd+クリックまたは Ctrl+クリックでリンク自体を開きます。",
   'settings.openchamber.visual.field.fileTreeSide': 'ファイルツリーの位置',
   'settings.openchamber.visual.option.fileTreeSide.left': '左',
   'settings.openchamber.visual.option.fileTreeSide.right': '右',

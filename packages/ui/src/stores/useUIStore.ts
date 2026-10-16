@@ -257,10 +257,22 @@ const normalizeContextTargetDirectory = (value: string | null | undefined): stri
 
 // A terminal may run in another directory than the panel it lives in, and a
 // chat tab may show a session from another project (or Chat) next to the
-// main chat; every other mode works in the panel's own directory.
+// main chat. A Tracker item reads through the project it belongs to, and so
+// do the Changes and walkthrough of a pull request opened from one, without
+// the app moving to that project. Every other mode works in the panel's own
+// directory.
 const contextPanelModeKeepsTargetDirectory = (mode: ContextPanelMode): boolean => {
-  return mode === 'terminal' || mode === 'chat';
+  return mode === 'terminal' || mode === 'chat' || mode === 'pr' || mode === 'diff' || mode === 'walkthrough';
 };
+
+/**
+ * The Tracker surface's first tab: the checked-out branch's pull request, or
+ * the form that creates it. It is always there and never closes; the items
+ * opened beside it carry their link as `targetPath`.
+ */
+export const isTrackerBranchTab = (tab: { mode: ContextPanelMode; targetPath: string | null }): boolean => (
+  tab.mode === 'pr' && !tab.targetPath
+);
 
 const normalizeContextTabLabel = (value: string | null | undefined): string | null => {
   if (typeof value !== 'string') {
@@ -286,7 +298,7 @@ const buildDefaultContextPanelTabDedupeKey = (mode: ContextPanelMode, targetPath
     return targetPath || mode;
   }
 
-  if (mode === 'browser') {
+  if (mode === 'browser' || mode === 'pr') {
     return targetPath || mode;
   }
 
@@ -371,7 +383,7 @@ const clampContextPanelTabs = (
     const modeTabs = tabs.filter((tab) => tab.mode === mode);
     const removable = [...modeTabs]
       .sort((a, b) => a.touchedAt - b.touchedAt)
-      .filter((tab) => tab.id !== activeTabId);
+      .filter((tab) => tab.id !== activeTabId && !isTrackerBranchTab(tab));
     // Never drop the tab being opened or looked at; if that leaves the mode one
     // over its budget, one extra tab beats losing the one in use.
     for (const tab of removable.slice(0, count - maxTabsPerMode)) removeSet.add(tab.id);
@@ -710,6 +722,21 @@ const moveContextPanelFileTabs = (
     if (renamedId) next = withZoneView(next, zone, { activeTabId: renamedId });
   }
   return next;
+};
+
+/**
+ * Another project's Changes or walkthrough is saved as the panel's own: the
+ * PR it was asked to show is held in memory only, so restored as it was it
+ * would show whatever that project has checked out, with no way to switch.
+ */
+const withoutForeignComparisons = (
+  byDirectory: Record<string, ContextPanelDirectoryState>,
+): Record<string, ContextPanelDirectoryState> => {
+  const isForeign = (tab: ContextPanelTab) => (tab.mode === 'diff' || tab.mode === 'walkthrough') && tab.targetDirectory !== null;
+  if (!Object.values(byDirectory).some((panel) => panel.tabs.some(isForeign))) return byDirectory;
+  return Object.fromEntries(Object.entries(byDirectory).map(([directory, panel]) => [directory, panel.tabs.some(isForeign)
+    ? { ...panel, tabs: panel.tabs.map((tab) => (isForeign(tab) ? { ...tab, targetDirectory: null } : tab)) }
+    : panel]));
 };
 
 const sanitizeContextPanelByDirectory = (
@@ -1133,6 +1160,13 @@ interface UIStore {
   setContextEditorTreeWidth: (width: number) => void;
   openContextSurface: (directory: string, mode: ContextPanelMode) => void;
   openContextPanelTab: (directory: string, tab: ContextPanelTabDescriptor, options?: { reveal?: boolean }) => void;
+  /**
+   * Opens an issue, pull or merge request or Linear issue in the panel's
+   * Tracker surface, one tab per item (`key` names the item, whatever page of
+   * it the link opens). `targetDirectory` is the project it is read through.
+   * Answers the tab's id.
+   */
+  openTrackerItem: (directory: string, item: { url: string; key: string; label: string; targetDirectory: string | null }) => string | null;
   openContextDiff: (directory: string, filePath: string, staged?: boolean, scope?: PendingDiffScope | null) => void;
   /** `preview` opens it as the replaceable preview tab (a files-tree click). */
   openContextFile: (directory: string, filePath: string, options?: { preview?: boolean }) => void;
@@ -1671,6 +1705,18 @@ export const useUIStore = create<UIStore>()(
             // `>=` so equal timestamps (same-millisecond opens) resolve to the
             // later tab in insertion order.
             const mostRecent = tabsOfMode.reduce((best, tab) => (tab.touchedAt >= best.touchedAt ? tab : best));
+            // The rail's Changes and walkthrough are this project's: a pull
+            // request of another project opened from the Tracker gives way.
+            if ((mode === 'diff' || mode === 'walkthrough') && mostRecent.targetDirectory) {
+              state.openContextPanelTab(normalizedDirectory, {
+                mode,
+                targetPath: mostRecent.targetPath,
+                stagedDiff: mostRecent.stagedDiff,
+                diffScope: mostRecent.diffScope,
+                targetDirectory: null,
+              });
+              return;
+            }
             state.setActiveContextPanelTab(normalizedDirectory, mostRecent.id);
             return;
           }
@@ -1691,7 +1737,8 @@ export const useUIStore = create<UIStore>()(
             return;
           }
 
-          const nextTab = tab.mode === 'terminal'
+          // Working in the panel's own directory is the default, stored as no target.
+          const nextTab = tab.mode !== 'chat' && contextPanelModeKeepsTargetDirectory(tab.mode)
             ? {
                 ...tab,
                 targetDirectory: normalizeContextTargetDirectory(tab.targetDirectory) === normalizedDirectory
@@ -1716,6 +1763,37 @@ export const useUIStore = create<UIStore>()(
               contextEditorVisible: showsFile || state.contextEditorVisible,
             };
           });
+        },
+
+        openTrackerItem: (directory, item) => {
+          const normalizedDirectory = normalizeDirectoryPath((directory || '').trim());
+          const url = item.url.trim();
+          if (!normalizedDirectory || !url) {
+            return null;
+          }
+
+          const dedupeKey = `tracker:${item.key}`;
+          const targetDirectory = normalizeContextTargetDirectory(item.targetDirectory);
+          set((state) => {
+            const placement = state.contextSurfaceZones;
+            const current = touchContextPanelState(state.contextPanelByDirectory[normalizedDirectory], placement);
+            // An item never shows without the branch's own tab beside it.
+            const withBranch = current.tabs.some(isTrackerBranchTab)
+              ? current
+              : upsertContextPanelTab(current, { mode: 'pr' }, placement, { reveal: false });
+            const byDirectory = {
+              ...state.contextPanelByDirectory,
+              [normalizedDirectory]: upsertContextPanelTab(withBranch, {
+                mode: 'pr',
+                targetPath: url,
+                dedupeKey,
+                label: item.label,
+                targetDirectory: targetDirectory === normalizedDirectory ? null : targetDirectory,
+              }, placement),
+            };
+            return { contextPanelByDirectory: clampContextPanelRoots(byDirectory, 20) };
+          });
+          return buildContextPanelTabID('pr', dedupeKey);
         },
 
         openContextDiff: (directory, filePath, staged = false, scope = null) => {
@@ -1995,9 +2073,13 @@ export const useUIStore = create<UIStore>()(
 
         closeContextPanelTabs: (directory, tabIds) => {
           const normalizedDirectory = normalizeDirectoryPath((directory || '').trim());
+          // The Tracker's branch tab stays: closing every item leaves it.
+          const branchTabIds = new Set((get().contextPanelByDirectory[normalizedDirectory]?.tabs ?? [])
+            .filter(isTrackerBranchTab)
+            .map((tab) => tab.id));
           const normalizedTabIds = (tabIds ?? [])
             .map((id) => (id || '').trim())
-            .filter((id) => id.length > 0);
+            .filter((id) => id.length > 0 && !branchTabIds.has(id));
           if (!normalizedDirectory || normalizedTabIds.length === 0) {
             return;
           }
@@ -3501,7 +3583,7 @@ export const useUIStore = create<UIStore>()(
           theme: state.theme,
           isSidebarOpen: state.isSidebarOpen,
           sidebarWidth: state.sidebarWidth,
-          contextPanelByDirectory: state.contextPanelByDirectory,
+          contextPanelByDirectory: withoutForeignComparisons(state.contextPanelByDirectory),
           contextRailOrder: state.contextRailOrder,
           contextRailHiddenSurfaces: state.contextRailHiddenSurfaces,
           contextSurfaceZones: state.contextSurfaceZones,

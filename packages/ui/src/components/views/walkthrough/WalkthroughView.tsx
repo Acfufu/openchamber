@@ -35,6 +35,7 @@ import {
 } from '@/stores/useGitHubPrStatusStore';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useNestedGitDirectory } from '@/hooks/useNestedGitDirectory';
+import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useUIStore } from '@/stores/useUIStore';
 import { useWalkthroughStore } from '@/stores/useWalkthroughStore';
 import { cn } from '@/lib/utils';
@@ -208,6 +209,8 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
   const requestedTarget = useWalkthroughStore((state) => state.getRequestedTarget(directory));
   const clearRequestedTarget = useWalkthroughStore((state) => state.clearRequestedTarget);
   const openContextPanelTab = useUIStore((state) => state.openContextPanelTab);
+  // The panel this view lives in, which may show another project's PR here.
+  const panelDirectory = useEffectiveDirectory() ?? rootDirectory;
 
   const status = useGitStatus(directory || null);
   const runtimeKey = useGitStore((state) => state.runtimeKey);
@@ -711,7 +714,7 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
         <div className="ms-auto flex min-w-0 items-center gap-1">
           {isPrScope && selectedPr && <Button variant="ghost" size="sm"
             aria-label={t('contextPanel.mode.diff')} title={t('contextPanel.mode.diff')}
-            onClick={() => openContextPanelTab(rootDirectory, { mode: 'diff', diffScope: 'pr' })}>
+            onClick={() => openContextPanelTab(panelDirectory, { mode: 'diff', diffScope: 'pr', targetDirectory: rootDirectory })}>
             <Icon name="arrow-left-right" className="size-4" />
             {!compactHeader && t('contextPanel.mode.diff')}
           </Button>}

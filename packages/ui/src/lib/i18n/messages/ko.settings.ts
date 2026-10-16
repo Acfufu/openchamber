@@ -2292,7 +2292,7 @@ export const settingsDict = {
   'settings.openchamber.visual.field.openLinksInBrowserPanel': '내장 브라우저에서 링크 열기',
   'settings.openchamber.visual.field.openLinksInBrowserPanelInfo': '채팅의 링크가 채팅 옆 브라우저 탭에서 열립니다. Cmd+클릭 또는 Ctrl+클릭하면 기본 브라우저에서 열립니다.',
   'settings.openchamber.visual.field.openTrackerLinksOnBoard': '이슈와 풀 리퀘스트를 OpenChamber에서 열기',
-  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': 'GitHub와 GitLab의 이슈, 풀 리퀘스트, 머지 리퀘스트, Linear 이슈 링크는 해당 프로젝트가 여기에서 열려 있으면 이슈와 PR 보드에서 열립니다. Cmd+클릭 또는 Ctrl+클릭하면 링크 자체가 열립니다.',
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "GitHub와 GitLab의 이슈, 풀 리퀘스트, 머지 리퀘스트, Linear 이슈 링크는 해당 프로젝트가 여기에서 열려 있으면 채팅 옆 트래커에서, 휴대폰에서는 이슈와 PR 보드에서 열립니다. Cmd+클릭 또는 Ctrl+클릭하면 링크 자체가 열립니다.",
   'settings.openchamber.visual.field.fileTreeSide': '파일 트리 위치',
   'settings.openchamber.visual.option.fileTreeSide.left': '왼쪽',
   'settings.openchamber.visual.option.fileTreeSide.right': '오른쪽',

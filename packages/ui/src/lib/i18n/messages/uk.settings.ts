@@ -2292,7 +2292,7 @@ export const settingsDict = {
   "settings.openchamber.visual.field.openLinksInBrowserPanel": "Відкривати посилання у вбудованому браузері",
   "settings.openchamber.visual.field.openLinksInBrowserPanelInfo": "Посилання в чаті відкриваються у вкладці браузера поруч із чатом. Cmd+клік або Ctrl+клік відкриває їх у браузері за замовчуванням.",
   "settings.openchamber.visual.field.openTrackerLinksOnBoard": "Відкривати issues і pull requests в OpenChamber",
-  "settings.openchamber.visual.field.openTrackerLinksOnBoardInfo": "Посилання на issues, pull і merge requests GitHub та GitLab і на задачі Linear відкриваються на дошці Issues і PR, якщо їхній проєкт відкритий тут. Cmd+клік або Ctrl+клік відкриває саме посилання.",
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "Посилання на issues, pull і merge requests GitHub та GitLab і на задачі Linear відкриваються в Трекері поруч із чатом, якщо їхній проєкт відкритий тут, а на телефоні на дошці Issues і PR. Cmd+клік або Ctrl+клік відкриває саме посилання.",
   "settings.openchamber.visual.field.fileTreeSide": "Бік дерева файлів",
   "settings.openchamber.visual.option.fileTreeSide.left": "Ліворуч",
   "settings.openchamber.visual.option.fileTreeSide.right": "Праворуч",

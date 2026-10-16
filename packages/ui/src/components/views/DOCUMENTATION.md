@@ -133,6 +133,14 @@ PR mode with the shared selection. Picking a PR never generates a walkthrough.
 Web, Electron, hosted mobile and Capacitor use the server route. VS Code keeps
 PR comparison unavailable, like the other server-backed comparison modes.
 
+A PR of another project, opened from the Tracker or the board, keeps that
+project's folder on its Changes or walkthrough tab (`directory` on both views).
+The views then key everything by that folder: the binding the PR is read
+through, the selection and the hand-off between them. Changes shows only that
+PR there, without the scope switch, the last turn, review or opening files,
+which belong to the session on screen. The rail's own Changes and walkthrough
+return to the panel's project (`lib/surfaces/DOCUMENTATION.md`, Tracker).
+
 Mobile Changes uses the same expansion for branch, commit and PR files: the
 patch opens with 3 lines of context, and expanding reads that file in full once
 (git with whole-file context, or both PR sides from GitHub), then replays the

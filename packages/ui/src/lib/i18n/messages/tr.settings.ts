@@ -2217,7 +2217,7 @@ export const settingsDict = {
   'settings.openchamber.visual.field.openLinksInBrowserPanel': 'Bağlantıları yerleşik tarayıcıda aç',
   'settings.openchamber.visual.field.openLinksInBrowserPanelInfo': 'Sohbetteki bağlantılar sohbetin yanındaki bir tarayıcı sekmesinde açılır. Cmd+tık veya Ctrl+tık bunları varsayılan tarayıcında açar.',
   'settings.openchamber.visual.field.openTrackerLinksOnBoard': 'Issue’ları ve pull request’leri OpenChamber’da aç',
-  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': 'GitHub ve GitLab issue’larına, pull ve merge request’lerine ve Linear issue’larına giden bağlantılar, projeleri burada açıksa Issue’lar ve PR’lar panosunda açılır. Cmd+tık veya Ctrl+tık bağlantının kendisini açar.',
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "GitHub ve GitLab issue’larına, pull ve merge request’lerine ve Linear issue’larına giden bağlantılar, projeleri burada açıksa sohbetin yanındaki Takip panelinde, telefonda ise Issue’lar ve PR’lar panosunda açılır. Cmd+tık veya Ctrl+tık bağlantının kendisini açar.",
   'settings.openchamber.visual.field.fileTreeSide': 'Dosya ağacının tarafı',
   'settings.openchamber.visual.option.fileTreeSide.left': 'Sol',
   'settings.openchamber.visual.option.fileTreeSide.right': 'Sağ',

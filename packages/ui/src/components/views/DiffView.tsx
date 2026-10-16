@@ -1478,6 +1478,12 @@ interface DiffViewProps {
     targetFilePath?: string | null;
     /** Render diff content flush with the container edges (no outer padding). */
     flushContent?: boolean;
+    /**
+     * Another project's folder, for a pull request opened from the Tracker:
+     * the view then shows that PR only, read through that project, with
+     * nothing tied to the session on screen. Null works in the panel's own.
+     */
+    directory?: string | null;
 }
 
 export const DiffView: React.FC<DiffViewProps> = ({
@@ -1490,13 +1496,16 @@ export const DiffView: React.FC<DiffViewProps> = ({
     onDiffScopeChange,
     targetFilePath = null,
     flushContent = false,
+    directory: targetDirectory = null,
 }) => {
     const { t } = useI18n();
     const inPanelHeader = useInContextPanelHeader();
     const toolbarRef = React.useRef<HTMLDivElement | null>(null);
     useDiffToolbarFit(toolbarRef);
     const { git, files, sourceControl } = useRuntimeAPIs();
-    const rootDirectory = useEffectiveDirectory();
+    const panelDirectory = useEffectiveDirectory();
+    const foreign = Boolean(targetDirectory);
+    const rootDirectory = targetDirectory ?? panelDirectory;
     const runtimeKey = useGitStore((state) => state.runtimeKey);
     // Diffs belong to the repository being diffed: when the root is not
     // itself a repository, operate on the resolved nested repository instead.
@@ -1505,6 +1514,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
     // The binding follows the repository actually being diffed.
     const binding = useRepositoryBinding(effectiveDirectory, sourceControl);
     const openContextSurface = useUIStore((state) => state.openContextSurface);
+    const openContextPanelTab = useUIStore((state) => state.openContextPanelTab);
     const requestWalkthroughTarget = useWalkthroughStore((state) => state.requestTarget);
     const { screenWidth, isMobile } = useDeviceInfo();
 
@@ -1550,7 +1560,9 @@ export const DiffView: React.FC<DiffViewProps> = ({
     const diffFileListMode = useUIStore((state) => state.diffFileListMode);
     const setDiffFileListMode = useUIStore((state) => state.setDiffFileListMode);
     const openContextFileAtLine = useUIStore((state) => state.openContextFileAtLine);
-    const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
+    // Another project's PR has nothing to do with the session on screen.
+    const panelSessionId = useSessionUIStore((state) => state.currentSessionId);
+    const currentSessionId = foreign ? null : panelSessionId;
     const sessionMessages = useSessionMessages(activeDiffScope === 'turn' ? currentSessionId ?? '' : '', rootDirectory ?? undefined);
     const diffWrapLines = diffWrapLinesStore;
     const forcedStaged = activeDiffScope === 'staged' ? true : activeDiffScope === 'working' ? false : null;
@@ -2551,7 +2563,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 onSelect={handleSelectFile}
                 onExpandedChange={handleStackedEntryExpandedChange}
                 registerSectionRef={registerSectionRef}
-                showOpenInEditorAction={showOpenInEditorAction && activeDiffScope !== 'turn'}
+                showOpenInEditorAction={showOpenInEditorAction && activeDiffScope !== 'turn' && !foreign}
                 isOpeningInEditor={openingEditorFilePath === file.path}
                 onOpenInEditor={handleOpenInEditor}
                 staged={getFileStaged(file.path)}
@@ -2784,7 +2796,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         repositoryRoot={rootDirectory ?? undefined}
                     />
                 ) : null}
-                {!isMobile && (
+                {!isMobile && !foreign && (
                     activeDiffScope !== 'all' ? (
                         <ChangeScopeSelector
                             scope={activeDiffScope}
@@ -2911,7 +2923,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
                             requestWalkthroughTarget(directory, activeDiffScope === 'pr' && selectedPr && pullRequestContext
                                 ? { source: selectedPr, context: pullRequestContext }
                                 : localSource);
-                            openContextSurface(rootDirectory ?? directory, 'walkthrough');
+                            if (foreign && panelDirectory) openContextPanelTab(panelDirectory, { mode: 'walkthrough', targetDirectory: rootDirectory });
+                            else openContextSurface(rootDirectory ?? directory, 'walkthrough');
                         }}
                         className={cn('diff-toolbar__walkthrough-button h-7 flex-shrink-0 gap-1.5 px-2', WALKTHROUGH_ACTION_CLASS)}
                         aria-label={t('walkthrough.action.open')}

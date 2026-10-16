@@ -40,7 +40,7 @@ import { useFreshestSourceControlVisualSummaryForBranch } from '@/stores/useGitH
 type FolderScope = { scopeKey: string; directory: string | null };
 import { getLinkedSidebarIssues, type LinkedSidebarIssue } from '@/lib/linkedIssues';
 import { buildSessionIssueItems } from '../sessions/sessionPrSummaries';
-import { useOpenOnBoard } from '@/components/sourceBoard/openOnBoard';
+import { useOpenTrackerItem } from '@/components/sourceBoard/openTrackerItem';
 import { SIDEBAR_REF_TOOLTIP_CLOSE_DELAY_MS, SidebarRefLinks, type SidebarRefLink } from '../sessions/SidebarRefLinks';
 import { useI18n } from '@/lib/i18n';
 import { useChildStoreManager } from '@/sync/sync-context';
@@ -321,7 +321,7 @@ const EMPTY_GROUP_ISSUES: readonly LinkedSidebarIssue[] = [];
 
 function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNode {
   const { t } = useI18n();
-  const openOnBoard = useOpenOnBoard();
+  const openTrackerItem = useOpenTrackerItem();
   const spaceTakesNoNewSession = useSpaceTakesNoNewSession(props.group.space?.id);
   const spaceLineSpeaks = useSpacesStore((state) => {
     const spaceId = props.group.space?.id;
@@ -1205,7 +1205,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                       onKeyDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (groupPrSummary.url) openOnBoard(groupPrSummary.url, group.directory ?? null, event);
+                        if (groupPrSummary.url) openTrackerItem(groupPrSummary.url, group.directory ?? null, event);
                       }}
                     >
                       {groupPrReference}
@@ -1228,7 +1228,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                         event.stopPropagation();
                         // The `+N` only counts the others; the tooltip lists them.
                         if (event.target instanceof Element && event.target.closest('[data-ref-more]')) return;
-                        openOnBoard(primaryGroupIssue.url, group.directory ?? null, event);
+                        openTrackerItem(primaryGroupIssue.url, group.directory ?? null, event);
                       }}
                     >
                       <Icon name={primaryGroupIssue.icon} className="h-3 w-3" />

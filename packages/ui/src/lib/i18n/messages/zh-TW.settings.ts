@@ -2181,7 +2181,7 @@ export const settingsDict = {
   'settings.openchamber.visual.field.openLinksInBrowserPanel': '在內建瀏覽器中開啟連結',
   'settings.openchamber.visual.field.openLinksInBrowserPanelInfo': '聊天中的連結會在聊天旁的瀏覽器分頁中開啟。Cmd+點擊或 Ctrl+點擊會在預設瀏覽器中開啟。',
   'settings.openchamber.visual.field.openTrackerLinksOnBoard': '在 OpenChamber 中開啟 Issue 與拉取請求',
-  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': 'GitHub 與 GitLab 的 Issue、拉取請求、合併請求以及 Linear Issue 的連結，在其專案已在此開啟時會在「Issue 與 PR」看板中開啟。Cmd+點擊或 Ctrl+點擊會開啟連結本身。',
+  'settings.openchamber.visual.field.openTrackerLinksOnBoardInfo': "GitHub 與 GitLab 的 Issue、拉取請求、合併請求以及 Linear Issue 的連結，在其專案已在此開啟時會在聊天旁的「追蹤」中開啟，在手機上則在「Issue 與 PR」看板中開啟。Cmd+點擊或 Ctrl+點擊會開啟連結本身。",
   'settings.openchamber.visual.field.fileTreeSide': '檔案樹位置',
   'settings.openchamber.visual.option.fileTreeSide.left': '左側',
   'settings.openchamber.visual.option.fileTreeSide.right': '右側',
