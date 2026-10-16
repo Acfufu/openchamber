@@ -653,10 +653,11 @@ happened. Before that no-reply notice shows, the session tail is re-read
 from the server (the live stream may have dropped the reply); the notice
 appears only if that read settles with the prompt still last, or fails. Two
 more reads, at 10 and 30 seconds, keep running under the visible notice so a
-late reply still replaces it. Both buffers — session errors and rejected sends — appear in the
-status report (`buildOpenCodeStatusReport`, Ctrl/Cmd+Shift+L or
-`__opencodeDebug.statusReport()`) together with the managed OpenCode
-process's last error and stderr tail and the expected log file locations.
+late reply still replaces it. Both buffers — session errors and rejected sends — appear in full
+in `__opencodeDebug.statusReport()` together with the managed OpenCode
+process's last error and stderr tail. The diagnostic timeline
+(Ctrl/Cmd+Shift+L, see `lib/diagnostics/DOCUMENTATION.md`) carries them
+with numbered session labels and the error class only.
 
 ## Loading diagnostics
 
