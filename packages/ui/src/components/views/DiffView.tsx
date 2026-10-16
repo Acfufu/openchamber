@@ -777,10 +777,10 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
     }, [file.path, onSelect]);
 
     // Switching between the staged and unstaged side shows a different diff,
-    // so the side being switched to must not show what it held before.
+    // so the side being switched to must not show what it held before. Reset
+    // while hidden or collapsed too: the entry loads again only once shown.
     const appliedStagedRef = React.useRef(staged);
     React.useEffect(() => {
-        if (!visible) return;
         if (appliedStagedRef.current === staged) return;
         appliedStagedRef.current = staged;
         if (!staged) {
@@ -791,7 +791,7 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
 
         setDiffLoadFailure(null);
         lastDiffRequestRef.current = null;
-    }, [staged, visible]);
+    }, [staged]);
 
     // Version the displayed live diff was fetched for: the content revision
     // and the file's status row, which moves with every edit. An older diff
@@ -1734,6 +1734,11 @@ export const DiffView: React.FC<DiffViewProps> = ({
         if (visibleSyncFrameRef.current !== null) return;
         visibleSyncFrameRef.current = window.requestAnimationFrame(syncVisibleStackedFiles);
     }, [syncVisibleStackedFiles, visible]);
+    // The file entries' callbacks reach the sync through this ref, so they
+    // keep their identity when the view is shown or hidden: a new callback
+    // re-rendered every entry (150 of them in a large change) on each open.
+    const queueVisibleStackedFilesSyncRef = React.useRef(queueVisibleStackedFilesSync);
+    queueVisibleStackedFilesSyncRef.current = queueVisibleStackedFilesSync;
 
     React.useEffect(() => {
         const scrollRoot = diffScrollRef.current;
@@ -1918,8 +1923,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
         } else {
             map.delete(path);
         }
-        queueVisibleStackedFilesSync();
-    }, [queueVisibleStackedFilesSync]);
+        queueVisibleStackedFilesSyncRef.current();
+    }, []);
 
     const handleStackedEntryExpandedChange = React.useCallback((path: string, expanded: boolean) => {
         cancelPendingScrollAlignment();
@@ -1944,8 +1949,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 return next;
             });
         }
-        queueVisibleStackedFilesSync();
-    }, [cancelPendingScrollAlignment, queueVisibleStackedFilesSync]);
+        queueVisibleStackedFilesSyncRef.current();
+    }, [cancelPendingScrollAlignment]);
 
     const handleExpandOrCollapseAll = React.useCallback(() => {
         cancelPendingScrollAlignment();
@@ -2238,12 +2243,20 @@ export const DiffView: React.FC<DiffViewProps> = ({
             setOpeningEditorFilePath((current) => (current === filePath ? null : current));
         }
     }, [activeDiffStaged, effectiveDirectory, files, git, openContextFileAtLine, setDiff]);
+    const handleOpenInEditor = React.useCallback((filePath: string, diffData: DiffData | null) => {
+        void openFileInEditorAtChange(filePath, diffData);
+    }, [openFileInEditorAtChange]);
+    const handleRetryComparisonDiff = React.useCallback(() => setComparisonRetryRevision((revision) => revision + 1), []);
 
     const renderStackedDiffView = () => {
         if (!effectiveDirectory) return null;
-        const renderEntry = (file: FileEntry, isSingleFile = false) => (
+        const renderEntry = (file: FileEntry, isSingleFile = false) => {
+            const isExpanded = isSingleFile || expandedFiles.has(file.path);
+            return (
             <MultiFileDiffEntry
-                visible={visible}
+                // Only an expanded entry loads while shown; a collapsed one
+                // stays out of the re-render when the view is shown or hidden.
+                visible={visible && isExpanded}
                 key={`${getRuntimeKey()}:${effectiveDirectory}:${file.path}`}
                 directory={effectiveDirectory}
                 file={file}
@@ -2251,16 +2264,14 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 wrapLines={diffWrapLines}
                 hideWhitespace={diffHideWhitespace}
                 isSelected={false}
-                isExpanded={isSingleFile || expandedFiles.has(file.path)}
+                isExpanded={isExpanded}
                 isMounted={isSingleFile || mountedStackedFiles.has(file.path) || file.path === pinnedStackedTarget}
                 onSelect={handleSelectFile}
                 onExpandedChange={handleStackedEntryExpandedChange}
                 registerSectionRef={registerSectionRef}
                 showOpenInEditorAction={showOpenInEditorAction && activeDiffScope !== 'turn'}
                 isOpeningInEditor={openingEditorFilePath === file.path}
-                onOpenInEditor={(filePath, diffData) => {
-                    void openFileInEditorAtChange(filePath, diffData);
-                }}
+                onOpenInEditor={handleOpenInEditor}
                 staged={getFileStaged(file.path)}
                 readOnlyActions={activeDiffScope === 'branch' || activeDiffScope === 'commit' || activeDiffScope === 'pr'}
                 hunkActionsEnabled={activeDiffScope === 'all' || activeDiffScope === 'working' || activeDiffScope === 'staged'}
@@ -2268,7 +2279,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 comparisonDiff={activeDiffScope === 'branch' || activeDiffScope === 'commit' || activeDiffScope === 'pr'
                     ? comparisonDiffData.get(file.path) ?? EMPTY_COMPARISON_DIFF
                     : undefined}
-                onRetryComparisonDiff={() => setComparisonRetryRevision((revision) => revision + 1)}
+                onRetryComparisonDiff={handleRetryComparisonDiff}
                 loadFullComparisonDiff={loadFullComparisonDiff}
                 initialDiffData={
                     activeDiffScope === 'turn'
@@ -2276,8 +2287,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         : null
                 }
             />
-        );
-
+            );
+        };
 
         const getFileStaged = (path: string) => {
             if (forcedStaged !== null) {

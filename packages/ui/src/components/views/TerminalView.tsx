@@ -38,6 +38,7 @@ import { observeTerminalSessions } from '@/lib/terminalSessionObserver';
 import { ContextPanelHeaderToolbar } from '@/components/layout/contextPanelHeaderSlot';
 import { useInContextPanelHeader } from '@/components/layout/contextPanelHeaderSlotContext';
 import { useZoneSurfaceDragOut } from '@/components/layout/zoneSurfaceDragContext';
+import { useZoneInteractive } from '@/components/layout/zoneInteractiveContext';
 import { ZoneMoveMenuItems } from '@/components/layout/ZoneMoveMenuItems';
 
 type TerminalViewProps = {
@@ -689,8 +690,11 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
         terminalShell,
     ]);
 
+    // A zone opening around the terminal keeps it inert until the animation
+    // settles; focus taken before that is lost.
+    const zoneInteractive = useZoneInteractive();
     React.useEffect(() => {
-        if (!isTerminalVisible || useTouchTerminalInput) {
+        if (!isTerminalVisible || !zoneInteractive || useTouchTerminalInput) {
             return;
         }
 
@@ -706,7 +710,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
         return () => {
             window.cancelAnimationFrame(rafId);
         };
-    }, [activeTabId, focusTerminalWhenWindowActive, isTerminalVisible, useTouchTerminalInput]);
+    }, [activeTabId, focusTerminalWhenWindowActive, isTerminalVisible, useTouchTerminalInput, zoneInteractive]);
 
     const handleRestart = React.useCallback(async () => {
         if (!terminalDirectory) return;

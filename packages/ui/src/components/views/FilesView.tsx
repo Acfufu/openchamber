@@ -31,6 +31,7 @@ import { CodeMirrorEditor } from '@/components/ui/CodeMirrorEditor';
 import { GoToLineDialog } from './GoToLineDialog';
 import { DocumentSymbolsPanel } from './DocumentSymbolsPanel';
 import { GitignoredToggleButton } from '@/components/layout/GitignoredToggleButton';
+import { useZoneInteractive } from '@/components/layout/zoneInteractiveContext';
 import { MarkdownPreviewSearch } from './MarkdownPreviewSearch';
 import { PreviewToggleButton } from './PreviewToggleButton';
 import { createFileContentPoller } from './fileContentPoller';
@@ -835,6 +836,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const alwaysShowActions = isMobile || isTablet;
   const showHidden = useDirectoryShowHidden();
   const showGitignored = useFilesViewShowGitignored();
+  const zoneInteractive = useZoneInteractive();
 
   const currentDirectory = useEffectiveDirectory() ?? '';
   const root = normalizePath(currentDirectory.trim());
@@ -3314,6 +3316,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
+    // The jump focuses the editor, which does nothing inside a zone that is
+    // still opening (inert); it runs once the zone settles.
+    if (!zoneInteractive) {
+      return;
+    }
+
     const view = editorViewRef.current;
     if (!view) {
       scheduleNavigationRetry();
@@ -3381,10 +3389,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setPendingFileNavigation,
     textViewMode,
     toFileNode,
+    zoneInteractive,
   ]);
 
   React.useEffect(() => {
-    if (!pendingFileFocusPath || !root) {
+    // Focus inside a zone that is still opening (inert) does nothing.
+    if (!pendingFileFocusPath || !root || !zoneInteractive) {
       return;
     }
 
@@ -3429,6 +3439,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     selectedFile?.path,
     setPendingFileFocusPath,
     textViewMode,
+    zoneInteractive,
   ]);
 
   const nudgeEditorSelectionAboveKeyboard = React.useCallback((view: EditorView | null) => {

@@ -1386,15 +1386,12 @@ export const useChatTimelineScroll = ({
         const pin = () => {
             if (userOwnsScrollRef.current || !isAtEndRef.current || modeRef.current !== 'following-end') return;
             if (followGlideHeld()) return;
-            // A side column is animating its width: the rows re-wrap on every
-            // frame, and pinning each one forced a transcript layout per frame
-            // (plus a second one from the scroll event it caused). The end is
-            // asserted once, at the final width.
-            if (isLayoutAnimating()) {
-                runWhenLayoutSettled(pin);
-                return;
-            }
-            if (widthResizingRef.current) {
+            // A side column animating its width re-wraps the rows on every
+            // frame, the same as a window resize, and the end is held the same
+            // way on each of them. Asserted only once the animation settled,
+            // the end slid out of view for the whole animation (over 1000 px
+            // as a 640 px panel opened) and jumped back at its end.
+            if (widthResizingRef.current || isLayoutAnimating()) {
                 // Re-wrapping rows: the scroll node's scrollHeight carries the
                 // list's stale total, so the end is the measured bottom of the
                 // last real row. Held for a streaming reader too — output
@@ -1453,7 +1450,6 @@ export const useChatTimelineScroll = ({
             mutations.disconnect();
             resizes?.disconnect();
             scrollNode.removeEventListener('scrollend', landed);
-            cancelWhenLayoutSettled(pin);
         };
     }, [followEnd, pinEndAtRest, scrollNode]);
 

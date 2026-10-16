@@ -46,7 +46,8 @@ import { closeZoneOnEscape } from './zoneEscape';
 import { ZoneMoveMenuItems } from './ZoneMoveMenuItems';
 import { beginZoneDrag, cancelZoneDrag, finishZoneDrag, startZoneDragGesture, updateZoneDrag } from './zoneDrag';
 import { setZoneBody, setZoneHeaderSlot } from './zoneHosts';
-import { useOpenUntilSettled } from './useOpenUntilSettled';
+import { useOpenUntilSettled, useOpenWhenSettled } from './useOpenUntilSettled';
+import { isZoneExposed } from './zoneInteractiveContext';
 import { DockedPanelSurfaceContext } from '@/hooks/usePageColors';
 
 const CONTEXT_PANEL_MIN_WIDTH = 320;
@@ -527,6 +528,7 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
   const resizingSizeRef = React.useRef<number | null>(null);
   const activeResizePointerIDRef = React.useRef<number | null>(null);
   const panelRef = React.useRef<HTMLElement | null>(null);
+  const focusSinkRef = React.useRef<HTMLDivElement | null>(null);
   const wasOpenRef = React.useRef(false);
 
   React.useLayoutEffect(() => {
@@ -566,8 +568,13 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
       return;
     }
 
+    // Focus lands on an empty element of the zone, not on the zone itself:
+    // stylesheet rules of the form `:focus-visible *` (Tailwind's group
+    // variants) restyle the whole subtree of the element whose focus changes,
+    // and on the zone that cost 40 ms in the animation's first frame with a
+    // large file tree open.
     const frame = window.requestAnimationFrame(() => {
-      panelRef.current?.focus({ preventScroll: true });
+      focusSinkRef.current?.focus({ preventScroll: true });
     });
 
     wasOpenRef.current = true;
@@ -1031,15 +1038,21 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
     if (!coverChanged) beginLayoutAnimation(layoutAnimationMs);
   }, [animationKey, coverChanged, layoutAnimationMs]);
 
-  // A closing zone's content fades out and only then leaves the
-  // accessibility tree, in the same commit that takes the file editor's DOM
-  // out (CodeMirrorEditor `detached`, driven by the same hook in
-  // ContextSurfacePanes; both settle in one task). Hiding the editor from
-  // accessibility while it is still in the document costs Chrome a 200 to
-  // 300 ms frame whenever an accessibility client is on (a screen reader, or
-  // any app that reads other windows, common on macOS); removing it costs a
-  // few ms. After the layout effect above, which begins the animation.
-  const contentHidden = !useOpenUntilSettled(isOpen);
+  // The zone's content becomes inert and unclickable only once the animation
+  // has settled, and for most surfaces stops being so only then too
+  // (`isZoneExposed` says which and why); just its opacity follows a toggle
+  // at once. `inert`, `pointer-events` and `user-select` are inherited, so
+  // flipping them restyles the whole surface, and with an accessibility
+  // client on adds it to the tree. Surfaces that focus themselves wait for it
+  // (`useZoneInteractive`). A closing zone leaves the accessibility tree in
+  // the same commit that takes the file editor's DOM out (CodeMirrorEditor `detached`,
+  // driven by `useOpenUntilSettled` in ContextSurfacePanes; both settle in one
+  // task). Hiding the editor from accessibility while it is still in the
+  // document costs Chrome a 200 to 300 ms frame whenever an accessibility
+  // client is on (a screen reader, or any app that reads other windows,
+  // common on macOS); removing it costs a few ms. After the layout effect
+  // above, which begins the animation.
+  const contentHidden = !isZoneExposed(isOpen, useOpenWhenSettled(isOpen), activeTab?.mode);
   // Expanded, and through the collapse animation, the zone floats over the
   // chat while a spacer holds its docked size in the layout, so the chat
   // never changes size under it. Back in the layout at once on collapse, the
@@ -1110,6 +1123,9 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
       onKeyDownCapture={handlePanelKeyDownCapture}
       style={panelStyle}
     >
+      {/* Where focus goes as the zone opens (see the open effect). Outside
+          the card, which is still inert then. */}
+      <div ref={focusSinkRef} tabIndex={-1} className="absolute size-0 overflow-hidden outline-none" />
       {/* The inline work-status card's host, right-anchored under the panel:
           the card fades out while the panel fades in over it, and back. */}
       {zone === 'right' ? (
@@ -1146,7 +1162,8 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
           // Size animates in sync with the zone (surface switches, resize
           // release).
           isVertical ? 'transition-[height,opacity]' : 'transition-[width,opacity]',
-          !isOpen && 'pointer-events-none select-none opacity-0'
+          !isOpen && 'opacity-0',
+          contentHidden && 'pointer-events-none select-none'
         )}
         style={{
           ...(isVertical

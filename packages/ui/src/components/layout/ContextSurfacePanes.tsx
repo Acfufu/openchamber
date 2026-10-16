@@ -35,7 +35,8 @@ import { startZoneDragGesture } from './zoneDrag';
 import { ZoneSurfaceDragContext } from './zoneSurfaceDragContext';
 import { useZoneHostsStore } from './zoneHosts';
 import { useRightSlotStore } from './rightSlot';
-import { useOpenUntilSettled } from './useOpenUntilSettled';
+import { useOpenUntilSettled, useOpenWhenSettled } from './useOpenUntilSettled';
+import { isZoneExposed, ZoneInteractiveContext } from './zoneInteractiveContext';
 import { PauseClock } from '@/components/ui/pause-clock';
 import { DockedPanelSurfaceContext } from '@/hooks/usePageColors';
 
@@ -228,12 +229,13 @@ const EditorTreeColumn: React.FC<{ visible: boolean; active: boolean; fill?: boo
 const ZonePane: React.FC<{
   zone: ContextZone;
   isOpen: boolean;
+  interactive: boolean;
   /** The zone's frame is inert at opacity 0 (`contentHidden`). */
   hidden: boolean;
   directoryKey: string;
   className?: string;
   children: React.ReactNode;
-}> = ({ zone, isOpen, hidden, directoryKey, className, children }) => {
+}> = ({ zone, isOpen, interactive, hidden, directoryKey, className, children }) => {
   const closeContextZone = useUIStore((state) => state.closeContextZone);
   const handleKeyDownCapture = React.useCallback((event: React.KeyboardEvent<HTMLElement>) => {
     closeZoneOnEscape(event, isOpen, () => {
@@ -246,7 +248,9 @@ const ZonePane: React.FC<{
     <MovablePane zone={zone}>
       <div className={className} onKeyDownCapture={handleKeyDownCapture}>
         <DockedPanelSurfaceContext.Provider value>
-          <PauseClock paused={!isOpen || hidden}>{children}</PauseClock>
+          <ZoneInteractiveContext.Provider value={interactive}>
+            <PauseClock paused={!isOpen || hidden}>{children}</PauseClock>
+          </ZoneInteractiveContext.Provider>
         </DockedPanelSurfaceContext.Provider>
       </div>
     </MovablePane>
@@ -310,6 +314,18 @@ export const ContextSurfacePanes: React.FC = () => {
     bottom: useOpenUntilSettled(zones.bottom.isOpen),
   };
   const contentHidden = (zone: ContextZone): boolean => !settledShown[zone];
+  // When the frame lifts its card's `inert` (ContextPanel, the same rule);
+  // surfaces that focus themselves wait for it.
+  const settledOpen = {
+    left: useOpenWhenSettled(zones.left.isOpen),
+    right: useOpenWhenSettled(zones.right.isOpen),
+    bottom: useOpenWhenSettled(zones.bottom.isOpen),
+  };
+  const interactive = {
+    left: isZoneExposed(zones.left.isOpen, settledOpen.left, zones.left.activeTab?.mode),
+    right: isZoneExposed(zones.right.isOpen, settledOpen.right, zones.right.activeTab?.mode),
+    bottom: isZoneExposed(zones.bottom.isOpen, settledOpen.bottom, zones.bottom.activeTab?.mode),
+  };
 
   // The zone each keep-alive surface lives in, and what that zone shows.
   const zoneFor = (mode: Parameters<typeof zoneOfMode>[1]) => {
@@ -535,6 +551,7 @@ export const ContextSurfacePanes: React.FC = () => {
       {hasFileTabs ? (
         <ZonePane
           zone={fileZone.zone}
+          interactive={interactive[fileZone.zone]}
           isOpen={fileZone.isOpen}
           hidden={contentHidden(fileZone.zone)}
           directoryKey={directoryKey}
@@ -561,7 +578,7 @@ export const ContextSurfacePanes: React.FC = () => {
         // The chat renders in this app, pinned to its session: it shares
         // the app's connection, stores and theme, and opens like a session
         // switch instead of booting a second app.
-        <ZonePane key={chatActiveTab.id} zone={chatZone.zone} isOpen={chatZone.isOpen} hidden={contentHidden(chatZone.zone)} directoryKey={directoryKey} className="absolute inset-0 bg-background">
+        <ZonePane key={chatActiveTab.id} zone={chatZone.zone} interactive={interactive[chatZone.zone]} isOpen={chatZone.isOpen} hidden={contentHidden(chatZone.zone)} directoryKey={directoryKey} className="absolute inset-0 bg-background">
           <section
             aria-label={t('contextPanel.iframe.sessionChatTitle', { sessionID: activeChatSessionID })}
             className="h-full"
@@ -584,6 +601,7 @@ export const ContextSurfacePanes: React.FC = () => {
             // session instead of the space's own.
             key={`${tab.directory}\u0000${tab.id}`}
             zone={browserZone.zone}
+            interactive={interactive[browserZone.zone]}
             isOpen={browserZone.isOpen}
             hidden={contentHidden(browserZone.zone)}
             directoryKey={directoryKey}
@@ -611,6 +629,7 @@ export const ContextSurfacePanes: React.FC = () => {
           <ZonePane
             key={tab.id}
             zone={diffZone.zone}
+            interactive={interactive[diffZone.zone]}
             isOpen={diffZone.isOpen}
             hidden={contentHidden(diffZone.zone)}
             directoryKey={directoryKey}
@@ -637,6 +656,7 @@ export const ContextSurfacePanes: React.FC = () => {
       {terminalTab ? (
         <ZonePane
           zone={terminalZone.zone}
+          interactive={interactive[terminalZone.zone]}
           isOpen={terminalZone.isOpen}
           hidden={contentHidden(terminalZone.zone)}
           directoryKey={directoryKey}
@@ -656,6 +676,7 @@ export const ContextSurfacePanes: React.FC = () => {
       {hasWalkthroughTab ? (
         <ZonePane
           zone={walkthroughZone.zone}
+          interactive={interactive[walkthroughZone.zone]}
           isOpen={walkthroughZone.isOpen}
           hidden={contentHidden(walkthroughZone.zone)}
           directoryKey={directoryKey}
@@ -686,6 +707,7 @@ export const ContextSurfacePanes: React.FC = () => {
           <ZonePane
             key={tab.id}
             zone={pluginZone.zone}
+            interactive={interactive[pluginZone.zone]}
             isOpen={pluginZone.isOpen}
             hidden={contentHidden(pluginZone.zone)}
             directoryKey={directoryKey}

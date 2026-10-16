@@ -5,10 +5,18 @@ navigation, expanded sections and editor state. Its `visible` prop combines
 the panel's open state with the selected tab. Hiding via CSS alone does not
 pause React effects.
 
-A closing panel's content fades out and leaves the accessibility tree
-(`aria-hidden`, `inert`) only when the close animation ends
-(`useOpenUntilSettled`); opening shows it at once. The file editor's view
-counts as hidden from the same moment, and while hidden the docked
+A panel's content fades in and out with the toggle, but turns inert and
+unclickable only when the closing animation ends, and an opening zone leaves
+`inert` only when its animation ends too (`useOpenWhenSettled`): those
+properties are inherited, so flipping them restyles the whole surface, and
+with an accessibility client on adds it to the tree, in the frame the
+animation needed to start. The file editor leaves `inert` at once instead, in
+the commit that puts its DOM back; out of `inert` in place, it cost a 300 ms
+frame (`isZoneExposed`). A surface that focuses itself on being shown waits
+for its zone to turn interactive (`useZoneInteractive`), since focus inside an
+inert card is lost. Closing, the file editor's view counts as hidden from the
+moment the animation ends (`useOpenUntilSettled`); opening shows it at once.
+While hidden the docked
 `CodeMirrorEditor` is `detached`: its DOM is out of the document, its state
 and scroll position kept, and it comes back on show. Hiding the editor in
 place instead (`aria-hidden`, `inert`, `display: none`, `content-visibility`)
@@ -24,7 +32,10 @@ measurement and keyboard navigation on visibility. Hidden refresh hints retain
 only dirty paths scoped to runtime and directory; reopening invalidates those
 paths and requests fresh status. Completed range diffs remain cached while
 pending reservations are cancelled and retried on resume. Hidden tabs never
-consume another tab's pending navigation request.
+consume another tab's pending navigation request. A collapsed file entry is
+passed `visible: false` whatever the view's state, and its callbacks keep their
+identity, so showing or hiding the view re-renders only the expanded entries
+(every entry of a 150-file change re-rendered on each panel open before).
 
 A Changes tab opened without a scope (the context rail, multirun) stores
 `diffScope: null`, and `DiffView` opens it on Branch whenever the Branch scope
