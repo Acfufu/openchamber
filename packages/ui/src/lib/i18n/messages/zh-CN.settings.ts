@@ -1200,7 +1200,7 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "让智能体读取并更新项目的笔记、待办和计划。",
   "settings.openchamber.tools.field.agentToolsCodeMode": "通过 Code Mode 运行",
   "settings.openchamber.tools.field.agentToolsCodeModeAria": "通过 Code Mode 运行 OpenChamber 工具",
-  "settings.openchamber.tools.field.agentToolsCodeModeInfo": "关闭：模型直接看到每个工具。开启：工具放在一个执行短脚本的工具后面。能省一点上下文，但模型可能漏掉它们，较小的模型尤其如此。",
+  "settings.openchamber.tools.field.agentToolsCodeModeInfo": "关闭：模型直接看到每个工具。开启：工具放在一个执行短脚本的工具后面。能省一点上下文，但模型可能漏掉它们，较小的模型尤其如此。渲染工具始终直接可见，因为聊天界面根据它自己的调用绘制页面。",
   'settings.openchamber.opencodeCli.tooltipPrefix': '可选的',
   'settings.openchamber.opencodeCli.tooltipSuffix': '二进制绝对路径。',
   'settings.openchamber.opencodeCli.field.binaryPath': 'OpenCode 可执行文件路径',

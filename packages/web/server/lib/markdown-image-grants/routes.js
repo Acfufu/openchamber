@@ -2,6 +2,8 @@ import express from 'express';
 import { constants as fsConstants } from 'node:fs';
 import { mintOutsideFileGrant } from '../fs/routes.js';
 import { unwrapOpenCodeResponse } from '../opencode/response-envelope.js';
+import { renderPageImageSources } from '../openchamber-control/render-page.js';
+import { isString } from '../shared/guards.js';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 // A clip streams by byte ranges on every seek, so it is never read whole.
@@ -141,7 +143,7 @@ const parseDefinitionDestination = (value) => {
  * one a single `text`. Both are read here, because an image link can come from
  * either side of the conversation.
  */
-const messageTextParts = (message) => {
+const messageContent = (message) => {
   if (Array.isArray(message?.content)) return message.content;
   if (typeof message?.text === 'string') return [{ type: 'text', text: message.text }];
   return [];
@@ -149,7 +151,7 @@ const messageTextParts = (message) => {
 
 const collectMarkdownLinesOutsideCode = (message) => {
   const lines = [];
-  for (const part of messageTextParts(message)) {
+  for (const part of messageContent(message)) {
     if (part?.type !== 'text' || typeof part.text !== 'string') continue;
     let fence = null;
     for (const line of part.text.split('\n')) {
@@ -206,6 +208,24 @@ const markdownImageSources = (message) => {
       const source = definitions.get(normalizeReferenceLabel(label));
       if (source) sources.add(source);
     }
+  }
+  return sources;
+};
+
+/**
+ * The local images the message's openchamber_render pages name. The page's
+ * HTML is the call's input, which OpenCode stores with the message, so it
+ * authorizes its paths the way assistant text does. The input is either the
+ * page itself or, for a call made through the action form, its `parameters`.
+ */
+const renderPageSources = (message) => {
+  const sources = new Set();
+  for (const part of messageContent(message)) {
+    if (part?.type !== 'tool' || part.name !== 'openchamber_render') continue;
+    const input = part.state?.input;
+    const html = input?.parameters?.html ?? input?.html;
+    if (!isString(html)) continue;
+    for (const source of renderPageImageSources(html)) sources.add(source);
   }
   return sources;
 };
@@ -317,8 +337,8 @@ export const registerMarkdownImageGrantRoutes = (app, dependencies) => {
         if (!message || message.id !== messageId || message.type !== 'assistant') {
           return res.status(404).json({ error: 'Assistant message not found' });
         }
-        // Assistant text is authoritative: a remote client cannot mint grants for unreferenced paths.
-        const referenced = markdownImageSources(message);
+        // The assistant's text and pages are authoritative: a remote client cannot mint grants for unreferenced paths.
+        const referenced = new Set([...markdownImageSources(message), ...renderPageSources(message)]);
         const results = [];
         for (const source of sources) {
           if (!referenced.has(source)) {

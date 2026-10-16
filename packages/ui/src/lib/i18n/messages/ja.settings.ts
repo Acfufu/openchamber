@@ -1233,7 +1233,7 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "エージェントがプロジェクトのメモ、ToDo、プランを読み書きできます。",
   "settings.openchamber.tools.field.agentToolsCodeMode": "Code Mode で実行",
   "settings.openchamber.tools.field.agentToolsCodeModeAria": "OpenChamber のツールを Code Mode で実行",
-  "settings.openchamber.tools.field.agentToolsCodeModeInfo": "オフ: モデルは各ツールを直接見ます。オン: 短いスクリプトを実行する 1 つのツールの背後に置かれます。コンテキストを少し節約できますが、特に小さいモデルはツールを見落とすことがあります。",
+  "settings.openchamber.tools.field.agentToolsCodeModeInfo": "オフ: モデルは各ツールを直接見ます。オン: 短いスクリプトを実行する 1 つのツールの背後に置かれます。コンテキストを少し節約できますが、特に小さいモデルはツールを見落とすことがあります。 レンダーツールは常に直接のままです。チャットはそのツール自身の呼び出しからページを描くためです。",
   'settings.openchamber.opencodeCli.tooltipPrefix': '以下への絶対パス（任意）:',
   'settings.openchamber.opencodeCli.tooltipSuffix': 'バイナリ。',
   'settings.openchamber.opencodeCli.field.binaryPath': 'OpenCode バイナリパス',

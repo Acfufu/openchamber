@@ -17,6 +17,12 @@ UI is on a different machine.
 - Authorization recognizes the same common inline and reference-style image
   destinations collected by the UI, including balanced parentheses, while
   excluding fenced and inline code.
+- The local images an `openchamber_render` page in the same message names are
+  referenced too (`renderPageImageSources` in
+  `../openchamber-control/render-page.js`): the page's HTML is the call's
+  input, which OpenCode stores with the message. The chat reads them as data
+  URLs and puts them in the page
+  (`packages/ui/src/components/chat/message/parts/renderPageImages.ts`).
 - Relative and workspace-contained absolute paths resolve against the active
   directory. Other absolute paths are accepted only inside
   `os.tmpdir()/opencode` after `realpath` resolution.

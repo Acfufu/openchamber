@@ -31,6 +31,7 @@ import {
     type HtmlRenderSubmission,
     type HtmlRenderTheme,
 } from './htmlRender';
+import { useRenderPageHtml } from './renderPageImages';
 
 const DEFAULT_SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
 const DEFAULT_MONO = 'ui-monospace, "SFMono-Regular", Menlo, monospace';
@@ -216,6 +217,10 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
     const { t } = useI18n();
     const partId = part.id;
     const theme = useHtmlRenderTheme();
+    // The page with its local images in place; null while they load, and the
+    // frame keeps the page's space meanwhile.
+    const loadedHtml = useRenderPageHtml(part, html);
+    const pageHtml = loadedHtml ?? html;
     const [height, setHeight] = React.useState(() => rememberedHeights.get(partId) ?? HTML_RENDER_MIN_HEIGHT);
     const [fullscreen, setFullscreen] = React.useState(false);
 
@@ -234,7 +239,7 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
         const fileName = htmlRenderFileName(title);
         // The saved page carries the theme it was viewed in, so it opens the
         // same way outside the app.
-        const file = new File([buildHtmlRenderDocument(html, theme)], fileName, { type: 'text/html' });
+        const file = new File([buildHtmlRenderDocument(pageHtml, theme)], fileName, { type: 'text/html' });
         try {
             if (isCapacitorMobileApp()) {
                 await shareFileFromNativeApp(file);
@@ -251,7 +256,7 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
         } catch {
             toast.error(t('chat.htmlRender.downloadFailed'));
         }
-    }, [html, t, theme, title]);
+    }, [pageHtml, t, theme, title]);
 
     // What this client sent, shown until the call completes with the answer
     // OpenCode stores.
@@ -285,14 +290,16 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
     return (
         <div className="my-2">
         <div className="group/html-render relative" style={{ height }} data-html-render={partId}>
-            <HtmlRenderDocument
-                html={html}
-                title={title}
-                className="block size-full border-0 bg-transparent"
-                answerState={answerState}
-                onSubmit={handleSubmit}
-                onContentHeight={handleContentHeight}
-            />
+            {loadedHtml === null ? null : (
+                <HtmlRenderDocument
+                    html={loadedHtml}
+                    title={title}
+                    className="block size-full border-0 bg-transparent"
+                    answerState={answerState}
+                    onSubmit={handleSubmit}
+                    onContentHeight={handleContentHeight}
+                />
+            )}
             {isMobile ? null : (
                 <>
                     <div className="absolute end-1 top-1 flex gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/html-render:opacity-100 pointer-coarse:opacity-100">
@@ -321,7 +328,7 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
                         <DialogContent className="max-w-[min(72rem,100%)] gap-0 overflow-hidden bg-background p-0">
                             <DialogTitle className="truncate px-5 py-4 pe-12">{title}</DialogTitle>
                             {fullscreen ? (
-                                <FullscreenPage html={html} title={title} initialHeight={height} answerState={answerState} onSubmit={handleSubmit} />
+                                <FullscreenPage html={pageHtml} title={title} initialHeight={height} answerState={answerState} onSubmit={handleSubmit} />
                             ) : null}
                         </DialogContent>
                     </Dialog>

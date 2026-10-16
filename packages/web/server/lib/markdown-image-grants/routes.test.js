@@ -214,6 +214,30 @@ describe('session image assets', () => {
     ]);
   });
 
+  it('authorizes the local images an openchamber_render page names, and only that tool\'s pages', async () => {
+    const fixture = await createFixture({ sources: [] });
+    const shotPath = path.join(fixture.directory, 'Screen Shot.png');
+    const backgroundPath = path.join(fixture.directory, 'bg.png');
+    const otherPath = path.join(fixture.directory, 'other.png');
+    await Promise.all([shotPath, backgroundPath, otherPath].map((file) => fs.writeFile(file, PNG)));
+    fixture.fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      id: 'msg_1',
+      type: 'assistant',
+      content: [
+        { type: 'tool', name: 'openchamber_render', id: 'call_1', state: { status: 'completed', input: { html: `<img src="${shotPath}">`, title: 'Now' } } },
+        { type: 'tool', name: 'openchamber_render', id: 'call_2', state: { status: 'running', input: { parameters: { html: `<div style="background:url(${backgroundPath})"></div>`, title: 'Next' } } } },
+        { type: 'tool', name: 'shell', id: 'call_3', state: { status: 'completed', input: { html: `<img src="${otherPath}">` } } },
+      ],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+
+    const response = await prepare(fixture.app, fixture.directory, [shotPath, backgroundPath, otherPath]);
+    expect(response.body.results).toEqual([
+      { source: shotPath, status: 'ready', path: shotPath },
+      { source: backgroundPath, status: 'ready', path: backgroundPath },
+      { source: otherPath, status: 'error' },
+    ]);
+  });
+
   it('rejects a source that the message does not reference', async () => {
     const fixture = await createFixture({ markdown: 'No image here.' });
     const response = await prepare(fixture.app, fixture.directory, fixture.sources);
