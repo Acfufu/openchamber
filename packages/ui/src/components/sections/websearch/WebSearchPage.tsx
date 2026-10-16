@@ -3,7 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
-import type { WebSearchProvider, WebSearchProviderAccess, WebSearchSelection } from '@/lib/opencode/websearch';
+import type {
+  WebSearchConnectAnswer,
+  WebSearchConnectMethod,
+  WebSearchProvider,
+  WebSearchProviderAccess,
+  WebSearchSelection,
+} from '@/lib/opencode/websearch';
 import { SettingsPageLayout } from '@/components/sections/shared/SettingsPageLayout';
 import {
   SettingsFieldRow,
@@ -18,9 +24,11 @@ import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
 
 /**
  * Settings → Web search: which provider OpenCode's `websearch` tool uses, and
- * the optional API key each provider takes. Both belong to OpenCode: the
- * choice is the `websearch` key of its config, the keys are integration
- * credentials, so the page reads them from OpenCode and writes them back.
+ * the API key (or, for a server the user runs, the address) each provider
+ * takes. Both belong to OpenCode: the choice is the `websearch` key of its
+ * config, the keys are integration credentials, so the page reads them from
+ * OpenCode and writes them back. A plugin provider that is offered only once
+ * connected gets its row here before it appears among the choices.
  */
 
 const sameSelection = (a: WebSearchSelection, b: WebSearchSelection): boolean =>
@@ -109,27 +117,71 @@ const SelectionSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot 
   );
 };
 
-const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchProviderAccess; locked: boolean }> = ({ provider, access, locked }) => {
+const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchProviderAccess; connect: WebSearchConnectMethod; locked: boolean }> = ({ provider, access, connect, locked }) => {
   const { t } = useI18n();
   const saveKey = useWebSearchStore((store) => store.saveKey);
   const removeKey = useWebSearchStore((store) => store.removeKey);
   const [draft, setDraft] = React.useState('');
+  const [answer, setAnswer] = React.useState<WebSearchConnectAnswer>({});
   const [busy, setBusy] = React.useState(false);
   const envHint = access.envNames.length > 0 ? t('settings.webSearch.keys.envHint', { names: access.envNames.join(', ') }) : undefined;
+  const takesKey = connect.kind === 'key';
+  const filledAnswer = Object.fromEntries(
+    Object.entries(answer).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value !== ''),
+  );
+  const complete = (!takesKey || draft.trim() !== '') && connect.fields.every((field) => !field.required || filledAnswer[field.key] !== undefined);
 
   const handleSave = async () => {
-    const key = draft.trim();
-    if (!key) return;
+    if (!complete) return;
     setBusy(true);
-    const ok = await saveKey(provider.id, key);
+    const ok = await saveKey(provider.id, { key: draft.trim(), answer: filledAnswer });
     setBusy(false);
     if (ok) {
       setDraft('');
-      toast.success(t('settings.webSearch.toast.keySaved', { provider: provider.name }));
+      setAnswer({});
+      toast.success(takesKey
+        ? t('settings.webSearch.toast.keySaved', { provider: provider.name })
+        : t('settings.webSearch.toast.connected', { provider: provider.name }));
     } else {
-      toast.error(t('settings.webSearch.toast.keySaveFailed'));
+      toast.error(takesKey ? t('settings.webSearch.toast.keySaveFailed') : t('settings.webSearch.toast.connectFailed', { provider: provider.name }));
     }
   };
+
+  const submitOnEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') void handleSave();
+  };
+  const inputClassName = 'h-8 min-w-0 flex-1 rounded-md px-3 font-mono text-xs';
+  const inputs: React.ReactNode[] = connect.fields.map((field) => (
+    <Input
+      key={field.key}
+      type={field.url ? 'url' : 'text'}
+      value={answer[field.key] ?? ''}
+      onChange={(event) => setAnswer((current) => ({ ...current, [field.key]: event.target.value }))}
+      onKeyDown={submitOnEnter}
+      placeholder={field.placeholder ?? field.label}
+      aria-label={t('settings.webSearch.keys.fieldAria', { provider: provider.name, field: field.label })}
+      className={inputClassName}
+    />
+  ));
+  if (takesKey) {
+    inputs.push(
+      <Input
+        key="key"
+        type="password"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={submitOnEnter}
+        placeholder={t('settings.webSearch.keys.placeholder')}
+        aria-label={t('settings.webSearch.keys.inputAria', { provider: provider.name })}
+        className={inputClassName}
+      />,
+    );
+  }
+  const saveButton = (
+    <Button size="xs" disabled={busy || !complete} onClick={() => void handleSave()}>
+      {t('settings.webSearch.keys.save')}
+    </Button>
+  );
 
   const handleRemove = async () => {
     setBusy(true);
@@ -143,7 +195,9 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
     <SettingsFieldRow label={provider.name} info={envHint}>
       {status.kind === 'stored' ? (
         <div className={`${SETTINGS_CONTROL_CLUSTER_CLASS} flex items-center justify-end gap-2`}>
-          <span className="typography-meta text-muted-foreground">{t('settings.webSearch.keys.saved')}</span>
+          <span className="typography-meta text-muted-foreground">
+            {takesKey ? t('settings.webSearch.keys.saved') : t('settings.webSearch.keys.connected')}
+          </span>
           <Button variant="outline" size="xs" disabled={busy} onClick={() => void handleRemove()}>
             {t('settings.webSearch.keys.remove')}
           </Button>
@@ -152,22 +206,21 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
         <span className="typography-meta text-muted-foreground">
           {t('settings.webSearch.keys.fromEnv', { name: status.name })}
         </span>
-      ) : locked ? null : (
+      ) : locked ? null : inputs.length === 1 ? (
         <div className={`${SETTINGS_CONTROL_CLUSTER_CLASS} flex items-center gap-2`}>
-          <Input
-            type="password"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void handleSave();
-            }}
-            placeholder={t('settings.webSearch.keys.placeholder')}
-            aria-label={t('settings.webSearch.keys.inputAria', { provider: provider.name })}
-            className="h-8 min-w-0 flex-1 rounded-md px-3 font-mono text-xs"
-          />
-          <Button size="xs" disabled={busy || draft.trim().length === 0} onClick={() => void handleSave()}>
-            {t('settings.webSearch.keys.save')}
-          </Button>
+          {inputs}
+          {saveButton}
+        </div>
+      ) : (
+        // Several fields stack, with Save after the last one.
+        <div className={`${SETTINGS_CONTROL_CLUSTER_CLASS} flex flex-col gap-2`}>
+          {inputs.slice(0, -1).map((input, index) => (
+            <div key={index} className="flex">{input}</div>
+          ))}
+          <div className="flex items-center gap-2">
+            {inputs.at(-1)}
+            {saveButton}
+          </div>
         </div>
       )}
     </SettingsFieldRow>
@@ -180,11 +233,15 @@ const KeysSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot }) =>
   // same OpenCode route as model providers); saved ones can still be removed.
   const locked = useEnterpriseMode();
   const access = snapshot.access;
+  // Plugin providers that are not connected yet sit among the listed ones,
+  // in name order, so a row stays in place when its provider joins the list.
   const keyed = access
-    ? snapshot.providers.flatMap((provider) => {
-        const entry = access[provider.id];
-        return entry && entry.key.kind !== 'unsupported' ? [{ provider, access: entry }] : [];
-      })
+    ? [...snapshot.providers, ...snapshot.connectable]
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+        .flatMap((provider) => {
+          const entry = access[provider.id];
+          return entry?.connect ? [{ provider, access: entry, connect: entry.connect }] : [];
+        })
     : [];
   if (access && keyed.length === 0) return null;
 
@@ -199,8 +256,8 @@ const KeysSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot }) =>
         {access === null ? (
           <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.state.keysUnavailable')}</p>
         ) : (
-          keyed.map(({ provider, access: entry }) => (
-            <ProviderKeyRow key={provider.id} provider={provider} access={entry} locked={locked} />
+          keyed.map(({ provider, access: entry, connect }) => (
+            <ProviderKeyRow key={provider.id} provider={provider} access={entry} connect={connect} locked={locked} />
           ))
         )}
       </div>
