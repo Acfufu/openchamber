@@ -1,4 +1,5 @@
 import React from 'react';
+import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 
 import { toast } from '@/components/ui';
@@ -73,6 +74,7 @@ import {
   setFileTreeDragSource,
   type FileTreeEntry,
 } from './fileTreeMoveDrag';
+import { buildFileTreeRows, withPinnedRowIndexes, type FileTreeRow } from './fileTreeRows';
 
 type FileNode = {
   name: string;
@@ -81,6 +83,10 @@ type FileNode = {
   extension?: string;
   relativePath?: string;
 };
+
+// A row is one meta line plus its padding (FileRow's block size); rows are
+// measured once mounted.
+const FILE_TREE_ROW_ESTIMATE_PX = 28;
 
 const hasExternalFiles = (dataTransfer: DataTransfer): boolean => (
   Array.from(dataTransfer.types).includes('Files')
@@ -504,12 +510,7 @@ const FileRow: React.FC<FileRowProps> = ({
       <ContextMenuTrigger render={(
         <div
           className="group relative flex items-center typography-meta"
-          style={{
-            contentVisibility: 'auto',
-            // Keep skipped rows the same size after font changes. Expanded
-            // child lists remain outside this single-line row's containment.
-            blockSize: 'calc(max(1lh, 1rem) + 0.5rem)',
-          }}
+          style={{ blockSize: 'calc(max(1lh, 1rem) + 0.5rem)' }}
           onContextMenu={handleContextMenu}
           onDragEnter={handleRowDragOver}
           onDragOver={handleRowDragOver}
@@ -738,7 +739,6 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
   const expandedPathSet = React.useMemo(() => new Set(expandedPaths), [expandedPaths]);
   const selectedPath = useFilesViewTabsStore((state) => (root ? (state.byRoot[root]?.selectedPath ?? null) : null));
   const setSelectedPath = useFilesViewTabsStore((state) => state.setSelectedPath);
-  const treeSectionRef = React.useRef<HTMLElement>(null);
   // A newly selected file is revealed once, as soon as its row exists: its
   // ancestors may still be loading when the selection lands. After that the
   // tree scrolls only when the user scrolls it.
@@ -1406,86 +1406,130 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
 
   // --- Tree rendering (matching FilesView with indent guides) ---
 
-  function renderTree(dirPath: string, depth: number): React.ReactNode {
-    const nodes = childrenByDir[dirPath] ?? [];
+  // Virtualized: only the rows in and near view are in the document. With
+  // every expanded folder mounted, a large repository put thousands of
+  // elements under the context panel, and each open restyled all of them and
+  // added them to the accessibility tree inside the opening animation.
+  const treeRows = React.useMemo(
+    () => (root ? buildFileTreeRows({ root, childrenByDir, expandedPaths: expandedPathSet, loadErrorsByDir }) : []),
+    [childrenByDir, expandedPathSet, loadErrorsByDir, root],
+  );
+  const treeRowIndexByPath = React.useMemo(
+    () => new Map(treeRows.flatMap((row, index) => (row.kind === 'node' ? [[row.node.path, index] as const] : []))),
+    [treeRows],
+  );
+  const [treeScrollElement, setTreeScrollElement] = React.useState<HTMLElement | null>(null);
+  const [treeListElement, setTreeListElement] = React.useState<HTMLUListElement | null>(null);
+  const [focusedRowPath, setFocusedRowPath] = React.useState<string | null>(null);
+  const pinnedRowIndexes = React.useMemo(
+    () => [moveDragPath, focusedRowPath].flatMap((path) => (path ? [treeRowIndexByPath.get(path) ?? -1] : [])),
+    [focusedRowPath, moveDragPath, treeRowIndexByPath],
+  );
+  const rangeExtractor = React.useCallback(
+    (range: Range) => withPinnedRowIndexes(defaultRangeExtractor(range), pinnedRowIndexes, treeRows.length),
+    [pinnedRowIndexes, treeRows.length],
+  );
+  // The list starts below the scroller's own padding.
+  const [treeListOffset, setTreeListOffset] = React.useState(0);
+  React.useLayoutEffect(() => {
+    if (!treeScrollElement || !treeListElement) return;
+    const offset = treeListElement.getBoundingClientRect().top - treeScrollElement.getBoundingClientRect().top + treeScrollElement.scrollTop;
+    setTreeListOffset(Math.max(0, Math.round(offset)));
+  }, [treeListElement, treeScrollElement]);
+  const treeVirtualizer = useVirtualizer<HTMLElement, HTMLLIElement>({
+    count: treeRows.length,
+    // Enabled before the scroller exists, the virtualizer would cache offset 0.
+    enabled: treeScrollElement !== null,
+    getScrollElement: () => treeScrollElement,
+    estimateSize: () => FILE_TREE_ROW_ESTIMATE_PX,
+    getItemKey: (index) => treeRows[index]?.key ?? index,
+    overscan: 12,
+    scrollMargin: treeListOffset,
+    rangeExtractor,
+  });
 
-    return nodes.map((node) => {
-      const isDir = node.type === 'directory';
-      const isExpanded = isDir && expandedPathSet.has(node.path);
-      const isActive = selectedPath === node.path;
-
+  const renderTreeRow = (row: FileTreeRow<FileNode>): React.ReactNode => {
+    if (row.kind === 'error') {
       return (
-        <li key={node.path} data-file-tree-path={isDir ? undefined : node.path}>
-          <MemoizedFileRow
-            node={node}
-            root={root}
-            isExpanded={isExpanded}
-            isActive={isActive}
-            isBrowserClient={isBrowserClient}
-            depth={depth}
-            isOpen={!isDir && openContextFilePaths.has(node.path)}
-            status={!isDir ? getFileStatus(node.path) : undefined}
-            badge={isDir ? getFolderBadge(node.path) : undefined}
-            isDropTarget={isDir && (dropIndicatorTarget === node.path || moveDropTarget === node.path)}
-            isDragSource={moveDragPath === node.path}
-            canUpload={canUpload && !isUploading}
-            canMove={canMove}
-            permissions={fileRowPermissions}
-            downloadFile={files.downloadFile}
-            onSelect={handleOpenFile}
-            onToggle={toggleDirectory}
-            onRevealPath={handleRevealPath}
-            onOpenDialog={handleOpenDialog}
-            onSetDropTarget={setDropTarget}
-            onDropFiles={handleDropFiles}
-            onPickFiles={pickFiles}
-            onMoveDragChange={handleMoveDragChange}
-            onSetMoveDropTarget={setMoveDropTarget}
-            onMoveDrop={handleMoveDrop}
-          />
-          {isDir && isExpanded && (
-            <ul className="flex flex-col">
-              {loadErrorsByDir[node.path] ? (
-                <li
-                  className="relative flex items-center gap-2 py-1 pe-2 typography-meta text-muted-foreground"
-                  style={{ paddingInlineStart: fileTreeRowPaddingLeft(depth + 1) }}
-                >
-                  <FileTreeIndentGuides depth={depth + 1} />
-                  <span className="min-w-0 flex-1 truncate text-[var(--status-error)]" title={loadErrorsByDir[node.path]}>{loadErrorsByDir[node.path]}</span>
-                  <Button variant="ghost" size="xs" className="h-6 gap-1" onClick={() => void refreshDirectory(node.path)}>
-                    <Icon name="refresh" className="h-3.5 w-3.5" />
-                    {t('sidebarFilesTree.actions.refreshTitle')}
-                  </Button>
-                </li>
-              ) : null}
-              {renderTree(node.path, depth + 1)}
-            </ul>
-          )}
-        </li>
+        <div
+          className="relative flex items-center gap-2 py-1 pe-2 typography-meta text-muted-foreground"
+          style={{ paddingInlineStart: fileTreeRowPaddingLeft(row.depth) }}
+        >
+          <FileTreeIndentGuides depth={row.depth} />
+          <span className="min-w-0 flex-1 truncate text-[var(--status-error)]" title={row.message}>{row.message}</span>
+          <Button variant="ghost" size="xs" className="h-6 gap-1" onClick={() => void refreshDirectory(row.directory)}>
+            <Icon name="refresh" className="h-3.5 w-3.5" />
+            {t('sidebarFilesTree.actions.refreshTitle')}
+          </Button>
+        </div>
       );
-    });
-  }
+    }
+    const { node, depth, isExpanded } = row;
+    const isDir = node.type === 'directory';
+    return (
+      <MemoizedFileRow
+        node={node}
+        root={root}
+        isExpanded={isExpanded}
+        isActive={selectedPath === node.path}
+        isBrowserClient={isBrowserClient}
+        depth={depth}
+        isOpen={!isDir && openContextFilePaths.has(node.path)}
+        status={!isDir ? getFileStatus(node.path) : undefined}
+        badge={isDir ? getFolderBadge(node.path) : undefined}
+        isDropTarget={isDir && (dropIndicatorTarget === node.path || moveDropTarget === node.path)}
+        isDragSource={moveDragPath === node.path}
+        canUpload={canUpload && !isUploading}
+        canMove={canMove}
+        permissions={fileRowPermissions}
+        downloadFile={files.downloadFile}
+        onSelect={handleOpenFile}
+        onToggle={toggleDirectory}
+        onRevealPath={handleRevealPath}
+        onOpenDialog={handleOpenDialog}
+        onSetDropTarget={setDropTarget}
+        onDropFiles={handleDropFiles}
+        onPickFiles={pickFiles}
+        onMoveDragChange={handleMoveDragChange}
+        onSetMoveDropTarget={setMoveDropTarget}
+        onMoveDrop={handleMoveDrop}
+      />
+    );
+  };
+
+  // Follows focus inside the tree, so the focused row stays mounted.
+  const handleTreeFocus = React.useCallback((event: React.FocusEvent<HTMLUListElement>) => {
+    const row = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-tree-row-path]') : null;
+    setFocusedRowPath(row?.dataset.treeRowPath ?? null);
+  }, []);
+  const handleTreeBlur = React.useCallback((event: React.FocusEvent<HTMLUListElement>) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+    setFocusedRowPath(null);
+  }, []);
 
   React.useEffect(() => {
     const path = pendingRevealPathRef.current;
-    const section = treeSectionRef.current;
-    if (!path || !section) return;
-    const row = section.querySelector<HTMLElement>(`[data-file-tree-path="${CSS.escape(path)}"]`);
+    // Only the tree's own list: search results take its place while a query runs.
+    if (!path || !treeScrollElement || !treeListElement) return;
+    const index = treeRowIndexByPath.get(path);
     // A hidden tree has no layout to scroll; reveal once it is shown.
-    if (!row || row.offsetParent === null) return;
+    if (index === undefined || treeScrollElement.offsetParent === null) return;
     pendingRevealPathRef.current = null;
-    row.scrollIntoView({ block: 'nearest' });
+    treeVirtualizer.scrollToIndex(index, { align: 'auto' });
   });
 
   const hasTree = Boolean(root && childrenByDir[root]);
   const rootLoadError = root ? loadErrorsByDir[root] : null;
   const isSearchActive = debouncedSearchQuery.trim().length > 0;
+  // The same order of cases as the list below: the tree shows only when no
+  // search, search result or root error takes its place.
+  const showsTree = !searching && !isSearchActive && searchResults.length === 0 && !rootLoadError && hasTree && Boolean(root);
   const dropTargetLabel = dropIndicatorTarget ? getDropTargetLabel(root, dropIndicatorTarget) : '';
   const moveDropTargetLabel = moveDropTarget ? getDropTargetLabel(root, moveDropTarget) : '';
   const pendingMoveName = pendingMove ? pendingMove.source.path.slice(pendingMove.source.path.lastIndexOf('/') + 1) : '';
 
   return (
-    <section ref={treeSectionRef} className="flex h-full min-h-0 flex-col overflow-hidden">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* The action band matches the file editor's docked toolbar (40px,
           24px buttons) so the two read as one row across the panel. */}
       <div className="flex flex-col border-b border-border/40">
@@ -1588,8 +1632,11 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
 
       <div className="relative flex-1 min-h-0">
         <ScrollableOverlay
+          ref={setTreeScrollElement}
           outerClassName="h-full min-h-0"
-          className={cn('px-1.5 py-1.5', (dropIndicatorTarget === root || moveDropTarget === root) && 'bg-interactive-selection/10')}
+          // The virtualizer keeps rows in place itself; browser scroll
+          // anchoring would fight it.
+          className={cn('px-1.5 py-1.5 [overflow-anchor:none]', (dropIndicatorTarget === root || moveDropTarget === root) && 'bg-interactive-selection/10')}
           onDragEnter={handleRootDragOver}
           onDragOver={handleRootDragOver}
           onDragLeave={handleRootDragLeave}
@@ -1654,12 +1701,38 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
                 {t('sidebarFilesTree.actions.refreshTitle')}
               </Button>
             </li>
-          ) : hasTree && root ? (
-            renderTree(root, 0)
-          ) : (
+          ) : hasTree && root ? null : (
             <li className="px-2 py-1 typography-meta text-muted-foreground">{t('sidebarFilesTree.state.loading')}</li>
           )}
         </ul>
+        {showsTree ? (
+          <ul
+            ref={setTreeListElement}
+            className="relative"
+            style={{ height: treeVirtualizer.getTotalSize() }}
+            onFocus={handleTreeFocus}
+            onBlur={handleTreeBlur}
+          >
+            {treeVirtualizer.getVirtualItems().map((item) => {
+              const row = treeRows[item.index];
+              if (!row) return null;
+              const path = row.kind === 'node' ? row.node.path : undefined;
+              return (
+                <li
+                  key={item.key}
+                  ref={treeVirtualizer.measureElement}
+                  data-index={item.index}
+                  data-tree-row-path={path}
+                  data-file-tree-path={row.kind === 'node' && row.node.type === 'file' ? path : undefined}
+                  className="absolute inset-x-0 top-0"
+                  style={{ transform: `translateY(${item.start - treeListOffset}px)` }}
+                >
+                  {renderTreeRow(row)}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
         </ScrollableOverlay>
         {dropIndicatorTarget ? (
           <div className="pointer-events-none absolute inset-s-2 inset-e-2 top-2 z-50 flex items-center gap-2 rounded-md border border-primary bg-background/95 px-2 py-1.5 shadow-sm">

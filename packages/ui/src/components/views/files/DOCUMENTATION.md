@@ -64,12 +64,18 @@ provides continuity between mounts; request cancellation for collapsed paths
 stops queued batches, while already-started reads may populate the same-scope
 cache. Runtime changes and unmount invalidate those active reads.
 
-Sidebar rows use browser `content-visibility: auto` to skip layout and paint for
-offscreen row contents without unmounting them. The explicit row height follows
-the meta line height, the icon minimum and vertical padding, so remembered
-offscreen dimensions cannot retain an old font size. Expanded child lists
-sit outside each row's containment, so expansion, scrolling, focus and menus keep
-their existing DOM structure. Reopening still refreshes directory contents.
+The sidebar tree is virtualized (`@tanstack/react-virtual`): the expanded
+folders flatten into one list of rows (`fileTreeRows.ts`, a folder's load error
+right under it), and only rows in and near view are in the document. With every
+row mounted, a large repository put thousands of elements under the context
+panel, and opening the panel restyled all of them and added them to the
+accessibility tree inside its animation. The dragged row and the row holding
+focus stay mounted wherever they scroll, so a drag still ends and focus does
+not fall to the page. Selecting a file scrolls its row into view through the
+virtualizer once the row exists. Only mounted rows are in the tab order. Rows
+keep an explicit height (the meta line height, the icon minimum and vertical
+padding), so a font change re-measures them. Search results and the root
+error are plain lists. Reopening still refreshes directory contents.
 
 ## Row look
 
