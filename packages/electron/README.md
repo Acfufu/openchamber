@@ -229,9 +229,10 @@ That runs, in order:
 
 1. `build:web-assets` to build the web UI and copy it into `packages/electron/resources/web-dist`.
 2. `prepare:opencode-cli` to download/cache the pinned OpenCode CLI and copy it into `packages/electron/resources/opencode-cli`.
-3. `bundle:main` to create `packages/electron/dist-bundle/{entry,main,early-startup}.mjs`.
-4. `rebuild:native` to rebuild native modules for Electron.
-5. `package.mjs` to run `electron-builder`; its `afterPack` hook stages the compiled macOS icon asset catalog.
+3. `prepare:ripgrep` to download/cache the target architecture's ripgrep and copy it into `packages/electron/resources/ripgrep`.
+4. `bundle:main` to create `packages/electron/dist-bundle/{entry,main,early-startup}.mjs`.
+5. `rebuild:native` to rebuild native modules for Electron.
+6. `package.mjs` to run `electron-builder`; its `afterPack` hook stages the compiled macOS icon asset catalog.
 
 Build output goes to `packages/electron/dist`.
 
@@ -292,6 +293,12 @@ Managed local Desktop startup prefers OpenCode binaries in this order:
 6. Platform discovery through `where opencode` on Windows or a login shell on macOS/Linux.
 
 Use an explicit override when testing a different OpenCode CLI build or when a user needs to point Desktop at a custom binary. The configured path must point to the standalone CLI, not the OpenCode Desktop app executable.
+
+## Bundled ripgrep
+
+Find in files (the contents mode of the sidebar's file search) runs ripgrep, which `@openchamber/web` gets from `@vscode/ripgrep`. That package installs one platform package (`@vscode/ripgrep-<os>-<arch>`) for the machine running `bun install`, so a desktop build for the other architecture would ship the wrong binary. `prepare:ripgrep` downloads the target architecture's platform package tarball from npm at the version the lockfile pins, checks the tarball, downloaded or cached, against the sha512 that `bun.lock` records for that package, caches it under `packages/electron/.cache/ripgrep`, stages `rg` or `rg.exe` into `resources/ripgrep`, and runs `rg --version` on it. A Windows arm64 build runs on an x64 runner, so its workflow step passes `OPENCHAMBER_TARGET_ARCH` and the version run is skipped there. `extraResources` ships that directory as `Resources/ripgrep`, and `build.files` keeps every `@vscode/ripgrep-*` platform package out of the asar. The `afterPack` check fails the build when the staged binary is missing or a platform package was packed; the Linux AppImage verifier also checks the binary's ELF architecture.
+
+The server (`packages/web/server/lib/fs/ripgrep.js`) looks for ripgrep in this order: `Resources/ripgrep` in a packaged build, the installed `@vscode/ripgrep` platform package (desktop development, web installs, Docker), then `rg` on the PATH. Without any of them the search route answers 501 and the file tree says the server cannot search contents.
 
 ## Common Env Vars
 

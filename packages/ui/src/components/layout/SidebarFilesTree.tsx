@@ -15,6 +15,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -44,6 +46,9 @@ import { useFileTreeUpload } from '@/components/views/files/useFileTreeUpload';
 import { moveWorkspacePath } from '@/components/views/files/moveWorkspacePath';
 import { INTERNAL_FILE_PATH_TYPE } from '@/components/chat/composer/attachments/dataTransfer';
 import { AUTO_RELIST_MAX_ENTRIES, useFileTreeChanges, type FileTreeChangeBatch } from '@/components/views/files/useFileTreeChanges';
+import { FileContentSearchResults } from '@/components/views/files/FileContentSearchResults';
+import { useFileContentSearch } from '@/components/views/files/useFileContentSearch';
+import type { FileContentSearchMatch } from '@/lib/api/types';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
 import { copyTextToClipboard } from '@/lib/clipboard';
@@ -644,6 +649,23 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = React.useState<FileNode[]>([]);
   const [searching, setSearching] = React.useState(false);
+  // Find in files: the menu on the search icon switches the field between
+  // names and contents, and `.*` makes the contents query a regular
+  // expression. Runtimes without the capability (VS Code) keep names only.
+  const canSearchContents = Boolean(files.searchContents);
+  const [searchMode, setSearchMode] = React.useState<'names' | 'contents'>('names');
+  const [regexSearch, setRegexSearch] = React.useState(false);
+  const contentSearchActive = canSearchContents && searchMode === 'contents';
+  const contentSearch = useFileContentSearch({
+    searchContents: files.searchContents,
+    directory: currentDirectory,
+    query: debouncedSearchQuery,
+    regex: regexSearch,
+    includeHidden: showHidden,
+    respectGitignore: !showGitignored,
+    active: visible && contentSearchActive,
+  });
+  const openContextFileAtLine = useUIStore((state) => state.openContextFileAtLine);
   const [dropTarget, setDropTarget] = React.useState<string | null>(null);
   // Drag-to-move: the row being dragged, the folder it would land in, and a
   // drop waiting for confirmation.
@@ -1024,7 +1046,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
 
   React.useEffect(() => {
     if (!visible) return;
-    if (!currentDirectory) {
+    if (!currentDirectory || contentSearchActive) {
       setSearchResults([]);
       setSearching(false);
       return;
@@ -1074,7 +1096,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
     return () => {
       cancelled = true;
     };
-  }, [currentDirectory, debouncedSearchQuery, searchFiles, showHidden, showGitignored, visible]);
+  }, [contentSearchActive, currentDirectory, debouncedSearchQuery, searchFiles, showHidden, showGitignored, visible]);
 
   // --- Git status helpers (matching FilesView) ---
   //
@@ -1151,6 +1173,37 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
     // Touch has no double-click to keep a preview, so it opens tabs outright.
     openContextFile(root, node.path, { preview: !options?.pin && !useUIStore.getState().isMobile });
   }, [addOpenPath, files, openContextFile, root, setSelectedPath]);
+
+  // A find-in-files result opens its file at the matching line, as a preview
+  // on a click and as a pinned tab on a double-click, like a tree row.
+  const handleOpenMatch = React.useCallback(async (match: FileContentSearchMatch, options?: { pin?: boolean }) => {
+    if (!root) return;
+
+    const openValidation = await validateContextFileOpen(files, match.path, { directory: root });
+    if (!openValidation.ok) {
+      toast.error(getContextFileOpenFailureMessage(openValidation.reason));
+      return;
+    }
+
+    setSelectedPath(root, match.path);
+    addOpenPath(root, match.path);
+    openContextFileAtLine(root, match.path, match.line, match.column, { preview: !options?.pin && !useUIStore.getState().isMobile });
+  }, [addOpenPath, files, openContextFileAtLine, root, setSelectedPath]);
+
+  const handleMatchDragStart = React.useCallback((event: React.DragEvent<HTMLButtonElement>, match: FileContentSearchMatch) => {
+    recordFileTreeDragStart(event);
+    // Search results attach to the chat only; they never move.
+    setFileTreeDragSource(null);
+    event.dataTransfer.setData(INTERNAL_FILE_PATH_TYPE, match.relativePath);
+    event.dataTransfer.effectAllowed = 'copy';
+  }, []);
+
+  const handleMatchDragEnd = React.useCallback((event: React.DragEvent<HTMLButtonElement>, match: FileContentSearchMatch) => {
+    // A micro-drag suppressed the click this gesture was meant to be (#2368).
+    if (shouldTreatFileTreeDragEndAsClick(event)) {
+      void handleOpenMatch(match);
+    }
+  }, [handleOpenMatch]);
 
   const toggleDirectory = React.useCallback(async (dirPath: string) => {
     const normalized = normalizePath(dirPath);
@@ -1606,14 +1659,66 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
         </Tooltip>
         </div>
         <div className="relative min-w-0 px-2 py-2">
-          <Icon name="search" className="pointer-events-none absolute inset-s-4 top-4 h-4 w-4 text-muted-foreground" />
+          {canSearchContents ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute inset-s-3 top-3 size-6 p-0 text-muted-foreground hover:text-foreground"
+                  title={t('sidebarFilesTree.search.mode.aria')}
+                  aria-label={t('sidebarFilesTree.search.mode.aria')}
+                >
+                  <Icon name={contentSearchActive ? 'file-search' : 'search'} className="h-4 w-4" />
+                  {/* The corner marks the icon as a menu. */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-0.5 end-0.5 size-0 border-[3px] border-b-current border-e-current border-s-transparent border-t-transparent opacity-70"
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="bottom">
+                <DropdownMenuRadioGroup
+                  value={searchMode}
+                  onValueChange={(value) => setSearchMode(value === 'contents' ? 'contents' : 'names')}
+                >
+                  <DropdownMenuRadioItem value="names">
+                    <Icon name="search" className="size-3.5" />
+                    {t('sidebarFilesTree.search.mode.names')}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="contents">
+                    <Icon name="file-search" className="size-3.5" />
+                    {t('sidebarFilesTree.search.mode.contents')}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Icon name="search" className="pointer-events-none absolute inset-s-4 top-4 h-4 w-4 text-muted-foreground" />
+          )}
           <Input
             ref={searchInputRef}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t('sidebarFilesTree.search.placeholder')}
-            className="h-8 ps-8 pe-8 typography-meta"
+            placeholder={t(contentSearchActive ? 'sidebarFilesTree.search.contentsPlaceholder' : 'sidebarFilesTree.search.placeholder')}
+            className={cn('h-8 ps-8 typography-meta', contentSearchActive ? 'pe-16' : 'pe-8')}
           />
+          {contentSearchActive ? (
+            <Button
+              variant="chip"
+              size="xs"
+              aria-pressed={regexSearch}
+              onClick={() => {
+                setRegexSearch((value) => !value);
+                searchInputRef.current?.focus();
+              }}
+              title={t('sidebarFilesTree.search.regexTitle')}
+              aria-label={t('sidebarFilesTree.search.regexTitle')}
+              className="absolute inset-e-9 top-3 h-5 min-w-0 px-1 font-mono typography-micro"
+            >
+              .*
+            </Button>
+          ) : null}
           {searchQuery.trim().length > 0 ? (
             <button
               type="button"
@@ -1643,7 +1748,15 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
           onDrop={handleRootDrop}
         >
         <ul className="flex flex-col">
-          {searching ? (
+          {contentSearchActive && contentSearch.status !== 'idle' ? (
+            <FileContentSearchResults
+              state={contentSearch}
+              selectedPath={selectedPath}
+              onOpen={handleOpenMatch}
+              onDragStart={handleMatchDragStart}
+              onDragEnd={handleMatchDragEnd}
+            />
+          ) : searching ? (
             <li className="flex items-center gap-1.5 px-2 py-1 typography-meta text-muted-foreground">
               <Icon name="loader-4" className="h-4 w-4 animate-spin" />
               {t('sidebarFilesTree.state.searching')}
