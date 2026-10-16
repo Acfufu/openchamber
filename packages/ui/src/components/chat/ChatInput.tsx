@@ -2555,10 +2555,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         })) {
             e.preventDefault();
 
-            // An empty composer sends nothing from the keyboard. Flushing the
-            // queue is the send button's job; a stray Enter must not push
-            // every queued message into the running turn.
-            if (!hasContent) return;
+            // An empty composer with a queue sends the whole queue now. While
+            // a turn runs Stop replaces the send button, so only Enter does it.
 
             // Queueing / steering only works when there's an existing busy
             // session (or an active auto-review run).

@@ -118,10 +118,11 @@ its own queue. It stays visible under the form and permission docks.
 `selectComposerQueue` in the submission builder excludes server-scheduled items
 before the composer counts manual content or reads captured send configuration.
 Mixed queues use only ordinary items for manual send; a scheduled-only queue
-cannot trigger an empty composer send. Only the send button flushes the queue
-from an empty composer; Enter and Ctrl/Cmd+Enter with nothing typed do
-nothing, so a stray keystroke cannot push the queue into a running turn
-(#4749). Scheduled items stay visible in the
+cannot trigger an empty composer send. Enter and Ctrl/Cmd+Enter in an empty
+composer send the whole queue now, as one visible message (#4746). While a turn
+runs only Enter does this: the send button gives way to Stop until the turn
+ends, and a row's own Send sends just that message. Like any send, it dismisses
+open permission requests and forms. Scheduled items stay visible in the
 queue rows with reorder and remove, but no edit or send action.
 
 `BackgroundShellsStrip` lists the commands that went to the background (not the ones
