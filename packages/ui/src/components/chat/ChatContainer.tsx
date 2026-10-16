@@ -239,6 +239,7 @@ type ChatViewportProps = {
     turnIds: string[];
     activeTurnId: string | null;
     onSelectTurn: (turnId: string) => void;
+    promptRailEnabled: boolean;
     showPromptNavigator: boolean;
     canLoadEarlierPrompts: boolean;
     isLoadingOlderPrompts: boolean;
@@ -276,6 +277,7 @@ const ChatViewport = React.memo(({
     turnIds,
     activeTurnId,
     onSelectTurn,
+    promptRailEnabled,
     showPromptNavigator,
     canLoadEarlierPrompts,
     isLoadingOlderPrompts,
@@ -541,7 +543,10 @@ const ChatViewport = React.memo(({
             ref={timelineRootRef}
             aria-hidden={isDesktopExpandedInput}
             // The message column keeps clear of the prompt rail (typography.css).
-            data-prompt-rail={showPromptNavigator && promptTurnIds.length >= 2 ? '' : undefined}
+            // The room is reserved whenever the rail is enabled, before the
+            // rail itself appears with the second prompt, so its arrival does
+            // not shift the centered column sideways.
+            data-prompt-rail={promptRailEnabled ? '' : undefined}
         >
             <div className="absolute inset-0">
                 <MessageList
@@ -623,6 +628,7 @@ const ChatViewport = React.memo(({
         && prev.turnIds === next.turnIds
         && prev.activeTurnId === next.activeTurnId
         && prev.onSelectTurn === next.onSelectTurn
+        && prev.promptRailEnabled === next.promptRailEnabled
         && prev.showPromptNavigator === next.showPromptNavigator
         && prev.canLoadEarlierPrompts === next.canLoadEarlierPrompts
         && prev.isLoadingOlderPrompts === next.isLoadingOlderPrompts
@@ -1414,9 +1420,10 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         void navigation.scrollToTurnId(turnId, { behavior: 'auto' });
     }, [navigation]);
     const canLoadEarlierPrompts = timelineController.historySignals.canLoadEarlier;
-    const showPromptNavigator = !isMobile
+    const promptRailEnabled = !isMobile
         && !isDesktopExpandedInput
-        && promptNavigatorEnabled
+        && promptNavigatorEnabled;
+    const showPromptNavigator = promptRailEnabled
         && timelineController.turnIds.length >= 2;
 
     React.useEffect(() => {
@@ -1763,6 +1770,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 turnIds={timelineController.turnIds}
                 activeTurnId={timelineController.activeTurnId}
                 onSelectTurn={handlePromptNavigatorSelect}
+                promptRailEnabled={promptRailEnabled}
                 showPromptNavigator={showPromptNavigator}
                 canLoadEarlierPrompts={canLoadEarlierPrompts}
                 isLoadingOlderPrompts={timelineController.isLoadingOlder}
