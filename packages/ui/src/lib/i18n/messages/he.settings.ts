@@ -1,3 +1,4 @@
+import { settingsLayoutI18n } from './settings-layout.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { linearIntegrationI18n } from './linear-integration.i18n';
@@ -1129,7 +1130,6 @@ export const settingsDict = {
   'settings.openchamber.sessionRetention.toast.deletedCount': 'נמחקו {count} הפעלות',
   'settings.openchamber.sessionRetention.toast.failedArchiveCount': 'לא ניתן היה להעביר לארכיון {count} הפעלות',
   'settings.openchamber.sessionRetention.toast.failedDeleteCount': 'לא ניתן היה למחוק {count} הפעלות',
-  'settings.openchamber.desktopNetwork.title': 'גישה מהרשת לאפליקציית שולחן העבודה',
   'settings.openchamber.desktopNetwork.field.windowControlsPosition': 'מיקום כפתורי החלון',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionDescription': 'אפשר לבחור איפה יופיעו כפתורי המזעור, ההגדלה והסגירה. ברירת המחדל היא בצד ימין.',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionAria': 'מיקום כפתורי החלון',
@@ -1956,10 +1956,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'מודל זול למשימות עזר מהירות, כמו סיכומים ותקצירים קצרים.',
   'settings.openchamber.defaults.smallModel.useDefault': 'השתמש במודל הקטן המוגדר כברירת מחדל',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'השתמש במודל הקטן המוגדר כברירת מחדל',
-  'settings.openchamber.defaults.smallModel.overrideModel': 'מודל חלופי',
   'settings.openchamber.defaults.walkthroughModel.title': 'מודל לסיור מודרך בשינויים',
   'settings.openchamber.defaults.walkthroughModel.description': 'סקירת ה-AI של השינויים צריכה פלט מובנה ומקום להבדלים שלמים, ומודל קטן וזול לרוב לא מסוגל לכך. מודלים שהקטלוג מדווח שאינם מפיקים פלט מובנה מוסתרים מהבורר הזה. אם לא מוגדר, נעשה שימוש במודל הקטן.',
-  'settings.openchamber.defaults.walkthroughModel.overrideModel': 'מודל לסיור מודרך',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'מודל קטן',
   'settings.openchamber.defaults.field.openFilesPreviewAria': 'פתח קבצים שניתן להציג בתצוגה מקדימה במצב תצוגה מקדימה',
   'settings.openchamber.defaults.field.openFilesPreview': 'פתח קבצים שניתן להציג בתצוגה מקדימה במצב תצוגה מקדימה',
@@ -2180,9 +2178,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.spacingAndLayout': 'ריווח ופריסה',
   'settings.openchamber.visual.section.densityAndType': 'צפיפות וגופן',
   'settings.openchamber.visual.section.appInstall': 'התקנת האפליקציה',
-  'settings.openchamber.visual.section.navigation': 'ניווט',
-  'settings.openchamber.visual.section.chatDisplay': 'תצוגה',
-  'settings.openchamber.visual.section.chatMessageOptions': 'אפשרויות הודעה',
   'settings.openchamber.visual.section.chatFeatures': 'תכונות',
   'settings.openchamber.visual.section.messageStreamTransport': 'ערוץ הזרמת הודעות',
   'settings.openchamber.visual.section.activityDefault': 'ברירת מחדל לפעילות',
@@ -2190,7 +2185,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.sessionActivity': 'פעילות בהפעלה',
   'settings.openchamber.visual.section.sessionAssistance': 'סיוע בהפעלה',
   'settings.openchamber.visual.section.reasoning': 'חשיבה',
-  'settings.openchamber.visual.section.streaming': 'הזרמה',
   'settings.openchamber.visual.field.streamingAutoFollow': 'מעקב אחר תוכן חדש בזמן הזרמה',
   'settings.openchamber.visual.field.streamingAutoFollowAria': 'מעקב אוטומטי אחר תוכן חדש בזמן שתגובה מוזרמת',
   'settings.openchamber.visual.field.streamingAutoFollowInfo': 'בזמן שתגובה מוזרמת, התצוגה גוללת בעדינות אל התוכן החדש ביותר. כשהאפשרות כבויה, התצוגה נשארת במקומה והגלילה ידנית; שליחת הודעה כשהתצוגה גלולה למעלה גם היא משאירה את התצוגה במקומה.',
@@ -2198,7 +2192,6 @@ export const settingsDict = {
   'settings.openchamber.visual.field.animatedActivityIndicatorsAria': 'הצגת סמל טעינה מונפש בהפעלות שרצות',
   'settings.openchamber.visual.field.animatedActivityIndicatorsInfo': 'הפעלות שרצות מציגות סמל טעינה מסתובב במקום סמל המצב הקבוע. הסמל מתעדכן 4 פעמים בשנייה וצורך יותר אנרגיה מהסמל הקבוע. ההנפשה פועלת גם כשהאפשרות Reduce Motion מופעלת.',
   'settings.openchamber.visual.section.messageAppearance': 'מראה ההודעות',
-  'settings.openchamber.visual.section.toolsAndFiles': 'כלים וקבצים',
   'settings.openchamber.visual.section.composer': 'תיבת הכתיבה',
   'settings.openchamber.visual.section.userMessageRendering': 'הצגת הודעות משתמש',
   'settings.openchamber.visual.section.userMessageRenderingAria': 'מצב הצגת הודעות משתמש',
@@ -2573,4 +2566,5 @@ export const settingsDict = {
   ...extensionCatalogI18n.he,
   ...guestIntegrationsI18n.he,
   ...extensionsSettingsI18n.he,
+  ...settingsLayoutI18n.he,
 } as const;

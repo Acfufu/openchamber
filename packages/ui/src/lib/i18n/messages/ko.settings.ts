@@ -1,3 +1,4 @@
+import { settingsLayoutI18n } from './settings-layout.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { linearIntegrationI18n } from './linear-integration.i18n';
@@ -1097,7 +1098,6 @@ export const settingsDict = {
   'settings.openchamber.sessionRetention.toast.deletedCount': '세션 {count}개를 삭제했습니다',
   'settings.openchamber.sessionRetention.toast.failedArchiveCount': '세션 {count}개를 보관하지 못했습니다',
   'settings.openchamber.sessionRetention.toast.failedDeleteCount': '세션 {count}개를 삭제하지 못했습니다',
-  'settings.openchamber.desktopNetwork.title': 'Desktop 네트워크 접속',
   'settings.openchamber.desktopNetwork.field.windowControlsPosition': '창 컨트롤 위치',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionDescription': '최소화, 최대화, 닫기 버튼이 표시될 위치를 선택합니다. 기본값은 오른쪽입니다.',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionAria': '창 컨트롤 위치',
@@ -1934,10 +1934,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '짧은 요약 등 가벼운 유틸리티 작업을 위한 저렴한 모델입니다.',
   'settings.openchamber.defaults.smallModel.useDefault': '기본 소형 모델 사용',
   'settings.openchamber.defaults.smallModel.useDefaultAria': '기본 소형 모델 사용',
-  'settings.openchamber.defaults.smallModel.overrideModel': '재정의 모델',
   'settings.openchamber.defaults.walkthroughModel.title': '변경 워크스루 모델',
   'settings.openchamber.defaults.walkthroughModel.description': '변경 사항의 AI 리뷰에는 구조화된 출력과 전체 diff를 담을 여유가 필요한데, 저렴한 스몰 모델로는 부족할 때가 많습니다. 카탈로그가 구조화된 출력을 지원하지 않는다고 알리는 모델은 이 목록에서 숨겨집니다. 선택하지 않으면 스몰 모델이 사용됩니다.',
-  'settings.openchamber.defaults.walkthroughModel.overrideModel': '워크스루 모델',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': '스몰 모델',
   'settings.openchamber.defaults.field.showDeletionDialog': '삭제 확인 대화상자 표시',
   'settings.openchamber.defaults.field.openFilesPreviewAria': '미리보기 가능한 파일을 미리보기 모드로 열기',
@@ -2159,9 +2157,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.spacingAndLayout': '간격 및 레이아웃',
   'settings.openchamber.visual.section.densityAndType': '밀도 및 서체',
   'settings.openchamber.visual.section.appInstall': '앱 설치',
-  'settings.openchamber.visual.section.navigation': '내비게이션',
-  'settings.openchamber.visual.section.chatDisplay': '표시',
-  'settings.openchamber.visual.section.chatMessageOptions': '메시지 옵션',
   'settings.openchamber.visual.section.chatFeatures': '기능',
   'settings.openchamber.visual.section.messageStreamTransport': '메시지 스트림 전송',
   'settings.openchamber.visual.section.activityDefault': 'Activity 기본값',
@@ -2169,7 +2164,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.sessionActivity': '세션 활동',
   'settings.openchamber.visual.section.sessionAssistance': '세션 지원',
   'settings.openchamber.visual.section.reasoning': '추론',
-  'settings.openchamber.visual.section.streaming': '스트리밍',
   'settings.openchamber.visual.field.streamingAutoFollow': '스트리밍 중 새 내용 따라가기',
   'settings.openchamber.visual.field.streamingAutoFollowAria': '응답 스트리밍 중 새 내용으로 자동 스크롤',
   'settings.openchamber.visual.field.streamingAutoFollowInfo': '응답이 스트리밍되는 동안 화면이 최신 내용으로 계속 이동합니다. 끄면 화면이 고정되어 직접 스크롤할 수 있으며, 채팅 중간에서 메시지를 보내도 화면이 이동하지 않습니다.',
@@ -2177,7 +2171,6 @@ export const settingsDict = {
   'settings.openchamber.visual.field.animatedActivityIndicatorsAria': '실행 중인 세션에 애니메이션 스피너 표시',
   'settings.openchamber.visual.field.animatedActivityIndicatorsInfo': '실행 중인 세션은 정적 상태 아이콘 대신 스피너를 표시합니다. 스피너는 초당 4회 갱신되며 아이콘보다 더 많은 전력을 사용합니다. 이 애니메이션은 동작 줄이기가 켜져 있어도 재생됩니다.',
   'settings.openchamber.visual.section.messageAppearance': '메시지 모양',
-  'settings.openchamber.visual.section.toolsAndFiles': '도구 및 파일',
   'settings.openchamber.visual.section.composer': '입력창',
   'settings.openchamber.visual.section.userMessageRendering': '사용자 메시지 렌더링',
   'settings.openchamber.visual.section.userMessageRenderingAria': '사용자 메시지 렌더링 모드',
@@ -2537,6 +2530,7 @@ export const settingsDict = {
   ...extensionCatalogI18n.ko,
   ...guestIntegrationsI18n.ko,
   ...extensionsSettingsI18n.ko,
+  ...settingsLayoutI18n.ko,
   'settings.page.integrations.title': '통합',
   'settings.page.integrations.description': 'OpenChamber와 함께 쓰는 서비스와 구독을 연결합니다.',
   'settings.agents.page.field.steps': '최대 단계 수',

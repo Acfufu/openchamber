@@ -1,3 +1,4 @@
+import { settingsLayoutI18n } from './settings-layout.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { linearIntegrationI18n } from './linear-integration.i18n';
@@ -1097,7 +1098,6 @@ export const settingsDict = {
   'settings.openchamber.sessionRetention.toast.deletedCount': '已删除 {count} 个会话',
   'settings.openchamber.sessionRetention.toast.failedArchiveCount': '归档 {count} 个会话失败',
   'settings.openchamber.sessionRetention.toast.failedDeleteCount': '删除 {count} 个会话失败',
-  'settings.openchamber.desktopNetwork.title': '桌面端网络访问',
   'settings.openchamber.desktopNetwork.field.windowControlsPosition': '窗口控件位置',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionDescription': '选择最小化、最大化和关闭按钮的显示位置。默认在右侧。',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionAria': '窗口控件位置',
@@ -1934,10 +1934,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '用于快速实用任务（如简短回顾和摘要）的廉价模型。',
   'settings.openchamber.defaults.smallModel.useDefault': '使用默认小模型',
   'settings.openchamber.defaults.smallModel.useDefaultAria': '使用默认小模型',
-  'settings.openchamber.defaults.smallModel.overrideModel': '覆盖模型',
   'settings.openchamber.defaults.walkthroughModel.title': '改动导读模型',
   'settings.openchamber.defaults.walkthroughModel.description': 'AI 评审改动需要结构化输出和容纳整份差异的空间，廉价的小模型往往做不到。目录中标注为不支持结构化输出的模型不会出现在此列表里。 未选择时将使用小模型。',
-  'settings.openchamber.defaults.walkthroughModel.overrideModel': '导读模型',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': '小模型',
   'settings.openchamber.defaults.field.showDeletionDialog': '显示删除对话框',
   'settings.openchamber.defaults.field.openFilesPreviewAria': '以预览模式打开可预览文件',
@@ -2159,9 +2157,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.spacingAndLayout': '间距与布局',
   'settings.openchamber.visual.section.densityAndType': '密度与字体',
   'settings.openchamber.visual.section.appInstall': '应用安装',
-  'settings.openchamber.visual.section.navigation': '导航',
-  'settings.openchamber.visual.section.chatDisplay': '显示',
-  'settings.openchamber.visual.section.chatMessageOptions': '消息选项',
   'settings.openchamber.visual.section.chatFeatures': '功能',
   'settings.openchamber.visual.section.messageStreamTransport': '消息流传输方式',
   'settings.openchamber.visual.section.activityDefault': '活动默认状态',
@@ -2169,7 +2164,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.sessionActivity': '会话活动',
   'settings.openchamber.visual.section.sessionAssistance': '会话辅助',
   'settings.openchamber.visual.section.reasoning': '推理',
-  'settings.openchamber.visual.section.streaming': '流式输出',
   'settings.openchamber.visual.field.streamingAutoFollow': '流式输出时跟随新内容',
   'settings.openchamber.visual.field.streamingAutoFollowAria': '在回复流式输出时自动跟随新内容',
   'settings.openchamber.visual.field.streamingAutoFollowInfo': '回复流式输出时，视图会持续滚动到最新内容。关闭后视图保持不动，可手动滚动；此时从聊天中间发送消息也不会移动视图。',
@@ -2177,7 +2171,6 @@ export const settingsDict = {
   'settings.openchamber.visual.field.animatedActivityIndicatorsAria': '在运行中的会话上显示动画加载器',
   'settings.openchamber.visual.field.animatedActivityIndicatorsInfo': '运行中的会话显示旋转指示器，而不是静态状态图标。旋转指示器每秒更新 4 次，比图标更耗电。即使启用了“减少动态效果”，此动画也会播放。',
   'settings.openchamber.visual.section.messageAppearance': '消息外观',
-  'settings.openchamber.visual.section.toolsAndFiles': '工具和文件',
   'settings.openchamber.visual.section.composer': '输入框',
   'settings.openchamber.visual.section.userMessageRendering': '用户消息渲染',
   'settings.openchamber.visual.section.userMessageRenderingAria': '用户消息渲染模式',
@@ -2537,6 +2530,7 @@ export const settingsDict = {
   ...extensionCatalogI18n['zh-CN'],
   ...guestIntegrationsI18n['zh-CN'],
   ...extensionsSettingsI18n['zh-CN'],
+  ...settingsLayoutI18n['zh-CN'],
   'settings.page.integrations.title': '集成',
   'settings.page.integrations.description': '连接 OpenChamber 所使用的服务和订阅。',
   'settings.agents.page.field.steps': '最大步数',

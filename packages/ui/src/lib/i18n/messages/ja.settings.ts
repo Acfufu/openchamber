@@ -1,3 +1,4 @@
+import { settingsLayoutI18n } from './settings-layout.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { linearIntegrationI18n } from './linear-integration.i18n';
@@ -1130,7 +1131,6 @@ export const settingsDict = {
   'settings.openchamber.sessionRetention.toast.deletedCount': '{count} 個の Session を削除しました',
   'settings.openchamber.sessionRetention.toast.failedArchiveCount': '{count} 個の Session のアーカイブに失敗しました',
   'settings.openchamber.sessionRetention.toast.failedDeleteCount': '{count} 個の Session の削除に失敗しました',
-  'settings.openchamber.desktopNetwork.title': 'Desktop ネットワークアクセス',
   'settings.openchamber.desktopNetwork.field.windowControlsPosition': 'ウィンドウコントロールの位置',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionDescription': '最小化・最大化・閉じるボタンの表示位置を選びます。デフォルトは右側です。',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionAria': 'ウィンドウコントロールの位置',
@@ -1967,10 +1967,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '短い要約やまとめなどの軽いユーティリティタスク用の低コストモデルです。',
   'settings.openchamber.defaults.smallModel.useDefault': 'デフォルトの小型モデルを使用',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'デフォルトの小型モデルを使用',
-  'settings.openchamber.defaults.smallModel.overrideModel': '上書きモデル',
   'settings.openchamber.defaults.walkthroughModel.title': '変更ウォークスルーのモデル',
   'settings.openchamber.defaults.walkthroughModel.description': '変更の AI レビューには構造化出力と差分全体が収まる余裕が必要で、安価なスモールモデルでは足りないことがあります。カタログが構造化出力に非対応と示すモデルは、この一覧から除外されます。 未選択のままならスモールモデルが使われます。',
-  'settings.openchamber.defaults.walkthroughModel.overrideModel': 'ウォークスルーのモデル',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'スモールモデル',
   'settings.openchamber.defaults.field.showDeletionDialog': '削除ダイアログを表示',
   'settings.openchamber.defaults.field.openFilesPreviewAria': 'プレビュー可能なファイルをプレビューモードで開く',
@@ -2192,9 +2190,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.spacingAndLayout': '間隔とレイアウト',
   'settings.openchamber.visual.section.densityAndType': '密度と書体',
   'settings.openchamber.visual.section.appInstall': 'アプリのインストール',
-  'settings.openchamber.visual.section.navigation': 'ナビゲーション',
-  'settings.openchamber.visual.section.chatDisplay': '表示',
-  'settings.openchamber.visual.section.chatMessageOptions': 'メッセージオプション',
   'settings.openchamber.visual.section.chatFeatures': '機能',
   'settings.openchamber.visual.section.messageStreamTransport': 'メッセージストリーム転送',
   'settings.openchamber.visual.section.activityDefault': 'アクティビティデフォルト',
@@ -2202,7 +2197,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.sessionActivity': 'セッションアクティビティ',
   'settings.openchamber.visual.section.sessionAssistance': 'セッション支援',
   'settings.openchamber.visual.section.reasoning': '推論',
-  'settings.openchamber.visual.section.streaming': 'ストリーミング',
   'settings.openchamber.visual.field.streamingAutoFollow': '応答のストリーミング中に新しい内容を追従',
   'settings.openchamber.visual.field.streamingAutoFollowAria': '応答のストリーミング中に新しい内容へ自動スクロールする',
   'settings.openchamber.visual.field.streamingAutoFollowInfo': '応答の受信中、ビューは常に最新の内容へスクロールします。オフにするとビューは動かず、手動でスクロールできます。その場合、チャットの途中からメッセージを送信してもビューは移動しません。',
@@ -2210,7 +2204,6 @@ export const settingsDict = {
   'settings.openchamber.visual.field.animatedActivityIndicatorsAria': '実行中セッションにアニメーションスピナーを表示',
   'settings.openchamber.visual.field.animatedActivityIndicatorsInfo': '実行中のセッションは静的なステータスアイコンの代わりにスピナーを表示します。スピナーは毎秒4回更新され、アイコンより多くの電力を消費します。このアニメーションは「視差効果を減らす」が有効でも再生されます。',
   'settings.openchamber.visual.section.messageAppearance': 'メッセージの外観',
-  'settings.openchamber.visual.section.toolsAndFiles': 'ツールとファイル',
   'settings.openchamber.visual.section.composer': '入力欄',
   'settings.openchamber.visual.section.userMessageRendering': 'ユーザーメッセージ表示',
   'settings.openchamber.visual.section.userMessageRenderingAria': 'ユーザーメッセージ表示モード',
@@ -2537,6 +2530,7 @@ export const settingsDict = {
   ...extensionCatalogI18n.ja,
   ...guestIntegrationsI18n.ja,
   ...extensionsSettingsI18n.ja,
+  ...settingsLayoutI18n.ja,
   'settings.page.integrations.title': '連携',
   'settings.page.integrations.description': 'OpenChamber と連携するサービスやサブスクリプションを接続します。',
   'settings.agents.page.field.steps': '最大ステップ数',

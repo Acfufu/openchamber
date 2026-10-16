@@ -1,3 +1,4 @@
+import { settingsLayoutI18n } from './settings-layout.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { linearIntegrationI18n } from './linear-integration.i18n';
@@ -1094,7 +1095,6 @@ export const settingsDict = {
   'settings.openchamber.sessionRetention.toast.deletedCount': '已刪除 {count} 個工作階段',
   'settings.openchamber.sessionRetention.toast.failedArchiveCount': '封存 {count} 個工作階段失敗',
   'settings.openchamber.sessionRetention.toast.failedDeleteCount': '刪除 {count} 個工作階段失敗',
-  'settings.openchamber.desktopNetwork.title': '桌面端網路存取',
   'settings.openchamber.desktopNetwork.field.windowControlsPosition': '視窗控制項位置',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionDescription': '選擇最小化、最大化和關閉按鈕的顯示位置。預設在右側。',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionAria': '視窗控制項位置',
@@ -1823,10 +1823,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '用於快速實用任務（如簡短回顧與摘要）的廉價模型。',
   'settings.openchamber.defaults.smallModel.useDefault': '使用預設小模型',
   'settings.openchamber.defaults.smallModel.useDefaultAria': '使用預設小模型',
-  'settings.openchamber.defaults.smallModel.overrideModel': '覆寫模型',
   'settings.openchamber.defaults.walkthroughModel.title': '變更導讀模型',
   'settings.openchamber.defaults.walkthroughModel.description': 'AI 審閱變更需要結構化輸出與容納整份差異的空間，便宜的小模型常常做不到。目錄標示為不支援結構化輸出的模型不會出現在這份清單中。 未選擇時將使用小模型。',
-  'settings.openchamber.defaults.walkthroughModel.overrideModel': '導讀模型',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': '小模型',
   'settings.openchamber.defaults.field.showDeletionDialog': '顯示刪除對話方塊',
   'settings.openchamber.defaults.field.openFilesPreviewAria': '以預覽模式開啟可預覽檔案',
@@ -2048,9 +2046,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.spacingAndLayout': '間距與佈局',
   'settings.openchamber.visual.section.densityAndType': '密度與字型',
   'settings.openchamber.visual.section.appInstall': '應用程式安裝',
-  'settings.openchamber.visual.section.navigation': '導覽',
-  'settings.openchamber.visual.section.chatDisplay': '顯示',
-  'settings.openchamber.visual.section.chatMessageOptions': '訊息選項',
   'settings.openchamber.visual.section.chatFeatures': '功能',
   'settings.openchamber.visual.section.messageStreamTransport': '訊息流傳輸方式',
   'settings.openchamber.visual.section.activityDefault': '活動預設狀態',
@@ -2058,7 +2053,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.sessionActivity': '工作階段活動',
   'settings.openchamber.visual.section.sessionAssistance': '工作階段輔助',
   'settings.openchamber.visual.section.reasoning': '推理',
-  'settings.openchamber.visual.section.streaming': '串流',
   'settings.openchamber.visual.field.streamingAutoFollow': '串流時跟隨新內容',
   'settings.openchamber.visual.field.streamingAutoFollowAria': '回覆串流時自動跟隨新內容',
   'settings.openchamber.visual.field.streamingAutoFollowInfo': '回覆串流時，畫面會持續捲動到最新內容。關閉後畫面保持不動，可手動捲動；此時從聊天中間傳送訊息也不會移動畫面。',
@@ -2066,7 +2060,6 @@ export const settingsDict = {
   'settings.openchamber.visual.field.animatedActivityIndicatorsAria': '在執行中的工作階段上顯示動畫加載器',
   'settings.openchamber.visual.field.animatedActivityIndicatorsInfo': '執行中的工作階段會顯示旋轉指示器，而不是靜態狀態圖示。旋轉指示器每秒更新 4 次，比圖示更耗電。即使啟用「減少動態效果」，此動畫仍會播放。',
   'settings.openchamber.visual.section.messageAppearance': '訊息外觀',
-  'settings.openchamber.visual.section.toolsAndFiles': '工具與檔案',
   'settings.openchamber.visual.section.composer': '輸入框',
   'settings.openchamber.visual.section.userMessageRendering': '使用者訊息渲染',
   'settings.openchamber.visual.section.userMessageRenderingAria': '使用者訊息渲染模式',
@@ -2537,6 +2530,7 @@ export const settingsDict = {
   ...extensionCatalogI18n['zh-TW'],
   ...guestIntegrationsI18n['zh-TW'],
   ...extensionsSettingsI18n['zh-TW'],
+  ...settingsLayoutI18n['zh-TW'],
   'settings.page.integrations.title': '整合',
   'settings.page.integrations.description': '連接 OpenChamber 所使用的服務和訂閱。',
   'settings.agents.page.field.steps': '最大步數',

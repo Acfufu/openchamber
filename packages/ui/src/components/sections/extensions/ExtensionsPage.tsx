@@ -890,25 +890,31 @@ export const ExtensionsPage: React.FC = () => {
         {status === 'ready' && guests.length === 0 && unreadable.length === 0 ? (
           <p className="typography-meta text-muted-foreground">{t('settings.extensions.empty')}</p>
         ) : null}
-        {guests.map((guest) => (
-          <ExtensionCard
-            key={guest.id}
-            guest={guest}
-            busy={busy}
-            onReview={setApproval}
-            onRemove={remove}
-            onSetEnabled={setEnabled}
-            onUpdate={update}
-          />
-        ))}
-        {unreadable.map((guest, index) => (
-          <UnreadableExtensionCard
-            key={guest.id ?? `unreadable-${index}`}
-            guest={guest}
-            busy={busy}
-            onRemove={remove}
-          />
-        ))}
+        {guests.length > 0 || unreadable.length > 0 ? (
+          // Two columns on a wide pane so a long list stays short. Cards keep
+          // their own height: opening one leaves the card beside it as it was.
+          <div className="grid grid-cols-1 items-start gap-3 @3xl:grid-cols-2">
+            {guests.map((guest) => (
+              <ExtensionCard
+                key={guest.id}
+                guest={guest}
+                busy={busy}
+                onReview={setApproval}
+                onRemove={remove}
+                onSetEnabled={setEnabled}
+                onUpdate={update}
+              />
+            ))}
+            {unreadable.map((guest, index) => (
+              <UnreadableExtensionCard
+                key={guest.id ?? `unreadable-${index}`}
+                guest={guest}
+                busy={busy}
+                onRemove={remove}
+              />
+            ))}
+          </div>
+        ) : null}
       </SettingsSection>
 
       <GuestApprovalDialog

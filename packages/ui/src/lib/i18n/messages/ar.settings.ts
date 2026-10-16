@@ -1,3 +1,4 @@
+import { settingsLayoutI18n } from './settings-layout.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { linearIntegrationI18n } from './linear-integration.i18n';
@@ -1129,7 +1130,6 @@ export const settingsDict = {
   'settings.openchamber.sessionRetention.toast.deletedCount': 'الجلسات المحذوفة: {count}',
   'settings.openchamber.sessionRetention.toast.failedArchiveCount': 'تعذّرت أرشفة الجلسات: {count}',
   'settings.openchamber.sessionRetention.toast.failedDeleteCount': 'تعذّر حذف الجلسات: {count}',
-  'settings.openchamber.desktopNetwork.title': 'وصول الشبكة لتطبيق سطح المكتب',
   'settings.openchamber.desktopNetwork.field.windowControlsPosition': 'موضع أزرار النافذة',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionDescription': 'اختر مكان ظهور أزرار التصغير والتكبير والإغلاق. الافتراضي هو اليمين.',
   'settings.openchamber.desktopNetwork.field.windowControlsPositionAria': 'موضع أزرار النافذة',
@@ -1956,10 +1956,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'نموذج منخفض التكلفة للمهام المساعدة السريعة مثل الملخصات القصيرة.',
   'settings.openchamber.defaults.smallModel.useDefault': 'استخدام النموذج الصغير الافتراضي',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'استخدام النموذج الصغير الافتراضي',
-  'settings.openchamber.defaults.smallModel.overrideModel': 'نموذج بديل',
   'settings.openchamber.defaults.walkthroughModel.title': 'نموذج جولة شرح التغييرات',
   'settings.openchamber.defaults.walkthroughModel.description': 'تحتاج مراجعة الذكاء الاصطناعي لتغييراتك إلى مخرجات منظمة ومساحة تتسع لكامل الفروقات، وهو ما لا يوفره غالبًا نموذج صغير منخفض التكلفة. تُخفى من هذه القائمة النماذج التي يذكر الكتالوج أنها لا تستطيع إنتاج مخرجات منظمة. إذا تركته دون تعيين، فسيُستخدم النموذج الصغير.',
-  'settings.openchamber.defaults.walkthroughModel.overrideModel': 'نموذج جولة الشرح',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'النموذج الصغير',
   'settings.openchamber.defaults.field.openFilesPreviewAria': 'فتح الملفات القابلة للمعاينة في وضع المعاينة',
   'settings.openchamber.defaults.field.openFilesPreview': 'فتح الملفات القابلة للمعاينة في وضع المعاينة',
@@ -2180,9 +2178,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.spacingAndLayout': 'التباعد والتخطيط',
   'settings.openchamber.visual.section.densityAndType': 'الكثافة والخط',
   'settings.openchamber.visual.section.appInstall': 'تثبيت التطبيق',
-  'settings.openchamber.visual.section.navigation': 'التنقل',
-  'settings.openchamber.visual.section.chatDisplay': 'العرض',
-  'settings.openchamber.visual.section.chatMessageOptions': 'خيارات الرسائل',
   'settings.openchamber.visual.section.chatFeatures': 'الميزات',
   'settings.openchamber.visual.section.messageStreamTransport': 'طريقة نقل بث الرسائل',
   'settings.openchamber.visual.section.activityDefault': 'الوضع الافتراضي للنشاط',
@@ -2190,7 +2185,6 @@ export const settingsDict = {
   'settings.openchamber.visual.section.sessionActivity': 'نشاط الجلسة',
   'settings.openchamber.visual.section.sessionAssistance': 'مساعدة الجلسة',
   'settings.openchamber.visual.section.reasoning': 'التفكير',
-  'settings.openchamber.visual.section.streaming': 'البث',
   'settings.openchamber.visual.field.streamingAutoFollow': 'متابعة المحتوى الجديد أثناء البث',
   'settings.openchamber.visual.field.streamingAutoFollowAria': 'متابعة المحتوى الجديد تلقائيًا أثناء بث الرد',
   'settings.openchamber.visual.field.streamingAutoFollowInfo': 'أثناء وصول الرد، ينزلق العرض باستمرار إلى أحدث محتوى. عطّل هذا الخيار لإبقاء العرض ثابتًا والتمرير يدويًا؛ وعندها يبقى العرض مكانه أيضًا إذا أرسلت رسالة وأنت في أعلى الصفحة.',
@@ -2198,7 +2192,6 @@ export const settingsDict = {
   'settings.openchamber.visual.field.animatedActivityIndicatorsAria': 'إظهار مؤشر دوّار متحرك على الجلسات قيد التشغيل',
   'settings.openchamber.visual.field.animatedActivityIndicatorsInfo': 'تعرض الجلسات قيد التشغيل مؤشرًا دوّارًا بدل أيقونة الحالة الثابتة. يتحدّث المؤشر 4 مرات في الثانية ويستهلك طاقة أكثر من الأيقونة. تعمل هذه الحركة حتى عند تفعيل تقليل الحركة.',
   'settings.openchamber.visual.section.messageAppearance': 'مظهر الرسائل',
-  'settings.openchamber.visual.section.toolsAndFiles': 'الأدوات والملفات',
   'settings.openchamber.visual.section.composer': 'مربع الكتابة',
   'settings.openchamber.visual.section.userMessageRendering': 'عرض رسائل المستخدم',
   'settings.openchamber.visual.section.userMessageRenderingAria': 'وضع عرض رسائل المستخدم',
@@ -2573,4 +2566,5 @@ export const settingsDict = {
   ...extensionCatalogI18n.ar,
   ...guestIntegrationsI18n.ar,
   ...extensionsSettingsI18n.ar,
+  ...settingsLayoutI18n.ar,
 } as const;
