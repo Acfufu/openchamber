@@ -5972,7 +5972,9 @@ ipcMain.handle('openchamber:file:grant-existing', async (event, filePath) => {
 
 // Icon assets: a calm outline (idle), a statically filled cube (a finished
 // session left unread), and an eased sequence the busy state breathes through.
-const TRAY_BREATH_FRAME_COUNT = 16;
+// Six frames of the original sixteen keep the breath at about two seconds
+// while the icon changes five times a second instead of thirteen.
+const TRAY_BREATH_FRAMES = [0, 3, 6, 9, 12, 15];
 // The window the user is "on" for tray routing: the focused one, else the last
 // focused that is still alive.
 const resolveTraySurface = () => {
@@ -6008,7 +6010,7 @@ const trayIconAssets = () => {
   return {
     idleIconPath: path.join(dir, 'trayTemplate-idle.png'),
     unseenIconPath: path.join(dir, 'trayTemplate-unseen.png'),
-    breathIconPaths: Array.from({ length: TRAY_BREATH_FRAME_COUNT }, (_, i) =>
+    breathIconPaths: TRAY_BREATH_FRAMES.map((i) =>
       path.join(dir, `trayTemplate-breath-${String(i).padStart(2, '0')}.png`)),
     // Per-session status icons shown in the menu rows (left, vertically centred
     // across the title + sublabel). 'blank' reserves the gutter for idle rows.

@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { getPrStatusLabel } from '../prStatusLabel';
 import { Button } from '@/components/ui/button';
 import { Icon } from "@/components/icon/Icon";
+import { Spinner } from "@/components/ui/spinner";
 import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
 import { sessionTreeRowPaddingLeft } from '../sessions/sessionTreeGeometry';
 import { cn } from '@/lib/utils';
@@ -1066,7 +1067,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
             : bootstrapLoading
               ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <Icon name="loader-4" className="size-3 animate-spin" />
+                  <Spinner className="size-3" />
                   {t('sessions.sidebar.group.empty.loadingSessions')}
                 </span>
               )
@@ -1174,7 +1175,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                 <span className="flex w-full min-w-0 items-center gap-0.5">
                   {headerSlot(worktreeRemoving ? (
                     <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-muted-foreground" title={t('sessions.sidebar.group.worktreeRemoving')} role="status" aria-label={t('sessions.sidebar.group.worktreeRemoving')}>
-                      <Icon name="loader-4" className="h-3.5 w-3.5 animate-spin" />
+                      <Spinner className="h-3.5 w-3.5" />
                     </span>
                   ) : (
                     <Icon name={group.space ? 'box-3' : 'git-branch'}

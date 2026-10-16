@@ -15,6 +15,7 @@ import { openExternalUrl } from '@/lib/url';
 import { getRuntimeApiBaseUrl } from '@/lib/runtime-switch';
 import { formatTimeForPreference } from '@/lib/timeFormat';
 import { useUIStore, type TimeFormatPreference } from '@/stores/useUIStore';
+import { useDurationTickerNow, useWaitingBlink } from '@/hooks/useDurationTicker';
 import { SettingsChipGroup, SettingsSection, SettingsGroupTitle, SETTINGS_FIELD_LABEL_CLASS, SETTINGS_CALLOUT_TITLE_CLASS, SETTINGS_DESCRIPTION_CLASS } from '@/components/sections/shared/SettingsSection';
 import { SettingsInfoHint } from '@/components/sections/shared/SettingsInfoHint';
 
@@ -353,6 +354,7 @@ export const TunnelSettings: React.FC = () => {
   const timeFormatPreference = useUIStore((state) => state.timeFormatPreference);
   const tUnsafe = React.useCallback((key: string) => t(key as Parameters<typeof t>[0]), [t]);
   const [state, setState] = React.useState<TunnelState>('checking');
+  const checkingBlink = useWaitingBlink(state === 'checking');
   const [enterpriseLocked, setEnterpriseLocked] = React.useState(false);
   const [tunnelInfo, setTunnelInfo] = React.useState<TunnelInfo | null>(null);
   const [activeTunnelMode, setActiveTunnelMode] = React.useState<TunnelMode | null>(null);
@@ -378,9 +380,10 @@ export const TunnelSettings: React.FC = () => {
   const [newPresetToken, setNewPresetToken] = React.useState('');
   const [bootstrapTtlMs, setBootstrapTtlMs] = React.useState<number | null>(30 * 60 * 1000);
   const [sessionTtlMs, setSessionTtlMs] = React.useState<number>(8 * 60 * 60 * 1000);
-  const [remainingText, setRemainingText] = React.useState<string>('');
   const [sessionRecords, setSessionRecords] = React.useState<TunnelSessionRecord[]>([]);
-  const [nowTs, setNowTs] = React.useState<number>(() => Date.now());
+  // Counts expiries down once a second, on the shared 1 s tick, while there
+  // is one to count.
+  const nowTs = useDurationTickerNow(Boolean(tunnelInfo?.bootstrapExpiresAt) || sessionRecords.length > 0);
   const [localPort, setLocalPort] = React.useState<number | null>(null);
   const managedLocalConfigExtensionError = t(MANAGED_LOCAL_CONFIG_EXTENSION_ERROR_KEY);
   const managedLocalConfigFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -418,6 +421,9 @@ export const TunnelSettings: React.FC = () => {
       };
     });
   }, [nowTs, sessionRecords, t]);
+  const bootstrapRemainingText = tunnelInfo?.bootstrapExpiresAt && tunnelInfo.bootstrapExpiresAt > nowTs
+    ? formatRemaining(tunnelInfo.bootstrapExpiresAt - nowTs)
+    : t('settings.openchamber.tunnel.state.expired');
   const isConnectLinkLive = React.useMemo(() => {
     if (!tunnelInfo?.connectUrl) {
       return false;
@@ -634,98 +640,7 @@ export const TunnelSettings: React.FC = () => {
     };
   }, [tunnelInfo?.connectUrl]);
 
-  React.useEffect(() => {
-    if (!tunnelInfo?.bootstrapExpiresAt) {
-      setRemainingText(t('settings.openchamber.tunnel.state.noExpiry'));
-      return;
-    }
 
-    let rafId: number | null = null;
-    let lastTime = Date.now();
-    
-    const updateRemaining = () => {
-      const remaining = tunnelInfo.bootstrapExpiresAt ? tunnelInfo.bootstrapExpiresAt - Date.now() : 0;
-      if (remaining <= 0) {
-        setRemainingText(t('settings.openchamber.tunnel.state.expired'));
-      } else {
-        setRemainingText(formatRemaining(remaining));
-      }
-    };
-
-    const tick = () => {
-      const now = Date.now();
-      // Update only once per second
-      if (now - lastTime >= 1_000) {
-        updateRemaining();
-        lastTime = now;
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-
-    updateRemaining();
-    
-    // Only run when visible
-    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-      rafId = requestAnimationFrame(tick);
-    }
-    
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible' && rafId === null) {
-        rafId = requestAnimationFrame(tick);
-      } else if (document.visibilityState !== 'visible' && rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    };
-    
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-    };
-  }, [t, tunnelInfo?.bootstrapExpiresAt]);
-
-  React.useEffect(() => {
-    // Use requestAnimationFrame for smoother updates without setInterval overhead
-    let rafId: number | null = null;
-    let lastTime = Date.now();
-    
-    const tick = () => {
-      const now = Date.now();
-      // Update only once per second
-      if (now - lastTime >= 1_000) {
-        setNowTs(now);
-        lastTime = now;
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    
-    // Only run when visible
-    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-      rafId = requestAnimationFrame(tick);
-    }
-    
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible' && rafId === null) {
-        rafId = requestAnimationFrame(tick);
-      } else if (document.visibilityState !== 'visible' && rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    };
-    
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-    };
-  }, []);
 
   React.useEffect(() => {
     if (state === 'starting' || state === 'stopping' || state === 'checking') {
@@ -1225,7 +1140,7 @@ export const TunnelSettings: React.FC = () => {
   if (state === 'checking') {
     return (
       <div className="flex items-center justify-center py-12">
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-busy-pulse" aria-label={t('settings.openchamber.tunnel.state.loading')} />
+        <span className={cn('h-1.5 w-1.5 rounded-full bg-current', checkingBlink)} aria-label={t('settings.openchamber.tunnel.state.loading')} />
       </div>
     );
   }
@@ -1842,7 +1757,7 @@ export const TunnelSettings: React.FC = () => {
                     </Button>
                   </div>
                   <p className="typography-meta mt-1 text-muted-foreground/70">
-                    {t('settings.openchamber.tunnel.field.expires')}: {tunnelInfo.bootstrapExpiresAt ? remainingText : t('settings.openchamber.tunnel.state.never')}
+                    {t('settings.openchamber.tunnel.field.expires')}: {tunnelInfo.bootstrapExpiresAt ? bootstrapRemainingText : t('settings.openchamber.tunnel.state.never')}
                   </p>
                 </div>
 

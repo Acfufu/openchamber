@@ -36,6 +36,7 @@ import { ZoneSurfaceDragContext } from './zoneSurfaceDragContext';
 import { useZoneHostsStore } from './zoneHosts';
 import { useRightSlotStore } from './rightSlot';
 import { useOpenUntilSettled } from './useOpenUntilSettled';
+import { PauseClock } from '@/components/ui/pause-clock';
 
 // Heavy views stay on-demand (same as MainLayout): importing DiffView/FilesView
 // or the walkthrough statically pulls the CodeMirror and @pierre/diffs stacks
@@ -226,20 +227,24 @@ const EditorTreeColumn: React.FC<{ visible: boolean; active: boolean; fill?: boo
 const ZonePane: React.FC<{
   zone: ContextZone;
   isOpen: boolean;
+  /** The zone's frame is inert at opacity 0 (`contentHidden`). */
+  hidden: boolean;
   directoryKey: string;
   className?: string;
   children: React.ReactNode;
-}> = ({ zone, isOpen, directoryKey, className, children }) => {
+}> = ({ zone, isOpen, hidden, directoryKey, className, children }) => {
   const closeContextZone = useUIStore((state) => state.closeContextZone);
   const handleKeyDownCapture = React.useCallback((event: React.KeyboardEvent<HTMLElement>) => {
     closeZoneOnEscape(event, isOpen, () => {
       if (directoryKey) closeContextZone(directoryKey, zone);
     }, event.currentTarget.closest('[data-context-zone]'));
   }, [closeContextZone, directoryKey, isOpen, zone]);
+  // A closed zone keeps its panes mounted at opacity 0; their spinners,
+  // blinks and counters stand still until it opens again.
   return (
     <MovablePane zone={zone}>
       <div className={className} onKeyDownCapture={handleKeyDownCapture}>
-        {children}
+        <PauseClock paused={!isOpen || hidden}>{children}</PauseClock>
       </div>
     </MovablePane>
   );
@@ -528,6 +533,7 @@ export const ContextSurfacePanes: React.FC = () => {
         <ZonePane
           zone={fileZone.zone}
           isOpen={fileZone.isOpen}
+          hidden={contentHidden(fileZone.zone)}
           directoryKey={directoryKey}
           className={cn('absolute inset-0 flex', fileTreeSide === 'left' && 'flex-row-reverse', isFileTabActive ? 'flex' : 'hidden')}
         >
@@ -552,7 +558,7 @@ export const ContextSurfacePanes: React.FC = () => {
         // The chat renders in this app, pinned to its session: it shares
         // the app's connection, stores and theme, and opens like a session
         // switch instead of booting a second app.
-        <ZonePane key={chatActiveTab.id} zone={chatZone.zone} isOpen={chatZone.isOpen} directoryKey={directoryKey} className="absolute inset-0 bg-background">
+        <ZonePane key={chatActiveTab.id} zone={chatZone.zone} isOpen={chatZone.isOpen} hidden={contentHidden(chatZone.zone)} directoryKey={directoryKey} className="absolute inset-0 bg-background">
           <section
             aria-label={t('contextPanel.iframe.sessionChatTitle', { sessionID: activeChatSessionID })}
             className="h-full"
@@ -576,12 +582,14 @@ export const ContextSurfacePanes: React.FC = () => {
             key={`${tab.directory}\u0000${tab.id}`}
             zone={browserZone.zone}
             isOpen={browserZone.isOpen}
+            hidden={contentHidden(browserZone.zone)}
             directoryKey={directoryKey}
             // Invisible rather than display:none, so a background tab the agent
             // is working keeps its layout and its snapshots read a real page.
             className={cn('absolute inset-0', !shown && 'invisible pointer-events-none')}
           >
             <div className="h-full" aria-hidden={!shown || undefined}>
+              <PauseClock paused={!shown}>
               <BrowserPane
                 initialUrl={tab.targetPath ?? ''}
                 directory={tab.directory}
@@ -589,6 +597,7 @@ export const ContextSurfacePanes: React.FC = () => {
                 ownerSessionId={tab.ownerSessionId}
                 visible={shown && browserZone.isOpen}
               />
+              </PauseClock>
             </div>
           </ZonePane>
         );
@@ -600,6 +609,7 @@ export const ContextSurfacePanes: React.FC = () => {
             key={tab.id}
             zone={diffZone.zone}
             isOpen={diffZone.isOpen}
+            hidden={contentHidden(diffZone.zone)}
             directoryKey={directoryKey}
             className={cn('absolute inset-0', !active && 'hidden')}
           >
@@ -625,6 +635,7 @@ export const ContextSurfacePanes: React.FC = () => {
         <ZonePane
           zone={terminalZone.zone}
           isOpen={terminalZone.isOpen}
+          hidden={contentHidden(terminalZone.zone)}
           directoryKey={directoryKey}
           className={cn('absolute inset-0', terminalZone.activeTab?.mode === 'terminal' ? 'block' : 'hidden')}
         >
@@ -643,6 +654,7 @@ export const ContextSurfacePanes: React.FC = () => {
         <ZonePane
           zone={walkthroughZone.zone}
           isOpen={walkthroughZone.isOpen}
+          hidden={contentHidden(walkthroughZone.zone)}
           directoryKey={directoryKey}
           className={cn('absolute inset-0', walkthroughZone.activeTab?.mode === 'walkthrough' ? 'block' : 'hidden')}
         >
@@ -672,6 +684,7 @@ export const ContextSurfacePanes: React.FC = () => {
             key={tab.id}
             zone={pluginZone.zone}
             isOpen={pluginZone.isOpen}
+            hidden={contentHidden(pluginZone.zone)}
             directoryKey={directoryKey}
             className={cn('absolute inset-0', shown ? 'block' : 'hidden')}
           >

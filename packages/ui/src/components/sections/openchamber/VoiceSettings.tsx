@@ -35,6 +35,7 @@ import { useLocalTTS } from '@/hooks/useLocalTTS';
 import { disposePreviewAudio } from './voicePreviewAudio';
 import { toast } from '@/components/ui';
 import type { VoiceApiKeyKind } from '@/lib/voiceKeysApi';
+import { Spinner } from '@/components/ui/spinner';
 
 const VOICE_TEXT_INPUT_CLASS = 'oc-surface-elevated oc-raised oc-field w-full h-7 rounded-lg bg-surface-elevated px-2 typography-ui-label text-foreground placeholder:text-muted-foreground focus:outline-none';
 
@@ -249,7 +250,7 @@ const LocalModelPicker = ({
                                     </>
                                 ) : state?.downloading ? (
                                     <span className="flex items-center gap-1.5">
-                                        <Icon name="loader-4" className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                        <Spinner className="h-3.5 w-3.5 text-muted-foreground" />
                                         <span className="typography-ui-compact tabular-nums text-muted-foreground">
                                             {typeof state.downloadProgress === 'number' ? `${state.downloadProgress}%` : ''}
                                         </span>
@@ -425,7 +426,7 @@ const LocalTtsModelRow = ({
             </>
         ) : model.downloading ? (
             <span className="flex items-center gap-1.5">
-                <Icon name="loader-4" className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                <Spinner className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="typography-ui-compact tabular-nums text-muted-foreground">
                     {typeof model.downloadProgress === 'number' ? `${model.downloadProgress}%` : ''}
                 </span>

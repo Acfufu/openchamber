@@ -44,6 +44,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Icon } from "@/components/icon/Icon";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from '@/components/ui/button';
 
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
@@ -2347,7 +2348,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
     return (
       <div className="flex h-full flex-col items-center justify-center px-4 text-center">
         {!postBootstrapRefreshFailed ? (
-          <Icon name="loader-4" className="mb-3 size-6 animate-spin text-muted-foreground" />
+          <Spinner className="mb-3 size-6 text-muted-foreground" />
         ) : null}
         <p className="typography-ui-label font-semibold text-foreground">
           {postBootstrapRefreshFailed
@@ -2383,7 +2384,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Icon name="loader-4" className="size-4 animate-spin" />
+          <Spinner className="size-4" />
           <span className="typography-ui-label">{t('gitView.loading.checkingRepository')}</span>
         </div>
       </div>

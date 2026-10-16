@@ -73,6 +73,7 @@ import { abortCurrentOperation } from '@/sync/session-actions';
 import { OverlayScrollbar } from '@/components/ui/OverlayScrollbar';
 import { Icon } from "@/components/icon/Icon";
 import { cn, formatDirectoryName } from '@/lib/utils';
+import { useWaitingBlink } from '@/hooks/useDurationTicker';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 
 // New sync system imports
@@ -661,6 +662,39 @@ const HYDRATING_SKELETON_ITEMS: Array<{
         textWidths: ['w-24', 'w-[84%]', 'w-[64%]'],
     },
 ];
+
+// Session messages loading. The wait can last minutes while OpenCode fails to
+// start, so the rows blink on the shared 1 s tick instead of pulsing, and stand
+// still while hidden behind the expanded composer.
+const HydrationSkeleton: React.FC<{ waiting: boolean }> = ({ waiting }) => {
+    const blink = useWaitingBlink(waiting);
+    return (
+        <div className={cn('space-y-4', blink)}>
+            {HYDRATING_SKELETON_ITEMS.map((item) => (
+                <div key={item.id} className="group w-full">
+                    <div className="chat-message-column">
+                        <div className="space-y-2.5 px-4 py-3">
+                            <div className="space-y-1.5">
+                                {item.toolRows.map((row) => (
+                                    <div key={`${item.id}-${row.id}`} className="flex items-center gap-2">
+                                        <Skeleton className="h-3.5 w-3.5 shrink-0 rounded-full" />
+                                        <Skeleton className={cn('h-4 rounded-md', row.titleWidth)} />
+                                        <Skeleton className={cn('h-4 rounded-md', row.detailWidth)} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-1.5 pt-1">
+                                {item.textWidths.map((width, index) => (
+                                    <Skeleton key={`${item.id}-text-${index}`} className={cn('h-4 rounded-md', width)} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 // `onStop` is set while a subagent's turn runs: its session takes no
 // prompts, but the user can still stop it from here.
@@ -1679,30 +1713,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                     aria-hidden={isDesktopExpandedInput}
                 >
                     <div className="absolute inset-0 overflow-y-auto overflow-x-hidden bg-background pt-6" style={CHAT_SCROLL_STYLE}>
-                        <div className="space-y-4">
-                            {HYDRATING_SKELETON_ITEMS.map((item) => (
-                                <div key={item.id} className="group w-full">
-                                    <div className="chat-message-column">
-                                        <div className="space-y-2.5 px-4 py-3">
-                                            <div className="space-y-1.5">
-                                                {item.toolRows.map((row) => (
-                                                    <div key={`${item.id}-${row.id}`} className="flex items-center gap-2">
-                                                        <Skeleton className="h-3.5 w-3.5 shrink-0 rounded-full" />
-                                                        <Skeleton className={cn('h-4 rounded-md', row.titleWidth)} />
-                                                        <Skeleton className={cn('h-4 rounded-md', row.detailWidth)} />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="space-y-1.5 pt-1">
-                                                {item.textWidths.map((width, index) => (
-                                                    <Skeleton key={`${item.id}-text-${index}`} className={cn('h-4 rounded-md', width)} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <HydrationSkeleton waiting={!isDesktopExpandedInput} />
                     </div>
                 </div>
             );

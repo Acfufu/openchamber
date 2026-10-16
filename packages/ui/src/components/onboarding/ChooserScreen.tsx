@@ -8,6 +8,7 @@ import { loadDesktopSettings, updateDesktopSettings } from '@/lib/persistence';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { restartDesktopApp } from '@/lib/desktop';
 import { cn } from '@/lib/utils';
+import { useWaitingBlink } from '@/hooks/useDurationTicker';
 import { RemoteConnectionForm } from './RemoteConnectionForm';
 import { desktopHostsGet, desktopHostsSet } from '@/lib/desktopHosts';
 import { useI18n } from '@/lib/i18n';
@@ -234,6 +235,7 @@ export function ChooserScreen({ onCliAvailable, localAvailable = true }: Chooser
         : '/Users/you/.opencode/bin/opencode';
 
   const showLocal = localAvailable && (!isDesktopApp || activeTab === 'local');
+  const watchingBlink = useWaitingBlink(showLocal);
 
   return (
     <div
@@ -325,8 +327,8 @@ export function ChooserScreen({ onCliAvailable, localAvailable = true }: Chooser
             <div className="app-region-no-drag mt-3 flex items-center gap-2.5 px-1" role="status" aria-live="polite">
               <span className="relative inline-flex h-2 w-2 shrink-0" aria-hidden>
                 <span
-                  className="absolute inset-0 rounded-full"
-                  style={{ backgroundColor: 'var(--primary-base)', animation: 'pulse-opacity 1.6s ease-in-out infinite' }}
+                  className={cn('absolute inset-0 rounded-full', watchingBlink)}
+                  style={{ backgroundColor: 'var(--primary-base)' }}
                 />
               </span>
               <span className="min-w-0 flex-1 text-xs text-muted-foreground">

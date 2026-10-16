@@ -2,6 +2,7 @@ import React from 'react';
 
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { ACTIVE_PROJECT_ACTION_LIFECYCLES, useTerminalStore } from '@/stores/useTerminalStore';
+import { Spinner } from '@/components/ui/spinner';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { type TerminalStreamEvent } from '@/lib/api/types';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
@@ -103,6 +104,11 @@ const resolveTabIconName = (iconKey: string | null): IconName => {
     return matchedIcon?.Icon ?? 'terminal';
 };
 
+/** A project action that starts, runs or stops shows the shared spinner on its tab. */
+const TerminalTabIcon: React.FC<{ iconName: IconName; active: boolean }> = ({ iconName, active }) => (
+    active ? <Spinner className="h-4 w-4 text-muted-foreground" /> : <Icon name={iconName} className="h-4 w-4" />
+);
+
 export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, onLastTabClosed }) => {
     const { t } = useI18n();
     const { terminal, runtime } = useRuntimeAPIs();
@@ -169,22 +175,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
 
     const terminalTabItems = React.useMemo(() => {
         return (directoryTerminalState?.tabs ?? []).map((tab) => ({
-            icon: (() => {
-                const showProjectActionSpinner = tab.purpose.type === 'project-action'
-                    && ACTIVE_PROJECT_ACTION_LIFECYCLES.has(tab.lifecycle);
-                const tabIconName = showProjectActionSpinner
-                    ? 'loader-4'
-                    : resolveTabIconName(tab.iconKey);
-                return (
-                    <Icon
-                        name={tabIconName}
-                        className={cn(
-                            'h-4 w-4',
-                            showProjectActionSpinner && 'animate-spin text-muted-foreground motion-reduce:animate-none'
-                        )}
-                    />
-                );
-            })(),
+            icon: (
+                <TerminalTabIcon
+                    iconName={resolveTabIconName(tab.iconKey)}
+                    active={tab.purpose.type === 'project-action' && ACTIVE_PROJECT_ACTION_LIFECYCLES.has(tab.lifecycle)}
+                />
+            ),
             id: tab.id,
             label: tab.label,
             title: tab.label,

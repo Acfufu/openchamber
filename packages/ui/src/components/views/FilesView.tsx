@@ -323,7 +323,8 @@ const ScrollingFileName: React.FC<{ name: string; folder?: string }> = ({ name, 
     <span ref={containerRef} className="relative block min-w-0 flex-1 overflow-hidden whitespace-nowrap">
       <span ref={textRef} aria-hidden="true" className="invisible absolute whitespace-nowrap">{text}</span>
       {overflowing ? (
-        <span className="open-file-name-marquee-track">
+        // Keyed by the file, so each newly opened name scrolls past once.
+        <span key={`${folder}/${name}`} className="open-file-name-marquee-track">
           <span className="open-file-name-marquee-item">{text}</span>
           <span className="open-file-name-marquee-item" aria-hidden="true">{text}</span>
         </span>
@@ -4344,7 +4345,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 aria-label={ttsLabel}
                 onClick={toggleTTS}
               >
-                <Icon name="volume-up" className={cn('size-4', isTTSPlaying && 'animate-pulse text-[var(--primary-text)]')} />
+                <Icon name="volume-up" className={cn('size-4', isTTSPlaying && 'text-[var(--primary-text)]')} />
               </Button>
             </TooltipTrigger>
             <TooltipContent sideOffset={8}>{ttsLabel}</TooltipContent>

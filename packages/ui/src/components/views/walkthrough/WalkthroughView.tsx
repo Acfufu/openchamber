@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/icon/Icon';
+import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -856,7 +857,7 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
           to Cancel — far too quiet for something that runs for tens of seconds. */}
       {entry.status === 'generating' && view && (
         <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-[var(--status-info-background)] px-3 py-2">
-          <Icon name="loader-4" className="size-4 shrink-0 animate-spin text-[var(--status-info)]" />
+          <Spinner className="size-4 shrink-0 text-[var(--status-info)]" />
           <span className="typography-meta text-foreground">
             {entry.stage === 'collecting'
               ? t('walkthrough.stage.collecting')

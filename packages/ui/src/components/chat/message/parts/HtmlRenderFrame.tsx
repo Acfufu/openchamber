@@ -6,8 +6,10 @@ import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
+import { useWaitingBlink } from '@/hooks/useDurationTicker';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/useUIStore';
 import { shareFileFromNativeApp } from '@/lib/nativeFileShare';
 import type { ToolPart } from '@/lib/opencode/model';
@@ -277,6 +279,8 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
             : ask.kind === 'answered-in-chat'
                 ? t('chat.htmlRender.answeredInChat')
                 : ask.kind === 'unanswered' ? t('chat.htmlRender.unanswered') : null;
+    const waiting = ask.kind === 'waiting' && answeredSummary === undefined;
+    const blink = useWaitingBlink(waiting);
 
     return (
         <div className="my-2">
@@ -326,8 +330,8 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
         </div>
         {status ? (
             <div className="mt-1 flex items-center gap-1.5 typography-meta text-muted-foreground" data-html-render-status={ask.kind}>
-                {ask.kind === 'waiting' && answeredSummary === undefined ? (
-                    <span aria-hidden="true" className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--primary-base)]" />
+                {waiting ? (
+                    <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full bg-[var(--primary-base)]', blink)} />
                 ) : null}
                 <span className="min-w-0 truncate" title={status}>{status}</span>
             </div>
