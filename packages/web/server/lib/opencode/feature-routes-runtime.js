@@ -337,7 +337,6 @@ export const createFeatureRoutesRuntime = (dependencies) => {
     registerMarkdownImageGrantRoutes(app, {
       fsPromises,
       path,
-      os,
       crypto,
       validateDirectoryPath,
       buildOpenCodeUrl,

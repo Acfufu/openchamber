@@ -252,21 +252,24 @@ const fetchMessage = async ({ sessionId, messageId, directory, buildOpenCodeUrl,
   return message && typeof message === 'object' && typeof message.id === 'string' ? message : null;
 };
 
-const inspectImage = async ({ source, directory, approvedTempRoot, fsPromises, path }) => {
+// A path outside the workspace may sit anywhere on the machine: the agent can
+// read any file with its own tools, and image generators save wherever they
+// like. Only the message reference, the signature and the size limit gate it.
+// A workspace path still has to stay inside the workspace once symlinks resolve.
+const inspectImage = async ({ source, directory, fsPromises, path }) => {
   const parsed = parseFileSource(source);
   if (!parsed) return { status: 'error' };
   const sourcePath = path.isAbsolute(parsed) ? parsed : path.resolve(directory, parsed);
   const workspaceRoot = path.resolve(directory);
   const outsideWorkspace = !isWithin(path.resolve(sourcePath), workspaceRoot, path);
-  const root = outsideWorkspace ? approvedTempRoot : workspaceRoot;
 
   try {
     // Resolve symlinks before comparing roots; lexical prefixes are not an authorization boundary.
     const [canonicalRoot, canonicalPath] = await Promise.all([
-      fsPromises.realpath(root),
+      fsPromises.realpath(workspaceRoot),
       fsPromises.realpath(sourcePath),
     ]);
-    if (!isWithin(canonicalPath, canonicalRoot, path)) return { status: 'error' };
+    if (!outsideWorkspace && !isWithin(canonicalPath, canonicalRoot, path)) return { status: 'error' };
     const handle = await fsPromises.open(canonicalPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     try {
       // The chat draws a clip or a picture by the name the message gave; a
@@ -300,12 +303,10 @@ export const registerMarkdownImageGrantRoutes = (app, dependencies) => {
   const {
     fsPromises,
     path,
-    os,
     crypto,
     validateDirectoryPath,
     buildOpenCodeUrl,
     getOpenCodeAuthHeaders,
-    approvedTempRoot = path.join(os.tmpdir(), 'opencode'),
   } = dependencies;
 
   app.post(
@@ -349,7 +350,6 @@ export const registerMarkdownImageGrantRoutes = (app, dependencies) => {
             const inspected = await inspectImage({
               source,
               directory: validatedDirectory.directory,
-              approvedTempRoot,
               fsPromises,
               path,
             });

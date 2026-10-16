@@ -39,9 +39,10 @@ the user can want independently:
   draw a page*). The description lists the theme variables the chat injects
   (`packages/ui/src/components/chat/message/parts/htmlRender.ts`); change both
   together.
-  The description names the image files a page may show by path and the
-  temporary directory to save one in (`os.tmpdir()/opencode`), the one the
-  image grant route allows outside the project.
+  The description names the image files a page may show by path, from
+  anywhere on the machine as the image grant route allows, and the temporary
+  directory to save a screenshot in (`os.tmpdir()/opencode`) so it stays out
+  of the project.
   A mockup of the user's own project is the one page that does not use them:
   the description tells the agent to take that page's look from the
   project's code, since the point is how the user's product will look.

@@ -261,11 +261,10 @@ finished with `stop`, so no tool patch is parsed while the turn streams.
   route; the preview prepares again, so an expired grant is renewed. Embedded
   images are validated in the browser and limited to 10 MiB. VS Code loads
   workspace-contained images through its local filesystem bridge and never
-  calls the grant route; OpenCode temporary-directory images remain
-  unsupported there. Workspace-external images receive the existing
-  path-bound `outsideFileGrant` only when the server verifies the exact source
-  in the owning assistant message and the real file is inside OpenCode's
-  dedicated temporary directory.
+  calls the grant route; images outside the workspace stay labels there.
+  Workspace-external images, wherever they are on the machine, receive the
+  existing path-bound `outsideFileGrant` only when the server verifies the
+  exact source in the owning assistant message and the file's signature.
 - `read` and `skill` are **static navigation tools** and render via `StaticToolRow`.
 - Every other tool, including search/fetch, OpenCode built-ins, custom tools, plugins, and MCP tools, is **expandable** and renders through `ToolPart`.
 - The managed `openchamber` plugin tool uses the expandable path and hides its broad protocol input. The plugin supplies the selected action's human description as the native tool title; the UI renders that metadata without owning an action map. The full versioned result envelope renders through the same neutral JSON summary/tree/raw views as other tools, without a tool-specific output card.
