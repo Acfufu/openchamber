@@ -149,7 +149,7 @@ describe("projectWebSearchAccounts", () => {
     expect(accounts.access.searxng?.connect).toEqual({
       kind: "form",
       methodID: "server",
-      fields: [{ key: "url", label: "Server URL", placeholder: "https://searx.example.org", required: true, url: true }],
+      fields: [{ key: "url", label: "Server URL", description: null, placeholder: "https://searx.example.org", required: true, url: true }],
     })
   })
 

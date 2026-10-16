@@ -1258,10 +1258,11 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['web search', 'websearch', 'internet', 'default provider', 'disable', 'off', 'random'],
   },
   {
-    id: 'web-search.keys',
+    id: 'web-search.providers',
     page: 'web-search',
-    titleKey: 'settings.webSearch.section.keys',
-    keywords: ['api key', 'exa', 'tavily', 'firecrawl', 'parallel', 'tinyfish', 'credentials'],
+    titleKey: 'settings.webSearch.section.providers',
+    descriptionKey: 'settings.webSearch.section.providersInfo',
+    keywords: ['api key', 'exa', 'tavily', 'firecrawl', 'parallel', 'tinyfish', 'searxng', 'brave', 'kagi', 'perplexity', 'linkup', 'serper', 'credentials'],
   },
   {
     id: 'skills.create',

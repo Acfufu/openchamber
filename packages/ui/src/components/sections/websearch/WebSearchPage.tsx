@@ -12,9 +12,16 @@ import type {
 } from '@/lib/opencode/websearch';
 import { SettingsPageLayout } from '@/components/sections/shared/SettingsPageLayout';
 import {
+  SETTINGS_CARD_GRID_CLASS,
+  SettingsBackButton,
+  SettingsCard,
+  SettingsCardIcon,
+  SettingsCardPill,
+  type SettingsCardAction,
+} from '@/components/sections/shared/SettingsCards';
+import {
+  SettingsChipGroup,
   SettingsFieldRow,
-  SettingsRadioGroup,
-  SettingsRadioOption,
   SettingsSection,
   SETTINGS_CONTROL_CLUSTER_CLASS,
   SETTINGS_HELPER_CLASS,
@@ -27,33 +34,74 @@ import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
  * the API key (or, for a server the user runs, the address) each provider
  * takes. Both belong to OpenCode: the choice is the `websearch` key of its
  * config, the keys are integration credentials, so the page reads them from
- * OpenCode and writes them back. A plugin provider that is offered only once
- * connected gets its row here before it appears among the choices.
+ * OpenCode and writes them back.
+ *
+ * The page opens on the mode (default, any provider, off) and a card per
+ * provider; a card opens the provider, where its key is added and it is
+ * chosen for search. A plugin provider OpenCode offers only once connected
+ * has a card too, so its key goes in where it is chosen.
  */
 
 const sameSelection = (a: WebSearchSelection, b: WebSearchSelection): boolean =>
   a.kind === b.kind && (a.kind !== 'provider' || (b.kind === 'provider' && a.id === b.id));
 
-const SelectionSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot }) => {
+/** One provider as the page shows it: offered for search, or waiting for its key. */
+type ProviderEntry = {
+  provider: WebSearchProvider;
+  access: WebSearchProviderAccess | null;
+  /** False for a plugin provider OpenCode offers only once connected. */
+  usable: boolean;
+};
+
+const providerEntries = (snapshot: WebSearchSnapshot): ProviderEntry[] => [
+  ...snapshot.providers.map((provider) => ({ provider, access: snapshot.access?.[provider.id] ?? null, usable: true })),
+  ...snapshot.connectable.map((provider) => ({ provider, access: snapshot.access?.[provider.id] ?? null, usable: false })),
+].sort((a, b) => a.provider.name.localeCompare(b.provider.name, undefined, { sensitivity: 'base' }));
+
+const useChoose = (snapshot: WebSearchSnapshot) => {
   const { t } = useI18n();
   const setSelection = useWebSearchStore((store) => store.setSelection);
-  const selected = snapshot.selection;
   // A project config's `websearch` wins over the file Settings writes, so a
-  // choice here would snap back; show where it comes from instead.
+  // choice here would snap back.
   const locked = snapshot.projectOverride !== null;
-
   const choose = (selection: WebSearchSelection) => {
-    if (locked || sameSelection(selection, selected)) return;
+    if (locked || sameSelection(selection, snapshot.selection)) return;
     void setSelection(selection).then((ok) => {
       if (!ok) toast.error(t('settings.webSearch.toast.saveFailed'));
     });
   };
+  return { choose, locked };
+};
 
-  // A configured provider OpenCode no longer offers (plugin removed, typo in
-  // the file) stays visible so the user can see why search does not run.
-  const missingProvider = selected.kind === 'provider' && !snapshot.providers.some((provider) => provider.id === selected.id)
-    ? selected.id
+type ModeValue = 'default' | 'random' | 'off' | 'provider';
+
+const ModeSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot }) => {
+  const { t } = useI18n();
+  const { choose, locked } = useChoose(snapshot);
+  const selected = snapshot.selection;
+  const providerName = selected.kind === 'provider'
+    ? snapshot.providers.find((provider) => provider.id === selected.id)?.name ?? null
     : null;
+
+  const options: Array<{ value: ModeValue; label: string; disabled?: boolean }> = [
+    { value: 'default', label: t('settings.webSearch.option.default'), disabled: locked },
+    ...(snapshot.providers.length > 0
+      ? [{ value: 'random' as const, label: t('settings.webSearch.option.random'), disabled: locked }]
+      : []),
+    { value: 'off', label: t('settings.webSearch.option.off'), disabled: locked },
+  ];
+
+  const status = selected.kind === 'default'
+    ? t('settings.webSearch.option.defaultDescription')
+    : selected.kind === 'random'
+      ? t('settings.webSearch.option.randomDescription')
+      : selected.kind === 'off'
+        ? t('settings.webSearch.mode.offDescription')
+        : providerName
+          // A configured provider OpenCode no longer offers (plugin removed,
+          // typo in the file) is named, so the user can see why search fails.
+          ? t('settings.webSearch.mode.providerDescription', { provider: providerName })
+          : t('settings.webSearch.mode.missingDescription', { provider: selected.id });
 
   return (
     <SettingsSection
@@ -62,58 +110,64 @@ const SelectionSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot 
       divider={false}
       settingsItem="web-search.provider"
     >
-      <div>
-        <SettingsRadioGroup aria-label={t('settings.webSearch.section.provider')}>
-          <SettingsRadioOption
-            selected={selected.kind === 'default'}
-            onSelect={() => choose({ kind: 'default' })}
-            disabled={locked}
-            label={t('settings.webSearch.option.default')}
-            description={t('settings.webSearch.option.defaultDescription')}
-          />
-          {snapshot.providers.length > 0 ? (
-            <SettingsRadioOption
-              selected={selected.kind === 'random'}
-              onSelect={() => choose({ kind: 'random' })}
-              disabled={locked}
-              label={t('settings.webSearch.option.random')}
-              description={t('settings.webSearch.option.randomDescription')}
-            />
-          ) : null}
-          {snapshot.providers.map((provider) => (
-            <SettingsRadioOption
-              key={provider.id}
-              selected={selected.kind === 'provider' && selected.id === provider.id}
-              onSelect={() => choose({ kind: 'provider', id: provider.id })}
-              disabled={locked}
-              label={provider.name}
-            />
-          ))}
-          {missingProvider ? (
-            <SettingsRadioOption
-              selected
-              onSelect={() => undefined}
-              label={missingProvider}
-              description={t('settings.webSearch.option.missing')}
-            />
-          ) : null}
-          <SettingsRadioOption
-            selected={selected.kind === 'off'}
-            onSelect={() => choose({ kind: 'off' })}
-            disabled={locked}
-            label={t('settings.webSearch.option.off')}
-          />
-        </SettingsRadioGroup>
+      <div className="space-y-2">
+        <SettingsChipGroup<ModeValue>
+          aria-label={t('settings.webSearch.section.provider')}
+          value={selected.kind}
+          options={options}
+          onChange={(value) => {
+            if (value !== 'provider') choose({ kind: value });
+          }}
+        />
+        <p className={SETTINGS_HELPER_CLASS}>{status}</p>
         {snapshot.projectOverride ? (
-          <p className={`${SETTINGS_HELPER_CLASS} mt-2 break-all`}>
+          <p className={`${SETTINGS_HELPER_CLASS} break-all`}>
             {t('settings.webSearch.state.projectOverride', { path: snapshot.projectOverride })}
           </p>
         ) : null}
-        {snapshot.providers.length === 0 ? (
-          <p className={`${SETTINGS_HELPER_CLASS} mt-2`}>{t('settings.webSearch.state.noProviders')}</p>
-        ) : null}
       </div>
     </SettingsSection>
+  );
+};
+
+const ProviderCard: React.FC<{ entry: ProviderEntry; snapshot: WebSearchSnapshot; onOpen: () => void }> = ({ entry, snapshot, onOpen }) => {
+  const { t } = useI18n();
+  const { choose, locked } = useChoose(snapshot);
+  const { provider, access, usable } = entry;
+  const inUse = snapshot.selection.kind === 'provider' && snapshot.selection.id === provider.id;
+  const key = access?.key;
+  const takesKey = access?.connect?.kind === 'key';
+
+  const pill = inUse
+    ? <SettingsCardPill tone="success">{t('settings.webSearch.card.inUse')}</SettingsCardPill>
+    : !usable && key?.kind === 'none'
+      ? <SettingsCardPill tone="warning">{takesKey ? t('settings.webSearch.card.needsKey') : t('settings.webSearch.card.needsSetup')}</SettingsCardPill>
+      : null;
+
+  const footer = key?.kind === 'stored'
+    ? (takesKey ? t('settings.webSearch.keys.saved') : t('settings.webSearch.keys.connected'))
+    : key?.kind === 'env'
+      ? t('settings.webSearch.keys.fromEnv', { name: key.name })
+      : usable && key?.kind === 'none'
+        ? t('settings.webSearch.card.keyOptional')
+        : null;
+
+  const actions: SettingsCardAction[] = usable && !inUse && !locked
+    ? [{ label: t('settings.webSearch.actions.use'), icon: 'check', onSelect: () => choose({ kind: 'provider', id: provider.id }) }]
+    : [];
+
+  return (
+    <SettingsCard
+      // Search providers have no logos in the app; one mark keeps the grid even.
+      icon={<SettingsCardIcon name="global" />}
+      title={provider.name}
+      badges={pill}
+      footer={footer ? <span className="min-w-0 truncate">{footer}</span> : null}
+      muted={!usable && key?.kind === 'none'}
+      onOpen={onOpen}
+      actions={actions}
+      actionsLabel={t('settings.webSearch.card.actions', { provider: provider.name })}
+    />
   );
 };
 
@@ -124,8 +178,22 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
   const [draft, setDraft] = React.useState('');
   const [answer, setAnswer] = React.useState<WebSearchConnectAnswer>({});
   const [busy, setBusy] = React.useState(false);
-  const envHint = access.envNames.length > 0 ? t('settings.webSearch.keys.envHint', { names: access.envNames.join(', ') }) : undefined;
   const takesKey = connect.kind === 'key';
+  const names = access.envNames.join(', ');
+  // Field explanations and examples live behind the info icon: a URL example
+  // does not fit in the field, so the field shows only its label.
+  const hintLines = [
+    ...connect.fields.flatMap((field) => [
+      field.description,
+      field.placeholder ? t('settings.webSearch.keys.fieldExample', { example: field.placeholder }) : null,
+    ]),
+    access.envNames.length === 0
+      ? null
+      : takesKey ? t('settings.webSearch.keys.envHint', { names }) : t('settings.webSearch.keys.envHintForm', { names }),
+  ].filter((line): line is string => Boolean(line));
+  const info = hintLines.length > 0
+    ? hintLines.map((line) => <span key={line} className="block">{line}</span>)
+    : undefined;
   const filledAnswer = Object.fromEntries(
     Object.entries(answer).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value !== ''),
   );
@@ -147,6 +215,13 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
     }
   };
 
+  const handleRemove = async () => {
+    setBusy(true);
+    const ok = await removeKey(provider.id);
+    setBusy(false);
+    if (!ok) toast.error(t('settings.webSearch.toast.keyRemoveFailed'));
+  };
+
   const submitOnEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') void handleSave();
   };
@@ -158,7 +233,7 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
       value={answer[field.key] ?? ''}
       onChange={(event) => setAnswer((current) => ({ ...current, [field.key]: event.target.value }))}
       onKeyDown={submitOnEnter}
-      placeholder={field.placeholder ?? field.label}
+      placeholder={field.label}
       aria-label={t('settings.webSearch.keys.fieldAria', { provider: provider.name, field: field.label })}
       className={inputClassName}
     />
@@ -183,16 +258,12 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
     </Button>
   );
 
-  const handleRemove = async () => {
-    setBusy(true);
-    const ok = await removeKey(provider.id);
-    setBusy(false);
-    if (!ok) toast.error(t('settings.webSearch.toast.keyRemoveFailed'));
-  };
-
   const status = access.key;
+  const rowLabel = takesKey
+    ? t('settings.webSearch.keys.label')
+    : connect.fields.length === 1 && connect.fields[0] ? connect.fields[0].label : t('settings.webSearch.keys.connectionLabel');
   return (
-    <SettingsFieldRow label={provider.name} info={envHint}>
+    <SettingsFieldRow label={rowLabel} info={info}>
       {status.kind === 'stored' ? (
         <div className={`${SETTINGS_CONTROL_CLUSTER_CLASS} flex items-center justify-end gap-2`}>
           <span className="typography-meta text-muted-foreground">
@@ -227,41 +298,58 @@ const ProviderKeyRow: React.FC<{ provider: WebSearchProvider; access: WebSearchP
   );
 };
 
-const KeysSection: React.FC<{ snapshot: WebSearchSnapshot }> = ({ snapshot }) => {
+const ProviderDetail: React.FC<{ entry: ProviderEntry; snapshot: WebSearchSnapshot; onBack: () => void }> = ({ entry, snapshot, onBack }) => {
   const { t } = useI18n();
+  const { choose, locked } = useChoose(snapshot);
   // Enterprise mode: the server refuses new keys (they connect through the
   // same OpenCode route as model providers); saved ones can still be removed.
-  const locked = useEnterpriseMode();
-  const access = snapshot.access;
-  // Plugin providers that are not connected yet sit among the listed ones,
-  // in name order, so a row stays in place when its provider joins the list.
-  const keyed = access
-    ? [...snapshot.providers, ...snapshot.connectable]
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-        .flatMap((provider) => {
-          const entry = access[provider.id];
-          return entry?.connect ? [{ provider, access: entry, connect: entry.connect }] : [];
-        })
-    : [];
-  if (access && keyed.length === 0) return null;
+  const keysLocked = useEnterpriseMode();
+  const { provider, access, usable } = entry;
+  const inUse = snapshot.selection.kind === 'provider' && snapshot.selection.id === provider.id;
+  const connect = access?.connect ?? null;
+
+  const useLine = inUse
+    ? t('settings.webSearch.mode.providerDescription', { provider: provider.name })
+    : usable
+      ? null
+      : connect?.kind === 'form'
+        ? t('settings.webSearch.detail.needsSetup', { provider: provider.name })
+        : t('settings.webSearch.detail.needsKey', { provider: provider.name });
 
   return (
-    <SettingsSection
-      title={t('settings.webSearch.section.keys')}
-      info={t('settings.webSearch.section.keysInfo')}
-      settingsItem="web-search.keys"
+    <SettingsPageLayout
+      title={provider.name}
+      titleLeading={<SettingsBackButton label={t('settings.webSearch.detail.back')} onClick={onBack} />}
+      showSaveStatus
     >
-      <div className="space-y-4">
-        {locked ? <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.keys.enterpriseMode')}</p> : null}
-        {access === null ? (
-          <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.state.keysUnavailable')}</p>
-        ) : (
-          keyed.map(({ provider, access: entry, connect }) => (
-            <ProviderKeyRow key={provider.id} provider={provider} access={entry} connect={connect} locked={locked} />
-          ))
-        )}
-      </div>
-    </SettingsSection>
+      <SettingsSection divider={false}>
+        <div className="space-y-2">
+          {useLine ? <p className="typography-meta text-foreground">{useLine}</p> : null}
+          {usable && !inUse ? (
+            <Button size="sm" disabled={locked} onClick={() => choose({ kind: 'provider', id: provider.id })}>
+              {t('settings.webSearch.actions.use')}
+            </Button>
+          ) : null}
+          {snapshot.projectOverride ? (
+            <p className={`${SETTINGS_HELPER_CLASS} break-all`}>
+              {t('settings.webSearch.state.projectOverride', { path: snapshot.projectOverride })}
+            </p>
+          ) : null}
+        </div>
+      </SettingsSection>
+      <SettingsSection>
+        <div className="space-y-4">
+          {keysLocked ? <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.keys.enterpriseMode')}</p> : null}
+          {access === null ? (
+            <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.state.keysUnavailable')}</p>
+          ) : connect ? (
+            <ProviderKeyRow provider={provider} access={access} connect={connect} locked={keysLocked} />
+          ) : (
+            <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.detail.noKey')}</p>
+          )}
+        </div>
+      </SettingsSection>
+    </SettingsPageLayout>
   );
 };
 
@@ -269,6 +357,7 @@ export const WebSearchPage: React.FC = () => {
   const { t } = useI18n();
   const state = useWebSearchStore((store) => store.state);
   const load = useWebSearchStore((store) => store.load);
+  const [openId, setOpenId] = React.useState<string | null>(null);
 
   // Read on open, and again when the page is opened for another project or
   // runtime (the snapshot is scoped to both).
@@ -278,6 +367,13 @@ export const WebSearchPage: React.FC = () => {
   }, [load, scope]);
 
   const snapshot = state.kind === 'ready' && state.snapshot.scope === scope ? state.snapshot : null;
+  const entries = snapshot ? providerEntries(snapshot) : [];
+  // A provider that went away (plugin removed) closes its screen.
+  const open = openId ? entries.find((entry) => entry.provider.id === openId) ?? null : null;
+
+  if (snapshot && open) {
+    return <ProviderDetail entry={open} snapshot={snapshot} onBack={() => setOpenId(null)} />;
+  }
 
   return (
     <SettingsPageLayout
@@ -287,8 +383,25 @@ export const WebSearchPage: React.FC = () => {
     >
       {snapshot ? (
         <>
-          <SelectionSection snapshot={snapshot} />
-          <KeysSection snapshot={snapshot} />
+          <ModeSection snapshot={snapshot} />
+          <SettingsSection
+            title={t('settings.webSearch.section.providers')}
+            info={t('settings.webSearch.section.providersInfo')}
+            settingsItem="web-search.providers"
+          >
+            {entries.length === 0 ? (
+              <p className={SETTINGS_HELPER_CLASS}>{t('settings.webSearch.state.noProviders')}</p>
+            ) : (
+              <div className={SETTINGS_CARD_GRID_CLASS}>
+                {entries.map((entry) => (
+                  <ProviderCard key={entry.provider.id} entry={entry} snapshot={snapshot} onOpen={() => setOpenId(entry.provider.id)} />
+                ))}
+              </div>
+            )}
+            {snapshot.access === null ? (
+              <p className={`${SETTINGS_HELPER_CLASS} mt-3`}>{t('settings.webSearch.state.keysUnavailable')}</p>
+            ) : null}
+          </SettingsSection>
         </>
       ) : state.kind === 'failed' ? (
         <SettingsSection divider={false}>

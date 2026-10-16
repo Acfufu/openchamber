@@ -58,6 +58,9 @@ export interface WebSearchConnectField {
   key: string
   /** The provider's own label; plugins write it in English. */
   label: string
+  /** The provider's own explanation of the field, in its language. */
+  description: string | null
+  /** An example value. */
   placeholder: string | null
   required: boolean
   url: boolean
@@ -145,6 +148,7 @@ function toConnectFields(form: readonly FormField[] | undefined): WebSearchConne
     fields.push({
       key: field.key,
       label: field.title ?? field.key,
+      description: field.description ?? null,
       placeholder: field.placeholder ?? null,
       required: field.required === true,
       url: field.format === "uri",
