@@ -166,6 +166,9 @@ interface UseChatTimelineScrollResult {
 // settles (the list reports isAtEnd=false until its initial end-scroll lands).
 // Hiding is always immediate.
 const SHOW_SCROLL_BUTTON_DELAY_MS = 150;
+// The largest offset from the list's measured end carried through a
+// side-column animation (see animationEndCorrectionRef).
+const ANIMATION_END_CORRECTION_MAX_PX = 64;
 // How long an opening session stays hidden while older history loads toward a
 // remembered reading position. Longer, a blank chat reads worse than a jump.
 const REMEMBERED_POSITION_REVEAL_WAIT_MS = 800;
@@ -356,6 +359,12 @@ export const useChatTimelineScroll = ({
     // Set while a side-column width animation runs that started with the
     // reader pinned at the end (see the pinned-end section).
     const pinnedThroughAnimationRef = React.useRef(false);
+    // Where a reader on the end sits relative to the list's own measured end
+    // when a side-column animation starts: on the document's end, that is a
+    // few px below (8 in a typical transcript). The animation holds the end
+    // from the list's measurements, since the document's lags a re-wrap;
+    // without this the pinned text hopped by that much at every toggle.
+    const animationEndCorrectionRef = React.useRef(0);
     // Incremented by every real user gesture. Automatic movement is only valid
     // while `liveFollowGenerationRef` still equals it.
     const userGenerationRef = React.useRef(0);
@@ -1397,13 +1406,14 @@ export const useChatTimelineScroll = ({
                 // last real row. Held for a streaming reader too — output
                 // growth is not what moves the viewport during a resize.
                 const state = listRef.current?.getState();
-                const offset = state
+                const measured = state
                     ? resolveRealContentEndOffset({
                         state,
                         composerOverlayHeight: composerOverlayHeightRef.current,
                         footerSize: listFooterSizeRef.current,
                     })
                     : null;
+                const offset = measured === null ? null : measured + (pinnedThroughAnimationRef.current ? animationEndCorrectionRef.current : 0);
                 if (offset !== null && Math.abs(offset - scrollNode.scrollTop) > 1) {
                     scrollNode.scrollTop = offset;
                 }
@@ -1474,11 +1484,25 @@ export const useChatTimelineScroll = ({
                     footerSize: listFooterSizeRef.current,
                 })
                 : null;
-            const end = offset ?? scrollNode.scrollHeight - scrollNode.clientHeight;
+            const end = offset === null ? scrollNode.scrollHeight - scrollNode.clientHeight : offset + animationEndCorrectionRef.current;
             if (Math.abs(end - scrollNode.scrollTop) > 1) scrollNode.scrollTop = end;
         };
         const release = onLayoutAnimationStart(() => {
             if (userOwnsScrollRef.current || !isAtEndRef.current || modeRef.current !== 'following-end') return;
+            // Still the layout before the animation: the reader's distance
+            // from the list's measured end, kept through it.
+            const state = listRef.current?.getState();
+            const measured = state
+                ? resolveRealContentEndOffset({
+                    state,
+                    composerOverlayHeight: composerOverlayHeightRef.current,
+                    footerSize: listFooterSizeRef.current,
+                })
+                : null;
+            const correction = measured === null ? 0 : scrollNode.scrollTop - measured;
+            // A larger gap means the list's sizes are still estimates, where
+            // its end is the better guess.
+            animationEndCorrectionRef.current = Math.abs(correction) <= ANIMATION_END_CORRECTION_MAX_PX ? correction : 0;
             pinnedThroughAnimationRef.current = true;
             startGeneration = userGenerationRef.current;
             runWhenLayoutSettled(settle);
