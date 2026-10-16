@@ -87,6 +87,29 @@ export const useDurationTickerNow = (active: boolean): number => {
     return now;
 };
 
+const MINUTE_MS = 60_000;
+
+/**
+ * Wall-clock time for labels that change by the minute ("5m ago") on a view
+ * that stays open for hours. It listens on the 1 s tick but re-renders only
+ * when the minute turns.
+ */
+export const useMinuteTickerNow = (active: boolean): number => {
+    const paused = React.useContext(ClockPausedContext);
+    const running = active && !paused;
+    const [now, setNow] = React.useState(() => Date.now());
+
+    React.useEffect(() => {
+        if (!running) return;
+        return subscribe({
+            rate: 'second',
+            notify: (next) => setNow((current) => (Math.floor(current / MINUTE_MS) === Math.floor(next / MINUTE_MS) ? current : next)),
+        });
+    }, [running]);
+
+    return now;
+};
+
 /**
  * Bright/dim phase for an indicator of a real wait that cannot spin (a status
  * dot, a provider logo, a loading skeleton): `waiting-dim` every other second.

@@ -22,7 +22,7 @@ import { usePullAttachments } from '@/components/sourceBoard/pullAttachments';
 import { useThreadActions } from '@/components/sourceBoard/threadActions';
 import { useBoardRevalidation } from '@/components/sourceBoard/useBoardRevalidation';
 import { Button } from '@/components/ui/button';
-import { useDurationTickerNow } from '@/hooks/useDurationTicker';
+import { useMinuteTickerNow } from '@/hooks/useDurationTicker';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type { GitHubReferenceKind } from '@/lib/api/types';
 import { useI18n } from '@/lib/i18n';
@@ -125,7 +125,7 @@ const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubRefer
     const attachments = usePullAttachments(reference);
     const [checksOpen, setChecksOpen] = React.useState(false);
     // The tab can stay open for hours; a frozen clock read every newer comment as "Just now".
-    const now = useDurationTickerNow(true, 60_000);
+    const now = useMinuteTickerNow(true);
 
     const { retry: retryLookup } = lookup;
     // After a change to the item: its detail and the item itself read again.
@@ -206,7 +206,7 @@ const LinearTrackerItem: React.FC<{ url: string; identifier: string; onUnavailab
     const source = useLinearSourceStatus();
     const { detail, refresh } = useLinearIssueDetail(source === 'ready' ? identifier : null, true);
     const showTrackerItem = useShowTrackerItem();
-    const now = useDurationTickerNow(true, 60_000);
+    const now = useMinuteTickerNow(true);
 
     // Linear answers the same for an issue it cannot find and a read that
     // failed, so only a tab just opened that never showed its issue gives up

@@ -3,7 +3,7 @@ import { Window } from 'happy-dom';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-import { useDurationTickerNow, useSpinnerPhase, useWaitingBlink } from './useDurationTicker';
+import { useDurationTickerNow, useMinuteTickerNow, useSpinnerPhase, useWaitingBlink } from './useDurationTicker';
 
 let root: Root | null = null;
 let host: HTMLElement;
@@ -113,4 +113,22 @@ test('waiting indicators and live counters share one 1 s timer', async () => {
   expect(setInterval.mock.calls.length).toBe(1);
   expect(setInterval.mock.calls[0]?.[1]).toBe(1000);
   setInterval.mockRestore();
+});
+
+test('a minute clock renders again only when the minute turns', async () => {
+  let renders = 0;
+  const MinuteProbe: React.FC = () => {
+    renders += 1;
+    return <span data-id="minute">{useMinuteTickerNow(true)}</span>;
+  };
+  await render(<MinuteProbe />);
+  const first = renders;
+  // The fake timers move Date.now() along with them.
+  const untilMinute = 60_000 - (Date.now() % 60_000);
+
+  await advance(Math.max(0, untilMinute - 1500));
+  expect(renders).toBe(first);
+
+  await advance(3000);
+  expect(renders).toBe(first + 1);
 });
