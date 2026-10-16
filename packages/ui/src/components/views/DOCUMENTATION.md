@@ -57,6 +57,17 @@ command costs no patch reads, and an edit costs one for the edited file. A
 listing without revisions falls back to the status revision for every file.
 Desktop Changes and mobile Changes share this.
 
+## Nested repositories
+
+A folder inside the project that holds its own `.git` and is not a submodule
+is one `dir/` row in the parent's status; its diff read answers
+`nested_repository`. Its Changes entry then reads that repository's own status
+and lists its changed files, each diff read from that repository when the row
+opens, read-only: no stage, discard or hunk actions. "Open as project" adds the
+folder as a project and opens a new session draft in it, where the Git panel
+commits. The listing reads again when the entry's `contentRevision` moves.
+Mobile Changes still shows only the note for such a row.
+
 `WalkthroughView` gates discovery and source loading while retaining generated
 results and any explicitly started generation job.
 
