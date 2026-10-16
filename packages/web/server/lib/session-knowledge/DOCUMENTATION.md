@@ -121,8 +121,11 @@ Stated only in the tool description, it went unread: asked for a breakdown of
 lines of code per package, an agent answered with a list and drew the chart
 only when asked again. The cases and the limits (no page for a few numbers, at
 most one per answer) are `RENDER_PAGE_WHEN` in
-`../openchamber-control/render-page.js`, which the tool description shares. It
-rides the signature as `r:on`.
+`../openchamber-control/render-page.js`, which the tool description shares. The
+guidance also names asking with a page (`awaitAnswer`) when the user has to
+choose between visual options. It rides the signature as `r:on:3`; the
+version moves whenever the guidance text changes, so sessions carrying the
+older text hear the new one.
 
 ## Entries that read as instructions
 

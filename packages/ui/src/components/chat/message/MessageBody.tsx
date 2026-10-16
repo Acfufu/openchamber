@@ -47,7 +47,7 @@ import { formatTimestampForDisplay } from './timeFormat';
 import { ToolRevealOnMount } from './parts/ToolRevealOnMount';
 import { StaticToolRow } from './parts/ProgressiveGroup';
 import { isExpandableTool } from './parts/toolRenderUtils';
-import { HtmlRenderFrame, ShownPage } from './parts/HtmlRenderFrame';
+import { ShownPage } from './parts/HtmlRenderFrame';
 import { renderedPage } from '@/lib/opencode/tools';
 import { LiveActivityCollapse } from '../components/LiveActivityCollapse';
 import { ActivityRowSkipContext, isActivityRowPart, isToolRowShown } from '../lib/turns/activityRows';
@@ -1730,12 +1730,9 @@ const AssistantMessageBody = React.memo(({
 
                 // A page the agent showed is drawn in place of its row. With
                 // Activity collapsed, the final answer draws it instead.
-                const page = toolPart.state.status === 'completed'
-                    ? renderedPage(toolPart.tool, toolPart.state.input, toolPart.state.metadata)
-                    : null;
-                if (page) {
+                if (renderedPage(toolPart.tool, toolPart.state)) {
                     if (!hoistedPages?.has(toolPart.id)) {
-                        rendered.push(<HtmlRenderFrame key={`page-${toolPart.id}`} partId={toolPart.id} html={page.html} title={page.title} />);
+                        rendered.push(<ShownPage key={`page-${toolPart.id}`} part={toolPart} />);
                     }
                     i++;
                     continue;

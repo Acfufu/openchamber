@@ -94,7 +94,7 @@ describe('when to draw a page', () => {
 
     expect(text).toBe(`${KNOWLEDGE_HEADER}\n\n${RENDER_PAGE_GUIDANCE}`);
     expect(text).toContain('Do not use it for a few numbers');
-    expect(signature).toBe('r:on');
+    expect(signature).toBe('r:on:3');
     expect((await runtime.resolvePending(DIRECTORY, signature, { notes: [], plans: [] })).text).toBe('');
   });
 
