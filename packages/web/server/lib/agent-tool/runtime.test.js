@@ -273,15 +273,19 @@ describe('managed agent tool runtime', () => {
   });
 
 
-  it('tells the agent to move into a worktree unasked only when the user chose that', async () => {
+  it('introduces the worktree move and leaves the choice to the user', async () => {
     const { runtime, dataDir } = await createRuntime();
 
-    await runtime.materializePlugin({ worktreeMoveWithoutAsking: true });
-    const tool = await loadTools(dataDir, 'unasked');
+    await runtime.materializePlugin({});
+    const tool = await loadTools(dataDir, 'worktree-intro');
 
-    expect(tool.openchamber.description).toContain('first move this session into a new worktree with session.moveToWorktree, without asking, and tell the user in one line');
-    expect(tool.openchamber.description).not.toContain("wait for the user's yes");
+    expect(tool.openchamber.description).toContain('Whether that fits depends on how the user works');
+    expect(tool.openchamber.description).toContain('such as a pull request of its own');
+    // OpenCode's own worktree_create makes a detached copy of the current commit.
+    expect(tool.openchamber.description).toContain('Unlike worktree_create, it makes a new branch from the default branch');
+    expect(tool.openchamber.description).not.toContain('without asking');
     expect(tool.openchamber.input.properties.action.oneOf.map((entry) => entry.const)).toContain('session.moveToWorktree');
+    expect(tool.openchamber.input.properties.parameters.properties.carry).toEqual(expect.objectContaining({ type: 'array' }));
   });
 
   it('materializes the plugin and mints a per-child callback token', async () => {
@@ -306,9 +310,6 @@ describe('managed agent tool runtime', () => {
     expect(tool.openchamber.description).toContain('final answer then arrives in this session as a message');
     // Agents also have OpenCode's own subagent tool; the line between the two is drawn up front.
     expect(tool.openchamber.description).toContain('use the subagent tool');
-    // The worktree rule is read before the tool is chosen, and asks by default.
-    expect(tool.openchamber.description).toContain('offer to move this session into a new worktree with session.moveToWorktree and wait for the user\'s yes');
-    expect(tool.openchamber.description).not.toContain('without asking');
     expect(tool.openchamber.input.properties.action.oneOf).toContainEqual({
       const: 'session.messages',
       description: 'Read text-only messages and current sessionStatus for sessionId; directory and limit 10 are defaults',

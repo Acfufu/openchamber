@@ -147,19 +147,25 @@ both settings are `false`.
   (`../git/DOCUMENTATION.md`, *Worktree creation from a GitHub pull request*);
   everything else about the request is resolved on the server.
 - `session.moveToWorktree` moves the calling session (or `sessionId`) into a
-  new worktree of its repository, carrying the checkout's uncommitted changes
-  along (`../openchamber-sessions/worktree-move.js`). `worktree` is required
-  there and `startRef` defaults to the repository's default branch;
-  `existingBranch` checks out a branch that already exists instead, local or
-  remote (`origin/feature`), and cannot be combined with `branch` or
-  `startRef`. When to
-  offer it is stated at the head of the tool description, in the form the
-  `agentWorktreeMoveWithoutAsking` setting selects: asking first by default,
-  or moving unasked and saying so. The setting is read into the plugin source
-  (`materializePlugin({ worktreeMoveWithoutAsking })`), so a toggle rewrites
-  the managed config like the other tool settings and the running OpenCode
-  reads the new description. The session context carries the same rule
-  (`../session-knowledge/`, `WORKTREE_MOVE_GUIDANCE`); change both together.
+  new worktree of its repository (`../openchamber-sessions/worktree-move.js`).
+  `worktree` is required there and `startRef` defaults to the repository's
+  default branch; `existingBranch` checks out a branch that already exists
+  instead, local or remote (`origin/feature`), and cannot be combined with
+  `branch` or `startRef`. `carry` names the files whose uncommitted changes
+  go along; nothing else moves. The head of the tool description introduces
+  the move (`WORKTREE_MOVE_INTRO`): what it does, when a checkout looks busy,
+  and that whether to use it depends on how the user works, so the agent asks
+  first unless the request already calls for separate work. It also says
+  why to prefer it over `git worktree add` (the session moves along) and
+  over OpenCode's own `worktree_create` with `session_move`, which OpenCode
+  suggests in every session: that one checks out a detached copy of the
+  current commit, so on someone else's branch it starts from their commits,
+  and carries no files. It is an
+  introduction on purpose. It used to be a rule in every session, with a
+  setting to move unasked, and that made one person's workflow everybody's.
+  The session context names the branch (`../session-knowledge/`), and
+  OpenCode tells the agent when it changed between its messages, which the
+  agent cannot see for itself.
 - A rule about when to act belongs where the model reads it before choosing a
   tool: the head of the tool description and, when it must hold in every
   session, the session context (`../session-knowledge/`). An action's

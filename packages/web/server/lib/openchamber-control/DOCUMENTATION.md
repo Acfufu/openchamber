@@ -117,8 +117,9 @@ other.
   is required, `branch` and `startRef` are optional, and `existingBranch`
   checks out a branch that already exists in place of both. The worktree is made by
   the same `createWorktree` pipeline as `session.create`, waits for the same
-  bootstrap, then the checkout's uncommitted changes travel in one git stash
-  applied by hash, and the session is moved last through OpenCode's
+  bootstrap, then the uncommitted changes of the files named in `carry`
+  travel in one git stash applied by hash (nothing moves without it), and the
+  session is moved last through OpenCode's
   `session.move`. A failure after the worktree exists removes it again and
   puts the changes back; when restoring fails too, the error names the stash
   so nothing is lost. A 409 means the changes did not apply on the start ref.
