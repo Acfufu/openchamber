@@ -427,10 +427,13 @@ export function createSpacesHost({
       sockets = createSpaceWebSocketForwarder({ dispatcher, connect: connectReachable, uiAuthController, isRequestOriginAllowed, logger });
     },
     upgradeHandler: (...args) => sockets?.upgradeHandler(...args),
-    /** Follows the spaces: an event connection for each, into the host's hub, and the host's own ids from its events. */
-    startEvents: (globalEventHub) => {
+    /**
+     * Follows the spaces: an event connection for each, into the host's hub, and the host's own ids
+     * from its events; with `broadcastUiEvent`, the host's control stream, also each space's queue changes.
+     */
+    startEvents: (globalEventHub, { broadcastUiEvent = null } = {}) => {
       hub = globalEventHub;
-      events = createSpaceEventSources({ requestInside: dispatcher.requestInside, index, hub: globalEventHub, logger, now });
+      events = createSpaceEventSources({ requestInside: dispatcher.requestInside, index, hub: globalEventHub, broadcastUiEvent, logger, now });
       unsubscribeHostEvents = globalEventHub.subscribeEvent((event) => { if (event.spaceId === null) index.observeHostEvent(event.payload); });
       followTimer = setTimer(() => { void follow(); }, FOLLOW_INTERVAL_MS);
       followTimer?.unref?.();

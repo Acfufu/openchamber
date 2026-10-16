@@ -2396,8 +2396,9 @@ async function main(options = {}) {
   server.on('upgrade', (...args) => { spacesHost?.upgradeHandler(...args); });
   const startSpacesHost = (host) => {
     host.prepareUpgrades({ uiAuthController, isRequestOriginAllowed });
-    // Every space's events join the host's hub, and the host asks each space for its live status.
-    void host.startEvents(globalMessageStreamHub).catch((error) => {
+    // Every space's events join the host's hub, and the host asks each space for its live status;
+    // each space's queue changes reach the browsers on the control stream, where the host's own go.
+    void host.startEvents(globalMessageStreamHub, { broadcastUiEvent: broadcastOpenChamberUiEvent }).catch((error) => {
       console.warn(`[spaces] could not follow the spaces: ${error?.message ?? error}`);
     });
   };
