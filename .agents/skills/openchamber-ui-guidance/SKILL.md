@@ -76,6 +76,15 @@ Using a control must not shift anything the user did not touch.
   matches what it stands in for; hover actions fade in over reserved space.
 - **Collapse and expand** move only what is below them; the clicked header
   stays under the pointer.
+- **Popups open where they fit.** Every dropdown, select, menu or picker
+  opens toward the side with room for its options, never into a sliver at the
+  window's edge (Mini Chat, a composer at the bottom or top). Base UI flips to
+  the roomier side by default; keep that. A popup that must hold its side
+  while open (a search field that stays put while results filter) turns flips
+  off and takes its side from `usePopupSideOnOpen` (`components/ui/popup-side.ts`),
+  with its search field on the trigger's edge. The composer's model and agent
+  menus are a known exception: their search stays at the top when they open
+  upward. Check every popup in the smallest window that shows it.
 
 ## Vertical space: content gets the height
 
@@ -160,7 +169,8 @@ A UI change is done when each holds on the changed screens:
 
 - every surface follows the depth rule, with no box inside a box and no line
   without a meaning;
-- interacting with each control moves nothing it did not touch;
+- interacting with each control moves nothing it did not touch, and each
+  popup opens toward the room in the smallest window that shows it;
 - no surface stacks a header, tabs, toolbar and search as separate rows, and
   no toolbar wraps;
 - controls hug their content; only form fields and canvases fill;
