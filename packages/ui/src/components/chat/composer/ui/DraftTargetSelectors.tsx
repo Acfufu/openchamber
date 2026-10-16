@@ -45,6 +45,7 @@ import { useKeybind } from '@/hooks/useKeybind';
 import type { Theme } from '@/types/theme';
 import { normalizePath } from '../attachments/filePaths';
 import { getProjectDisplayLabel, type DraftTargetProject } from '../state/useDraftTarget';
+import { chooseProjectPopupSide } from './projectPopupSide';
 
 interface BranchOption {
     value: string;
@@ -177,6 +178,18 @@ function DraftTargetSelectorsView(props: DraftTargetProps) {
         setProjectPortalContainer(dialog instanceof HTMLElement ? dialog : null);
         setProjectCollisionBoundary(element?.closest('main') ?? null);
     }, []);
+    // Chosen on every open, before paint, whether a click or a shortcut opened it.
+    const [projectPopupSide, setProjectPopupSide] = React.useState<'top' | 'bottom'>('bottom');
+    React.useLayoutEffect(() => {
+        if (openPicker !== 'project') return;
+        const trigger = projectTriggerRef.current;
+        if (!trigger) return;
+        const main = trigger.closest('main')?.getBoundingClientRect();
+        setProjectPopupSide(chooseProjectPopupSide(trigger.getBoundingClientRect(), {
+            top: Math.max(main?.top ?? 0, 0),
+            bottom: Math.min(main?.bottom ?? window.innerHeight, window.innerHeight),
+        }));
+    }, [openPicker]);
     // The popover owns no shortcut suspension (unlike Select/DropdownMenu
     // wrappers), so suspend global shortcuts while the project popup is
     // open and restore them on close/unmount.
@@ -316,17 +329,20 @@ function DraftTargetSelectorsView(props: DraftTargetProps) {
                     </span>
                 </Popover.Trigger>
                 <Popover.Portal container={projectPortalContainer ?? undefined}>
-                    {/* side="bottom" anchors the popup's top edge at the
-                        trigger: the search field stays fixed at the
-                        selector's level while filtering, and only the
-                        results area below changes height. Disabling side
-                        flips keeps the input stationary during filtering.
-                        Horizontal shifting keeps the popup inside main. The
-                        --available-height cap comes free from the shared
-                        popup class, so the list scrolls within the space
-                        below the trigger. */}
+                    {/* The search field sits on the trigger's edge of the
+                        popup and stays fixed while filtering; only the
+                        results area beyond it changes height. Opening
+                        downward anchors the popup's top edge under the
+                        trigger. A low trigger (Mini Chat) opens it upward
+                        instead, anchored by its bottom edge, with the search
+                        field moved to the bottom. The side is chosen once per
+                        open and never flips while open, which would move the
+                        input. Horizontal shifting keeps the popup inside
+                        main. The --available-height cap comes free from the
+                        shared popup class, so the list scrolls within the
+                        space on the chosen side. */}
                     <Popover.Positioner
-                        side="bottom"
+                        side={projectPopupSide}
                         align="start"
                         sideOffset={4}
                         collisionAvoidance={{ side: 'none' }}
@@ -344,7 +360,12 @@ function DraftTargetSelectorsView(props: DraftTargetProps) {
                                 cmdk's own filter would re-filter and reorder the
                                 already-ranked rows. */}
                             <Command
-                                className="min-h-0 flex-1"
+                                className={cn(
+                                    'min-h-0 flex-1',
+                                    // Upward: the search field goes to the bottom, next to
+                                    // the trigger, with its divider above it.
+                                    projectPopupSide === 'top' && 'flex-col-reverse [&_[data-slot=command-input-wrapper]]:border-b-0 [&_[data-slot=command-input-wrapper]]:border-t',
+                                )}
                                 shouldFilter={false}
                                 value={projectActiveId ?? undefined}
                                 onValueChange={setProjectActiveId}

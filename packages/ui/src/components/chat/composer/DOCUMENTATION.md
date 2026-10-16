@@ -604,10 +604,14 @@ and the send path reading the same grammar.
   `rankByQuery` over display label and path, keeps the query and the active
   result as transient local state that resets on every close, and commits
   through the existing project-change flow only on explicit activation.
-  Filtering changes the result area below the anchored input without moving
-  the search field. The worktree picker remains a Select; mobile keeps its
-  bottom sheets. Both end with the two ways to make a worktree: **Quick
-  worktree** (`createWorktreeDraft`, auto-named, at once) and **New worktree…**,
+  Filtering changes the result area beyond the anchored input without moving
+  the search field. When less than 240px is left under the trigger and more
+  is above it, as in Mini Chat where the picker sits near the window's bottom,
+  the popup opens upward with the search field at its bottom, next to the
+  trigger, and the results above it. The side is chosen once per open
+  (`ui/projectPopupSide.ts`) and never flips while open. The worktree picker
+  remains a Select; mobile keeps its bottom sheets. Both end with the two
+  ways to make a worktree: **Quick worktree** (`createWorktreeDraft`, auto-named, at once) and **New worktree…**,
   which opens `NewWorktreeDialog` for the draft's own project. `ChatInput` hosts
   that dialog, like the isolated-space one, because Timeline has no project
   headers to open it from; a plain worktree pins the draft to the new
