@@ -371,10 +371,11 @@ host's `spaces` mark: one entry per space with its name, the state of its last
 answer (`complete`, `partial`, `stale`, `unknown`), the registered project it
 was made for and its directory inside. `lib/spaces/spaces-store.ts` keeps the
 marks of the last complete load, reset on a runtime switch. A space's sessions
-live at `/spaces/<id>/<folder>`; `lib/spaces/space-route.ts` turns that
-directory into the `/api/spaces/<id>/` prefix at call time, and `runtimeFetch`
-applies it from the directory a request names in the open, so the sidebar's
-per-directory reads of a space go to the space. Rules that follow from the
+live at `/spaces/<id>/<folder>`, and the server sends a request that names
+such a directory in its query or its directory header to that space, so the
+sidebar's per-directory reads of a space go to the space; a request that names
+its directory only in its body passes it to `runtimeFetch` as `directory`,
+which `lib/spaces/space-route.ts` turns into that header for a space. Rules that follow from the
 mark: a session of a space whose answer was not `complete` may be missing from
 the snapshot without being deleted, so the authoritative cleanup skips it; the
 event pipeline hands the host's `openchamber:space-stream` announcement to
