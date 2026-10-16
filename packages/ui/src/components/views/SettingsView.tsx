@@ -482,6 +482,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onClose, forceMobile
       return 'plugins.spec';
     }
 
+    // The Git identity picker lives in the Add extension dialog; the add card opens it.
+    if (result.id === 'extensions.gitIdentity') {
+      return 'extensions.add';
+    }
+
     const projectTab = projectSettingsTabForSearchTarget(result.id);
     if (projectTab) {
       useProjectSettingsTabStore.getState().setTab(projectTab);

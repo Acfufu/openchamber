@@ -60,7 +60,7 @@ that map; `ChatSettings.test.tsx` fails for a Chat item without one.
 
 ## Browse Pages: Card Grid vs List
 
-A page that browses things with a glanceable state (Providers, MCP, Plugins)
+A page that browses things with a glanceable state (Providers, MCP, Plugins, Extensions)
 opens on a card grid from `shared/SettingsCards.tsx`: a dashed add card leads
 the grid, each card opens a detail screen with `SettingsBackButton`, and the
 page kind is `single`. The shown item is page-local or cleared on unmount, so
