@@ -429,11 +429,12 @@ export function createSpacesHost({
     upgradeHandler: (...args) => sockets?.upgradeHandler(...args),
     /**
      * Follows the spaces: an event connection for each, into the host's hub, and the host's own ids
-     * from its events; with `broadcastUiEvent`, the host's control stream, also each space's queue changes.
+     * from its events; with `broadcastUiEvent`, the host's control stream, also each space's queue
+     * changes, and with `broadcastGlobalUiEvent`, its notification stream, each space's permission modes.
      */
-    startEvents: (globalEventHub, { broadcastUiEvent = null } = {}) => {
+    startEvents: (globalEventHub, { broadcastUiEvent = null, broadcastGlobalUiEvent = null } = {}) => {
       hub = globalEventHub;
-      events = createSpaceEventSources({ requestInside: dispatcher.requestInside, index, hub: globalEventHub, broadcastUiEvent, logger, now });
+      events = createSpaceEventSources({ requestInside: dispatcher.requestInside, index, hub: globalEventHub, broadcastUiEvent, broadcastGlobalUiEvent, logger, now });
       unsubscribeHostEvents = globalEventHub.subscribeEvent((event) => { if (event.spaceId === null) index.observeHostEvent(event.payload); });
       followTimer = setTimer(() => { void follow(); }, FOLLOW_INTERVAL_MS);
       followTimer?.unref?.();

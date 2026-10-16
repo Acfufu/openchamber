@@ -74,6 +74,7 @@ import { policySnapshotFromWire } from "@/stores/utils/permissionAutoAccept"
 import { selectSafetyNetAvailable, useRoutingStore } from "@/stores/useRoutingStore"
 import { useMessageQueueStore } from "@/stores/messageQueueStore"
 import { subscribeMessageQueueSync } from "./message-queue-sync"
+import { subscribeSpacePermissionModes } from "./permission-mode-sync"
 import {
   processVSCodePermissionAutoAccept,
   processVSCodeReconciledPermissionAutoAccept,
@@ -1730,34 +1731,40 @@ const isAnsweredWithoutUser = (sessionID: string): boolean => {
 // (`openchamber.permission-left-for-user`: the safety net held it, Jev failed,
 // or the reply did not go through), and dropped when it is answered.
 const MAX_EARLY_LEFT_FOR_USER = 100
+// Keyed by session and request, so a report names the request of its own session only.
 const permissionsAwaitingAutoAnswer = new Map<string, () => void>()
 // Reports that arrived before their request: the request is shown at once.
 const leftForUserBeforeAsked = new Set<string>()
+const autoAnswerKey = (sessionID: string, permissionID: string) => `${sessionID}\n${permissionID}`
 
 /** Whether a fresh `permission.asked` will be held back until the server rules on it. */
 const isHeldUntilAutoAnswered = (permission: PermissionRequest): boolean =>
-  !leftForUserBeforeAsked.has(permission.id) && !isVSCodeRuntime() && isAnsweredWithoutUser(permission.sessionID)
+  !leftForUserBeforeAsked.has(autoAnswerKey(permission.sessionID, permission.id)) && !isVSCodeRuntime() && isAnsweredWithoutUser(permission.sessionID)
 
 /** Hold `permission.asked` back until the server rules on it, when it may answer it. */
 const holdBackUntilAutoAnswered = (permission: PermissionRequest, replayAsAsk: () => void): boolean => {
-  if (leftForUserBeforeAsked.delete(permission.id)) return false
+  const key = autoAnswerKey(permission.sessionID, permission.id)
+  if (leftForUserBeforeAsked.delete(key)) return false
   if (!isHeldUntilAutoAnswered(permission)) return false
-  permissionsAwaitingAutoAnswer.set(permission.id, replayAsAsk)
+  permissionsAwaitingAutoAnswer.set(key, replayAsAsk)
   return true
 }
 
 const showPermissionLeftForUser = (
-  { permissionId, sessionId, directory }: Extract<SyncEvent, { type: "openchamber.permission-left-for-user" }>["properties"],
+  { permissionId, sessionId, directory, spaceId }: Extract<SyncEvent, { type: "openchamber.permission-left-for-user" }>["properties"],
 ): void => {
-  const replayAsAsk = permissionsAwaitingAutoAnswer.get(permissionId)
+  // A report the host forwarded from a space speaks only for a session of that space.
+  if (spaceId && spaceIdOfDirectory(useSessionUIStore.getState().getDirectoryForSession(sessionId)) !== spaceId) return
+  const key = autoAnswerKey(sessionId, permissionId)
+  const replayAsAsk = permissionsAwaitingAutoAnswer.get(key)
   if (replayAsAsk) {
-    permissionsAwaitingAutoAnswer.delete(permissionId)
+    permissionsAwaitingAutoAnswer.delete(key)
     replayAsAsk()
     return
   }
   // Already on screen: shown as an `ask` request, or loaded by a resync.
   if (directory && getDirectoryState(directory)?.permission[sessionId]?.some((entry) => entry.id === permissionId)) return
-  leftForUserBeforeAsked.add(permissionId)
+  leftForUserBeforeAsked.add(key)
   const oldest = leftForUserBeforeAsked.values().next()
   if (leftForUserBeforeAsked.size > MAX_EARLY_LEFT_FOR_USER && !oldest.done) leftForUserBeforeAsked.delete(oldest.value)
 }
@@ -1776,9 +1783,9 @@ const permissionReplayAsAsk = (
   handleEvent(rawDirectory, payload, childStores, routingIndex, expectedRuntimeKey, true, streamingDirectory, undefined, false)
 }
 
-const forgetAutoAnswerWait = (permissionID: string): void => {
-  permissionsAwaitingAutoAnswer.delete(permissionID)
-  leftForUserBeforeAsked.delete(permissionID)
+const forgetAutoAnswerWait = (sessionID: string, permissionID: string): void => {
+  permissionsAwaitingAutoAnswer.delete(autoAnswerKey(sessionID, permissionID))
+  leftForUserBeforeAsked.delete(autoAnswerKey(sessionID, permissionID))
 }
 
 const notifyFormCreated = (form: FormRequest, directory: string): void => {
@@ -1888,7 +1895,7 @@ export function handleEvent(
   }
 
   if (payload.type === "openchamber.permission-auto-accept") {
-    usePermissionStore.getState().applySnapshot(policySnapshotFromWire(payload.properties), expectedRuntimeKey)
+    usePermissionStore.getState().applySnapshot(policySnapshotFromWire(payload.properties), expectedRuntimeKey, payload.properties.spaceId ?? "")
     return
   }
 
@@ -2053,7 +2060,7 @@ export function handleEvent(
   }
 
   if (payload.type === "permission.replied" && payload.properties.requestID) {
-    forgetAutoAnswerWait(payload.properties.requestID)
+    forgetAutoAnswerWait(payload.properties.sessionID, payload.properties.requestID)
   }
 
   if (!store) {
@@ -2938,6 +2945,7 @@ export function SyncProvider(props: {
   // Abort controller owned by the pipeline closure. Cleanup aborts + flushes.
   useEffect(() => {
     const unsubscribeQueueEvents = subscribeMessageQueueSync(runtimeKey)
+    const unsubscribeSpaceModes = subscribeSpacePermissionModes(runtimeKey)
     const resyncAfterStreamGap = (reason: SessionMaterializationReason) => {
       // Cached transcripts may have missed events too; each revalidates its
       // tail the next time it is opened. Mark first so the active sessions'
@@ -3015,6 +3023,10 @@ export function SyncProvider(props: {
         // The setup commands of a space moved on; what they do now is in the list.
         void refreshSpacesJourney().catch(() => undefined)
       },
+      onSpacePermissionStream: (spaceId) => {
+        if (runtimeKey !== getRuntimeKey()) return
+        void usePermissionStore.getState().refreshSpaceModes(spaceId)
+      },
       onReconnect: ({ replayReset }) => {
         // The first connection and every one after a gap: spaces being made or whose making failed
         // are known only to the journey list, and a step announced during the gap was missed.
@@ -3068,6 +3080,7 @@ export function SyncProvider(props: {
       }
       pipeline.cleanup()
       unsubscribeQueueEvents()
+      unsubscribeSpaceModes()
     }
   }, [props.sdk, childStores, messageLoader, routingIndex, messageStreamTransport, runtimeKey, triggerDirectoryResync])
 
