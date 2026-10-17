@@ -758,8 +758,11 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
                 className={userContentParts.length > 0 ? 'mb-2' : 'mt-0'}
             />
             {/* A long prompt in a sticky turn header scrolls inside the bubble,
-                so the header never covers more than 40% of the screen. */}
-            <div className="leading-relaxed text-foreground/90 text-base overflow-hidden overscroll-contain scrollbar-none in-data-[turn-sticky-header]:max-h-[40dvh] in-data-[turn-sticky-header]:overflow-y-auto">
+                so the header never covers more than 40% of the screen. Only
+                there: `overflow-hidden` already makes the text a scroll
+                container, and `overscroll-contain` on it stopped the wheel
+                over any prompt from reaching the chat. */}
+            <div className="leading-relaxed text-foreground/90 text-base overflow-hidden scrollbar-none in-data-[turn-sticky-header]:max-h-[40dvh] in-data-[turn-sticky-header]:overflow-y-auto in-data-[turn-sticky-header]:overscroll-contain">
                 {/* Positional keys, not part ids: the server echo of a just-sent
                     message swaps the optimistic part id, and id-based keys would
                     remount the text subtree (blank frame + height jump). */}
