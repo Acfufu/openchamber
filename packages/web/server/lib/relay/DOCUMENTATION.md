@@ -194,6 +194,20 @@ with `terminal: true` and the relay's `closeCode`, so callers can tell it apart
 from a pending reconnect, and `retry()` makes the same one fresh attempt on
 request.
 
+The relay may ask a peer to close instead of closing the socket itself: a
+plaintext `{ "type": "relay-retire", "code", "reason" }` frame
+(`parseRelayRetire` in `protocol.ts`, mirrored in `host-client.js`). A close the
+relay sends to a peer that is gone, such as a phone asleep or a laptop with its
+lid shut, holds the relay's handler until the closing handshake times out,
+minutes later, and the relay is billed for the wait; measured on 2026-10-17,
+six such closes cost ~900 s of Durable Object time and six retire frames ~1 s.
+The tunnel client treats a retire frame exactly like a relay close with that
+code, at any stage of the connection; a host data socket drops itself, and the
+host control socket closes and reconnects as after any drop. Peers that predate
+the frame fail closed on unknown plaintext once the E2EE handshake is done,
+which ends in the same reconnect; before the handshake they ignore it and
+reconnect on their own handshake timeout.
+
 The limit refusal (4029: more than 16 clients at once, or more than 60 client
 connects a minute, per server) gets its own user-facing state, read from
 `closeCode` through `isRelayLimitReached`, never from the message text. A probe
