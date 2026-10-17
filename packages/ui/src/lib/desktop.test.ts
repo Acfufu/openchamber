@@ -1,6 +1,40 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
-import { isBrowserClientRuntime, isDesktopLocalOriginActive } from './desktop';
+import { clearDesktopSessionNotifications, isBrowserClientRuntime, isDesktopLocalOriginActive } from './desktop';
+
+describe('clearing session notifications', () => {
+  const originalWindow = globalThis.window;
+  afterEach(() => {
+    globalThis.window = originalWindow;
+  });
+
+  const desktopWindow = (platform: string) => {
+    const calls: Array<{ command: string; args: { sessionId?: string } }> = [];
+    globalThis.window = Object.assign(Object.create(null), {
+      __OPENCHAMBER_ELECTRON__: { runtime: 'electron' },
+      __OPENCHAMBER_PLATFORM__: platform,
+      __OPENCHAMBER_DESKTOP__: {
+        invoke: async (command: string, args: { sessionId?: string }) => {
+          calls.push({ command, args });
+          return null;
+        },
+      },
+    });
+    return calls;
+  };
+
+  test('asks the macOS shell to remove the session notifications', () => {
+    const calls = desktopWindow('darwin');
+    clearDesktopSessionNotifications('ses_1');
+    expect(calls).toEqual([{ command: 'desktop_clear_session_notifications', args: { sessionId: 'ses_1' } }]);
+  });
+
+  test('stays quiet where delivered notifications cannot be removed', () => {
+    const calls = desktopWindow('win32');
+    clearDesktopSessionNotifications('ses_1');
+    expect(calls).toEqual([]);
+  });
+});
 
 describe('browser client runtime', () => {
   test('uses browser file behavior only outside the Electron shell', () => {
