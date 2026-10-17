@@ -488,16 +488,22 @@ describe('managed agent tool runtime', () => {
     const originalToken = process.env.OPENCHAMBER_AGENT_TOOL_TOKEN;
     process.env.OPENCHAMBER_AGENT_TOOL_URL = `http://127.0.0.1:${server.address().port}/api/openchamber/agent-tool`;
     process.env.OPENCHAMBER_AGENT_TOOL_TOKEN = prepared.OPENCHAMBER_AGENT_TOOL_TOKEN;
-    const ask = (id) => tools.openchamber_render.execute(
-      { action: 'render.page', parameters: { html: '<p>Pick</p>', title: 'Pick a layout', awaitAnswer: true } },
+    const ask = (id, awaitAnswer = true) => tools.openchamber_render.execute(
+      { action: 'render.page', parameters: { html: '<p>Pick</p>', title: 'Pick a layout', awaitAnswer } },
       { sessionID: 'ses_caller', id, signal: new AbortController().signal, progress: async () => {} },
     );
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     try {
       const answered = ask('call_1');
       await vi.waitFor(() => service.answerPage({ sessionId: 'ses_caller', callId: 'call_1', summary: 'Layout B', data: { layout: 'b' } }));
       const result = await answered;
       expect(JSON.parse(result.content)).toMatchObject({ ok: true, data: { answer: { answered: true, summary: 'Layout B', data: { layout: 'b' } } } });
       expect(result.metadata.openchamber).toMatchObject({ ok: true, answer: { answered: true, summary: 'Layout B', data: { layout: 'b' } } });
+      // Bun would otherwise end the waiting request after about six minutes;
+      // a page that only shows keeps the default.
+      expect(fetchSpy.mock.lastCall?.[1]).toMatchObject({ timeout: false });
+      await ask('call_shown', false);
+      expect(fetchSpy.mock.lastCall?.[1]).not.toHaveProperty('timeout');
 
       const closed = ask('call_2');
       // Lets the call reach the server and start waiting there.
@@ -511,6 +517,7 @@ describe('managed agent tool runtime', () => {
       await vi.waitFor(() => expect(() => service.answerPage({ sessionId: 'ses_caller', callId: 'call_2', summary: 'B' }))
         .toThrow(expect.objectContaining({ statusCode: 404 })));
     } finally {
+      fetchSpy.mockRestore();
       if (originalUrl === undefined) delete process.env.OPENCHAMBER_AGENT_TOOL_URL;
       else process.env.OPENCHAMBER_AGENT_TOOL_URL = originalUrl;
       if (originalToken === undefined) delete process.env.OPENCHAMBER_AGENT_TOOL_TOKEN;

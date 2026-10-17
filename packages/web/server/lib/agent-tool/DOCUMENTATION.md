@@ -50,7 +50,9 @@ the user can want independently:
   plugin sends the call id (`context.id`) with the callback so the server can
   find the waiting call when the chat answers it, and copies the answer into
   the call's metadata (`metadata.openchamber.answer`), so every client shows
-  the page as answered. While the call waits, OpenCode holds any chat message
+  the page as answered. The waiting callback sends Bun's `timeout: false`,
+  since Bun's fetch otherwise ends a request with no response after about six
+  minutes. While the call waits, OpenCode holds any chat message
   for that session until the call returns, so the plugin registers a
   `session.prompt` hook: a prompt for the session, from any sender, aborts the
   waiting call, which returns `{ answered: false, reason: "chat" }`, and the

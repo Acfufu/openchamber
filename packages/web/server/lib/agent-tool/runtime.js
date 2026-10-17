@@ -296,6 +296,13 @@ const ANSWER_WAIT_SETUP = String.raw`        const chatController = new AbortCon
         const waitSignal = AbortSignal.any([context.signal, chatController.signal].filter(Boolean))
 `;
 
+// Bun's fetch ends a request that gets no response for about six minutes with
+// "The operation timed out", and a page waits as long as the user takes. Bun's
+// own `timeout: false` lifts that; Stop and a chat message still end the wait
+// through waitSignal.
+const ANSWER_FETCH_TIMEOUT = String.raw`
+            ...(waiting ? { timeout: false } : {}),`;
+
 // The answer also lands in the call's metadata, which OpenCode stores and
 // syncs, so every client shows the page as answered after a reload.
 const ANSWER_METADATA = String.raw`, ...(result.ok === true && result.data && typeof result.data.answer === "object" && result.data.answer !== null ? { answer: result.data.answer } : {})`;
@@ -392,7 +399,7 @@ ${answers ? ANSWER_WAIT_SETUP : ''}
             // directory on its own side. The signal fires when the session is
             // aborted, so the OpenChamber side stops the action too.
             body: JSON.stringify({ input: args, sessionID: context.sessionID, callID: context.id, tool: ${JSON.stringify(name)} }),
-            signal: ${answers ? 'waitSignal' : 'context.signal'},
+            signal: ${answers ? 'waitSignal' : 'context.signal'},${answers ? ANSWER_FETCH_TIMEOUT : ''}
           })
           const content = await response.text()
           let result = null
