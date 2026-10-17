@@ -3459,6 +3459,7 @@ export const dict = {
   'quota.window.purchasedCredits': 'Gekochte credits',
   'quota.window.freeCredits': 'Gratis credits',
   'quota.window.billingCycle': 'Factuurcyclus',
+  'quota.window.keyLimit': 'Sleutellimiet',
   'quota.window.auto': 'Auto',
   'quota.window.api': 'API',
   'quota.window.planLimit': 'Planlimiet',

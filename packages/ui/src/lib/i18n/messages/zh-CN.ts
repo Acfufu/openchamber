@@ -3460,6 +3460,7 @@ export const dict: Record<I18nKey, string> = {
   'quota.window.purchasedCredits': '已购买积分',
   'quota.window.freeCredits': '免费积分',
   'quota.window.billingCycle': '账单周期',
+  'quota.window.keyLimit': '密钥限额',
   'quota.window.auto': '自动',
   'quota.window.api': 'API',
   'quota.window.planLimit': '套餐限额',

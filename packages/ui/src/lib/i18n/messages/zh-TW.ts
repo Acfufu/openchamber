@@ -3459,6 +3459,7 @@ export const dict: Record<I18nKey, string> = {
   'quota.window.purchasedCredits': '已購買點數',
   'quota.window.freeCredits': '免費點數',
   'quota.window.billingCycle': '計費週期',
+  'quota.window.keyLimit': '金鑰上限',
   'quota.window.auto': '自動',
   'quota.window.api': 'API',
   'quota.window.planLimit': '方案上限',

@@ -3117,6 +3117,7 @@ export const dict = {
   'quota.window.purchasedCredits': 'Crédits achetés',
   'quota.window.freeCredits': 'Crédits gratuits',
   'quota.window.billingCycle': 'Cycle de facturation',
+  'quota.window.keyLimit': 'Limite de la clé',
   'quota.window.auto': 'Auto',
   'quota.window.api': 'API',
   'quota.window.planLimit': 'Limite du forfait',

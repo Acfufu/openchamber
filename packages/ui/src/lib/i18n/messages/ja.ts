@@ -3455,6 +3455,7 @@ export const dict: Record<I18nKey, string> = {
   'quota.window.purchasedCredits': '購入済みクレジット',
   'quota.window.freeCredits': '無料クレジット',
   'quota.window.billingCycle': '請求サイクル',
+  'quota.window.keyLimit': 'キーの上限',
   'quota.window.auto': '自動',
   'quota.window.api': 'API',
   'quota.window.planLimit': 'プラン制限',

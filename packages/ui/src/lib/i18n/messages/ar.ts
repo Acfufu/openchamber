@@ -3413,6 +3413,7 @@ export const dict = {
   'quota.window.purchasedCredits': 'الأرصدة المشتراة',
   'quota.window.freeCredits': 'الأرصدة المجانية',
   'quota.window.billingCycle': 'دورة الفوترة',
+  'quota.window.keyLimit': 'حد المفتاح',
   'quota.window.auto': 'تلقائي',
   'quota.window.api': 'API',
   'quota.window.planLimit': 'حد الخطة',
