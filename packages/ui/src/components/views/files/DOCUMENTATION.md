@@ -305,7 +305,9 @@ A move and both rename dialogs (the sidebar tree and `FilesView`'s own tree)
 go through `moveWorkspacePath`. It renames through the runtime and then
 points the context panel file tabs and `useFilesViewTabsStore` (open, selected
 and expanded paths) at the new path with `moveContextFilePaths`. A file tab's
-id comes from its path, so the tab is rebuilt in place and stays active.
+id comes from its path, so the tab is rebuilt in place and stays active. The
+two are kept under different folders in a draft waiting for a new space: the
+tabs under the draft's folder, the tree's paths under the space it shows.
 
 The open editor keeps unsaved edits through a move (`lib/filePathMoves.ts`).
 While the rename request is in flight, `FilesView` refuses saves of paths

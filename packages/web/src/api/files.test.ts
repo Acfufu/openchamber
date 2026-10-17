@@ -30,6 +30,28 @@ const urls: RuntimeUrlResolver = {
 };
 
 describe('createWebFilesAPI', () => {
+  it('sends a request for a path inside a space to that space, whichever folder is open', async () => {
+    const { createWebFilesAPI } = await import('./files');
+    let open = '/repo';
+    const api = createWebFilesAPI({ urls, getDirectory: () => open });
+    const directoryOfCall = (index: number) => runtimeFetchMock.mock.calls[index]?.[1]?.headers?.['x-opencode-directory'];
+    runtimeFetchMock.mockReset();
+    runtimeFetchMock.mockImplementation(async () => Response.json({ path: '/x', entries: [] }));
+
+    // A draft waiting for a space stands on the project's folder and lists the space.
+    await api.listDirectory('/spaces/a1b2c3d4e5f6/repo');
+    await api.createDirectory('/spaces/a1b2c3d4e5f6/repo/src');
+    // A host path keeps the open folder, and a space's own folder keeps itself.
+    await api.listDirectory('/repo/src');
+    open = '/spaces/a1b2c3d4e5f6/repo';
+    await api.listDirectory('/spaces/a1b2c3d4e5f6/repo/src');
+
+    expect([0, 1, 2, 3].map(directoryOfCall)).toEqual([
+      '/spaces/a1b2c3d4e5f6', '/spaces/a1b2c3d4e5f6', '/repo', '/spaces/a1b2c3d4e5f6/repo',
+    ]);
+    runtimeFetchMock.mockReset();
+  });
+
   it('preserves the directory permission failure contract', async () => {
     const { createWebFilesAPI } = await import('./files');
     const api = createWebFilesAPI({ urls, getDirectory: () => '/workspace' });

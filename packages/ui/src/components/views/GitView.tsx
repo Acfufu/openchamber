@@ -49,6 +49,9 @@ import { Button } from '@/components/ui/button';
 
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useUIStore } from '@/stores/useUIStore';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
+import { SpacePreparing } from '@/components/session/spaces/SpacePreparing';
 import { useDetectedWorktreeMetadata } from '@/hooks/useDetectedWorktreeRoot';
 import { useSessionWorktreeStore } from '@/sync/session-worktree-store';
 import { getSessionWorktreeRepairActions, getMutationBlockingReasons } from '@/sync/session-worktree-contract';
@@ -231,7 +234,11 @@ type GitViewProps = {
 export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
   const { t } = useI18n();
   const { git, sourceControl, runtime } = useRuntimeAPIs();
-  const currentDirectory = useEffectiveDirectory();
+  // The panel's tabs belong to the open view's folder; the repository shown is the same folder,
+  // except in a draft waiting for a new space: the space once it runs, none while it is made.
+  const panelDirectory = useEffectiveDirectory();
+  const draftSpace = useDraftSpaceTarget();
+  const currentDirectory = panelContentDirectory(draftSpace, panelDirectory) ?? undefined;
   const contributorDestination = useContributorDestinationChooser();
   const [worktreeBootstrapSnapshot, setWorktreeBootstrapSnapshot] = React.useState<{
     directory: string;
@@ -1861,12 +1868,12 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
   // its own, so opening the tab under `gitDirectory` would park it under a key
   // the panel never displays.
   const handleViewChangeDiff = React.useCallback((path: string, staged: boolean) => {
-    if (currentDirectory && !isMobile) {
-      openContextDiff(currentDirectory, path, staged);
+    if (panelDirectory && !isMobile) {
+      openContextDiff(panelDirectory, path, staged);
       return;
     }
     navigateToDiff(path, staged);
-  }, [currentDirectory, isMobile, navigateToDiff, openContextDiff]);
+  }, [panelDirectory, isMobile, navigateToDiff, openContextDiff]);
 
   const openStashes = React.useCallback(() => setIsStashesDialogOpen(true), []);
 
@@ -2334,6 +2341,10 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
     openConflictDialog(result.conflictFiles ?? [], result.operation);
   }, [t, openConflictDialog, gitDirectory, fetchStatus, fetchBranches, fetchLog, logMaxCountLocal, git]);
 
+  if (draftSpace?.kind === 'preparing') {
+    return <SpacePreparing />;
+  }
+
   if (!currentDirectory) {
     return (
       <div className="flex h-full items-center justify-center px-4 text-center">
@@ -2456,7 +2467,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
             prChecks={prChipStatus?.ci?.summary ?? prChipStatus?.checks ?? null}
             onOpenPullRequest={
               // The branch's own tab of the Tracker, in the panel this view is in.
-              gitDirectory ? () => openContextPanelTab(currentDirectory ?? gitDirectory, { mode: 'pr' }) : undefined
+              gitDirectory ? () => openContextPanelTab(panelDirectory ?? gitDirectory, { mode: 'pr' }) : undefined
             }
             repositoryOptions={
               gitDirectory !== currentDirectory && Array.isArray(nestedRepos) ? nestedRepos : undefined

@@ -103,6 +103,8 @@ import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { cancelWhenLayoutSettled, runWhenLayoutSettled } from '@/lib/layoutAnimation';
 import {
@@ -837,8 +839,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const showGitignored = useFilesViewShowGitignored();
   const zoneInteractive = useZoneInteractive();
 
-  const currentDirectory = useEffectiveDirectory() ?? '';
+  // The panel's tabs belong to the open view's folder; the files come from it too, except in a
+  // draft waiting for a new space, which shows the space's (`panelContentDirectory`).
+  const panelDirectory = useEffectiveDirectory() ?? '';
+  const currentDirectory = panelContentDirectory(useDraftSpaceTarget(), panelDirectory) ?? '';
   const root = normalizePath(currentDirectory.trim());
+  const panelRoot = normalizePath(panelDirectory.trim());
   const treeEnabled = isMobile || mode === 'full';
   const treeActive = treeEnabled && visible;
   const runtimeKey = useGitStore((state) => state.runtimeKey);
@@ -1687,7 +1693,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
       // Open tabs and the editor, unsaved edits included, follow the new name.
       try {
-        const result = await moveWorkspacePath(files, root, oldPath, newPath);
+        const result = await moveWorkspacePath(files, { tabs: panelRoot, files: root }, oldPath, newPath);
         if (result === 'moved') {
           toast.success(t('sidebarFilesTree.toast.renamedSuccessfully'));
           await refreshDirectory(parentDir);
@@ -1746,7 +1752,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
 
     done();
-  }, [activeDialog, dialogData, dialogInputValue, files, refreshDirectory, isMobile, removeOpenPathsByPrefix, root, selectedFile?.path, setSelectedPath, t]);
+  }, [activeDialog, dialogData, dialogInputValue, files, panelRoot, refreshDirectory, isMobile, removeOpenPathsByPrefix, root, selectedFile?.path, setSelectedPath, t]);
 
   React.useEffect(() => {
     if (!currentDirectory) {
@@ -3601,8 +3607,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   // user edits count: loading or syncing a file also changes the document.
   const pinPreviewOnEditRef = React.useRef<() => void>(() => {});
   pinPreviewOnEditRef.current = () => {
-    if (!selectedFile?.path || !root) return;
-    const directoryKey = normalizeContextPanelDirectoryKey(root);
+    if (!selectedFile?.path || !panelRoot) return;
+    const directoryKey = normalizeContextPanelDirectoryKey(panelRoot);
     const state = useUIStore.getState();
     const previewTab = state.contextPanelByDirectory[directoryKey]?.tabs
       .find((tab) => tab.preview && tab.targetPath === selectedFile.path);
@@ -4033,9 +4039,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   // desktop the context panel owns the tab, on mobile the files surface
   // consumes the same pending focus path.
   const openLinkedFile = React.useCallback((absolutePath: string) => {
-    if (!root) return;
-    useUIStore.getState().openContextFile(root, absolutePath);
-  }, [root]);
+    if (!panelRoot) return;
+    useUIStore.getState().openContextFile(panelRoot, absolutePath);
+  }, [panelRoot]);
   const markdownLocalAssetsActive = isMarkdown && mdViewMode === 'preview' && !fileLoading;
   const markdownColorScheme = currentTheme.metadata.variant === 'light' ? 'light' : 'dark';
   useMarkdownLocalAssets({

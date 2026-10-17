@@ -64,7 +64,13 @@ import { isStageShown, useWebviewFocusGuard, type HoldPageFocus } from './useWeb
 
 export type BrowserPaneProps = {
   initialUrl: string;
+  /** The folder whose panel holds the tab: its address is kept there, and a comment goes to its chat. */
   directory: string;
+  /**
+   * The folder the page is browsed for: the same folder, or the space a draft waiting for one
+   * shows. Its pages, history and dev servers are that folder's.
+   */
+  siteDirectory: string;
   tabID: string;
   /** The session whose agent opened this tab; null for the user's own tab. */
   ownerSessionId: string | null;
@@ -148,7 +154,7 @@ const revealStageForCapture = (stage: HTMLElement | null): (() => void) => {
   return () => { stage.style.cssText = previousStyle; };
 };
 
-const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tabID, ownerSessionId, visible }) => {
+const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory: tabsDirectory, siteDirectory: directory, tabID, ownerSessionId, visible }) => {
   const { t } = useI18n();
   const { currentTheme } = useThemeSystem();
   const webviewRef = React.useRef<WebviewElement | null>(null);
@@ -201,7 +207,7 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tab
    * Set while the tab's first load comes from saved state rather than from
    * someone opening it now. That load is not waited out; the next one is.
    */
-  const tabDirectory = normalizeContextPanelDirectoryKey(directory);
+  const tabDirectory = normalizeContextPanelDirectoryKey(tabsDirectory);
   const restoredLoadRef = React.useRef(Boolean(startUrl) && !wasBrowserTabOpenedWithAddress(tabDirectory, tabID));
   const restoredSettleRef = React.useRef<BrowserNavStatus | null>(null);
   React.useEffect(() => {
@@ -213,9 +219,9 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tab
   const openedAtRef = React.useRef(Date.now());
 
   const persistUrl = React.useCallback((url: string) => {
-    if (!url || url === BLANK_URL || !directory || !tabID) return;
-    setContextPanelTabTargetPath(directory, tabID, url);
-  }, [directory, tabID, setContextPanelTabTargetPath]);
+    if (!url || url === BLANK_URL || !tabsDirectory || !tabID) return;
+    setContextPanelTabTargetPath(tabsDirectory, tabID, url);
+  }, [tabsDirectory, tabID, setContextPanelTabTargetPath]);
 
   const navigation = useWebviewNavigation(webviewElement, {
     initialUrl: startUrl,
@@ -241,7 +247,7 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tab
       .catch(() => { if (active) setTunnelFailedUrl(startUrl || 'http://localhost/'); });
     return () => { active = false; };
   }, [directory, startUrl]);
-  const attachAnnotation = useAnnotationAttach(directory);
+  const attachAnnotation = useAnnotationAttach(tabsDirectory);
   const overlayLabels = useAnnotationOverlayLabels();
   const isLoading = navigation.status.kind === 'loading';
 
@@ -1039,7 +1045,7 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tab
  * opaque to us here: no navigation events, no annotation, no console. The
  * toolbar reflects that instead of offering controls that would silently fail.
  */
-const IframeBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tabID, visible }) => {
+const IframeBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory: tabsDirectory, siteDirectory: directory, tabID, visible }) => {
   const { t } = useI18n();
   const setContextPanelTabTargetPath = useUIStore((state) => state.setContextPanelTabTargetPath);
   const normalized = normalizeBrowserUrl(initialUrl);
@@ -1056,13 +1062,13 @@ const IframeBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tabI
   // Nothing here waits for a dev server, so a tab opened with an address only
   // needs the mark dropped, keeping the session-only set from growing.
   React.useEffect(() => {
-    forgetBrowserTabOpenedWithAddress(normalizeContextPanelDirectoryKey(directory), tabID);
-  }, [directory, tabID]);
+    forgetBrowserTabOpenedWithAddress(normalizeContextPanelDirectoryKey(tabsDirectory), tabID);
+  }, [tabsDirectory, tabID]);
 
   const persistUrl = React.useCallback((url: string) => {
-    if (!url || url === BLANK_URL || !directory || !tabID) return;
-    setContextPanelTabTargetPath(directory, tabID, url);
-  }, [directory, tabID, setContextPanelTabTargetPath]);
+    if (!url || url === BLANK_URL || !tabsDirectory || !tabID) return;
+    setContextPanelTabTargetPath(tabsDirectory, tabID, url);
+  }, [tabsDirectory, tabID, setContextPanelTabTargetPath]);
 
   const visitedAddresses = useBrowserHistoryStore(selectBrowserHistory(directory));
   const recordHistoryVisit = useBrowserHistoryStore((state) => state.recordVisit);

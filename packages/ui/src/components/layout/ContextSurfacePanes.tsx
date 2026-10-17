@@ -6,6 +6,10 @@ import { BrowserPane } from '@/components/browser/BrowserPane';
 import { ChatView } from '@/components/views/ChatView';
 import { Icon } from '@/components/icon/Icon';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
+import { spaceIdOfDirectory } from '@/lib/spaces/space-route';
+import { SpacePreparing } from '@/components/session/spaces/SpacePreparing';
 import { resolvePlanRequestOwner } from '@/hooks/useProjectContextOwner';
 import { isRightToLeft, useI18n } from '@/lib/i18n';
 import { resolveProjectContextId } from '@/lib/projectContextApi';
@@ -275,6 +279,12 @@ export const ContextSurfacePanes: React.FC = () => {
     [effectiveDirectory],
   );
   const panelState = useUIStore((state) => (directoryKey ? state.contextPanelByDirectory[directoryKey] : undefined));
+  // A draft waiting for a new space keeps its tabs here, under the project's folder, while what they
+  // show comes from the space: nothing while the space is made, the space once it runs.
+  const draftSpace = useDraftSpaceTarget();
+  const spacePreparing = draftSpace?.kind === 'preparing';
+  const draftSpaceDirectory = draftSpace?.kind === 'ready' ? draftSpace.directory : null;
+  const contentDirectory = panelContentDirectory(draftSpace, effectiveDirectory) ?? '';
   const placement = useUIStore((state) => state.contextSurfaceZones);
   const contextPanelByDirectory = useUIStore((state) => state.contextPanelByDirectory);
   const closeContextPanelTab = useUIStore((state) => state.closeContextPanelTab);
@@ -393,11 +403,15 @@ export const ContextSurfacePanes: React.FC = () => {
 
   const fileActiveTab = fileZone.activeTab;
   React.useEffect(() => {
-    if (!directoryKey || fileActiveTab?.mode !== 'file' || !fileActiveTab.targetPath) {
+    if (!contentDirectory || fileActiveTab?.mode !== 'file' || !fileActiveTab.targetPath) {
       return;
     }
-    setSelectedFilePath(directoryKey, fileActiveTab.targetPath, { allowOutsideRoot: true });
-  }, [directoryKey, fileActiveTab, setSelectedFilePath]);
+    // The editor reads its file under the folder the panel shows. A draft waiting for a space
+    // shows only the space's files, so a tab opened on this computer's before stays empty; and a
+    // tab the draft opened in the space stays empty in the project's other chats.
+    const sameSide = spaceIdOfDirectory(fileActiveTab.targetPath) === spaceIdOfDirectory(contentDirectory);
+    setSelectedFilePath(normalizeContextPanelDirectoryKey(contentDirectory), fileActiveTab.targetPath, { allowOutsideRoot: !draftSpace && sameSide });
+  }, [contentDirectory, draftSpace, fileActiveTab, setSelectedFilePath]);
 
   const hasOpenEditorFile = React.useMemo(
     () => tabs.some((tab) => tab.mode === 'file' && tab.targetPath),
@@ -558,7 +572,9 @@ export const ContextSurfacePanes: React.FC = () => {
           directoryKey={directoryKey}
           className={cn('absolute inset-0 flex', fileTreeSide === 'left' && 'flex-row-reverse', isFileTabActive ? 'flex' : 'hidden')}
         >
-          {hasOpenEditorFile || !contextEditorTreeVisible ? (
+          {spacePreparing ? (
+            <div className="h-full min-w-0 flex-1"><SpacePreparing /></div>
+          ) : hasOpenEditorFile || !contextEditorTreeVisible ? (
             // Hidden rather than unmounted so a hidden editor keeps its state.
             <div className={cn('h-full min-w-0 flex-1', hasOpenEditorFile && !showsEditor && 'hidden')}>
               {hasOpenEditorFile ? (
@@ -572,7 +588,7 @@ export const ContextSurfacePanes: React.FC = () => {
               )}
             </div>
           ) : null}
-          <EditorTreeColumn visible={contextEditorTreeVisible} active={fileZone.isOpen && isFileTabActive} fill={!showsEditor} side={fileTreeSide} />
+          {spacePreparing ? null : <EditorTreeColumn visible={contextEditorTreeVisible} active={fileZone.isOpen && isFileTabActive} fill={!showsEditor} side={fileTreeSide} />}
         </ZonePane>
       ) : null}
       {chatActiveTab && activeChatSessionID && activeChatPinnedSession ? (
@@ -593,6 +609,8 @@ export const ContextSurfacePanes: React.FC = () => {
       ) : null}
       {loadedBrowserTabs.map((tab) => {
         const shown = tab.directory === directoryKey && browserZone.activeTab?.id === tab.id;
+        // A tab of the draft on screen browses the space it waits for once the space runs.
+        const siteDirectory = tab.directory === directoryKey ? draftSpaceDirectory ?? tab.directory : tab.directory;
         return (
           <ZonePane
             // Keyed by the directory as well: a tab of the next directory with the
@@ -612,13 +630,18 @@ export const ContextSurfacePanes: React.FC = () => {
           >
             <div className="h-full" aria-hidden={!shown || undefined}>
               <PauseClock paused={!shown}>
-              <BrowserPane
-                initialUrl={tab.targetPath ?? ''}
-                directory={tab.directory}
-                tabID={tab.id}
-                ownerSessionId={tab.ownerSessionId}
-                visible={shown && browserZone.isOpen}
-              />
+              {tab.directory === directoryKey && spacePreparing ? <SpacePreparing /> : (
+                <BrowserPane
+                  // Remounted when the space starts: its page runs in the space's own session.
+                  key={siteDirectory}
+                  initialUrl={tab.targetPath ?? ''}
+                  directory={tab.directory}
+                  siteDirectory={siteDirectory}
+                  tabID={tab.id}
+                  ownerSessionId={tab.ownerSessionId}
+                  visible={shown && browserZone.isOpen}
+                />
+              )}
               </PauseClock>
             </div>
           </ZonePane>
@@ -638,8 +661,8 @@ export const ContextSurfacePanes: React.FC = () => {
           >
             <React.Suspense fallback={null}>
               <ContextPanelHeaderSlotProvider value={headerSlotFor(diffZone.zone, active)}>
-                <DiffView
-                  directory={tab.targetDirectory}
+                {spacePreparing && !tab.targetDirectory ? <SpacePreparing /> : <DiffView
+                  directory={tab.targetDirectory ?? draftSpaceDirectory}
                   visible={diffZone.isOpen && active}
                   hideStackedFileSidebar
                   stackedDefaultCollapsedAll
@@ -649,7 +672,7 @@ export const ContextSurfacePanes: React.FC = () => {
                   onDiffScopeChange={handleDiffScopeChange}
                   targetFilePath={tab.targetPath}
                   flushContent
-                />
+                />}
               </ContextPanelHeaderSlotProvider>
             </React.Suspense>
           </ZonePane>

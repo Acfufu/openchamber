@@ -41,6 +41,8 @@ import {
 } from '@/components/ui/collapsible';
 import { SpaceAccessButton } from '@/components/session/spaces/SpaceAccessButton';
 import { SpaceApplyButton } from '@/components/session/spaces/SpaceApplyButton';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
 import { SessionSwitcherDropdown } from '@/components/session/SessionSwitcherDropdown';
 import { SessionTabsStrip, type SessionTabMenuArgs } from './SessionTabsStrip';
 import { SessionMenuItemHint } from '@/components/session/SessionMenuItemHint';
@@ -353,9 +355,12 @@ export const Header: React.FC = () => {
   const selectedSessionDirectory = useSessionUIStore((state) => state.currentSessionDirectory);
   const homeDirectory = useAppDirectoryStore((state) => state.homeDirectory);
 
+  // A draft waiting for a new space shows the space's branch and actions once it runs, and none
+  // of this computer's while it is made.
+  const draftSpace = useDraftSpaceTarget();
   const openDirectory = React.useMemo(() => {
-    return worktreeDirectory || sessionDirectory || draftDirectory;
-  }, [draftDirectory, sessionDirectory, worktreeDirectory]);
+    return worktreeDirectory || sessionDirectory || (panelContentDirectory(draftSpace, draftDirectory) ?? '');
+  }, [draftDirectory, draftSpace, sessionDirectory, worktreeDirectory]);
 
   const catalogWorktreeBranch = useSessionUIStore((state) => {
     const candidateDirectory = normalize(worktreeDirectory || sessionDirectory || '');

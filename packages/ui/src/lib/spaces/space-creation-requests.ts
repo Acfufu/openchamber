@@ -40,3 +40,12 @@ export const draftSpaceTarget = (requestId: string | null | undefined, journey: 
   const entry = journey?.get(spaceId);
   return entry?.state === 'running' && entry.directory ? { kind: 'ready', directory: entry.directory } : { kind: 'preparing' };
 };
+
+/**
+ * The folder a panel shows, given the open view's own: that folder, or for a draft waiting for a
+ * space, the space once it runs and none while it is made. The panel's tabs stay with the view's
+ * own folder either way, as the draft does.
+ */
+export const panelContentDirectory = (draftSpace: DraftSpaceTarget | null, own: string | null | undefined): string | null => (
+  draftSpace ? (draftSpace.kind === 'ready' ? draftSpace.directory : null) : own ?? null
+);

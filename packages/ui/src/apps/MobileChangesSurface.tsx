@@ -40,6 +40,9 @@ import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useRepositoryBinding } from '@/lib/source-control/repository-binding';
 import { hasConfigChangedGrant } from '@/lib/source-control/types';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
+import { SpacePreparing } from '@/components/session/spaces/SpacePreparing';
 import { useNestedGitDirectory } from '@/hooks/useNestedGitDirectory';
 import { useBranchComparisonBase } from '@/hooks/useBranchComparisonBase';
 import { useCommitComparison } from '@/hooks/useCommitComparison';
@@ -145,8 +148,11 @@ type MobileChangesSurfaceProps = {
 };
 
 export const MobileChangesSurface: React.FC<MobileChangesSurfaceProps> = (props) => {
-  const rootDirectory = normalizePath(useEffectiveDirectory() ?? null) ?? '';
+  // A draft waiting for a new space shows the space's changes, and none of this computer's until it runs.
+  const draftSpace = useDraftSpaceTarget();
+  const rootDirectory = normalizePath(panelContentDirectory(draftSpace, useEffectiveDirectory())) ?? '';
   const repository = useNestedGitDirectory(rootDirectory || null, { enabled: props.visible ?? true, recheckOnOpen: true });
+  if (draftSpace?.kind === 'preparing') return <SpacePreparing />;
   return <MobileChangesPane {...props} rootDirectory={rootDirectory} repository={repository} />;
 };
 

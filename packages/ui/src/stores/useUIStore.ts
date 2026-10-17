@@ -1181,8 +1181,12 @@ interface UIStore {
   /** A new background browser tab for an agent at `url`; returns its tab id, or null where there is no browser. */
   openAgentBrowserTab: (directory: string, url: string, ownerSessionId: string | null) => string | null;
   setContextPanelTabTargetPath: (directory: string, tabID: string, targetPath: string) => void;
-  /** Points file tabs and the editor's open files at or under `fromPath` at `toPath` after a move or rename. */
-  moveContextFilePaths: (directory: string, fromPath: string, toPath: string) => void;
+  /**
+   * Points file tabs and the editor's open files at or under `fromPath` at `toPath` after a move or
+   * rename. `filesRoot` is the root the editor keeps them under when it is not `directory`: a draft
+   * waiting for a space shows the space's files in its own panel.
+   */
+  moveContextFilePaths: (directory: string, fromPath: string, toPath: string, filesRoot?: string) => void;
   setActiveContextPanelTab: (directory: string, tabID: string) => void;
   reorderContextPanelTabs: (directory: string, activeTabID: string, overTabID: string) => void;
   closeContextPanelTab: (directory: string, tabID: string) => void;
@@ -1944,7 +1948,7 @@ export const useUIStore = create<UIStore>()(
           });
         },
 
-        moveContextFilePaths: (directory, fromPath, toPath) => {
+        moveContextFilePaths: (directory, fromPath, toPath, filesRoot = directory) => {
           const normalizedDirectory = normalizeDirectoryPath((directory || '').trim());
           const normalizedFrom = normalizeContextTargetPath(fromPath);
           const normalizedTo = normalizeContextTargetPath(toPath);
@@ -1961,7 +1965,7 @@ export const useUIStore = create<UIStore>()(
               },
             };
           });
-          useFilesViewTabsStore.getState().movePaths(normalizedDirectory, normalizedFrom, normalizedTo);
+          useFilesViewTabsStore.getState().movePaths(normalizeDirectoryPath(filesRoot.trim()), normalizedFrom, normalizedTo);
         },
 
         setActiveContextPanelTab: (directory, tabID) => {
