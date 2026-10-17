@@ -30,6 +30,7 @@ import { formatShortcutForDisplay } from '@/lib/shortcuts';
 import { isTerminalShell } from '@/lib/terminalShell';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { MobileWorkspaceTabsSettings } from './MobileWorkspaceTabsSettings';
 
 const MESSAGE_STREAM_TRANSPORT_OPTIONS: Array<{ id: 'auto' | 'ws' | 'sse'; labelKey: I18nKey; descriptionKey: I18nKey }> = [
   {
@@ -340,11 +341,13 @@ export const GeneralWorkspaceSettings: React.FC<{
   firstSection: boolean;
 }> = ({ firstSection }) => {
   const isVSCode = isVSCodeRuntime();
+  const { isMobile } = useDeviceInfo();
   return (
     <>
       <FilesAndEditorSection divider={!firstSection} />
       {isVSCode ? null : <TerminalSection />}
       {isVSCode ? null : <PanelsAndLinksSection />}
+      {isMobile ? <MobileWorkspaceTabsSettings /> : null}
     </>
   );
 };

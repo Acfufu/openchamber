@@ -760,6 +760,14 @@
       "scope": "device",
       "local": true
     },
+    "mobileWorkspaceTabOrder": {
+      "scope": "device",
+      "local": true
+    },
+    "mobileWorkspaceHiddenTabs": {
+      "scope": "device",
+      "local": true
+    },
     "contextSurfaceZones": {
       "scope": "device",
       "local": true

@@ -48,7 +48,9 @@ Full-screen extension pages are separate from this rail registry. `contributes.p
   `useUIStore.contextRailOrder`; `sortContextSurfaces` applies it on top of the
   registry's default order and appends any missing surfaces.
   `ContextRailSurfacesDialog` edits this same order with drag handles beside
-  the visibility checkboxes, including hidden panels. Mouse, touch and keyboard
+  the visibility checkboxes (`SettingsSortableVisibilityList`, which the phone's
+  workspace tab settings also use; those tabs keep their own per-device order
+  and hidden set, `lib/mobileWorkspaceTabs.ts`), including hidden panels. Mouse, touch and keyboard
   drops update the rail immediately; visibility changes and "Show all" preserve
   the order. Dialog reorders retain saved ids of unavailable extensions at the
   end of the preference. Escape cancels a drag before closing the dialog.

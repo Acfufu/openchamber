@@ -634,6 +634,8 @@ export const LOCAL_DEVICE_KEYS = [
   'contextPanelByDirectory',
   'contextRailOrder',
   'contextRailHiddenSurfaces',
+  'mobileWorkspaceTabOrder',
+  'mobileWorkspaceHiddenTabs',
   'contextSurfaceZones',
   'contextEditorTreeVisible',
   'contextEditorVisible',
