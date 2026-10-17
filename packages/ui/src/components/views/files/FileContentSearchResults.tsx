@@ -8,11 +8,12 @@ import { cn } from '@/lib/utils';
 
 import { fileTreeRowStateClassName } from './fileTreeRow';
 import { matchSegments } from './matchSegments';
-import type { FileContentSearchState } from './useFileContentSearch';
+import { fileContentMatchKey, type FileContentSearchState } from './useFileContentSearch';
 
 type Props = {
   state: FileContentSearchState;
-  selectedPath: string | null;
+  /** The one result marked as open; other lines of the same file stay plain. */
+  activeMatchKey: string | null;
   onOpen: (match: FileContentSearchMatch, options?: { pin?: boolean }) => void;
   onDragStart?: (event: React.DragEvent<HTMLButtonElement>, match: FileContentSearchMatch) => void;
   onDragEnd?: (event: React.DragEvent<HTMLButtonElement>, match: FileContentSearchMatch) => void;
@@ -34,7 +35,7 @@ const splitRelativePath = (relativePath: string): { name: string; directory: str
  * line, the file on top and the line with its matches marked below. Renders
  * `<li>` elements, so it sits inside the tree's own `<ul>`.
  */
-export const FileContentSearchResults: React.FC<Props> = ({ state, selectedPath, onOpen, onDragStart, onDragEnd }) => {
+export const FileContentSearchResults: React.FC<Props> = ({ state, activeMatchKey, onOpen, onDragStart, onDragEnd }) => {
   const { t } = useI18n();
 
   switch (state.status) {
@@ -73,9 +74,10 @@ export const FileContentSearchResults: React.FC<Props> = ({ state, selectedPath,
     <>
       {state.matches.map((match) => {
         const { name, directory } = splitRelativePath(match.relativePath);
-        const isActive = selectedPath === match.path;
+        const key = fileContentMatchKey(match);
+        const isActive = activeMatchKey === key;
         return (
-          <li key={`${match.path}:${match.line}:${match.column}`} data-file-tree-path={match.path}>
+          <li key={key} data-file-tree-path={match.path}>
             <button
               type="button"
               onClick={() => onOpen(match)}

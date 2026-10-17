@@ -9,6 +9,9 @@ import type {
 
 const FILE_CONTENT_SEARCH_LIMIT = 200;
 
+/** Identifies one result row; a file matching on several lines has several. */
+export const fileContentMatchKey = (match: FileContentSearchMatch): string => `${match.path}:${match.line}:${match.column}`;
+
 export type FileContentSearchState =
   | { status: 'idle' }
   | { status: 'searching' }

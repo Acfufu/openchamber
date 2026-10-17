@@ -47,7 +47,7 @@ import { moveWorkspacePath } from '@/components/views/files/moveWorkspacePath';
 import { INTERNAL_FILE_PATH_TYPE } from '@/components/chat/composer/attachments/dataTransfer';
 import { AUTO_RELIST_MAX_ENTRIES, useFileTreeChanges, type FileTreeChangeBatch } from '@/components/views/files/useFileTreeChanges';
 import { FileContentSearchResults } from '@/components/views/files/FileContentSearchResults';
-import { useFileContentSearch } from '@/components/views/files/useFileContentSearch';
+import { fileContentMatchKey, useFileContentSearch } from '@/components/views/files/useFileContentSearch';
 import type { FileContentSearchMatch } from '@/lib/api/types';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
@@ -666,6 +666,9 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
     active: visible && contentSearchActive,
   });
   const openContextFileAtLine = useUIStore((state) => state.openContextFileAtLine);
+  // The result last opened, so only that line is marked when one file has
+  // several; selecting the file another way clears the mark.
+  const [openedMatch, setOpenedMatch] = React.useState<{ path: string; key: string } | null>(null);
   const [dropTarget, setDropTarget] = React.useState<string | null>(null);
   // Drag-to-move: the row being dragged, the folder it would land in, and a
   // drop waiting for confirmation.
@@ -1187,6 +1190,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
 
     setSelectedPath(root, match.path);
     addOpenPath(root, match.path);
+    setOpenedMatch({ path: match.path, key: fileContentMatchKey(match) });
     openContextFileAtLine(root, match.path, match.line, match.column, { preview: !options?.pin && !useUIStore.getState().isMobile });
   }, [addOpenPath, files, openContextFileAtLine, root, setSelectedPath]);
 
@@ -1682,11 +1686,11 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
                   value={searchMode}
                   onValueChange={(value) => setSearchMode(value === 'contents' ? 'contents' : 'names')}
                 >
-                  <DropdownMenuRadioItem value="names">
+                  <DropdownMenuRadioItem value="names" closeOnClick className="items-center">
                     <Icon name="search" className="size-3.5" />
                     {t('sidebarFilesTree.search.mode.names')}
                   </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="contents">
+                  <DropdownMenuRadioItem value="contents" closeOnClick className="items-center">
                     <Icon name="file-search" className="size-3.5" />
                     {t('sidebarFilesTree.search.mode.contents')}
                   </DropdownMenuRadioItem>
@@ -1714,7 +1718,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
               }}
               title={t('sidebarFilesTree.search.regexTitle')}
               aria-label={t('sidebarFilesTree.search.regexTitle')}
-              className="absolute inset-e-9 top-3 h-5 min-w-0 px-1 font-mono typography-micro"
+              className="absolute inset-e-3 top-3.5 h-5 min-w-0 px-1 font-mono typography-micro"
             >
               .*
             </Button>
@@ -1723,7 +1727,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
             <button
               type="button"
               aria-label={t('sidebarFilesTree.search.clearAria')}
-              className="absolute inset-e-4 top-4 inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground"
+              className={cn('absolute top-4 inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground', contentSearchActive ? 'inset-e-10' : 'inset-e-4')}
               onClick={() => {
                 setSearchQuery('');
                 searchInputRef.current?.focus();
@@ -1751,7 +1755,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean }> = ({ visible }) =>
           {contentSearchActive && contentSearch.status !== 'idle' ? (
             <FileContentSearchResults
               state={contentSearch}
-              selectedPath={selectedPath}
+              activeMatchKey={openedMatch && openedMatch.path === selectedPath ? openedMatch.key : null}
               onOpen={handleOpenMatch}
               onDragStart={handleMatchDragStart}
               onDragEnd={handleMatchDragEnd}
