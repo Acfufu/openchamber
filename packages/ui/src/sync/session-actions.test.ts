@@ -1415,6 +1415,34 @@ describe("optimisticSend target directory", () => {
     expect(currentStore.getState().session_status["session-new"]).toBe(undefined)
   })
 
+  test("marks the prompt as being sent until its request settles, accepted or rejected", async () => {
+    const targetStore = createStore({})
+    const childStores = createChildStores([["/target/project", targetStore]])
+    const { optimisticSend, setActionRefs, setOptimisticRefs } = await import("./session-actions")
+    const { hasPromptInFlight } = await import("./prompts-in-flight")
+    setActionRefs(childStores, () => "/target/project")
+    setOptimisticRefs(() => {}, () => {})
+
+    let inFlightDuringSend = false
+    await optimisticSend({
+      sessionId: "session-cold",
+      directory: "/target/project",
+      content: "hello",
+      send: async () => { inFlightDuringSend = hasPromptInFlight("session-cold") },
+    })
+    expect(inFlightDuringSend).toBe(true)
+    expect(hasPromptInFlight("session-cold")).toBe(false)
+
+    await expect(optimisticSend({
+      sessionId: "session-cold",
+      directory: "/target/project",
+      content: "again",
+      send: async () => { throw new Error("rejected") },
+    })).rejects.toThrow("rejected")
+    expect(hasPromptInFlight("session-cold")).toBe(false)
+    expect(targetStore.getState().session_status["session-cold"]?.type).toBe("idle")
+  })
+
   test("commits the new branch locally and discards its optimistic shadow when sending after a revert", async () => {
     const retainedMessage = { id: "msg_ffffffffffffRetained", role: "user", sessionID: "session-reverted", time: { created: 1 } } as Message
     const revertedMessage = { id: "msg_000000000000Reverted", role: "user", sessionID: "session-reverted", time: { created: 2 } } as Message

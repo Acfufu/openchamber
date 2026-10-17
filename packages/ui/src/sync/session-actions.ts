@@ -49,6 +49,7 @@ import { getStaleRunningToolMessageID } from "./materialization"
 import { promoteRestoredSessionOrdering } from "./session-ordering"
 import { normalizePath } from "@/lib/pathNormalization"
 import { mergeMessages } from "./optimistic"
+import { trackPromptInFlight } from "./prompts-in-flight"
 import { messagesBefore, messagesFrom } from "./message-ordering"
 import { deleteChatDirectory } from "@/lib/chatDirectories"
 import { createChatDraftIdentity } from "@/lib/chatDraftPersistence"
@@ -2104,6 +2105,7 @@ export async function optimisticSend(input: {
     },
   })
 
+  const releasePrompt = trackPromptInFlight(input.sessionId)
   try {
     await input.ready
     assertRuntimeUnchanged()
@@ -2183,6 +2185,8 @@ export async function optimisticSend(input: {
       },
     })
     throw error
+  } finally {
+    releasePrompt()
   }
 }
 
