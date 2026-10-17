@@ -2703,6 +2703,7 @@ export const dict = {
   'chat.modelControls.clearSearch': 'مسح البحث',
   'chat.modelControls.current': 'الحالي',
   'chat.modelControls.thinking': 'التفكير',
+  'chat.modelControls.inheritedVariantTooltip': 'التفكير: {variant}، الافتراضي لهذا النموذج',
   'chat.modelControls.default': 'الافتراضي',
   'chat.modelControls.selectAgent': 'اختيار وكيل',
   'chat.modelControls.costPerMillion': 'التكلفة ($/1M رمز)',

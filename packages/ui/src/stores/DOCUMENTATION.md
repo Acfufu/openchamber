@@ -621,6 +621,17 @@ value came from: a string is an effort chosen in the picker or by the shortcut,
 `null` is an explicit `Default`, and `undefined` is automatic initialization,
 which lets the inherited default apply.
 
+An effort belongs to the model it was set for (issue #4601). A configured
+effort is inherited only by the model configured next to it:
+`getDefaultVariantForModel` returns the project effort for the project model,
+the settings effort for the settings model, and nothing for any other model. An
+agent's effort applies only on the agent's own model. `setProvider` and
+`setModel` drop `currentVariantSelection` when the model changes, explicit
+`Default` included, so the composer resolves the new model's effort from this
+session's saved choice for it, else its configured default, else no effort. The
+picker's tooltip names an inherited effort as the model's default; only the
+`Default` option itself is shown muted.
+
 `Default` sends no effort at all: OpenCode's `ModelRef.variant` is an optional
 string and rejects `null`, so `toModelRef` (`lib/opencode/model.ts`) turns the
 `null` into a model reference without a `variant` at every OpenCode call that

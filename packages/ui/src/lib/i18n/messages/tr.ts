@@ -2580,6 +2580,7 @@ export const dict = {
   'chat.modelControls.clearSearch': 'Aramayı temizle',
   'chat.modelControls.current': 'Mevcut',
   'chat.modelControls.thinking': 'Düşünme',
+  'chat.modelControls.inheritedVariantTooltip': 'Düşünme: {variant}, bu modelin varsayılanı',
   'chat.modelControls.default': 'Varsayılan',
   'chat.modelControls.selectAgent': 'Agent seç',
   'chat.modelControls.costPerMillion': 'Maliyet ($/1M token)',

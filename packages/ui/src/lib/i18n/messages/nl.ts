@@ -2752,6 +2752,7 @@ export const dict = {
   'chat.modelControls.clearSearch': 'Zoekopdracht wissen',
   'chat.modelControls.current': 'Huidig',
   'chat.modelControls.thinking': 'Denken',
+  'chat.modelControls.inheritedVariantTooltip': 'Denken: {variant}, standaard voor dit model',
   'chat.modelControls.default': 'Standaard',
   'chat.modelControls.selectAgent': 'Agent kiezen',
   'chat.modelControls.costPerMillion': 'Kosten ($/1M tokens)',

@@ -2751,6 +2751,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.clearSearch': '検索をクリア',
   'chat.modelControls.current': '現在',
   'chat.modelControls.thinking': '思考',
+  'chat.modelControls.inheritedVariantTooltip': '思考: {variant}（このモデルのデフォルト）',
   'chat.modelControls.default': 'デフォルト',
   'chat.modelControls.selectAgent': 'エージェントを選択',
   'chat.modelControls.costPerMillion': 'コスト（$/100万トークン）',
