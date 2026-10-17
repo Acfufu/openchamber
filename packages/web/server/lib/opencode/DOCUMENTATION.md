@@ -29,6 +29,7 @@ Diagnostic logging for the timeline export (`proxy.js` error lines, the lifecycl
 - `packages/web/server/lib/opencode/snippets.js`: opencode-snippets-compatible snippet file CRUD, discovery, and hashtag expansion.
 - `packages/web/server/lib/opencode/cli-options.js`: CLI/environment option parsing for server startup arguments.
 - `packages/web/server/lib/opencode/core-routes.js`: server status/system routes, auth/access guard routes, and settings utility route registration.
+- `packages/web/server/lib/opencode/managed-process-stop.js`: how the lifecycle stops its managed OpenCode on Windows: closes the `serve --stdio` lease, waits a bounded grace period, then force-kills the tree (see the teardown paragraph below). Also owns `hasChildProcessExited` and `waitForChildProcessClose`.
 - `packages/web/server/lib/opencode/shutdown-runtime.js`: graceful shutdown orchestration runtime for watcher/session/guest-services/terminal/process/server teardown.
 - `packages/web/server/lib/opencode/npm-registry-config.js`: resolves npm package metadata requests from inherited npm registry settings or the user's `.npmrc`, including scoped registries and matching bearer/basic HTTP authentication.
 - `packages/web/server/lib/opencode/server-startup-runtime.js`: server listen/startup tunnel flow and process/signal handler orchestration runtime.
@@ -388,9 +389,17 @@ health-probe errors close that child before retrying. Shutdown cancels further
 startup attempts. Closing a process is single-flight and unregisters it only
 after it exits.
 
-On Windows, managed teardown invokes the existing tree termination command
-before terminating the root. Calling `child.kill()` first loses the ancestry
-needed to find Git, shell, and MCP descendants. On POSIX, the managed child
+On Windows, the managed OpenCode runs as `opencode serve --stdio` with a piped
+stdin, and teardown first closes that stdin (`managed-process-stop.js`).
+OpenCode reads EOF as the end of its ownership lease and shuts down the way
+SIGTERM makes it on POSIX: running turns end as cancelled, so a chat waiting on
+a question does not reopen as still working (#4988), and OpenCode stops its MCP
+servers with their process trees. If OpenCode has not exited within 5 seconds,
+teardown falls back to the tree termination command, which runs before the root
+is terminated: calling `child.kill()` first loses the ancestry needed to find
+Git, shell, and MCP descendants. `--stdio` prints its readiness line as
+`{"url":"..."}`; the lifecycle accepts it next to `server listening on`. On
+POSIX, the managed child
 starts in its own process group and teardown escalates against that group even
 if the root has already exited. A tool ignoring SIGTERM must not survive just
 because the server closed its own pipes. The
