@@ -71,6 +71,17 @@ Mobile Changes still shows only the note for such a row.
 `WalkthroughView` gates discovery and source loading while retaining generated
 results and any explicitly started generation job.
 
+One walkthrough of one target (reading and generating it, its model and
+language, what blocks it, where the reader is) lives in
+`walkthrough/useWalkthroughReview.ts`. `WalkthroughView` picks the target in
+the context panel; the phone's Changes picks it from its own mode and source
+and pushes `MobileWalkthroughScreen` (`apps/`) over its list. Both lay the same
+review out with the controls in `walkthrough/WalkthroughControls.tsx`, so a
+walkthrough behaves the same on every surface. The panel header never wraps:
+`useToolbarFit` collapses it in steps (labels, then the options into "More",
+then the step arrows and Generate, then the scope label), with the CSS in
+`index.css`.
+
 ## Large text files
 
 The 200,000-character threshold selects an initial code preview, not read-only

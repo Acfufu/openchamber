@@ -1139,6 +1139,35 @@ html:not(.dark) .chat-scroll {
   padding-inline: 0.375rem;
 }
 
+/* Walkthrough header: gives up room in steps while its row does not fit, as
+   measured by useToolbarFit; each step keeps the ones before it. Labels go
+   first; then the model, the language, the guide and Changes move into "More";
+   then the step arrows and Generate, which "More" and the step list still
+   reach; last the scope keeps only its icon. The model picker's label and
+   chevron are its direct span and last svg. */
+.walkthrough-header__more,
+.walkthrough-header__source-icon {
+  display: none;
+}
+
+[data-walkthrough-header-compact] .walkthrough-header__label,
+[data-walkthrough-header-compact] .walkthrough-header__model > span,
+[data-walkthrough-header-compact] .walkthrough-header__model > svg:last-child,
+[data-walkthrough-header-tight] .walkthrough-header__option,
+[data-walkthrough-header-minimal] .walkthrough-header__step-arrow,
+[data-walkthrough-header-minimal] .walkthrough-header__generate,
+[data-walkthrough-header-narrow] .walkthrough-header__source-label {
+  display: none;
+}
+
+[data-walkthrough-header-tight] .walkthrough-header__more {
+  display: inline-flex;
+}
+
+[data-walkthrough-header-narrow] .walkthrough-header__source-icon {
+  display: inline;
+}
+
 /* Pull request actions: the walkthrough label goes first, since merge controls
    are the reason the row exists. */
 @container pr-actions (max-width: 30rem) {
