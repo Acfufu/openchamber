@@ -136,6 +136,11 @@ both settings are `false`.
   arrives as anything else (the string `"true"`) fails the call with a usage
   error naming the field (`nonBooleanParameterError`), before any action runs.
   Downstream `=== true` checks would otherwise read it as false.
+- `parameters.link` for `session.link` can arrive as a JSON string even though
+  the schema declares an object (#4591). The generated entry parses it once
+  before the merge and keeps the result only when it is a plain object;
+  anything else reaches `linkInputSchema` unchanged. No other field is
+  revived, so prompts and titles that happen to look like JSON stay text.
 - The description draws the line against OpenCode's own `subagent` tool:
   `subagent` when the agent delegates part of its own task and wants the
   answer for itself, `session.*` when the user asks for a separate session
