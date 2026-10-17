@@ -82,6 +82,13 @@ walkthrough behaves the same on every surface. The panel header never wraps:
 then the step arrows and Generate, then the scope label), with the CSS in
 `index.css`.
 
+The Git panel header (`git/GitHeader.tsx`) collapses the same way. The
+repository picker truncates down to its icon and chevron first, then the
+branch picker; their names sit in a grid track with no minimum, so neither
+picker shrinks past its icons. Only while the pickers still overflow their slot
+does the sync button drop its word, and at the narrowest widths its counts;
+its tooltip names both. The panel keeps its 320 px minimum.
+
 ## Large text files
 
 The 200,000-character threshold selects an initial code preview, not read-only
