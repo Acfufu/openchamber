@@ -552,7 +552,9 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
     const actionsBlock = chatSurfaceMode !== 'peek' && ((canCopyMessage && hasCopyableText) || onRevert || effectiveOnFork || onToggleContextPin || hasExtraActions) ? (
         <div className={cn(
             'group/user-actions flex items-start justify-end',
-            isMobile ? 'h-11 pt-0' : 'h-8 pt-2'
+            // In a sticky turn header (TurnItem) the mobile row is shorter: it
+            // stays on screen, and the reply below keeps its own top margin.
+            isMobile ? 'h-11 pt-0 in-data-[turn-sticky-header]:h-9' : 'h-8 pt-2'
         )}>
             <div
                 className={cn(
@@ -748,7 +750,9 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
                 compact
                 className={userContentParts.length > 0 ? 'mb-2' : 'mt-0'}
             />
-            <div className="leading-relaxed text-foreground/90 text-base overflow-hidden">
+            {/* A long prompt in a sticky turn header scrolls inside the bubble,
+                so the header never covers more than 40% of the screen. */}
+            <div className="leading-relaxed text-foreground/90 text-base overflow-hidden overscroll-contain scrollbar-none in-data-[turn-sticky-header]:max-h-[40dvh] in-data-[turn-sticky-header]:overflow-y-auto">
                 {/* Positional keys, not part ids: the server echo of a just-sent
                     message swaps the optimistic part id, and id-based keys would
                     remount the text subtree (blank frame + height jump). */}

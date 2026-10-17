@@ -621,7 +621,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 ignoreContextDisabled
                                 respectReducedMotion
                             >
-                                <div className={cn('relative flex flex-col items-end', !isMobile ? 'group/user-shell' : undefined)}>
+                                {/* In a sticky turn header (TurnItem) the desktop row keeps
+                                    the whole 44px gap to the reply, under the header's fade. */}
+                                <div className={cn('relative flex flex-col items-end', !isMobile ? 'group/user-shell in-data-[turn-sticky-header]:pb-3' : undefined)}>
                                     {/* peek: the action row is suppressed, so reserve only its
                                         gap to the next message, OUTSIDE the bubble background. */}
                                     <div className={cn('max-w-[85%]', chatSurfaceMode === 'peek' ? 'pb-3' : undefined)}>
