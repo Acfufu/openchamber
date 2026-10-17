@@ -4,6 +4,7 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { ACTIVE_PROJECT_ACTION_LIFECYCLES, useTerminalStore } from '@/stores/useTerminalStore';
 import { Spinner } from '@/components/ui/spinner';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
 import { type TerminalStreamEvent } from '@/lib/api/types';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { useFontPreferences } from '@/hooks/useFontPreferences';
@@ -136,8 +137,12 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
     const hasActiveContext = currentSessionId !== null || newSessionDraft?.open === true;
 
     const contextDirectory = useEffectiveDirectory() ?? null;
+    // A draft waiting for a new space keeps the project's folder for its composer and panels; only
+    // its shell goes to the space, and nowhere until the space runs.
+    const draftSpace = useDraftSpaceTarget();
+    const shellDirectory = draftSpace ? (draftSpace.kind === 'ready' ? draftSpace.directory : null) : contextDirectory;
     const targetDirectory = directory ?? null;
-    const terminalDirectory = targetDirectory || contextDirectory;
+    const terminalDirectory = targetDirectory || shellDirectory;
     const hasExplicitTerminalTarget = targetDirectory !== null;
     const directoryTerminalState = useTerminalStore((s) => terminalDirectory ? s.getDirectoryState(terminalDirectory) : undefined);
     const terminalHydrated = useTerminalStore((s) => s.hasHydrated);
@@ -1105,6 +1110,15 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
         return (
             <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
                 {t('terminalView.empty.selectSession')}
+            </div>
+        );
+    }
+
+    if (!terminalDirectory && draftSpace?.kind === 'preparing') {
+        return (
+            <div className="flex h-full items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
+                <Spinner className="h-4 w-4" />
+                <span>{t('spaces.draft.preparing')}</span>
             </div>
         );
     }

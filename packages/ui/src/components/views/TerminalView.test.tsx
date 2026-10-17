@@ -5,6 +5,9 @@ import { Window } from 'happy-dom';
 
 import type { TerminalHandlers } from '@/lib/api/types';
 import { useTerminalStore } from '@/stores/useTerminalStore';
+import { noteSpaceCreationRequest, resetSpaceCreationRequests } from '@/lib/spaces/space-creation-requests';
+import type { SpaceEntry } from '@/lib/spaces/spaces-api';
+import { useSpacesStore } from '@/lib/spaces/spaces-store';
 
 let effectiveDirectory = '/repo';
 const openContextPreviewCalls: Array<[string, string]> = [];
@@ -36,7 +39,13 @@ const runtimeApis = {
 };
 const i18n = { t: (key: string) => key };
 
-const sessionUiState = {
+// The two fields the view reads: a selected session, or an open draft and what it waits for.
+type SessionUiState = {
+  currentSessionId: string | null;
+  newSessionDraft: { open: boolean; pendingWorktreeRequestId: string | null } | null;
+};
+
+const sessionUiState: SessionUiState = {
   currentSessionId: 'session-1',
   newSessionDraft: null,
 };
@@ -233,6 +242,40 @@ describe('TerminalView project action tab indicator', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     useTerminalStore.getState().clearAll();
+    sessionUiState.currentSessionId = 'session-1';
+    sessionUiState.newSessionDraft = null;
+    resetSpaceCreationRequests();
+    useSpacesStore.getState().resetForRuntimeSwitch();
+  });
+
+  test('a draft waiting for a new space opens no shell until the space runs, then opens it in the space', async () => {
+    const space: SpaceEntry = {
+      id: 'a1b2c3d4e5f6', name: 'Fix login', placeId: 'docker', machine: null,
+      projectDirectory: '/repo', projectFolder: { path: '/repo', found: null }, directory: '/spaces/a1b2c3d4e5f6/repo',
+      state: 'preparing', stoppedIdle: false, step: 'creating', failure: null, network: { mode: 'allowlist', domains: [] },
+      grants: [], access: null, needsAccess: [], accessFailures: [], damage: null, setup: null,
+    };
+    // The draft stays on the project's folder while its chip names the space.
+    sessionUiState.currentSessionId = null;
+    sessionUiState.newSessionDraft = { open: true, pendingWorktreeRequestId: 'worktree_space' };
+    noteSpaceCreationRequest('worktree_space', space.id);
+    useSpacesStore.getState().addJourneyEntry(space);
+
+    await act(async () => root.render(React.createElement(TerminalView, { visible: true })));
+    await flushEffects();
+    expect(host.textContent).toContain('spaces.draft.preparing');
+    expect(createSessionCalls).toEqual([]);
+
+    await act(async () => useSpacesStore.getState().addJourneyEntry({ ...space, state: 'running', step: null }));
+    await flushEffects();
+    expect(ensureDirectoryCalls).toEqual(['/spaces/a1b2c3d4e5f6/repo']);
+    expect(host.querySelector('[data-terminal-viewport]')?.getAttribute('data-session-key')?.startsWith('/spaces/a1b2c3d4e5f6/repo::')).toBe(true);
+
+    // What the panel hands to the draft stays on the draft's folder.
+    const tabId = useTerminalStore.getState().getDirectoryState('/spaces/a1b2c3d4e5f6/repo')!.tabs[0]!.id;
+    await act(async () => useTerminalStore.getState().setTabPreviewUrl('/spaces/a1b2c3d4e5f6/repo', tabId, 'https://preview.example.test'));
+    host.querySelector<HTMLElement>('[title="terminalView.preview.openTitle"]')?.click();
+    expect(openContextPreviewCalls).toEqual([['/repo', 'https://preview.example.test']]);
   });
 
   test('closing the last tab closes the surface instead of only replacing the tab', async () => {

@@ -469,7 +469,8 @@ The panel hides whenever a rail panel opens, so the actions cannot depend on
 it. `components/layout/ProjectActionsProvider` mounts one runner
 (`useProjectActionsRunner`) in `MainLayout` for the project
 `useProjectActionsContext` resolves, which is the panel's own context. A managed
-Chat resolves to none. Three views read that runner through
+Chat resolves to none. A draft waiting for a new space has no actions until the
+space runs, then runs them in the space (`useDraftSpaceTarget`). Three views read that runner through
 `projectActionsRunnerContext`:
 
 - the Work Status row;
