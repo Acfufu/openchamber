@@ -383,7 +383,11 @@ event pipeline hands the host's `openchamber:space-stream` announcement to
 re-reads that one space's directories with `refreshSessionsForDirectories`,
 whose answer marks the space reachable again; a stream back on a space the
 journey list holds as stopped means it was started from another window, so
-the list is read again too. While the journey list says a space is stopped or
+the list is read again too. The models of a space folder are grouped under the host's providers of the
+project the space was made from, which the mark names; `space-catalog-sync.ts`
+reads the catalogs this page loaded for a space's folders again when that
+space's project first becomes known, since a space made while the page is
+open is chatted in before the list names it; a stopped space is skipped. While the journey list says a space is stopped or
 its container is gone (`isSpaceDirectoryStopped`), the active-session
 watchdog skips that space's directories, status poll, stale resync and child
 discovery alike, because every request would be the dispatcher's refusal

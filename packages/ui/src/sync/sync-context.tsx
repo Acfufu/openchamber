@@ -75,6 +75,7 @@ import { selectSafetyNetAvailable, useRoutingStore } from "@/stores/useRoutingSt
 import { useMessageQueueStore } from "@/stores/messageQueueStore"
 import { subscribeMessageQueueSync } from "./message-queue-sync"
 import { subscribeSpacePermissionModes } from "./permission-mode-sync"
+import { spaceFoldersOfProject, subscribeSpaceCatalogs } from "./space-catalog-sync"
 import {
   processVSCodePermissionAutoAccept,
   processVSCodeReconciledPermissionAutoAccept,
@@ -1656,6 +1657,9 @@ function scheduleCatalogReload(
 ): void {
   const runtime = { key: getRuntimeKey(), sdk: opencodeClient.getSdkClient() }
   markConfigCatalogStale(kind, directory)
+  // A space folder groups its models under its host project's providers: an event there makes
+  // that folder's catalog stale as well, so a visit re-reads it.
+  if (directory) for (const spaceFolder of spaceFoldersOfProject(directory)) markConfigCatalogStale(kind, spaceFolder)
   if (pendingCatalogRuntime && !isCatalogRuntimeCurrent(pendingCatalogRuntime)) {
     pendingCatalogReloads.clear()
     pendingCatalogCurrentKinds.clear()
@@ -2956,6 +2960,7 @@ export function SyncProvider(props: {
   useEffect(() => {
     const unsubscribeQueueEvents = subscribeMessageQueueSync(runtimeKey)
     const unsubscribeSpaceModes = subscribeSpacePermissionModes(runtimeKey)
+    const unsubscribeSpaceCatalogs = subscribeSpaceCatalogs(runtimeKey)
     const resyncAfterStreamGap = (reason: SessionMaterializationReason) => {
       // Cached transcripts may have missed events too; each revalidates its
       // tail the next time it is opened. Mark first so the active sessions'
@@ -3091,6 +3096,7 @@ export function SyncProvider(props: {
       pipeline.cleanup()
       unsubscribeQueueEvents()
       unsubscribeSpaceModes()
+      unsubscribeSpaceCatalogs()
     }
   }, [props.sdk, childStores, messageLoader, routingIndex, messageStreamTransport, runtimeKey, triggerDirectoryResync])
 
