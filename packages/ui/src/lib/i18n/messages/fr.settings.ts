@@ -701,6 +701,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'Lit les dépôts publics en HTTPS sans connexion et ne peut pas pousser. Les issues et pull requests passent toujours par le compte.',
   'settings.gitIdentities.page.incomplete': 'Il lui faut un compte ou une clé avant qu\'un dépôt puisse l\'utiliser',
   'settings.gitIdentities.page.accountGone': 'Le compte utilisé par cette identité n\'est plus connecté',
+  'settings.gitIdentities.page.cliAccountInactive': 'Passez au compte GitHub CLI dans Intégrations',
   'settings.gitIdentities.editor.toast.accountRequired': 'Choisissez le compte au nom duquel agit cette identité.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'Choisissez la clé SSH gérée utilisée par cette identité.',
   'settings.gitIdentities.editor.actions.close': 'Fermer',

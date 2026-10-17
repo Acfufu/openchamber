@@ -795,6 +795,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': '로그인 없이 HTTPS로 공개 저장소를 읽으며 push할 수 없습니다. 이슈와 풀 리퀘스트는 계속 계정을 씁니다.',
   'settings.gitIdentities.page.incomplete': '저장소에서 사용하려면 계정이나 키가 필요합니다',
   'settings.gitIdentities.page.accountGone': '이 아이덴티티가 사용하는 계정이 더 이상 연결되어 있지 않습니다',
+  'settings.gitIdentities.page.cliAccountInactive': '통합에서 GitHub CLI 계정으로 전환하세요',
   'settings.gitIdentities.editor.toast.accountRequired': '이 ID가 사용할 계정을 선택하세요.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': '이 ID가 사용할 관리형 SSH 키를 선택하세요.',
   'settings.gitIdentities.editor.actions.close': '닫기',

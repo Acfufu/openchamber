@@ -795,6 +795,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': '无需登录即可通过 HTTPS 读取公开仓库，但不能 push。议题和拉取请求仍使用该账号。',
   'settings.gitIdentities.page.incomplete': '需要账户或密钥后仓库才能使用',
   'settings.gitIdentities.page.accountGone': '此身份使用的账户已不再连接',
+  'settings.gitIdentities.page.cliAccountInactive': '在集成中切换到 GitHub CLI 账户',
   'settings.gitIdentities.editor.toast.accountRequired': '请选择该身份所使用的账户。',
   'settings.gitIdentities.editor.toast.sshKeyRequired': '请选择该身份使用的托管 SSH 密钥。',
   'settings.gitIdentities.editor.actions.close': '关闭',

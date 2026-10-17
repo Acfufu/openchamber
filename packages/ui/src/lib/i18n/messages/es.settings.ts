@@ -795,6 +795,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'Lee repositorios públicos por HTTPS sin iniciar sesión y no puede hacer push. Las issues y pull requests siguen usando la cuenta.',
   'settings.gitIdentities.page.incomplete': 'Necesita una cuenta o una clave antes de que un repositorio pueda usarla',
   'settings.gitIdentities.page.accountGone': 'La cuenta que usa esta identidad ya no está conectada',
+  'settings.gitIdentities.page.cliAccountInactive': 'Cambia a la cuenta de GitHub CLI en Integraciones',
   'settings.gitIdentities.editor.toast.accountRequired': 'Elige la cuenta con la que actúa esta identidad.',
   "settings.gitIdentities.editor.toast.sshKeyRequired": "Elige la clave SSH gestionada que usa esta identidad.",
   "settings.gitIdentities.editor.actions.close": "Cerrar",

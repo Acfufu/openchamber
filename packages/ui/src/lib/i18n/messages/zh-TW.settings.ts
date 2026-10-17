@@ -792,6 +792,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': '無需登入即可透過 HTTPS 讀取公開儲存庫，但無法 push。議題和拉取請求仍使用該帳號。',
   'settings.gitIdentities.page.incomplete': '需要帳戶或金鑰後儲存庫才能使用',
   'settings.gitIdentities.page.accountGone': '此身分使用的帳戶已不再連線',
+  'settings.gitIdentities.page.cliAccountInactive': '在整合中切換到 GitHub CLI 帳戶',
   'settings.gitIdentities.editor.toast.accountRequired': '請選擇此身分所使用的帳戶。',
   'settings.gitIdentities.editor.toast.sshKeyRequired': '請選擇此身分使用的受管 SSH 金鑰。',
   'settings.gitIdentities.editor.actions.close': '關閉',

@@ -795,6 +795,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'Читає публічні репозиторії через HTTPS без входу і не може пушити. Issues і pull requests усе одно йдуть через акаунт.',
   'settings.gitIdentities.page.incomplete': 'Потрібен обліковий запис або ключ, перш ніж репозиторій зможе її використати',
   'settings.gitIdentities.page.accountGone': 'Акаунт, який використовує ця ідентичність, більше не підключений',
+  'settings.gitIdentities.page.cliAccountInactive': 'Перейдіть на акаунт GitHub CLI в Інтеграціях',
   'settings.gitIdentities.editor.toast.accountRequired': 'Обери обліковий запис, яким діє ця ідентичність.',
   "settings.gitIdentities.editor.toast.sshKeyRequired": "Обери керований ключ SSH, яким користується ця ідентичність.",
   "settings.gitIdentities.editor.actions.close": "Закрити",

@@ -828,6 +828,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'Leest openbare repositories via HTTPS zonder in te loggen en kan niet pushen. Issues en pull requests gebruiken nog steeds het account.',
   'settings.gitIdentities.page.incomplete': 'Heeft een account of sleutel nodig voordat een repository hem kan gebruiken',
   'settings.gitIdentities.page.accountGone': 'Het account dat deze identiteit gebruikt, is niet meer verbonden',
+  'settings.gitIdentities.page.cliAccountInactive': 'Schakel in Integraties over naar het GitHub CLI-account',
   'settings.gitIdentities.editor.toast.accountRequired': 'Kies het account waarmee deze identiteit werkt.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'Kies de beheerde SSH-sleutel die deze identiteit gebruikt.',
   'settings.gitIdentities.editor.actions.close': 'Sluiten',

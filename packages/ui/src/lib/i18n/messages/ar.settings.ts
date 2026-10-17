@@ -827,6 +827,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'يقرأ المستودعات العامة عبر HTTPS دون تسجيل الدخول، ولا يمكنه الدفع. تظل المشكلات وطلبات السحب تستخدم الحساب.',
   'settings.gitIdentities.page.incomplete': 'تحتاج إلى حساب أو مفتاح قبل أن يستخدمها أي مستودع',
   'settings.gitIdentities.page.accountGone': 'الحساب الذي تستخدمه هذه الهوية لم يعد متصلًا',
+  'settings.gitIdentities.page.cliAccountInactive': 'انتقل إلى حساب GitHub CLI في التكاملات',
   'settings.gitIdentities.editor.toast.accountRequired': 'اختر الحساب الذي تعمل به هذه الهوية.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'اختر مفتاح SSH المُدار الذي تستخدمه هذه الهوية.',
   'settings.gitIdentities.editor.actions.close': 'إغلاق',

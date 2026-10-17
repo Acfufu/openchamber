@@ -313,6 +313,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'Czyta publiczne repozytoria przez HTTPS bez logowania i nie może robić push. Issues i pull requesty nadal używają konta.',
   'settings.gitIdentities.page.incomplete': 'Potrzebuje konta lub klucza, zanim repozytorium będzie mogło jej użyć',
   'settings.gitIdentities.page.accountGone': 'Konto używane przez tę tożsamość nie jest już połączone',
+  'settings.gitIdentities.page.cliAccountInactive': 'Przełącz się na konto GitHub CLI w Integracjach',
   'settings.gitIdentities.editor.toast.accountRequired': 'Wybierz konto, którym działa ta tożsamość.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'Wybierz zarządzany klucz SSH używany przez tę tożsamość.',
   'settings.gitIdentities.editor.field.userName': 'Nazwa użytkownika',

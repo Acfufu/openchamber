@@ -803,6 +803,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'Herkese açık repository\'leri giriş yapmadan HTTPS üzerinden okur ve push yapamaz. Issue\'lar ve pull request\'ler yine hesabı kullanır.',
   'settings.gitIdentities.page.incomplete': 'Bir deponun kullanabilmesi için hesap ya da anahtar gerekiyor',
   'settings.gitIdentities.page.accountGone': 'Bu kimliğin kullandığı hesap artık bağlı değil',
+  'settings.gitIdentities.page.cliAccountInactive': 'Entegrasyonlar\'da GitHub CLI hesabına geçin',
   'settings.gitIdentities.editor.toast.accountRequired': 'Bu kimliğin adına hareket ettiği hesabı seç.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'Bu kimliğin kullandığı yönetilen SSH anahtarını seç.',
   'settings.gitIdentities.editor.actions.close': 'Kapat',

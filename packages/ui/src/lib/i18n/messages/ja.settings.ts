@@ -828,6 +828,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': '公開リポジトリをサインインせずに HTTPS で読み取り、push はできません。Issue とプルリクエストは引き続きアカウントを使います。',
   'settings.gitIdentities.page.incomplete': 'リポジトリで使うにはアカウントか鍵が必要です',
   'settings.gitIdentities.page.accountGone': 'このアイデンティティが使うアカウントは接続されていません',
+  'settings.gitIdentities.page.cliAccountInactive': '連携で GitHub CLI アカウントに切り替えてください',
   'settings.gitIdentities.editor.toast.accountRequired': 'このアイデンティティが名乗るアカウントを選んでください。',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'このアイデンティティが使う管理対象 SSH キーを選んでください。',
   'settings.gitIdentities.editor.actions.close': '閉じる',

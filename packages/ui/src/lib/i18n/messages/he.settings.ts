@@ -827,6 +827,7 @@ export const settingsDict = {
   'settings.gitIdentities.editor.auth.anonymousHint': 'קורא מאגרים ציבוריים דרך HTTPS בלי כניסה, ולא יכול לדחוף. Issues ובקשות משיכה עדיין משתמשים בחשבון.',
   'settings.gitIdentities.page.incomplete': 'צריך חשבון או מפתח כדי שמאגר יוכל להשתמש בזהות הזו',
   'settings.gitIdentities.page.accountGone': 'החשבון שהזהות הזו משתמשת בו כבר לא מחובר',
+  'settings.gitIdentities.page.cliAccountInactive': 'עברו לחשבון GitHub CLI בשילובים',
   'settings.gitIdentities.editor.toast.accountRequired': 'יש לבחור את החשבון שבשמו הזהות הזו פועלת.',
   'settings.gitIdentities.editor.toast.sshKeyRequired': 'יש לבחור את מפתח ה-SSH המנוהל שהזהות הזו משתמשת בו.',
   'settings.gitIdentities.editor.actions.close': 'סגור',
