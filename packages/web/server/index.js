@@ -457,6 +457,8 @@ const settingsRuntime = createSettingsRuntime({
       console.warn(`[spaces] the default permission mode did not reach the running spaces: ${error?.code ?? error?.message ?? error}`);
     });
   },
+  // Declared further down; settings are only saved once the server serves requests.
+  onLastDirectoryChanged: (directory) => openCodeLifecycleRuntime.noteCurrentDirectory(directory),
 });
 
 const readSettingsFromDiskMigrated = (...args) => settingsRuntime.readSettingsFromDiskMigrated(...args);
@@ -969,6 +971,11 @@ const sessionAssistRuntime = createSessionAssistRuntime({
   // Declared further down; only ever called after startup.
   evaluateTurn: (input) => sessionWorkRuntime.evaluateTurnEnd(input),
   lineage: sessionLineage,
+  // Clients hold a left chat's OpenCode location until its assist is done.
+  onPendingChange: ({ sessionId, directory, pending }) => broadcastOpenChamberUiEvent({
+    type: 'openchamber:session-assist',
+    properties: { sessionID: sessionId, directory: directory || null, pending },
+  }),
 });
 
 const sessionGoalRuntime = createSessionGoalRuntime({

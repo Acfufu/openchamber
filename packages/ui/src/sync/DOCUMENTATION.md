@@ -179,7 +179,10 @@ not, so `handleEvent` bootstraps the *selected* directory again (reason
 `location-shutdown`, forced) instead of patching it. Background directories are
 deliberately left alone: re-reading them would recreate the services OpenCode
 just evicted and turn every idle directory into an hourly refresh loop. They
-are re-read when selected or on the next `server.connected`. The pending
+are re-read when selected or on the next `server.connected`. Their held MCP
+status is forgotten (`useMcpStore.forgetDirectory`): OpenCode announces an
+`mcp.status.changed` for each server it stops, and re-reading a held status
+then started the directory again within a second of every release. The pending
 permissions and forms OpenCode rejected on the way out and the turns it
 interrupted arrive as their own events.
 
@@ -193,8 +196,16 @@ return after a release waits for the MCP servers to start again. A worktree is
 a path listed in `availableWorktreesByProject` that is not a project root. It
 checks again at that moment and keeps the location while the directory is
 selected again, shown in a side panel, has a busy or retrying session, a
-pending permission or form, or a running background command; a busy directory
-is re-checked at its own delay until it settles or is selected. A directory
+pending permission or form, a recap and suggestion the server is still to
+write, or a running background command; a busy directory is re-checked at its
+own delay until it settles or is selected. The server writes a session's recap
+a minute after its turn ends and reads the session's directory to do it, so a
+chat left right after an answer would be started again by that read. The
+server announces both ends of that wait (`openchamber.session-assist`,
+`pending-session-assists.ts`), whether the assist was written, skipped, failed
+or dropped by a new turn; the end re-checks the waiting directory at once. A
+wait whose end this client never hears stops holding the directory after five
+minutes. With the recap and the suggestion off nothing waits. A directory
 without a store is left to OpenCode's own sweep. Project roots are never
 released this way: the user returns to them most, and the server's default
 scope reads the last-used one. Another client still showing the directory gets
@@ -284,7 +295,7 @@ own record does.
 - A system-resume signal, including Capacitor foreground resume, refreshes pending forms and permissions only for the active materialized directory. The refresh is deduplicated while in flight, preserves existing state on fetch failure, and leaves unopened directories untouched; normal stream reconnect recovery remains the broader catch-up path.
 - When a materialized current turn contains a pending/running form tool but that session's pending form record is missing, the mounted chat performs a form-only recovery scoped to that session. It tries at most three times with delays of 0, 500, and 1,500 ms, stops when the chat unmounts or changes sessions, and guards every attempt against runtime changes. This closes cold-start races without adding requests to ordinary session opens or scanning unrelated sessions and directories.
 - A bootstrap holds its scheduler slot only through the authoritative directory session-list fetch. `bootstrapDirectory` returns separate `sessions` and `environment` completions. `getBootstrapState` describes list loading; `getInitializationState` describes configuration and recovery. A complete empty list stops its spinner even while initialization is running. Initialization failure keeps the list and exposes its own retryable notice, including native directory access when the filesystem confirms a permission failure.
-- Directory initialization uses v2's global active-session snapshot and directory-scoped form, permission, config and location reads. Form and permission reads ask only the directory's own list, one HTTP request each. v2 has no global pending list: a read without a directory answers for OpenCode's working directory (the user's home for a managed OpenCode) and starts that location, MCP servers included, so pending-request lists are never read without one. Live recovery starts independently of configuration and optional enrichment. Each successful read publishes its own fields; a failed read preserves prior data. Optional enrichment failure is logged without failing the workspace's core initialization. MCP status and the command list are deliberately not read during bootstrap: reading MCP state initializes that directory's entire stdio server fleet as an OpenCode side effect, and listing commands enumerates MCP prompts, which touches the same state. The MCP and command surfaces fetch on demand through `useMcpStore` and `useCommandsStore` instead, and slash-command dispatch falls back to one live lookup before treating an unmatched name as a plain prompt. OpenCode connects a location's MCP servers asynchronously, so a status read just after the location started says `pending`; each `mcp.status.changed` it announces re-reads that directory's status (debounced per directory), and only for a directory whose status is already held.
+- Directory initialization uses v2's global active-session snapshot and directory-scoped form, permission, config and location reads. Form and permission reads ask only the directory's own list, one HTTP request each. v2 has no global pending list: a read without a directory answers for OpenCode's working directory (the user's home for a managed OpenCode) and starts that location, MCP servers included, so pending-request lists are never read without one. Live recovery starts independently of configuration and optional enrichment. Each successful read publishes its own fields; a failed read preserves prior data. Optional enrichment failure is logged without failing the workspace's core initialization. MCP status and the command list are deliberately not read during bootstrap: reading MCP state initializes that directory's entire stdio server fleet as an OpenCode side effect, and listing commands enumerates MCP prompts, which touches the same state. The MCP and command surfaces fetch on demand through `useMcpStore` and `useCommandsStore` instead, and slash-command dispatch falls back to one live lookup before treating an unmatched name as a plain prompt. OpenCode connects a location's MCP servers asynchronously, so a status read just after the location started says `pending`; each `mcp.status.changed` it announces re-reads that directory's status (debounced per directory), and only for a directory whose status is already held. A background directory's status stops being held when its location shuts down (see *A location's services going away*).
 - Session pages and background reads share a three-request budget, with at most two running in either lane. Background work cannot consume the third slot, leaving capacity for lists even when two background reads stall. Queued lists take precedence over background work; active-session status recovery, and the first quota load of a visible Work status Usage panel, outrank queued metadata within the background lane. Retry backoff holds no network slot. Independent background reads can still progress concurrently.
 - Session pagination retries each failed page at most three times. The directory loader does not replay the whole list after those attempts, so one unavailable page cannot multiply retries or redownload earlier pages while holding its scheduler slot. The VS Code empty-success recovery remains separate.
 - A mounted directory-store consumer pins that store for its lifetime. Eviction may dispose only unmounted directories, so optimistic actions and realtime events cannot move to a replacement store while visible React consumers remain subscribed to an older identity.

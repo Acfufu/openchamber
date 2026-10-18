@@ -38,6 +38,7 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { resetStreamingState } from '@/sync/streaming';
 import { replaceGlobalSessionStatusById } from '@/sync/global-session-status';
 import { resetGlobalBlockingRequests } from '@/sync/global-blocking-requests';
+import { resetPendingSessionAssists } from '@/sync/pending-session-assists';
 import { resetBackgroundShells } from '@/sync/background-shells';
 import { useMultiRunStore } from '@/stores/useMultiRunStore';
 import { resetSessionOrdering } from '@/sync/session-ordering';
@@ -92,6 +93,7 @@ export const resetAppForRuntimeEndpointChange = (detail: RuntimeEndpointChangedD
   useAgentsStore.getState().resetForRuntimeSwitch();
   replaceGlobalSessionStatusById(new Map());
   resetGlobalBlockingRequests();
+  resetPendingSessionAssists();
   resetBackgroundShells();
   resetSessionOrdering();
   // Turn timings belong to the previous instance's sessions, and the reset also

@@ -75,6 +75,7 @@ export const createSettingsRuntime = (deps) => {
     onMessageSearchEnabledChanged = () => {},
     onMessageSearchReasoningChanged = () => {},
     onPermissionDefaultModeChanged = () => {},
+    onLastDirectoryChanged = () => {},
   } = deps;
 
   let persistSettingsLock = Promise.resolve();
@@ -1177,6 +1178,9 @@ export const createSettingsRuntime = (deps) => {
       }
       if (changedKeys.includes('permissionDefaultMode') && next.permissionDefaultMode !== current.permissionDefaultMode) {
         onPermissionDefaultModeChanged(next.permissionDefaultMode);
+      }
+      if (changedKeys.includes('lastDirectory') && next.lastDirectory !== current.lastDirectory) {
+        onLastDirectoryChanged(next.lastDirectory);
       }
       return formatSettingsResponse(next);
     });

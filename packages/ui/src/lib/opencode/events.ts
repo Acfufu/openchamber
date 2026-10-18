@@ -159,6 +159,8 @@ export type SyncEvent =
   | { type: "openchamber.page-waiting"; properties: { sessionID: string; directory: string | null; page: { id: string; title: string } } }
   /** That page stopped waiting: answered, answered in the chat, or its turn ended. */
   | { type: "openchamber.page-settled"; properties: { sessionID: string; pageID: string } }
+  /** The server started or stopped waiting to write a session's recap and suggestion. */
+  | { type: "openchamber.session-assist"; properties: { sessionID: string; directory: string | null; pending: boolean } }
 
 /** Agent-completion / restart notices the OpenChamber server publishes for non-web runtimes. */
 export type OpenchamberNotification = {
