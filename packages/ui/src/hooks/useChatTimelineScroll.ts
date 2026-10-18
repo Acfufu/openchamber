@@ -43,6 +43,7 @@ import {
     isFollowReleaseKey,
     isMiddleButtonPan,
     nestedScrollableConsumesWheelUp,
+    onFrameScroll,
 } from '@/components/chat/lib/scroll/timelineScrollIntent';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1229,6 +1230,11 @@ export const useChatTimelineScroll = ({
         const handleKeyDown = (event: KeyboardEvent) => {
             if (isFollowReleaseKey(event) && canScrollUp()) gesture();
         };
+        // A wheel or swipe over a page frame, which keeps its own events:
+        // read as the wheel and touch above read theirs.
+        const stopFrameScroll = onFrameScroll(scrollNode, (direction) => {
+            if ((direction === 'up' || !isAtEndRef.current) && canScrollUp()) gesture();
+        });
         const handleScroll = () => {
             const scrollTop = scrollNode.scrollTop;
             // The list's scroll length is the viewport height it measured,
@@ -1280,6 +1286,7 @@ export const useChatTimelineScroll = ({
             scrollNode.removeEventListener('pointerdown', handlePointerDown);
             scrollNode.removeEventListener('keydown', handleKeyDown);
             scrollNode.removeEventListener('scroll', handleScroll);
+            stopFrameScroll();
         };
     }, [isLiveFollowActive, realContentOverflowsViewport, scrollNode]);
 

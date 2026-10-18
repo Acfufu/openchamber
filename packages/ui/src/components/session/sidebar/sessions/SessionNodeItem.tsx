@@ -47,7 +47,7 @@ import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContain
 import { useSessionRowMenuState } from './useSessionRowMenuState';
 import { buildActiveSessionTreeFromCache, collectSessionMoveDescendants } from './sessionSubtreeActions';
 import type { SessionNode } from '../types';
-import { hasTreeSlotContext, isTwoLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
+import { hasTreeSlotContext, isMultiLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
 import { sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
 import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
@@ -408,22 +408,26 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // Flat rows: no tree gutter, live state on the right. Chats and the Tree
   // view's Pinned and In work rows keep it on one line.
   const isOneLineTimelineRow = renderContext === 'timeline-chat' || renderContext === 'tree-chat' || renderContext === 'mixed-compact';
-  const isTimelineRow = isTwoLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  const isTimelineRow = isMultiLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  // List sorted by time: no project headers, so the row names its project
+  // on a line of its own.
+  const hasProjectLine = renderContext === 'timeline-by-time';
   // The Tree view's one-line Chats, Pinned and In work rows never expand, but
   // they keep the tree's slot and geometry, so their state reads down the
   // same left edge as the tree under them. List rows stay flat.
   const hasTreeSlot = hasTreeSlotContext(renderContext);
   // While the Pinned section is shown it holds every pinned zone session, and
-  // its header already says they are pinned; In work then has none of them.
-  const isZoneRow = renderContext === 'timeline-mixed' || renderContext === 'mixed-compact';
+  // its header already says they are pinned; In work then has none of them,
+  // and neither has the list by time, whose rows share the zones' context.
+  const isZoneRow = renderContext === 'timeline-mixed' || renderContext === 'mixed-compact' || renderContext === 'timeline-by-time';
   const pinnedSectionShown = useSessionDisplayStore((state) => state.showPinnedSection);
   const hidePinnedMarker = isZoneRow && pinnedSectionShown;
-  // Two-line rows in Pinned and In work show the project's own icon; the row
-  // reads exactly that one project record, and `find` keeps the reference
-  // stable between renders.
+  // Rows that mix projects (two-line Pinned and In work rows, the list by
+  // time) show the project's own icon; the row reads exactly that one project
+  // record, and `find` keeps the reference stable between renders.
   const timelineProject = useProjectsStore(
     React.useCallback((state) => {
-      if (renderContext !== 'timeline-mixed' || !projectId) return null;
+      if ((renderContext !== 'timeline-mixed' && renderContext !== 'timeline-by-time') || !projectId) return null;
       return state.projects.find((entry) => entry.id === projectId) ?? null;
     }, [renderContext, projectId]),
   );
@@ -949,6 +953,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             compact={isOneLineTimelineRow}
             project={timelineProject}
             projectLabel={tooltipProjectLabel}
+            projectLine={hasProjectLine}
             title={renameForm}
             titleClassName="text-foreground"
             branchLabel={tooltipBranchLabel}
@@ -1679,9 +1684,10 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // one-line form, with the session's live state and time on the right.
   const rowBody = (
     <SessionTimelineRowBody
-      compact={!isTwoLineTimelineContext(renderContext)}
+      compact={!isMultiLineTimelineContext(renderContext)}
       project={timelineProject}
       projectLabel={tooltipProjectLabel}
+      projectLine={hasProjectLine}
       title={renderHighlightedText(sessionTitle, normalizedSessionSearchQuery)}
       // A finished turn nobody has seen and a request waiting on the user
       // read like an unread mail; a running turn at full strength; the rest

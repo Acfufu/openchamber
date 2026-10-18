@@ -112,6 +112,7 @@ import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
 import {
   MobileTimelineRows,
   TIMELINE_ROW_INDENT,
+  TimelineEndSentinel,
   type TimelineEntry,
   type TimelineRowHandlers,
 } from './MobileTimelineList';
@@ -176,6 +177,13 @@ const VIEW_MODE_OPTIONS = [
 
 type SidebarViewMode = (typeof VIEW_MODE_OPTIONS)[number][0];
 
+const LIST_GROUPING_OPTIONS = [
+  ['project', 'sessions.sidebar.header.listGrouping.project'],
+  ['time', 'sessions.sidebar.header.listGrouping.time'],
+] as const;
+
+type ListSessionGrouping = (typeof LIST_GROUPING_OPTIONS)[number][0];
+
 /** Menu rows tall enough for a thumb. */
 const MOBILE_MENU_ITEM_CLASS = 'min-h-10 items-center justify-between';
 
@@ -216,6 +224,8 @@ type ProjectNode = {
 };
 
 const SESSIONS_PER_BUCKET = 7;
+// The list by time reveals this many rows each time its end scrolls near.
+const TIME_LIST_PAGE_SIZE = 40;
 
 // Chats show a short page above the projects in both views; pinned chats ride
 // along outside it.
@@ -231,6 +241,7 @@ const treeTextLeft = (depth: number): number => treeRowLeft(depth) + 20;
 /** Expansion keys of the "Pinned" and "In work" sections, alongside project ids. */
 const PINNED_SECTION_ID = 'openchamber:pinned';
 const WORK_SECTION_ID = 'openchamber:work';
+const TIME_LIST_SECTION_ID = 'openchamber:time-list';
 // Chats are flat rows in both views, aligned with the timeline rows' text.
 const TIMELINE_CHAT_INDENT = 12;
 
@@ -835,6 +846,8 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   // reordering is its only sort.
   const projectSortOrder = sidebarViewMode === 'timeline' ? 'manual' : storedProjectSortOrder;
   const setSidebarViewMode = useSessionDisplayStore((state) => state.setSidebarViewMode);
+  const listSessionGrouping = useSessionDisplayStore((state) => state.listSessionGrouping);
+  const setListSessionGrouping = useSessionDisplayStore((state) => state.setListSessionGrouping);
   const showWorkSection = useSessionDisplayStore((state) => state.showWorkSection);
   const setShowWorkSection = useSessionDisplayStore((state) => state.setShowWorkSection);
   const showPinnedSection = useSessionDisplayStore((state) => state.showPinnedSection);
@@ -930,7 +943,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
 
   React.useEffect(() => {
     setVisibleCountByBucket(new Map());
-  }, [sidebarViewMode]);
+  }, [listSessionGrouping, sidebarViewMode]);
 
   React.useEffect(() => {
     if (!open || projects.length === 0) return;
@@ -1564,6 +1577,13 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     if (mode === 'timeline') setEditingOrder(false);
   };
 
+  const handleListSessionGroupingChange = (grouping: ListSessionGrouping) => {
+    setListSessionGrouping(grouping);
+    void updateDesktopSettings({ sidebarListSessionGrouping: grouping });
+    // Project order means nothing without project headers.
+    if (grouping === 'time') setEditingOrder(false);
+  };
+
   const handleToggleWorkSection = () => {
     const next = !showWorkSection;
     setShowWorkSection(next);
@@ -1680,6 +1700,10 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   // rows, no worktree groups. Search keeps the grouped behaviour, and reorder
   // mode shows the project list to drag.
   const timelineActive = sidebarViewMode === 'timeline' && !normalizedQuery && !editingOrder;
+  // List by time: every project's root sessions in one list under a
+  // Projects section, three-line rows naming the project, revealed a page at
+  // a time as the end scrolls near. Sessions Pinned or In work list leave it.
+  const timeListActive = timelineActive && listSessionGrouping === 'time';
 
   // Pinned and In work use the timeline's rows (two lines with the project's
   // icon in List, one line in Tree unless detailed rows are on), so their
@@ -1745,7 +1769,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
 
   const timelineEntriesByProject = React.useMemo(() => {
     const byProject = new Map<string, TimelineEntry[]>();
-    if (!timelineActive) return byProject;
+    if (!timelineActive || timeListActive) return byProject;
     const roots = orderSessionsByLifecycleScopes(
       projectSessions.filter((session) => !getParentId(session) && timelineContextById.has(session.id)),
       pinnedSessionIds,
@@ -1757,7 +1781,16 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
       else byProject.set(entry.project.id, [entry]);
     }
     return byProject;
-  }, [pinnedSessionIds, projectSessions, sessionOrderRanks, timelineActive, timelineContextById, toTimelineEntries]);
+  }, [pinnedSessionIds, projectSessions, sessionOrderRanks, timeListActive, timelineActive, timelineContextById, toTimelineEntries]);
+  const timeListEntries = React.useMemo(() => {
+    if (!timeListActive) return [];
+    const zoneIds = new Set([...pinnedBucket.sessions, ...workBucket.sessions].map((session) => session.id));
+    return toTimelineEntries(orderSessionsByLifecycleScopes(
+      projectSessions.filter((session) => !getParentId(session) && !zoneIds.has(session.id) && timelineContextById.has(session.id)),
+      pinnedSessionIds,
+      sessionOrderRanks,
+    ));
+  }, [pinnedBucket, pinnedSessionIds, projectSessions, sessionOrderRanks, timeListActive, timelineContextById, toTimelineEntries, workBucket]);
   const workTimelineEntries = React.useMemo(
     () => (listActive ? toTimelineEntries(workBucket.sessions.filter((session) => !getParentId(session))) : []),
     [listActive, toTimelineEntries, workBucket],
@@ -1955,7 +1988,67 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
             {compactZoneRows
               // The whole zone shows at once, as the timeline rows do.
               ? renderBucketSessions(sectionId, bucket, 0, { pageSize: Number.MAX_SAFE_INTEGER })
-              : <MobileTimelineRows entries={entries} showProject compact={false} pinMarker={sectionId !== PINNED_SECTION_ID} handlers={timelineHandlers} />}
+              // Over the list by time they take its three-line rows.
+              : <MobileTimelineRows entries={entries} showProject projectLine={timeListActive} compact={false} pinMarker={sectionId !== PINNED_SECTION_ID} handlers={timelineHandlers} />}
+          </div>
+        )}</MobileDisclosure>
+      </section>
+    );
+  };
+
+  /**
+   * List by time: one Projects section over every project's sessions. The
+   * sheet is a plain scroller, so rows arrive a page at a time as the end
+   * scrolls near, with no Show more row.
+   */
+  const renderTimeListSection = (): React.ReactNode => {
+    if (timeListEntries.length === 0) return null;
+    const expanded = projectExpandedMap[TIME_LIST_SECTION_ID] ?? true;
+    const label = t('sessions.sidebar.activity.projectsTitle');
+    // Under the section's key prefix, so collapsing it starts from one page again.
+    const rowsKey = `${TIME_LIST_SECTION_ID}::rows`;
+    const visibleCount = visibleCountByBucket.get(rowsKey) ?? TIME_LIST_PAGE_SIZE;
+    const visibleEntries = timeListEntries.slice(0, visibleCount);
+    return (
+      <section>
+        <button
+          type="button"
+          className="flex min-h-12 w-full min-w-0 items-center gap-2 px-3 py-1.5 text-start transition-colors hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          onClick={() => {
+            if (revealedRowId) {
+              handleRowKeyRevealedChange(revealedRowId, false);
+              return;
+            }
+            toggleProject(TIME_LIST_SECTION_ID, expanded);
+          }}
+          aria-expanded={expanded}
+          aria-label={
+            expanded
+              ? t('sessions.sidebar.group.collapseAria', { label })
+              : t('sessions.sidebar.group.expandAria', { label })
+          }
+          style={{ touchAction: 'manipulation' }}
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
+            <Icon name="history" className="size-5" />
+          </span>
+          <span className="block min-w-0 flex-1 truncate typography-ui-header font-semibold text-foreground">
+            {label}
+          </span>
+          <span className="shrink-0 typography-micro text-muted-foreground tabular-nums">
+            {timeListEntries.length}
+          </span>
+        </button>
+        <MobileDisclosure open={expanded}>{() => (
+          <div className="pb-2">
+            <MobileTimelineRows entries={visibleEntries} showProject projectLine handlers={timelineHandlers} />
+            {visibleEntries.length < timeListEntries.length ? (
+              <TimelineEndSentinel
+                scrollRootRef={scrollerRef}
+                visibleCount={visibleEntries.length}
+                onReachEnd={() => showMoreBucketSessions(rowsKey, visibleEntries.length, TIME_LIST_PAGE_SIZE)}
+              />
+            ) : null}
           </div>
         )}</MobileDisclosure>
       </section>
@@ -1988,7 +2081,8 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   // timeline always shows the manual order, so it can always be dragged.
   const canEditOrder = !normalizedQuery
     && projectsMeta.length > 1
-    && projectSortOrder === 'manual';
+    && projectSortOrder === 'manual'
+    && !(sidebarViewMode === 'timeline' && listSessionGrouping === 'time');
 
   // Sorting lives in the header next to reordering — the two answer the same
   // question about the list, and a permanent row of modes above it would cost
@@ -2014,6 +2108,13 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>{t('mobile.sessions.viewMode.label')}</DropdownMenuLabel>
         {VIEW_MODE_OPTIONS.map(([mode, labelKey]) => renderMenuChoice(mode, labelKey, sidebarViewMode === mode, () => handleViewModeChange(mode)))}
+        {sidebarViewMode === 'timeline' ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t('sessions.sidebar.header.listGrouping.label')}</DropdownMenuLabel>
+            {LIST_GROUPING_OPTIONS.map(([grouping, labelKey]) => renderMenuChoice(grouping, labelKey, listSessionGrouping === grouping, () => handleListSessionGroupingChange(grouping)))}
+          </>
+        ) : null}
         {/* Project order only means something while projects are groups. */}
         {sidebarViewMode === 'timeline' ? null : (
           <>
@@ -2293,7 +2394,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
               })()}
               {renderZoneSection(PINNED_SECTION_ID, 'pushpin', t('sessions.sidebar.activity.pinnedTitle'), pinnedBucket, pinnedTimelineEntries)}
               {renderZoneSection(WORK_SECTION_ID, 'eye', t('sessions.sidebar.work.title'), workBucket, workTimelineEntries)}
-              {orderedNodes.map((node) => {
+              {timeListActive ? renderTimeListSection() : orderedNodes.map((node) => {
                 const projectExpanded = isProjectExpanded(node);
                 const buckets = normalizedQuery
                   ? node.buckets.filter((bucket) =>

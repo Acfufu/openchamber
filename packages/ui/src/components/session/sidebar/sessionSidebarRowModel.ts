@@ -22,19 +22,23 @@ export type SessionSidebarActivityItem = {
   searchMatchCount?: number;
 };
 
-export type SessionSidebarActivityKey = 'pinned' | 'work' | 'chats';
+// 'timeline' is the List view's one list of every project's sessions when it
+// sorts them by time.
+export type SessionSidebarActivityKey = 'pinned' | 'work' | 'chats' | 'timeline';
 
 /** Activity sections; the display menu's Collapse all / Expand all drive them with the projects. */
-export const SIDEBAR_ACTIVITY_KEYS: readonly SessionSidebarActivityKey[] = ['chats', 'pinned', 'work'];
+export const SIDEBAR_ACTIVITY_KEYS: readonly SessionSidebarActivityKey[] = ['chats', 'pinned', 'work', 'timeline'];
 
 // 'project' is a one-line file tree row of the grouped view. Timeline rows
 // have no left gutter and carry their status on the right: 'timeline' is a
 // two-line row under its project header; 'timeline-mixed' is the same row in
 // Pinned and In work, where sessions of every project mix, so its second line
-// opens with the project's icon; 'mixed-compact' is that row on one line, the
-// Tree view's default for Pinned and In work; 'timeline-chat' is a one-line
-// Chats row in List, 'tree-chat' the same row in Tree.
-export type SessionSidebarRenderContext = 'project' | 'timeline' | 'timeline-mixed' | 'mixed-compact' | 'timeline-chat' | 'tree-chat';
+// opens with the project's icon; 'timeline-by-time' is the row of the List
+// view's list by time, three lines with the project's name on the first;
+// 'mixed-compact' is the two-line row on one line, the Tree view's default
+// for Pinned and In work; 'timeline-chat' is a one-line Chats row in List,
+// 'tree-chat' the same row in Tree.
+export type SessionSidebarRenderContext = 'project' | 'timeline' | 'timeline-mixed' | 'timeline-by-time' | 'mixed-compact' | 'timeline-chat' | 'tree-chat';
 
 /**
  * Rows that keep the tree's geometry and its slot left of the title, which
@@ -45,17 +49,20 @@ export const hasTreeSlotContext = (context: SessionSidebarRenderContext): boolea
   context === 'project' || context === 'mixed-compact' || context === 'tree-chat'
 );
 
-/** Rows that render through `SessionTimelineRowBody` with two lines. */
-export const isTwoLineTimelineContext = (context: SessionSidebarRenderContext): boolean => (
-  context === 'timeline' || context === 'timeline-mixed'
+/** Rows that render through `SessionTimelineRowBody` with two or three lines. */
+export const isMultiLineTimelineContext = (context: SessionSidebarRenderContext): boolean => (
+  context === 'timeline' || context === 'timeline-mixed' || context === 'timeline-by-time'
 );
 
 /** Flat zone and timeline rows never expand: a run row opens its overview instead. */
 const isNeverExpandedContext = (context: SessionSidebarRenderContext): boolean => (
-  isTwoLineTimelineContext(context) || context === 'mixed-compact'
+  isMultiLineTimelineContext(context) || context === 'mixed-compact'
 );
 
 export type SessionSidebarViewMode = 'projects' | 'timeline';
+
+/** How the List view lays out project sessions: under their project, or in one list by time. */
+export type SessionSidebarListGrouping = 'project' | 'time';
 
 export type SessionSidebarGroupStatus = {
   state: 'ready' | 'loading' | 'load-failed' | 'initialization-failed' | 'permission-denied';
@@ -121,6 +128,12 @@ export type SessionSidebarRowModelArgs = {
    * sessions, with no worktree groups or folders.
    */
   viewMode?: SessionSidebarViewMode;
+  /**
+   * Timeline only. `time` replaces the project headers with one list of
+   * every project's sessions under a single zone header, in lifecycle order
+   * with no reveal limit; sessions listed in Pinned or In work leave it.
+   */
+  listGrouping?: SessionSidebarListGrouping;
   sections: readonly ProjectSection[];
   authoritativeSections: readonly ProjectSection[];
   chatGroup: SessionGroup | null;
@@ -221,6 +234,12 @@ const EMPTY_FOLDERS: readonly SessionFolder[] = [];
 const EMPTY_ZONE_SESSION_IDS: ReadonlySet<string> = new Set();
 const SESSION_ESTIMATE = 32;
 const TIMELINE_SESSION_ESTIMATE = 52;
+// A third fixed line: the 20px title line and its 1px gap.
+const TIMELINE_THREE_LINE_ESTIMATE = TIMELINE_SESSION_ESTIMATE + 21;
+const estimateSessionRow = (context: SessionSidebarRenderContext): number => {
+  if (context === 'timeline-by-time') return TIMELINE_THREE_LINE_ESTIMATE;
+  return isMultiLineTimelineContext(context) ? TIMELINE_SESSION_ESTIMATE : SESSION_ESTIMATE;
+};
 // Chats open on a short page in both views, with pinned chats on top of it.
 const CHATS_INITIAL_LIMIT = 3;
 const CHATS_INCREMENT = 7;
@@ -381,7 +400,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     push({
       kind: 'run',
       key: keyFor(`${options.containerKey}:run:${entry.run.key}`),
-      estimateSize: isTwoLineTimelineContext(options.renderContext) ? TIMELINE_SESSION_ESTIMATE : SESSION_ESTIMATE,
+      estimateSize: estimateSessionRow(options.renderContext),
       run: entry.run,
       depth: options.baseDepth ?? 0,
       laneNodes: Object.freeze([...entry.lanes]),
@@ -414,7 +433,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
       push({
         kind: 'session',
         key: rowKey,
-        estimateSize: isTwoLineTimelineContext(options.renderContext) ? TIMELINE_SESSION_ESTIMATE : SESSION_ESTIMATE,
+        estimateSize: estimateSessionRow(options.renderContext),
         node: current.node,
         blockingBadgeSessionScopes: current.depth === baseDepth
           ? options.getBlockingBadgeSessionScopes?.(current.node.session.id) ?? options.blockingBadgeSessionScopes
@@ -732,8 +751,12 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
 
   // Pinned and In work list sessions of every project together: two-line
   // rows with the project's icon in List, one-line rows in Tree unless the
-  // user asked for detailed rows.
-  const zoneRenderContext: SessionSidebarRenderContext = timelineMode || args.detailedZoneRows ? 'timeline-mixed' : 'mixed-compact';
+  // user asked for detailed rows. Over the list by time they take its
+  // three-line rows, so the zones and the list below share one row height.
+  const timeList = timelineMode && args.listGrouping === 'time';
+  const zoneRenderContext: SessionSidebarRenderContext = timeList
+    ? 'timeline-by-time'
+    : timelineMode || args.detailedZoneRows ? 'timeline-mixed' : 'mixed-compact';
 
   /**
    * A list that reveals `initial` entries, then `increment` more per Show
@@ -766,7 +789,37 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
   appendZone('pinned', args.pinnedItems ?? []);
   appendZone('work', args.workItems ?? []);
 
-  if (timelineMode) {
+  if (timeList) {
+    // One list of every project's root sessions in lifecycle order, pinned
+    // first, under one zone header. It is virtualized, so it reveals all of
+    // them at once. A session the Pinned or In work zone lists is left out
+    // here, so each session shows once.
+    const items = (args.timelineItems ?? []).filter((item) => item.projectId && !inZone.has(item.node.session.id));
+    if (items.length > 0) {
+      const collapsed = appendActivityHeader('timeline');
+      if (!collapsed) appendActivityItems(items, 'activity:timeline', 'timeline-by-time');
+    }
+    // The list has no project headers to hold a load status, so it closes
+    // with one line per distinct status of a project it lists nothing for,
+    // as a project header would: one while any loads, and one per failure,
+    // whose Retry reloads that directory or the global list.
+    if (!search && !(items.length > 0 && args.collapsedActivities.has('timeline'))) {
+      const listedProjects = new Set((args.timelineItems ?? []).map((item) => item.projectId));
+      const shown = new Set<string>();
+      for (const section of args.sections) {
+        if (listedProjects.has(section.project.id)) continue;
+        const mainGroup = section.groups.find((group) => group.isMain);
+        if (!mainGroup) continue;
+        const groupKey = `${section.project.id}:${mainGroup.id}`;
+        const status = args.groupStatusByKey.get(groupKey);
+        if (!status || status.state === 'ready') continue;
+        const identity = status.state === 'loading' ? 'loading' : `${status.state}:${status.directory ?? ''}`;
+        if (shown.has(identity)) continue;
+        shown.add(identity);
+        push({ kind: 'status', key: `activity:timeline:status:${groupKey}`, estimateSize: STATUS_ESTIMATE, status, group: mainGroup, groupKey, flat: true });
+      }
+    }
+  } else if (timelineMode) {
     // One header per project, in the user's manual order, over its root
     // sessions from every worktree in lifecycle order. A session the Pinned
     // zone lists is left out of its project here; In work keeps it in both.

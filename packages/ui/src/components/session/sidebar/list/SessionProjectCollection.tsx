@@ -231,6 +231,8 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   const supportsSingleProjectMode = !topology.isVSCode && !isCapacitorApp();
   const singleProjectMode = supportsSingleProjectMode && projectDisplayMode === 'single';
   const timelineMode = view.sidebarViewMode === 'timeline' && !topology.isVSCode;
+  const listSessionGrouping = useSessionDisplayStore((state) => state.listSessionGrouping);
+  const timeListMode = timelineMode && listSessionGrouping === 'time';
   const runIndex = React.useMemo(() => buildMultiRunIndex(
     collection.rootSessions,
     (session) => normalizePath(topology.worktreeMetadata.get(session.id)?.projectDirectory ?? session.directory ?? null),
@@ -560,6 +562,10 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     };
     pinnedItems.forEach((item) => addNode(item.node));
     workItems.forEach((item) => addNode(item.node));
+    if (timeListMode) {
+      if (!projectView.collapsedActivities.has('timeline')) timelineItems.forEach((item) => addNode(item.node));
+      return { targets, linkedRefs: [...linkedRefs.values()], linkedIssueRefs: [...linkedIssueRefs.values()], linearIdentifiers: [...linearIdentifiers], gitlabRefs: [...gitlabRefs.values()] };
+    }
     if (timelineMode) {
       timelineItems.forEach((item) => {
         if (!item.projectId || !projectView.collapsedProjects.has(item.projectId)) addNode(item.node);
@@ -579,7 +585,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
       });
     });
     return { targets, linkedRefs: [...linkedRefs.values()], linkedIssueRefs: [...linkedIssueRefs.values()], linearIdentifiers: [...linearIdentifiers], gitlabRefs: [...gitlabRefs.values()] };
-  }, [pinnedItems, projectSections, projectView.collapsedProjects, timelineItems, timelineMode, topology.gitBranches, topology.isVSCode, workItems]);
+  }, [pinnedItems, projectSections, projectView.collapsedActivities, projectView.collapsedProjects, timeListMode, timelineItems, timelineMode, topology.gitBranches, topology.isVSCode, workItems]);
   const shownPrTargets = shownPrs.targets;
   // The discovery effect below subscribes to bindings and reads them; keep its
   // input stable while the shown branches are the same, so ordinary sidebar
@@ -885,6 +891,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   const sidebarRowModel = React.useMemo(() => buildSessionSidebarRowModel({
     mode: view.hasSessionSearchQuery ? 'search' : 'normal',
     viewMode: timelineMode ? 'timeline' : 'projects',
+    listGrouping: listSessionGrouping,
     sections: orderedSectionsForRender,
     authoritativeSections: projectSections,
     // Hidden only from the list: folders and search keep the group.
@@ -914,7 +921,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     hideDirectoryControls: view.hideDirectoryControls,
     sessionBatchSize: singleProjectMode && !view.useGroupedSections ? 20 : undefined,
     runIndex,
-  }), [runIndex, chatGroup, showChatsSection, projectView.collapsedActivities, timelineItems, timelineMode, pinnedItems, workItems, zoneSessionIds, detailedZoneRows, collapsedFolderIds, collection.pinnedSessionIds, expandedParents, folderAuthorityByOwner, foldersMap, groupSearchDataByGroup, groupStatusByKey, orderedSectionsForRender, projectSections, projectView.collapsedGroups, projectView.collapsedProjects, selectedSingleProjectId, sessionOrderIndex, singleProjectMode, view.activeProjectId, view.hasSessionSearchQuery, view.hideDirectoryControls, view.normalizedSessionSearchQuery, view.showOnlyMainWorkspace, view.useGroupedSections, visibleCountByContainer]);
+  }), [runIndex, chatGroup, showChatsSection, projectView.collapsedActivities, timelineItems, timelineMode, listSessionGrouping, pinnedItems, workItems, zoneSessionIds, detailedZoneRows, collapsedFolderIds, collection.pinnedSessionIds, expandedParents, folderAuthorityByOwner, foldersMap, groupSearchDataByGroup, groupStatusByKey, orderedSectionsForRender, projectSections, projectView.collapsedGroups, projectView.collapsedProjects, selectedSingleProjectId, sessionOrderIndex, singleProjectMode, view.activeProjectId, view.hasSessionSearchQuery, view.hideDirectoryControls, view.normalizedSessionSearchQuery, view.showOnlyMainWorkspace, view.useGroupedSections, visibleCountByContainer]);
   React.useEffect(() => {
     onSearchMatchCountChange(sidebarRowModel.searchMatchCount);
   }, [onSearchMatchCountChange, sidebarRowModel.searchMatchCount]);

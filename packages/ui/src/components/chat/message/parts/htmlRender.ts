@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { FrameScrollDirection } from '@/components/chat/lib/scroll/timelineScrollIntent';
 import type { ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import type { JsonValue } from '@/lib/opencode/model';
 import { getReadableThemeColors } from '@/lib/theme/readableColors';
@@ -43,6 +44,9 @@ const SELECTION_MESSAGE = `${MESSAGE_PREFIX}selection`;
 // closes the selection menu, as Escape does for a selection in the chat.
 const SELECTION_ESCAPE_MESSAGE = `${MESSAGE_PREFIX}selection-escape`;
 const MARK_CLICK_MESSAGE = `${MESSAGE_PREFIX}mark-click`;
+// A wheel or swipe in the page that scrolls the chat around it (see the
+// bootstrap): the host tells the chat's follow a reader is scrolling.
+const SCROLL_MESSAGE = `${MESSAGE_PREFIX}scroll`;
 // From the host: drop the page's own selection, paint these quote marks, and
 // scroll to and flash one quote.
 const CLEAR_SELECTION_MESSAGE = `${MESSAGE_PREFIX}clear-selection`;
@@ -240,6 +244,14 @@ function themeCss(theme: HtmlRenderTheme): string {
 // tall as the page; the browser carries that scroll on to the chat around the
 // frame, so the quote comes into view there too.
 //
+// A wheel or a swipe over the page scrolls the chat around the frame, but its
+// events stay in the frame, and the chat releases its follow of a running
+// reply only on the gesture events it hears: while a reply streamed, the
+// chat pulled the reader back to the end on every new line. So the page
+// reports the direction of every wheel up and vertical swipe the page's own
+// script and scrolling boxes left alone, and the host passes it to the chat
+// as that gesture.
+//
 // A tooltip or popup the page positions itself can stick out past the frame,
 // where the frame cuts it off (on a phone the column is about 360px). Every
 // absolutely or fixed positioned element that is partly inside and partly out
@@ -287,6 +299,12 @@ const BOOTSTRAP_SCRIPT = `(function(){var s=document.getElementById("oc-html-ren
     + `document.addEventListener("click",function(e){var g=window.getSelection(),x=e.clientX,y=e.clientY,i,j,c,b=null,k="";if(!AR.length||g&&!g.isCollapsed)return;`
     + `for(i=0;i<AR.length&&!b;i++){c=AR[i].range.getClientRects();for(j=0;j<c.length;j++){if(x>=c[j].left&&x<=c[j].right&&y>=c[j].top&&y<=c[j].bottom){k=AR[i].id;b=AR[i].range.getBoundingClientRect();break;}}}`
     + `window.parent.postMessage({type:${JSON.stringify(MARK_CLICK_MESSAGE)},id:k,rect:b?{top:b.top,left:b.left,width:b.width,height:b.height}:{top:y,left:x,width:0,height:0}},"*");});`
+    + `var GX=null,GY=null,GU=function(t){for(var e=t&&t.nodeType===1?t:t&&t.parentElement;e&&e!==document.documentElement&&e!==document.body;e=e.parentElement){if(e.scrollTop>0&&/^(?:auto|scroll)$/.test(getComputedStyle(e).overflowY))return 1;}e=document.scrollingElement;return e&&e.scrollTop>0?1:0;},`
+    + `GS=function(d){window.parent.postMessage({type:${JSON.stringify(SCROLL_MESSAGE)},direction:d},"*");};`
+    + `window.addEventListener("wheel",function(e){if(e.isTrusted&&!e.defaultPrevented&&!e.ctrlKey&&e.deltaY<0&&!GU(e.target))GS("up");},{passive:true});`
+    + `window.addEventListener("touchstart",function(e){var t=e.touches[0];GX=t?t.clientX:null;GY=t?t.clientY:null;},{passive:true});`
+    + `window.addEventListener("touchmove",function(e){var t=e.touches[0],x,y,dx,dy;if(!t||GX===null||GY===null)return;x=t.clientX;y=t.clientY;dx=x-GX;dy=y-GY;GX=x;GY=y;`
+    + `if(!e.isTrusted||e.defaultPrevented||Math.abs(dy)<=Math.abs(dx))return;if(dy<0)GS("down");else if(!GU(e.target))GS("up");},{passive:true});`
     + `var P=[],Q=0,N=1,C=function(e){for(var a=e.parentElement;a&&a!==document.body;a=a.parentElement){var o=getComputedStyle(a);if(o.overflowX!=="visible"||o.overflowY!=="visible")return 1;}return 0;},`
     + `W=function(){P=[];var a=document.body?document.body.getElementsByTagName("*"):[];for(var i=0;i<a.length&&i<5000;i++){var p=getComputedStyle(a[i]).position;if((p==="absolute"||p==="fixed")&&!C(a[i]))P.push(a[i]);}},`
     + `F=function(){Q=0;if(N){N=0;W();}var w=document.documentElement.clientWidth;for(var i=0;i<P.length;i++){var e=P[i],x=e.__ocx||0,y=e.__ocy||0,r=e.getBoundingClientRect(),l=r.left-x,g=r.right-x,t=r.top-y,b=r.bottom-y,nx=0,ny=0;if(!r.width&&!r.height)continue;`
@@ -444,7 +462,8 @@ type HtmlRenderFrameMessage =
     | { kind: 'selection'; text: string; rect: z.infer<typeof selectionRectSchema>; anchor?: Omit<ChatQuoteAnchor, 'page'> }
     // An empty id is a click on no mark; the rect is then the click's point.
     | { kind: 'selection-escape' }
-    | { kind: 'mark-click'; id: string; rect: z.infer<typeof selectionRectSchema> };
+    | { kind: 'mark-click'; id: string; rect: z.infer<typeof selectionRectSchema> }
+    | { kind: 'scroll'; direction: FrameScrollDirection };
 
 /** A quote mark the host asks a page to paint. */
 export interface HtmlRenderMark {
@@ -467,6 +486,7 @@ const frameMessageSchema = z.discriminatedUnion('type', [
     }),
     z.object({ type: z.literal(SELECTION_ESCAPE_MESSAGE) }),
     z.object({ type: z.literal(MARK_CLICK_MESSAGE), id: z.string().max(200), rect: selectionRectSchema }),
+    z.object({ type: z.literal(SCROLL_MESSAGE), direction: z.enum(['up', 'down']) }),
 ]);
 
 // MCP Apps `ui/message`. Only text content is read; the summary is its text.
@@ -509,6 +529,7 @@ export function readHtmlRenderFrameMessage(event: Pick<MessageEvent, 'data'>): H
     }
     if (message.type === SELECTION_ESCAPE_MESSAGE) return { kind: 'selection-escape' };
     if (message.type === MARK_CLICK_MESSAGE) return { kind: 'mark-click', id: message.id, rect: message.rect };
+    if (message.type === SCROLL_MESSAGE) return { kind: 'scroll', direction: message.direction };
     // Only a chord with Cmd or Ctrl: the page never passes plain typing on,
     // and a page that tried to must not reach the app's single-key handling.
     if (!message.metaKey && !message.ctrlKey) return null;

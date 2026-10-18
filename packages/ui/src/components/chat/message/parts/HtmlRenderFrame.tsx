@@ -18,6 +18,7 @@ import { answerRenderedPage } from '@/lib/renderPageAnswer';
 import { openExternalUrl } from '@/lib/url';
 import type { ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import { useConfigStore } from '@/stores/useConfigStore';
+import { dispatchFrameScroll } from '@/components/chat/lib/scroll/timelineScrollIntent';
 import { useChatSurfaceMode } from '@/components/chat/useChatSurfaceMode';
 import { dispatchFrameSelection, frameRectInApp } from '../frameSelection';
 import {
@@ -201,6 +202,7 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
             if (message?.kind === 'size') onContentHeight?.(message.height);
             if (message?.kind === 'open-link') void openExternalUrl(message.url);
             if (message?.kind === 'key') replayKeyChord(frame, message.chord);
+            if (message?.kind === 'scroll') dispatchFrameScroll(frame, message.direction);
             if (message?.kind === 'submit') {
                 const reply = (error?: string) => frame.contentWindow?.postMessage(htmlRenderSubmitReply(message.id, error), '*');
                 const { answerState: current, onSubmit: deliver } = submitRef.current;

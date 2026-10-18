@@ -369,7 +369,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
     return (
       <Icon
         name={isLinkedChange(entry) ? 'git-pull-request' : entry.kind === 'linear' ? 'linear' : 'record-circle'}
-        className={cn('size-4 shrink-0', color ? 'oc-ref-tint' : 'text-muted-foreground')}
+        className={cn('size-3.5 shrink-0', color ? 'oc-ref-tint' : 'text-muted-foreground')}
         style={color ? refTintStyle(color) : undefined}
       />
     );
@@ -449,7 +449,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
                 event.stopPropagation();
                 unpinNote(note.id);
               }}
-              className="shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
+              className="-m-0.5 shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
             >
               <Icon name="pushpin-2-fill" className="size-3.5" style={{ color: 'var(--primary)' }} />
             </button>
@@ -471,7 +471,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
                 event.stopPropagation();
                 unpinPlan(plan.id);
               }}
-              className="shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
+              className="-m-0.5 shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
             >
               <Icon name="pushpin-2-fill" className="size-3.5" style={{ color: 'var(--primary)' }} />
             </button>

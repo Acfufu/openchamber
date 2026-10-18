@@ -100,7 +100,7 @@ export const WorkStatusCollapsibleSection: React.FC<{
           {iconNode ?? (icon ? (
             <Icon
               name={icon}
-              className={cn('size-4 shrink-0', !iconColor && 'text-muted-foreground')}
+              className={cn('size-3.5 shrink-0', !iconColor && 'text-muted-foreground')}
               style={iconColor ? { color: iconColor } : undefined}
             />
           ) : null)}
@@ -158,7 +158,7 @@ export const WorkStatusRow: React.FC<RowProps> = ({
       {leading ?? (icon ? (
         <Icon
           name={icon}
-          className={cn('size-4 shrink-0', !iconColor && 'text-muted-foreground')}
+          className={cn('size-3.5 shrink-0', !iconColor && 'text-muted-foreground')}
           style={iconColor ? { color: iconColor } : undefined}
         />
       ) : null)}
@@ -293,7 +293,7 @@ export const WorkStatusCallout: React.FC<{ children: React.ReactNode }> = ({ chi
     className="mx-1 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium"
     style={{ backgroundColor: 'var(--status-warning-background)', color: 'var(--status-warning)' }}
   >
-    <Icon name="alert" className="size-4 shrink-0" />
+    <Icon name="alert" className="size-3.5 shrink-0" />
     <span className="min-w-0 truncate">{children}</span>
   </div>
 );
