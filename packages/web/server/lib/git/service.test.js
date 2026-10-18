@@ -61,6 +61,7 @@ import {
   applyHunk,
   getDiff,
   getPathDiff,
+  getPathDiffs,
   revertFile,
   getUntrackedDiffs,
   getFileDiff,
@@ -889,6 +890,49 @@ describe.runIf(canRunGit())('diffs for status paths that are not plain files', (
     }
     await expect(revertFile(repository, 'nested/')).rejects.toMatchObject({ code: 'nested_repository' });
     expect(fs.existsSync(path.join(nested, 'inner.txt'))).toBe(true);
+  });
+
+  it('answers a batch of paths with what each single-path read gives', async () => {
+    const { repository } = createRepositoryWithRemote();
+    fs.writeFileSync(path.join(repository, 'README.md'), '# Test\nchanged\n');
+    fs.writeFileSync(path.join(repository, 'new.txt'), 'fresh\n');
+    fs.writeFileSync(path.join(repository, 'staged.txt'), 'staged\n');
+    runGit(repository, ['add', 'staged.txt']);
+    const nested = path.join(repository, 'nested');
+    fs.mkdirSync(nested);
+    runGit(nested, ['init', '-b', 'main']);
+
+    const routes = new Map();
+    registerGitRoutes({ get() {}, post: (url, handler) => routes.set(url, handler), put() {}, delete() {} });
+    const postDiffs = async (body) => {
+      let status = 200;
+      let payload;
+      await routes.get('/api/git/diffs')({ query: { directory: repository }, body }, {
+        status(value) { status = value; return this; },
+        json(value) { payload = value; },
+      });
+      return { status, payload };
+    };
+
+    const paths = ['README.md', 'new.txt', 'removed.txt', 'nested/'];
+    const { status, payload } = await postDiffs({ paths, context: 3 });
+    expect(status).toBe(200);
+    expect(payload.diffs.map((entry) => entry.path)).toEqual(paths);
+    for (const filePath of ['README.md', 'new.txt']) {
+      const single = await getPathDiff(repository, { path: filePath, contextLines: 3 });
+      expect(payload.diffs.find((entry) => entry.path === filePath)).toEqual({ path: filePath, ...single });
+    }
+    expect(payload.diffs[2]).toMatchObject({ path: 'removed.txt', code: 'path_not_found' });
+    expect(payload.diffs[3]).toMatchObject({ path: 'nested/', code: 'nested_repository' });
+
+    // The service answers the same entries in input order, whatever finishes first.
+    expect(await getPathDiffs(repository, { paths, contextLines: 3, concurrency: 2 })).toEqual(payload.diffs);
+
+    const stagedBatch = await postDiffs({ paths: ['staged.txt'], staged: true });
+    expect(stagedBatch.payload.diffs[0]).toEqual({ path: 'staged.txt', ...(await getPathDiff(repository, { path: 'staged.txt', staged: true })) });
+
+    expect((await postDiffs({ paths: [] })).status).toBe(400);
+    expect((await postDiffs({ paths: ['ok', 7] })).status).toBe(400);
   });
 
   it('describes a submodule whose checked-out commit moved', async () => {

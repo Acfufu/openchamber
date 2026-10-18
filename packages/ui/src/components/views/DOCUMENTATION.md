@@ -86,7 +86,13 @@ whitespace mode, a file's full contents once its collapsed context was
 expanded, a pull request file rebuilt from both sides. A nested repository's row
 resolves to that repository's files, read from that repository and keyed by the
 row path plus their own path, the key their viewers register under. Reads run
-one at a time while the bar is open, and the active match is followed by what it
+one at a time while the bar is open, but on the local scopes the first one asks
+`getGitDiffs` for every file of its side and context in one request
+(`diffFind/findDiffBatch.ts`) and the reads after it are answered from that
+answer while their revision holds; a failed batch, a path it leaves out, or a
+runtime without `getGitDiffs` (VS Code) falls back to the file's own read. The
+range and turn scopes already hold their diffs and read nothing new. While
+files are still being read the total reads `12+`. The active match is followed by what it
 points at, so a file landing or re-read ahead of it does not move the view. A read that fails is counted in the bar
 and read again the next time the bar opens, so one unreadable file never turns
 into a silent zero. A file Git no longer has, or a folder it keeps as one row,

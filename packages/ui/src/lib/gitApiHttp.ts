@@ -4,6 +4,8 @@ import type {
   GitStatus,
   GitDiffResponse,
   GetGitDiffOptions,
+  GetGitDiffsOptions,
+  GitPathDiffBatchEntry,
   GetGitRangeDiffOptions,
   GetGitRangeFilesOptions,
   GetGitCommitDiffOptions,
@@ -82,6 +84,12 @@ const gitLogSchema = z.object({ all: z.array(gitLogEntrySchema), latest: gitLogE
 
 // Servers before #3586 send no `submodule`; that means "not known to be one".
 const gitPathDiffSchema = z.object({ diff: z.string(), submodule: gitSubmoduleStateSchema.nullable().default(null) });
+const gitPathDiffsSchema = z.object({
+  diffs: z.array(z.union([
+    z.object({ path: z.string(), diff: z.string(), submodule: gitSubmoduleStateSchema.nullable().default(null) }),
+    z.object({ path: z.string(), error: z.string(), code: z.enum(['path_not_found', 'nested_repository', 'untracked_directory']).nullable() }),
+  ])),
+});
 const gitFileDiffSchema = z.object({
   original: z.string(),
   modified: z.string(),
@@ -1177,6 +1185,30 @@ export async function getGitDiff(directory: string, options: GetGitDiffOptions):
   }
 
   return gitPathDiffSchema.parse(await response.json());
+}
+
+// The route's per-request bound; a longer list goes out in several requests.
+const GIT_DIFFS_MAX_PATHS = 1000;
+
+export async function getGitDiffs(directory: string, options: GetGitDiffsOptions): Promise<GitPathDiffBatchEntry[]> {
+  const { paths, staged, contextLines } = options;
+  const entries: GitPathDiffBatchEntry[] = [];
+  for (let start = 0; start < paths.length; start += GIT_DIFFS_MAX_PATHS) {
+    const response = await runtimeFetch(buildUrl(`${API_BASE}/diffs`, directory), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths: paths.slice(start, start + GIT_DIFFS_MAX_PATHS), staged: staged === true, context: contextLines }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to get git diffs: ${response.statusText}`);
+    }
+    for (const entry of gitPathDiffsSchema.parse(await response.json()).diffs) {
+      entries.push('diff' in entry
+        ? { path: entry.path, ok: true, diff: { diff: entry.diff, submodule: entry.submodule } }
+        : { path: entry.path, ok: false, error: entry.error, reason: entry.code });
+    }
+  }
+  return entries;
 }
 
 export async function getGitRangeDiff(

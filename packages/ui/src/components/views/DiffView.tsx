@@ -21,7 +21,7 @@ import { branchPathRevisions, coerceDiffScope, isBranchScopeAvailable, isBranchS
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { cn } from '@/lib/utils';
 import { normalizePath } from '@/lib/pathNormalization';
-import type { GitStatus, GitSubmoduleState } from '@/lib/api/types';
+import type { GitPathDiffBatchEntry, GitStatus, GitSubmoduleState } from '@/lib/api/types';
 import { GitPathUnavailableError, type GitPathUnavailableReason } from '@/lib/api/git-path-diff';
 import { SubmoduleDiffSummary } from './SubmoduleDiffSummary';
 import {
@@ -86,6 +86,7 @@ import type { DiffFindMatch } from '@/lib/diff/diffFind';
 import { DiffFindBar } from './diffFind/DiffFindBar';
 import { resolveFindDiff, useDiffFind, type DiffFindLayout, type DiffFindNestedSources, type DiffFindSource } from './diffFind/useDiffFind';
 import { useDiffFindSurface } from './diffFind/useDiffFindSurface';
+import { createFindDiffBatchReader } from './diffFind/findDiffBatch';
 
 // Minimum width for side-by-side diff view (px)
 const SIDE_BY_SIDE_MIN_WIDTH = 1100;
@@ -2660,6 +2661,35 @@ export const DiffView: React.FC<DiffViewProps> = ({
         };
     }, [diffHideWhitespace, effectiveDirectory, git]);
 
+    // The bar reads files one at a time; the first local read asks for every
+    // file of its side and context in one request (`findDiffBatch.ts`), and a
+    // runtime without the batched read (VS Code) reads each file on its own.
+    const [readFindDiffBatch] = React.useState(createFindDiffBatchReader);
+    const diffFindSourcesRef = React.useRef<readonly DiffFindSource[]>([]);
+    const readBatchedDiffForFind = React.useCallback((
+        directory: string,
+        filePath: string,
+        revision: string,
+        staged: boolean,
+        fullContext: boolean,
+    ): Promise<GitPathDiffBatchEntry | null> => {
+        if (!git.getGitDiffs) return Promise.resolve(null);
+        const peers = diffFindSourcesRef.current
+            .filter((source) => !isImageFile(source.filePath)
+                && getFileStaged(source.filePath) === staged
+                && findFullContextFiles.has(source.filePath) === fullContext)
+            .map((source) => ({ filePath: source.filePath, revision: source.revision ?? '' }));
+        return readFindDiffBatch({
+            directory,
+            filePath,
+            revision,
+            staged,
+            contextLines: fullContext ? FULL_CONTEXT_DIFF_LINES : DEFAULT_CONTEXT_DIFF_LINES,
+            peers,
+            getGitDiffs: (target, options) => git.getGitDiffs?.(target, options) ?? Promise.resolve([]),
+        });
+    }, [findFullContextFiles, getFileStaged, git, readFindDiffBatch]);
+
     const loadFileDiffForFind = React.useCallback(async (
         file: FileEntry,
         revision: string,
@@ -2695,7 +2725,11 @@ export const DiffView: React.FC<DiffViewProps> = ({
         const contextLines = fullContext ? FULL_CONTEXT_DIFF_LINES : DEFAULT_CONTEXT_DIFF_LINES;
         let response: Awaited<ReturnType<typeof git.getGitDiff>>;
         try {
-            response = await git.getGitDiff(effectiveDirectory, { path: filePath, staged, contextLines });
+            const batched = await readBatchedDiffForFind(effectiveDirectory, filePath, revision, staged, fullContext);
+            if (batched && !batched.ok && batched.reason) throw new GitPathUnavailableError(batched.error, batched.reason);
+            response = batched?.ok
+                ? batched.diff
+                : await git.getGitDiff(effectiveDirectory, { path: filePath, staged, contextLines });
         } catch (error) {
             if (!(error instanceof GitPathUnavailableError)) throw error;
             if (error.reason === 'nested_repository') return readNestedRepositoryForFind(filePath, getLayoutForFile(file), revision);
@@ -2705,7 +2739,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
         }
         const next = { ...createTextDiffDataFromPatch(filePath, response.diff, fullContext ? 'full' : 'patch'), submodule: response.submodule };
         return resolveFindDiff(diffDataToFileDiff(filePath, next), diffHideWhitespace);
-    }, [activeDiffScope, comparisonDiffData, diffHideWhitespace, effectiveDirectory, fetchComparisonDiffEntry, findFullContextFiles, getFileStaged, getLayoutForFile, git, lastTurnDiffData, loadFullComparisonDiff, readNestedRepositoryForFind]);
+    }, [activeDiffScope, comparisonDiffData, diffHideWhitespace, effectiveDirectory, fetchComparisonDiffEntry, findFullContextFiles, getFileStaged, getLayoutForFile, git, lastTurnDiffData, loadFullComparisonDiff, readBatchedDiffForFind, readNestedRepositoryForFind]);
 
     // `diffFindSources` must stay identity-stable across renders, so `load`
     // reads the latest reader through this ref instead of capturing it.
@@ -2748,6 +2782,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
         [changedFiles, diffHideWhitespace, fileDiffRefreshNonce, findFullContextFiles, findRangeEntries, findTurnEntries, findUsesLocalRead, getFileStaged, getLayoutForFile, workingTreeRevision],
     );
 
+    diffFindSourcesRef.current = diffFindSources;
     const diffFind = useDiffFind({ sources: diffFindSources });
 
     // Bumped with each jump so the entry holding the match renders it even when

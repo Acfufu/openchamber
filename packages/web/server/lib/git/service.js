@@ -3326,6 +3326,43 @@ export async function getPathDiff(directory, { path: filePath, staged = false, c
   return { diff, submodule: await readSubmoduleState(context.repoRoot, fileContext) };
 }
 
+const GIT_PATH_ERROR_CODES = new Set(['path_not_found', 'nested_repository', 'untracked_directory']);
+
+/**
+ * `getPathDiff` for many paths of one side, resolving the repository once and
+ * running a bounded number of reads at a time. Returns one entry per input
+ * path, in order: `{ path, diff, submodule }`, or `{ path, error, code }` where
+ * `code` is a path error code when the path no longer resolves. One failed
+ * path never fails the others.
+ */
+export async function getPathDiffs(directory, { paths: filePaths = [], staged = false, contextLines = 3, concurrency = 8 } = {}) {
+  const paths = Array.isArray(filePaths) ? filePaths : [];
+  if (paths.length === 0) return [];
+
+  const context = await createRepositoryGitContext(directory);
+  const results = new Array(paths.length);
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < paths.length) {
+      const index = cursor++;
+      const filePath = paths[index];
+      try {
+        const fileContext = await resolveGitFileContext(context.directoryPath, context.directoryGit, filePath, context.repoRoot);
+        const diff = await readDiff(context, fileContext, { staged, contextLines });
+        const submodule = fileContext.isSubmodule ? await readSubmoduleState(context.repoRoot, fileContext) : null;
+        results[index] = { path: filePath, diff, submodule };
+      } catch (error) {
+        const code = GIT_PATH_ERROR_CODES.has(error?.code) ? error.code : null;
+        results[index] = { path: filePath, error: error?.message || 'Failed to get git diff', code };
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, paths.length) }, worker));
+  return results;
+}
+
 async function readDiff({ repoRoot, git }, fileContext, { staged, contextLines }) {
   try {
     const args = ['diff', '--no-color', '--full-index', '--no-ext-diff'];
