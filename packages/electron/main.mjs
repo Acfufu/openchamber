@@ -5791,8 +5791,10 @@ const buildAutoHiddenMenu = (locale = 'en') => {
         { label: t('back'), accelerator: 'Ctrl+[', click: () => dispatchAction('go-back') },
         { label: t('forward'), accelerator: 'Ctrl+]', click: () => dispatchAction('go-forward') },
         { type: 'separator' },
-        { label: t('previousSession'), accelerator: 'Alt+Up', click: () => dispatchAction('previous-session') },
-        { label: t('nextSession'), accelerator: 'Alt+Down', click: () => dispatchAction('next-session') },
+        // No accelerator: Alt+Up/Down duplicated the customizable Ctrl+Alt+Left/Right
+        // session shortcuts and leaked out of views that use Alt+arrows themselves.
+        { label: t('previousSession'), click: () => dispatchAction('previous-session') },
+        { label: t('nextSession'), click: () => dispatchAction('next-session') },
         { type: 'separator' },
         { label: t('previousProject'), accelerator: 'Ctrl+Alt+Up', click: () => dispatchAction('previous-project') },
         { label: t('nextProject'), accelerator: 'Ctrl+Alt+Down', click: () => dispatchAction('next-project') },
