@@ -134,6 +134,15 @@ picker shrinks past its icons. Only while the pickers still overflow their slot
 does the sync button drop its word, and at the narrowest widths its counts;
 its tooltip names both. The panel keeps its 320 px minimum.
 
+The Changes toolbar (`DiffView`) drops its labels first, then, only while the
+row still overflows (a picker cut down to its icon does not count), moves its
+view options into "More actions" from the end: side-by-side, whitespace, line
+wrap, the tree view, and last, when the row still does not fit (a repository
+picker at 320 px), the walkthrough, which the rail opens as well. The fit sets
+one attribute per moved
+control; the menu reads them when it opens and shows a check beside each view
+option that is on.
+
 ## Large text files
 
 The 200,000-character threshold selects an initial code preview, not read-only

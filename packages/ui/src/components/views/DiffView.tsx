@@ -16,7 +16,7 @@ import { branchRefLabel } from '@/components/views/git/baseBranch';
 import { useGitStore, useGitStatus, useIsGitRepo, useGitLoadingStatus } from '@/stores/useGitStore';
 import { useGitBaseBranchStore } from '@/stores/useGitBaseBranchStore';
 import { useBranchComparisonBase } from '@/hooks/useBranchComparisonBase';
-import { useDiffToolbarFit } from '@/components/views/useDiffToolbarFit';
+import { DIFF_TOOLBAR_MENU_STEPS, useDiffToolbarFit } from '@/components/views/useDiffToolbarFit';
 import { branchPathRevisions, coerceDiffScope, isBranchScopeAvailable, isBranchScopeDefinitelyUnavailable, useRangeKeyedCache, useBoundedDirectoryRetry } from './branchDiffScope';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { cn } from '@/lib/utils';
@@ -27,11 +27,13 @@ import { SubmoduleDiffSummary } from './SubmoduleDiffSummary';
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuItem,
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { statusToGitCode, type TurnSnapshotDiff } from './turnSnapshotDiff';
 import { toast } from '@/components/ui';
 
@@ -1620,6 +1622,16 @@ export const DiffView: React.FC<DiffViewProps> = ({
     const inPanelHeader = useInContextPanelHeader();
     const toolbarRef = React.useRef<HTMLDivElement | null>(null);
     useDiffToolbarFit(toolbarRef);
+    // The view options the toolbar moved into "More actions", read when the
+    // menu opens: the fit sets them as attributes on the row.
+    const [toolbarMenuOptions, setToolbarMenuOptions] = React.useState<ReadonlyArray<keyof typeof DIFF_TOOLBAR_MENU_STEPS>>([]);
+    const handleToolbarMenuOpenChange = React.useCallback((open: boolean) => {
+        if (!open) return;
+        const toolbar = toolbarRef.current;
+        setToolbarMenuOptions((['walkthrough', 'tree', 'wrap', 'whitespace', 'layout'] as const).filter(
+            (option) => toolbar?.hasAttribute(DIFF_TOOLBAR_MENU_STEPS[option]) ?? false,
+        ));
+    }, []);
     const { git, files, sourceControl } = useRuntimeAPIs();
     const panelDirectory = useEffectiveDirectory();
     const foreign = Boolean(targetDirectory);
@@ -3105,6 +3117,69 @@ export const DiffView: React.FC<DiffViewProps> = ({
         return renderStackedDiffView();
     };
 
+    const showWalkthroughButton = changedFiles.length > 0 && showWalkthroughAction && (activeDiffScope !== 'pr' || Boolean(pullRequestContext));
+    const openWalkthrough = () => {
+        // Carry the scope across: opening the walkthrough
+        // while looking at staged changes should review
+        // staged changes, not whatever the panel showed last.
+        const directory = effectiveDirectory ?? '';
+        const localSource: WalkthroughTarget = {
+            source: activeDiffScope === 'commit' && selectedCommitHash ? {
+                kind: 'commit', hash: selectedCommitHash,
+            } : activeDiffScope === 'branch' && qualifiedBranchBase && currentBranch ? {
+                kind: 'branch',
+                baseRef: qualifiedBranchBase,
+                headRef: currentBranch,
+            } : {
+                kind: 'working-tree',
+                scope: activeDiffScope === 'staged' || activeDiffScope === 'working'
+                    ? activeDiffScope
+                    : 'all',
+            },
+        };
+        requestWalkthroughTarget(directory, activeDiffScope === 'pr' && selectedPr && pullRequestContext
+            ? { source: selectedPr, context: pullRequestContext }
+            : localSource);
+        if (foreign && panelDirectory) openContextPanelTab(panelDirectory, { mode: 'walkthrough', targetDirectory: rootDirectory });
+        else openContextSurface(rootDirectory ?? directory, 'walkthrough');
+    };
+
+    // A control moved into "More actions" as a menu item; a view option shows
+    // a check while it is on. Null when the row does not show that control.
+    const toolbarMenuItem = (option: keyof typeof DIFF_TOOLBAR_MENU_STEPS) => {
+        switch (option) {
+            case 'walkthrough':
+                if (!showWalkthroughButton) return null;
+                return { label: t('walkthrough.action.open'), icon: <Icon name="route" className="size-4" />, on: false, select: openWalkthrough };
+            case 'tree':
+                if (isMobileLayout) return null;
+                return {
+                    label: t('diffView.fileTree.showAsTree'),
+                    icon: <Icon name="node-tree" className="size-4" />,
+                    on: diffFileListMode === 'tree',
+                    select: () => setDiffFileListMode(diffFileListMode === 'tree' ? 'flat' : 'tree'),
+                };
+            case 'wrap':
+                return { label: t('diffView.actions.wrapLines'), icon: <Icon name="text-wrap" className="size-4" />, on: diffWrapLines, select: () => setDiffWrapLines(!diffWrapLinesStore) };
+            case 'whitespace':
+                return {
+                    label: t('diffView.actions.hideWhitespace'),
+                    icon: <WhitespaceToggleIcon hidden={diffHideWhitespace} className="size-4" />,
+                    on: diffHideWhitespace,
+                    select: () => setDiffHideWhitespace(!diffHideWhitespace),
+                };
+            case 'layout': {
+                const sideBySide = currentLayoutForAllFiles === 'side-by-side';
+                return {
+                    label: t('diffView.layout.sideBySide'),
+                    icon: <Icon name="layout-column" className="size-4" />,
+                    on: sideBySide,
+                    select: () => handleHeaderLayoutChange(sideBySide ? 'unified' : 'side-by-side'),
+                };
+            }
+        }
+    };
+
     return (
         <div ref={diffRootRef} data-find-surface="" className="flex h-full flex-col overflow-hidden bg-background">
             <ContextPanelHeaderToolbar>
@@ -3220,35 +3295,11 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         </span>
                     </Button>
                 )}
-                {changedFiles.length > 0 && showWalkthroughAction && (activeDiffScope !== 'pr' || pullRequestContext) && (
+                {showWalkthroughButton && (
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                            // Carry the scope across: opening the walkthrough
-                            // while looking at staged changes should review
-                            // staged changes, not whatever the panel showed last.
-                            const directory = effectiveDirectory ?? '';
-                            const localSource: WalkthroughTarget = {
-                                source: activeDiffScope === 'commit' && selectedCommitHash ? {
-                                    kind: 'commit', hash: selectedCommitHash,
-                                } : activeDiffScope === 'branch' && qualifiedBranchBase && currentBranch ? {
-                                    kind: 'branch',
-                                    baseRef: qualifiedBranchBase,
-                                    headRef: currentBranch,
-                                } : {
-                                    kind: 'working-tree',
-                                    scope: activeDiffScope === 'staged' || activeDiffScope === 'working'
-                                        ? activeDiffScope
-                                        : 'all',
-                                },
-                            };
-                            requestWalkthroughTarget(directory, activeDiffScope === 'pr' && selectedPr && pullRequestContext
-                                ? { source: selectedPr, context: pullRequestContext }
-                                : localSource);
-                            if (foreign && panelDirectory) openContextPanelTab(panelDirectory, { mode: 'walkthrough', targetDirectory: rootDirectory });
-                            else openContextSurface(rootDirectory ?? directory, 'walkthrough');
-                        }}
+                        onClick={openWalkthrough}
                         className={cn('diff-toolbar__walkthrough-button h-7 flex-shrink-0 gap-1.5 px-2', WALKTHROUGH_ACTION_CLASS)}
                         aria-label={t('walkthrough.action.open')}
                     >
@@ -3265,7 +3316,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         onClick={() => setDiffFileListMode(diffFileListMode === 'tree' ? 'flat' : 'tree')}
                         aria-pressed={diffFileListMode === 'tree'}
                         className={cn(
-                            'h-5 w-5 flex-shrink-0 p-0 transition-opacity',
+                            'diff-toolbar__tree-toggle h-5 w-5 flex-shrink-0 p-0 transition-opacity',
                             diffFileListMode === 'tree' ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-60 hover:opacity-100'
                         )}
                         title={diffFileListMode === 'tree' ? t('diffView.fileTree.showAsList') : t('diffView.fileTree.showAsTree')}
@@ -3279,7 +3330,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         size="sm"
                         onClick={() => setDiffWrapLines(!diffWrapLinesStore)}
                         className={cn(
-                            'h-5 w-5 flex-shrink-0 p-0 transition-opacity',
+                            'diff-toolbar__wrap-toggle h-5 w-5 flex-shrink-0 p-0 transition-opacity',
                             diffWrapLines ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-60 hover:opacity-100'
                         )}
                         title={diffWrapLines ? t('diffView.actions.disableLineWrap') : t('diffView.actions.enableLineWrap')}
@@ -3294,7 +3345,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         onClick={() => setDiffHideWhitespace(!diffHideWhitespace)}
                         aria-pressed={diffHideWhitespace}
                         className={cn(
-                            'h-5 w-5 flex-shrink-0 p-0 transition-opacity',
+                            'diff-toolbar__whitespace-toggle h-5 w-5 flex-shrink-0 p-0 transition-opacity',
                             diffHideWhitespace ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-60 hover:opacity-100'
                         )}
                         title={diffHideWhitespace ? t('diffView.whitespace.hidden') : t('diffView.whitespace.shown')}
@@ -3307,8 +3358,42 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     <DiffViewToggle
                         mode={currentLayoutForAllFiles === 'side-by-side' ? 'side-by-side' : 'unified'}
                         onModeChange={handleHeaderLayoutChange}
-                        className="flex-shrink-0"
+                        className="diff-toolbar__layout-toggle flex-shrink-0"
                     />
+                )}
+                {changedFiles.length > 0 && (
+                    <DropdownMenu onOpenChange={handleToolbarMenuOpenChange}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="diff-toolbar__more flex-shrink-0">
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="size-6 p-0 text-foreground hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
+                                            aria-label={t('diffView.actions.moreActions')}
+                                        >
+                                            <Icon name="more" className="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" sideOffset={6}>{t('diffView.actions.moreActions')}</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="end" className="min-w-56">
+                            {toolbarMenuOptions.map((option) => {
+                                const item = toolbarMenuItem(option);
+                                if (!item) return null;
+                                return (
+                                    <DropdownMenuItem key={option} className="flex items-center gap-2" onClick={item.select}>
+                                        {item.icon}
+                                        <span className="min-w-0 truncate typography-ui-label text-foreground">{item.label}</span>
+                                        {item.on ? <Icon name="check" className="ms-auto size-4 text-foreground" /> : null}
+                                    </DropdownMenuItem>
+                                );
+                            })}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
             </div>
             </ContextPanelHeaderToolbar>
