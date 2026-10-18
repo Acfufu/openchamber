@@ -76,6 +76,37 @@ describe('OpenChamber control service', () => {
     }));
   });
 
+  it('searches the model catalog the way the picker shows it', async () => {
+    const model = (providerID, id, released, family) => ({
+      providerID, id, name: id, family, time: { released }, variants: [{ id: 'high' }], cost: [], status: 'active',
+    });
+    const { service, client } = createService({
+      readSettingsFromDiskMigrated: vi.fn(async () => ({
+        favoriteModels: [{ providerID: 'b', modelID: 'old' }],
+        recentModels: [],
+        hiddenModels: [{ providerID: 'a', modelID: 'secret' }],
+      })),
+    });
+    client.model = { list: vi.fn(async () => ({ data: [
+      model('a', 'new', 3, 'fam'), model('a', 'older', 2, 'fam'), model('a', 'secret', 4),
+      model('b', 'old', 1, 'bfam'), model('b', 'newer', 5, 'bfam'),
+    ] })) };
+    client.provider = { list: vi.fn(async () => ({ data: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }] })) };
+
+    const first = await service.execute('models.search', {}, '/repo');
+    // The favorite leads, a hidden model never shows, older versions fold into their family.
+    expect(first.models.map(({ id }) => id)).toEqual(['b/old', 'a/new', 'b/newer']);
+    expect(first.models[0]).toMatchObject({ preference: 'favorite', provider: 'Beta', variants: ['high'] });
+    expect(first.models[1].preference).toBeUndefined();
+    expect(first.total).toBe(3);
+
+    const all = await service.execute('models.search', { all: true, provider: 'alpha' }, '/repo');
+    expect(all.models.map(({ id }) => id)).toEqual(['a/new', 'a/older']);
+
+    const paged = await service.execute('models.search', { query: 'NEW', limit: 1 }, '/repo');
+    expect(paged).toMatchObject({ models: [{ id: 'a/new' }], total: 2, next: 1 });
+  });
+
   it('maps schedule creation into the shared scheduled-task service', async () => {
     const { service, scheduledTaskService } = createService();
     scheduledTaskService.upsert.mockResolvedValue({ task: { id: 'task-1' }, created: true });

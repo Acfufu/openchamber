@@ -733,6 +733,9 @@ export const createSettingsHelpers = (dependencies) => {
     if (typeof candidate.agentControlToolEnabled === 'boolean') {
       result.agentControlToolEnabled = candidate.agentControlToolEnabled;
     }
+    if (candidate.agentScheduleToolEnabled === true || candidate.agentScheduleToolEnabled === false) {
+      result.agentScheduleToolEnabled = candidate.agentScheduleToolEnabled;
+    }
     if (typeof candidate.agentMemoryToolEnabled === 'boolean') {
       result.agentMemoryToolEnabled = candidate.agentMemoryToolEnabled;
     }

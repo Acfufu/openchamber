@@ -406,8 +406,8 @@ const MAX_TEXT_LENGTH = 120
 
 const OPENCHAMBER_RENDER_TOOL = "openchamber_render"
 
-/** The control, browser, memory, knowledge, notify and render tools OpenChamber gives every session. */
-const OPENCHAMBER_TOOLS = new Set(["openchamber", "openchamber_web", "openchamber_memory", "openchamber_knowledge", "openchamber_notify", OPENCHAMBER_RENDER_TOOL])
+/** The control, schedule, browser, memory, knowledge, notify and render tools OpenChamber gives every session. */
+const OPENCHAMBER_TOOLS = new Set(["openchamber", "openchamber_schedule", "openchamber_web", "openchamber_memory", "openchamber_knowledge", "openchamber_notify", OPENCHAMBER_RENDER_TOOL])
 
 /**
  * The action an OpenChamber tool call ran and the one detail that tells calls

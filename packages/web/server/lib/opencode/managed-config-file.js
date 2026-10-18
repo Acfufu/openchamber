@@ -79,6 +79,7 @@ export const createManagedConfigRuntime = ({
   const materializeEnabledPlugins = async () => {
     const settings = await Promise.resolve(readSettings()).catch(() => null);
     const includeControl = settings?.agentControlToolEnabled !== false;
+    const includeSchedule = settings?.agentScheduleToolEnabled !== false;
     const includeWeb = settings?.agentWebToolEnabled !== false;
     const includeMemory = isAgentMemoryAvailable() && settings?.agentMemoryToolEnabled === true;
     const includeKnowledge = settings?.agentKnowledgeToolEnabled !== false;
@@ -87,8 +88,8 @@ export const createManagedConfigRuntime = ({
     const codeMode = settings?.agentToolsCodeMode === true;
 
     const directories = [];
-    if (agentToolRuntime && (includeControl || includeWeb || includeMemory || includeKnowledge || includeNotify || includeRender)) {
-      directories.push(await agentToolRuntime.materializePlugin({ includeControl, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode }));
+    if (agentToolRuntime && (includeControl || includeSchedule || includeWeb || includeMemory || includeKnowledge || includeNotify || includeRender)) {
+      directories.push(await agentToolRuntime.materializePlugin({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode }));
     }
     return directories;
   };

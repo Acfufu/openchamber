@@ -153,6 +153,9 @@
     "agentControlToolEnabled": {
       "scope": "instance"
     },
+    "agentScheduleToolEnabled": {
+      "scope": "instance"
+    },
     "agentWebToolEnabled": {
       "scope": "instance"
     },

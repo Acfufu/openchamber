@@ -13,25 +13,6 @@ export const RENDER_PAGE_MAX_TITLE_LENGTH = 120;
 const RENDER_PAGE_MAX_SUMMARY_LENGTH = 500;
 const RENDER_PAGE_MAX_ANSWER_DATA_LENGTH = 16_000;
 
-/**
- * When a page beats prose, and when it does not. Both the tool description
- * and the line every session carries (../session-knowledge/runtime.js) state
- * it. Stated only in the tool description, it went unread: asked for a
- * breakdown of lines of code per package, an agent answered with a list and
- * drew the chart only when asked. Interface mockups are named on their own:
- * listed only as data, the cases read to a literal model as "charts only",
- * while a proposed UI change is where a page helps most. The limits matter as
- * much as the cases: a page for two numbers is worse than a sentence.
- */
-export const RENDER_PAGE_WHEN = "Use it when the answer is mostly data or structure the user would otherwise have to picture:"
-  + " numbers compared across several items (sizes, counts, timings, costs, test or benchmark results),"
-  + " a breakdown or share of a whole, a trend over time, options compared on several criteria,"
-  + " a timeline of events, or how components connect."
-  + " Use it too when the answer is about how something looks: a proposed interface change shown as it would appear,"
-  + " before and after side by side, or layout options to choose between."
-  + " Do not use it for a few numbers or a short list that reads fine as text, for code, or when the user asked for plain text."
-  + " At most one page per answer.";
-
 // A local image a page names by its absolute path: a quoted string (an src
 // attribute, a CSS url("..."), a string in the page's script) or an unquoted
 // CSS url(...). The chat swaps each for the file's contents before drawing the

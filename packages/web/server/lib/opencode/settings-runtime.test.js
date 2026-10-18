@@ -107,6 +107,23 @@ describe('settings runtime', () => {
     }
   });
 
+  it('keeps scheduling off for someone who had switched the control tool off', async () => {
+    const { runtime, cleanup } = await createRuntime();
+    try {
+      await runtime.persistSettings({ agentControlToolEnabled: false });
+      expect(await runtime.readSettingsFromDiskMigrated()).toMatchObject({ agentControlToolEnabled: false, agentScheduleToolEnabled: false });
+
+      // A choice made after the split stays.
+      await runtime.persistSettings({ agentControlToolEnabled: false, agentScheduleToolEnabled: true });
+      expect((await runtime.readSettingsFromDiskMigrated()).agentScheduleToolEnabled).toBe(true);
+
+      await runtime.persistSettings({ agentControlToolEnabled: true });
+      expect(await runtime.readSettingsFromDiskMigrated()).not.toHaveProperty('agentScheduleToolEnabled');
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('turns a stored last directory into a project only while one is stored', async () => {
     const { runtime, tempRoot, cleanup } = await createRuntime();
     try {

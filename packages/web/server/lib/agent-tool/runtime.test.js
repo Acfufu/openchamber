@@ -44,15 +44,16 @@ const prepareManagedEnv = async (runtime, options) => {
 };
 
 /** Loads the generated plugin and returns the tools it registers, by name. */
-// `hooks` collects the session hooks the plugin registers, by name.
-const loadTools = async (dataDir, tag, hooks = {}) => {
+// `hooks` collects the session hooks the plugin registers, by name, and
+// `removed` the ids of OpenCode's own tools it takes away.
+const loadTools = async (dataDir, tag, hooks = {}, removed = []) => {
   const entrypoint = path.join(pluginDirectoryFor(dataDir), 'index.js');
   const pluginModule = await import(`${pathToFileURL(entrypoint).href}?${tag}=${Date.now()}`);
   const registered = {};
   await pluginModule.default.setup({
     tool: {
       transform: (edit) => {
-        edit({ add: (tool) => { registered[tool.name] = tool; } });
+        edit({ add: (tool) => { registered[tool.name] = tool; }, remove: (id) => { removed.push(id); } });
       },
     },
     session: {
@@ -295,7 +296,7 @@ describe('managed agent tool runtime', () => {
     expect(tool.openchamber.description).toContain('Whether that fits depends on how the user works');
     expect(tool.openchamber.description).toContain('such as a pull request of its own');
     // OpenCode's own worktree_create makes a detached copy of the current commit.
-    expect(tool.openchamber.description).toContain('Unlike worktree_create, it makes a new branch from the default branch');
+    expect(tool.openchamber.description).toContain('Unlike git worktree add, the session moves along');
     expect(tool.openchamber.description).not.toContain('without asking');
     expect(tool.openchamber.input.properties.action.oneOf.map((entry) => entry.const)).toContain('session.moveToWorktree');
     expect(tool.openchamber.input.properties.parameters.properties.carry).toEqual(expect.objectContaining({ type: 'array' }));
@@ -320,12 +321,12 @@ describe('managed agent tool runtime', () => {
     expect(source).not.toContain('"schedule.status"');
     const tool = await loadTools(dataDir, 'schema');
     expect(tool.openchamber.description).toContain('A dispatch returns at once');
-    expect(tool.openchamber.description).toContain('final answer then arrives in this session as a message');
+    expect(tool.openchamber.description).toContain('returnResult brings its final answer back here');
     // Agents also have OpenCode's own subagent tool; the line between the two is drawn up front.
     expect(tool.openchamber.description).toContain('use the subagent tool');
     expect(tool.openchamber.input.properties.action.oneOf).toContainEqual({
       const: 'session.messages',
-      description: 'Read text-only messages and current sessionStatus for sessionId; directory and limit 10 are defaults',
+      description: 'Text messages and sessionStatus of sessionId',
     });
     // An agent never blocks on a session: no wait or timeout in its schema.
     const controlParameters = tool.openchamber.input.properties.parameters.properties;
@@ -547,7 +548,64 @@ describe('managed agent tool runtime', () => {
     expect(Object.keys(tool)).toEqual(['openchamber', 'openchamber_render']);
     expect(Object.keys(tool.openchamber_render.input.properties.parameters.properties).sort()).toEqual(['awaitAnswer', 'html', 'title']);
     expect(Object.keys(tool.openchamber.input.properties.parameters.properties)).not.toContain('html');
-    expect(tool.openchamber_render.description).toContain('--chart-1');
+    // How to write the page rides on its input, which no client cuts short.
+    expect(tool.openchamber_render.input.properties.parameters.properties.html.description).toContain('--chart-1');
+    expect(tool.openchamber_render.description).toContain('add no outer card, border or banner title');
+  });
+
+  it('takes away the OpenCode tools the control tool replaces, and only while it is on', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    await prepareManagedEnv(runtime, { includeControl: true, includeWeb: false, includeMemory: false });
+    const removed = [];
+    await loadTools(dataDir, 'replaced', {}, removed);
+    expect(removed).toEqual(['opencode_worktree_create', 'opencode_models']);
+
+    await runtime.materializePlugin({ includeControl: false, includeWeb: true });
+    const kept = [];
+    await loadTools(dataDir, 'replaced-off', {}, kept);
+    expect(kept).toEqual([]);
+  });
+
+  it('exposes scheduled tasks as their own tool, out of the control tool', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    await prepareManagedEnv(runtime, { includeControl: true, includeSchedule: true, includeWeb: false, includeMemory: false });
+    const tools = await loadTools(dataDir, 'schedule');
+
+    expect(Object.keys(tools)).toEqual(['openchamber', 'openchamber_schedule']);
+    const scheduleActions = tools.openchamber_schedule.input.properties.action.oneOf.map((entry) => entry.const);
+    expect(scheduleActions).toEqual(['schedule.list', 'schedule.create', 'schedule.update', 'schedule.run', 'schedule.delete', 'schedule.toggle']);
+    expect(tools.openchamber.input.properties.action.oneOf.map((entry) => entry.const).filter((action) => action.startsWith('schedule.'))).toEqual([]);
+    const scheduleParameters = tools.openchamber_schedule.input.properties.parameters.properties;
+    expect(Object.keys(scheduleParameters)).toEqual(expect.arrayContaining(['taskId', 'daily', 'cron', 'prompt', 'model', 'projectId']));
+    for (const field of ['taskId', 'daily', 'cron', 'disabled', 'targetSessionId']) {
+      expect(tools.openchamber.input.properties.parameters.properties).not.toHaveProperty(field);
+    }
+    expect(scheduleParameters.disabled.type).toBe('boolean');
+
+    await runtime.materializePlugin({ includeControl: true, includeSchedule: false });
+    expect(await loadTools(dataDir, 'schedule-disabled')).not.toHaveProperty('openchamber_schedule');
+  });
+
+  it('runs a schedule action from the schedule tool and no longer from the control tool', async () => {
+    const { runtime, executeAction } = await createRuntime();
+    const listed = await runtime.execute({ tool: 'openchamber_schedule', input: { action: 'list' }, sessionID: 'ses_a' });
+    expect(listed.ok).toBe(true);
+    expect(executeAction).toHaveBeenCalledWith('schedule.list', expect.anything(), undefined, expect.anything());
+    const refused = await runtime.execute({ tool: 'openchamber', input: { action: 'schedule.list' }, sessionID: 'ses_a' });
+    expect(refused.ok).toBe(false);
+  });
+
+  it('keeps every tool description within the length Claude Code passes on whole', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    await prepareManagedEnv(runtime, { includeSchedule: true, includeKnowledge: true, includeNotify: true, includeRender: true });
+    const tools = await loadTools(dataDir, 'description-length');
+
+    expect(Object.keys(tools).sort()).toEqual(['openchamber', 'openchamber_knowledge', 'openchamber_memory', 'openchamber_notify', 'openchamber_render', 'openchamber_schedule', 'openchamber_web']);
+    for (const tool of Object.values(tools)) {
+      // Claude Code before 2.1.296 cuts an MCP tool description at 2048
+      // characters, and the plugin runs whichever CLI the user installed.
+      expect(tool.description.length).toBeLessThanOrEqual(2048);
+    }
   });
 
   it('returns the answer a page waited for, or ends the wait when the user writes in the chat', async () => {
