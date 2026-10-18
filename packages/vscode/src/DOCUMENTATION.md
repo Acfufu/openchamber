@@ -312,6 +312,11 @@ When both global files exist, every config entry lookup reads
 wins. This covers MCP servers, agents, and commands: editing or deleting an
 entry updates the file that defines it, and without `OPENCODE_CONFIG` a new
 user-scoped entry goes into the primary config file.
+MCP servers also come from every `opencode.json(c)` and
+`.opencode/opencode.json(c)` OpenCode 2 finds walking up from the project
+folder to the filesystem root, in OpenCode's order (see the web server's
+`getFolderConfigPaths`); those folder files rank above `OPENCODE_CONFIG`, and
+a server from a parent folder is edited and deleted in that parent file.
 An invalid secondary file cannot answer an empty MCP list or a missing-server
 lookup as success; those reads report the parse error instead. An agent or
 command lookup that reaches the global files reports the same error.
