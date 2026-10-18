@@ -1479,7 +1479,10 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                 </div>
             </div>
             {isExpanded && (
-                <div className="relative bg-background overflow-hidden">
+                // Clip, not hidden: a hidden overflow is a scroll box of its
+                // own, and the diff's sticky scrollbar would stick to it
+                // instead of to the panel.
+                <div className="relative bg-background overflow-clip">
                     {!isMounted && !diffLoadFailure ? (
                         <div className="h-40 border border-border/40 bg-background/40" />
                     ) : null}
@@ -2997,13 +3000,14 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     <ScrollableOverlay
                         ref={diffScrollRef}
                         outerClassName="min-h-0 h-full"
-                        className="[overflow-anchor:none] pb-16"
+                        className="[overflow-anchor:none]"
                         disableHorizontal
                         observeMutations={false}
                         preventOverscroll
                         data-diff-virtual-root
                     >
-                        <div className="flex flex-col [overflow-anchor:none]" data-diff-virtual-content>
+                        {/* The end space is the content's: padding on the scroller would hold a diff's sticky scrollbar that far above the panel's bottom. */}
+                        <div className="flex flex-col [overflow-anchor:none] pb-16" data-diff-virtual-content>
                             {isTreeMode
                                 ? treeSelectedFile && renderEntry(treeSelectedFile, true)
                                 : changedFiles.map((file) => renderEntry(file))}

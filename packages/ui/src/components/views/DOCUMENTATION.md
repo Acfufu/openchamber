@@ -257,6 +257,29 @@ a whitespace-only note. Hunk stage and discard actions are withheld meanwhile,
 because they act on the whole hunk, whitespace included. Line numbers do not
 move, so comments and context expansion work unchanged.
 
+## Sticky horizontal scrollbar
+
+Pierre scrolls each code column sideways on its own (two in a split diff, one
+in a unified one), so the columns' scrollbars sit after the last line. The
+inline layout hides them inside the shadow root and draws one track per column
+in `DiffStickyScrollbar`, a `sticky bottom-0` strip after the diff: while the
+diff runs past the bottom of the panel, its scrollbar stays at that bottom.
+Each track and its column copy each other's `scrollLeft`; sizes are read only
+in ResizeObserver callbacks, so vertical scrolling does no work for it.
+
+Sticky elements stick to their nearest scroll box and keep clear of its
+padding. Everything between a diff and the panel that scrolls it therefore
+clips with `overflow: clip`, never `hidden`, and end space below the list is
+padding on the content, not on the scroller (the Changes panel's `pb-16`).
+
+### Why mirrored tracks and not a scroll area per diff
+
+A per-diff scroll area with its own horizontal bar would have to be as tall as
+the panel to keep the bar on screen, which nests a vertical scroll area inside
+the panel's. #213 removed exactly that after nested scroll areas broke
+scrolling in the All files view (#215). The tracks scroll sideways only, so the
+panel stays the one vertical scroller.
+
 Most focused tests use Bun. `MultiFileDiffEntry.vitest.tsx` exercises the real
 diff component through the web workspace's Vitest runner because its transitive
 UI imports require Vite asset transforms. The web test configuration includes
