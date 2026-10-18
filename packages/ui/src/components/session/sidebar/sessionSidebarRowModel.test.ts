@@ -318,6 +318,23 @@ describe('buildSessionSidebarRowModel', () => {
     expect(statusesOf()).toEqual(['loading:project-b:main', 'load-failed:project-c:main']);
   });
 
+  test('Tree rows carry guide lines for an open worktree and session; List rows carry none', () => {
+    const parent = node('parent', [node('child')]);
+    const worktree = group([parent, node('last')], { id: 'wt', label: 'wt', isMain: false, directory: '/wt' });
+    const input = args([project([group([node('root')]), worktree])]);
+    input.expandedParents = new Set(['project:active:parent']);
+    input.sessionOrderIndex = new Map([['root', 0], ['parent', 1], ['last', 2]]);
+    const guidesOf = () => buildSessionSidebarRowModel(input).rows.flatMap((row) => (
+      row.kind === 'session' ? [`${row.node.session.id}:${(row.treeGuides ?? []).map(({ level, end }) => `${level}${end ? '└' : '│'}`).join(' ')}`] : []
+    ));
+
+    expect(guidesOf()).toEqual(['root:', 'parent:1│', 'child:1│ 2└', 'last:1└']);
+
+    input.viewMode = 'timeline';
+    input.timelineItems = [timelineItem('root'), timelineItem('parent')];
+    expect(guidesOf()).toEqual(['root:', 'parent:']);
+  });
+
   test('a collapsed timeline project shows only its header', () => {
     const input = args([project([group([])])]);
     input.viewMode = 'timeline';

@@ -8,6 +8,7 @@ import { buildGroupRenderDescriptors } from './projects/sessionProjectRender';
 import { normalizeFolderRoots, selectFolderIdsForProjection, selectFolderRootNodes, type BlockingBadgeSessionScope } from './sessions/sessionNodeItemUtils';
 import { getSessionFolderIdentityKey, getSessionFolderOwnerKey, getSessionFolderScopes, isArchivedFolderScope } from './sessions/sessionFolderIdentity';
 import type { SessionRowOrderEntry } from './sessions/sessionRowOrder';
+import { computeSessionTreeGuides, type SessionTreeGuide } from './sessions/sessionTreeGeometry';
 import { countSessionTreeQueryMatches } from './recent/activitySections';
 import { EMPTY_MULTI_RUN_INDEX, type MultiRunIndex, type MultiRunSummary } from '@/lib/multirun/runs';
 
@@ -75,7 +76,9 @@ export type SessionSidebarOwnerAuthority = {
   complete: boolean;
 };
 
-type RowBase = { key: string; estimateSize: number };
+// `treeGuides`: the guide lines a Tree row draws over itself, framing the
+// children of an open worktree, folder, session or run.
+type RowBase = { key: string; estimateSize: number; treeGuides?: readonly SessionTreeGuide[] };
 
 export type SessionSidebarRow =
   | (RowBase & { kind: 'activity-header'; activityKey: SessionSidebarActivityKey; collapsed: boolean; forceExpanded: boolean })
@@ -251,6 +254,21 @@ const SESSIONS_INCREMENT = 7;
 export const timelineProjectContainerKey = (projectId: string): string => `timeline-project:${projectId}`;
 const HEADER_ESTIMATE = 32;
 const STATUS_ESTIMATE = 28;
+
+/**
+ * A row's level in the drawn tree, or null for a row outside it: headers of
+ * projects and zones, Show more and status lines, and the flat List rows.
+ * Worktree, space and archive headers open the tree at level 0.
+ */
+const treeLevelOf = (row: SessionSidebarRow): number | null => {
+  switch (row.kind) {
+    case 'group-header': return 0;
+    case 'folder-header': return row.depth;
+    case 'session':
+    case 'run': return hasTreeSlotContext(row.renderContext) ? row.depth : null;
+    default: return null;
+  }
+};
 
 const compareNodes = (
   left: SessionNode,
@@ -894,6 +912,11 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
   if (rows.length === 0) {
     push({ kind: 'empty', key: search ? 'sidebar:search-empty' : 'sidebar:empty', estimateSize: 72, emptyKind: search ? 'search' : 'sidebar' });
   }
+  const guides = computeSessionTreeGuides(rows.map(treeLevelOf));
+  guides.forEach((treeGuides, index) => {
+    const row = rows[index];
+    if (treeGuides && row) rows[index] = Object.freeze({ ...row, treeGuides });
+  });
   const rowIndexByKey = new Map<string, number>();
   rows.forEach((row, index) => rowIndexByKey.set(row.key, index));
   return Object.freeze({

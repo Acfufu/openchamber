@@ -119,7 +119,8 @@ phone's Tree view follows the desktop tree: Chats, Pinned and In work list
 tree rows at level 0 (two-line timeline rows when Detailed rows is on, the
 zones showing all their sessions at once), and project sessions are
 tree rows (12px per level, subsession chevron on the left with a
-thumb-sized target). A tree row shows its live state in the slot left of the
+thumb-sized target) with the desktop's guide lines, worked out while the
+sheet renders its nested tree. A tree row shows its live state in the slot left of the
 title; a row with subsessions keeps its chevron there, since a phone has no
 hover to trade them, and shows its state on the right. Titles carry the state
 as on the desktop (`apps/mobileSessionTitle.ts`), and run titles are muted.
@@ -490,8 +491,16 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   `fileTreeRow.ts`) through `sessions/sessionTreeGeometry.ts`: 6px from the
   edge (the Files trees use 8px; 6px puts root session titles where the
   project label starts) plus 12px per level, then a 14px slot and a 6px gap
-  before the text. Unlike the Files trees it draws no level guides: the
-  indent, the worktree gaps and the header weights carry the structure.
+  before the text. An open worktree, space, archive, folder, session or run
+  frames its children with a guide line under the centre of its slot, which
+  turns toward the last child in a rounded corner (`sessions/SessionTreeGuides.tsx`).
+  The row model works out each row's lines (`treeGuides`, from
+  `computeSessionTreeGuides` over the rows' tree levels); a line runs through
+  a child's own subtree only while a later sibling follows. Headers of
+  projects and zones, Show more and status lines, and List rows are outside
+  the tree and break every line. The lines draw over the row, so they show on
+  its hover and selection fills, inside a box that contains the row's margins
+  so neighbouring rows' lines meet.
   Worktree and folder labels are medium weight a step below full strength,
   between the project header and the muted session titles at rest. Tree session rows are a little
   tighter than timeline rows, and each worktree header opens with a small gap.
@@ -657,3 +666,11 @@ Timeline dropped its third line when a row had no branch, PR, goal, badge or
 model, so rows changed height while git status loaded; here every line is
 always rendered at a fixed height, and the virtualizer's per-kind estimate
 stays exact.
+
+### Why tree guides end in a corner at the last child
+
+The Files trees draw one straight guide per ancestor level down every row.
+The session tree frames a group instead: the line starts under the open row
+and stops at its last child with a corner, so where a worktree's or a
+session's children end reads at a glance, and a long tree is not striped by
+lines that run through rows they do not belong to.

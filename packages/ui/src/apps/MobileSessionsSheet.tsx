@@ -109,6 +109,8 @@ import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
 import { setSessionWorkState } from '@/sync/session-actions';
 import { useUIStore } from '@/stores/useUIStore';
 import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
+import { SessionTreeGuides } from '@/components/session/sidebar/sessions/SessionTreeGuides';
+import type { SessionTreeGuide } from '@/components/session/sidebar/sessions/sessionTreeGeometry';
 import {
   MobileTimelineRows,
   TIMELINE_ROW_INDENT,
@@ -1379,14 +1381,35 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     const remaining = pagedRoots.length - visiblePagedRoots.length;
     const canShowFewer = pagedRoots.length > pageSize && remaining === 0;
 
+    // Tree rows draw the desktop tree's guide lines: `lineage[level]` says
+    // whether the line of that level still has a sibling to reach below this
+    // row's subtree, and the row's own line ends at the last sibling.
+    const treeGuidesFor = (rowDepth: number | null, lineage: readonly boolean[], isLast: boolean): SessionTreeGuide[] => {
+      if (rowDepth === null || rowDepth < 1) return [];
+      const guides: SessionTreeGuide[] = [];
+      for (let level = 1; level < rowDepth; level += 1) {
+        if (lineage[level]) guides.push({ level, end: false });
+      }
+      guides.push({ level: rowDepth, end: isLast });
+      return guides;
+    };
+    const withTreeGuides = (guides: readonly SessionTreeGuide[], row: React.ReactNode): React.ReactNode => (guides.length > 0
+      ? <div className="relative flow-root">
+        {row}
+        <SessionTreeGuides guides={guides} slotStartPx={MOBILE_TREE_BASE_PADDING_PX} />
+      </div>
+      : row);
+
     // Flat Chats rows have no chevron, so their subsessions never expand.
-    const renderNode = (session: Session, rowDepth: number | null): React.ReactNode => {
+    const renderNode = (session: Session, rowDepth: number | null, lineage: readonly boolean[], isLast: boolean): React.ReactNode => {
       const children = childrenByParent.get(session.id) ?? [];
       const hasChildren = children.length > 0;
       const expanded = rowDepth !== null && Boolean(expandedParents[session.id]);
+      const childLineage = [...lineage];
+      if (rowDepth !== null) childLineage[rowDepth] = !isLast;
       return (
         <React.Fragment key={session.id}>
-          <SessionRow
+          {withTreeGuides(treeGuidesFor(rowDepth, lineage, isLast), <SessionRow
             session={session}
             active={currentSessionId === session.id}
             indent={TIMELINE_CHAT_INDENT}
@@ -1409,9 +1432,9 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
             work={workActionFor(session)}
             pin={pinActionFor(session)}
             descendantIdsOf={descendantIdsOf}
-          />
+          />)}
           {hasChildren && expanded && rowDepth !== null
-            ? children.map((child) => renderNode(child, rowDepth + 1))
+            ? children.map((child, index) => renderNode(child, rowDepth + 1, childLineage, index === children.length - 1))
             : null}
         </React.Fragment>
       );
@@ -1419,9 +1442,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
 
     return (
       <div>
-        {visibleRoots.map((entry) => (entry.kind === 'run'
-          ? <MobileRunRow key={`run:${entry.run.key}`} run={entry.run} laneNodes={runLaneNodesByKey.get(entry.run.key) ?? EMPTY_SESSION_NODES} depth={depth ?? 0} />
-          : renderNode(entry.session, depth)))}
+        {visibleRoots.map((entry, index) => {
+          const isLast = index === visibleRoots.length - 1;
+          return entry.kind === 'run'
+            ? <React.Fragment key={`run:${entry.run.key}`}>
+              {withTreeGuides(treeGuidesFor(depth, [], isLast), <MobileRunRow run={entry.run} laneNodes={runLaneNodesByKey.get(entry.run.key) ?? EMPTY_SESSION_NODES} depth={depth ?? 0} />)}
+            </React.Fragment>
+            : renderNode(entry.session, depth, [], isLast);
+        })}
         {remaining > 0 ? (
           <ShowMoreRow indent={controlIndent} onClick={() => showMoreBucketSessions(bucketKey, visiblePagedRoots.length, SESSIONS_PER_BUCKET)} />
         ) : null}
