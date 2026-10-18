@@ -65,6 +65,8 @@ export interface HtmlRenderTheme {
 interface HtmlRenderMetrics {
     /** The app's rem in px: the interface size setting scales it, and the controls with it. */
     rem: number;
+    /** The chat's body text size in px: the page's root font size, so the page's rem follows the interface size. */
+    text: number;
     sans: string;
     mono: string;
 }
@@ -134,6 +136,8 @@ export function htmlRenderTheme(theme: Theme, metrics: HtmlRenderMetrics): HtmlR
             '--oc-selection': interactive.selection,
             '--oc-selection-foreground': readable.selectionForeground,
             '--oc-rem': `${metrics.rem}px`,
+            // Not listed for agents: the page's root font size (see BASE_CSS).
+            '--oc-text': `${metrics.text}px`,
             // The app's --radius (0.5625rem), at the app's scale.
             '--radius': `${metrics.rem * 0.5625}px`,
             '--font-sans': metrics.sans,
@@ -170,11 +174,13 @@ const OPTION_CSS = '.oc-options{display:grid;gap:12px;grid-template-columns:repe
 // The page sits on the chat's own background, and a scrollbar inside the
 // reply would read as a box within the thread, so it stays hidden. Media
 // shrinks to the column. What is still wider (a wide table) scrolls sideways,
-// without the elastic bounce at its edges; the page never scrolls vertically
+// without the elastic bounce at its edges; text is the chat's own size
+// (--oc-text), and a page that sizes its text in rem or em scales with the
+// interface size setting as the chat does; the page never scrolls vertically
 // while it fits its frame (see the bootstrap), so a vertical swipe still
 // scrolls the chat. Only the horizontal bounce is turned off: turning off the
 // vertical one would also stop a vertical swipe from reaching the chat.
-const BASE_CSS = 'html{background:transparent;color:var(--foreground);font-family:var(--font-sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;scrollbar-width:none;overflow-x:auto;overscroll-behavior-x:none}'
+const BASE_CSS = 'html{background:transparent;color:var(--foreground);font-family:var(--font-sans);font-size:var(--oc-text,14px);line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;scrollbar-width:none;overflow-x:auto;overscroll-behavior-x:none}'
     + 'html::-webkit-scrollbar{display:none}body{margin:0}a{color:var(--primary)}code,kbd,pre,samp{font-family:var(--font-mono)}img,svg,video,canvas{max-width:100%}'
     + '::highlight(oc-chat-quote),::highlight(oc-chat-quote-focus),::highlight(oc-chat-quote-flash){background-color:var(--oc-quote-mark,rgba(127,127,127,.35))}'
     + OPTION_CSS;

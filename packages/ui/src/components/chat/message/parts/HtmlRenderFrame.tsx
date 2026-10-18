@@ -62,8 +62,13 @@ function useHtmlRenderTheme(): HtmlRenderTheme {
     return React.useMemo(() => {
         // The user's font settings land on the root as these variables.
         const style = getComputedStyle(document.documentElement);
+        const rem = Number.parseFloat(style.fontSize) || 16;
+        // The chat's body text size, which the styles set in rem (0.875, and
+        // 1 on phones).
+        const text = (Number.parseFloat(style.getPropertyValue('--text-markdown')) || 0.875) * rem;
         return htmlRenderTheme(currentTheme, {
-            rem: Number.parseFloat(style.fontSize) || 16,
+            rem,
+            text,
             sans: style.getPropertyValue('--font-sans').trim() || DEFAULT_SANS,
             mono: style.getPropertyValue('--font-mono').trim() || DEFAULT_MONO,
         });

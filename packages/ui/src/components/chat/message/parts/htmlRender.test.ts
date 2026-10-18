@@ -223,7 +223,7 @@ describe('helpers', () => {
 
 describe('htmlRenderTheme', () => {
     test('leads the chart series with the accent and follows it with the fixed set for the mode', () => {
-        const fonts = { rem: 16, sans: 'sans-serif', mono: 'monospace' };
+        const fonts = { rem: 16, text: 14, sans: 'sans-serif', mono: 'monospace' };
         for (const dark of [true, false]) {
             const theme = getDefaultTheme(dark);
             const { appearance, variables } = htmlRenderTheme(theme, fonts);
@@ -234,5 +234,12 @@ describe('htmlRenderTheme', () => {
                 ? ['#60a5fa', '#2dd4bf', '#a78bfa', '#f472b6', '#a3e635']
                 : ['#2563eb', '#0d9488', '#7c3aed', '#db2777', '#65a30d']);
         }
+    });
+
+    test('gives the page the chat\'s text size as its root font size', () => {
+        // The interface size at 120%: the app's rem is 19.2px, chat text 0.875 of it.
+        const { variables } = htmlRenderTheme(getDefaultTheme(false), { rem: 19.2, text: 16.8, sans: 'sans-serif', mono: 'monospace' });
+        expect(variables['--oc-text']).toBe('16.8px');
+        expect(buildHtmlRenderDocument('<p>a</p>', { appearance: 'light', variables })).toContain('font-size:var(--oc-text,14px)');
     });
 });
