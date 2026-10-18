@@ -32,6 +32,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { statusToGitCode, type TurnSnapshotDiff } from './turnSnapshotDiff';
 import { toast } from '@/components/ui';
 
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
@@ -120,15 +121,6 @@ type DiffLoadFailure =
     | { kind: 'unavailable'; reason: GitPathUnavailableReason };
 type DiffScope = 'all' | PendingDiffScope;
 
-type TurnSnapshotDiff = {
-    file?: string;
-    status?: string;
-    before?: string;
-    after?: string;
-    patch?: string;
-    additions?: number;
-    deletions?: number;
-};
 
 type ComparisonDiffResult =
     | { status: 'loading' }
@@ -188,12 +180,6 @@ const getFirstChangedModifiedLine = (original: string, modified: string): number
     }
 
     return 1;
-};
-
-const statusToGitCode = (status?: string): string => {
-    if (status === 'added') return 'A';
-    if (status === 'deleted') return 'D';
-    return 'M';
 };
 
 const createTextDiffDataFromPatch = (filePath: string, patch: string, contextMode: DiffContextMode): DiffData => {
@@ -1623,6 +1609,15 @@ export const DiffView: React.FC<DiffViewProps> = ({
     // times in one turn is one diff. Refetched whenever the transcript moves
     // (a turn ending is what changes the answer).
     const [lastTurnDiffs, setLastTurnDiffs] = React.useState<TurnSnapshotDiff[]>([]);
+    // A failed read is not "this turn changed nothing": it keeps its own state
+    // and a retry, and the last good list stays until a read replaces it.
+    const [turnDiffError, setTurnDiffError] = React.useState<string | null>(null);
+    const [turnDiffAttempt, retryTurnDiff] = React.useReducer((value: number) => value + 1, 0);
+    // Another session's turn is never shown while this one's loads.
+    React.useEffect(() => {
+        setLastTurnDiffs([]);
+        setTurnDiffError(null);
+    }, [currentSessionId]);
     const lastMessageId = sessionMessages.length > 0 ? sessionMessages[sessionMessages.length - 1].id : '';
     React.useEffect(() => {
         if (activeDiffScope !== 'turn' || !currentSessionId || !visible) return;
@@ -1637,16 +1632,17 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     additions: entry.additions,
                     deletions: entry.deletions,
                 })));
+                setTurnDiffError(null);
             })
             .catch((error) => {
                 if (cancelled) return;
                 console.warn('[diff-view] turn diff unavailable:', error instanceof Error ? error.message : error);
-                setLastTurnDiffs([]);
+                setTurnDiffError(error instanceof Error ? error.message : t('diffView.state.failedToLoadDiff'));
             });
         return () => {
             cancelled = true;
         };
-    }, [activeDiffScope, currentSessionId, lastMessageId, rootDirectory, visible]);
+    }, [activeDiffScope, currentSessionId, lastMessageId, rootDirectory, t, turnDiffAttempt, visible]);
 
     const lastTurnDiffData = React.useMemo(() => {
         const map = new Map<string, DiffData>();
@@ -2765,6 +2761,18 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     </div>
                 );
             }
+        }
+
+        if (activeDiffScope === 'turn' && turnDiffError) {
+            return (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-sm text-muted-foreground">
+                    <div className="typography-ui-label font-semibold text-foreground">{t('diffView.state.failedToLoadDiff')}</div>
+                    <div className="typography-meta max-w-[32rem] text-center">{turnDiffError}</div>
+                    <button type="button" className="typography-ui-label text-primary hover:underline" onClick={() => { setTurnDiffError(null); retryTurnDiff(); }}>
+                        {t('diffView.actions.retry')}
+                    </button>
+                </div>
+            );
         }
 
         if (changedFiles.length === 0) {
