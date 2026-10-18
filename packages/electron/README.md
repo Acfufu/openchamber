@@ -107,6 +107,24 @@ Native menu actions reach the renderer as one DOM event per click. Main must not
 
 The local diagnostics IPC combines the desktop log with the SSH manager's in-memory history. `main.mjs` classifies SSH messages in the native process before returning them; host names, stderr and other raw SSH output never cross to the renderer. Remote SSH files are not read.
 
+A window whose renderer crashes is reloaded (`renderer-recovery.mjs`). A crash
+counts as one in a row when it comes within two minutes of the previous one.
+The first two in a row reload as they are. The third reloads once in a safe
+start: preload asks main over sync IPC before any page script runs and exposes
+`window.__OPENCHAMBER_SAFE_START__`. The shared UI then forgets expanded
+folders, open files and open panels before the first render, saves that, and
+says so in a toast. A fourth crash in a row leaves the window alone; View >
+Reload is still there. A quiet spell of two minutes starts the count again.
+
+### Why a safe start and not a fixed reload budget
+
+Issue 4907: a restored expanded folder with 28,000 files crashed the window
+about 25 seconds after every load. The earlier budget of three reloads per
+minute never ran out at that pace, and every reload restored the same folder,
+so the window crashed for hours. Counting crashes in a row stops any such
+loop, and dropping the saved layout removes the trigger seen so far. Settings
+and the open chat stay; a crash they cause still stops at the fourth crash.
+
 The compatibility gate can reuse the embedded managed OpenCode CLI preflight
 through `desktop_managed_opencode_compatible`. Main matches the requested
 API origin to the local backend and reads the lifecycle-owned preflight promise.

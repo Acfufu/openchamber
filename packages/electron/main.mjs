@@ -112,7 +112,7 @@ import { isSpaceId, spaceIdOfPreviewPartition, spacePreviewPartition, spacePrevi
 import { shouldBlockGuestFrameNavigation } from './guest-frame-navigation.mjs';
 import { createRelayDevTunnelBridge } from './relay-dev-tunnel.mjs';
 import { parsePairingDeepLink } from './pairing-deep-link.mjs';
-import { attachRendererRecovery } from './renderer-recovery.mjs';
+import { attachRendererRecovery, takeSafeStart } from './renderer-recovery.mjs';
 import { createLoadFailureWarningFilter } from './load-failure-warnings.mjs';
 import { mintOutsideFileGrant } from '@openchamber/web/server/lib/fs/routes.js';
 import { fetchUpdateNotes } from '@openchamber/web/server/lib/changelog/update-notes.js';
@@ -6013,6 +6013,12 @@ ipcMain.handle('openchamber:invoke', async (event, command, args) => {
   const browserWindow = BrowserWindow.fromWebContents(event.sender);
   const result = await handleInvoke(browserWindow, command, args);
   return !local && command === 'desktop_hosts_get' ? redactHostsConfigForRemote(result) : result;
+});
+
+// Sync, because preload must know before the page's scripts restore their
+// layout. The answer is about the asking page only, so any origin may ask.
+ipcMain.on('openchamber:take-safe-start', (event) => {
+  event.returnValue = takeSafeStart(event.sender);
 });
 
 ipcMain.handle('openchamber:dialog:open', async (event, options) => {

@@ -31,6 +31,7 @@ import { useWindowTitle } from '@/hooks/useWindowTitle';
 import { useRootScrollLock } from '@/hooks/useRootScrollLock';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { isDesktopLocalOriginActive, isDesktopShell, restartDesktopApp, invokeDesktop, getMiniChatRuntimeArgs, openHostSession, takePendingDesktopSessionLinks } from '@/lib/desktop';
+import { isDesktopSafeStart } from '@/lib/desktopSafeStart';
 import { runPendingDesktopHostActions } from '@/lib/desktopHostActions';
 import {
   getInjectedBootOutcome,
@@ -259,6 +260,18 @@ function App({ apis }: AppProps) {
       description: t('desktopHostSwitcher.startup.fellBackToLocal'),
     });
   }, [bootInjectionStatus, isInitialized, t]);
+
+  // The desktop shell reloaded the window without its saved layout after
+  // repeated crashes; say so, or the closed panels look like a lost setting.
+  const safeStartNoticeShownRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!isInitialized || !isDesktopSafeStart() || safeStartNoticeShownRef.current) return;
+    safeStartNoticeShownRef.current = true;
+    toast.info(t('desktopSafeStart.title'), {
+      description: t('desktopSafeStart.description'),
+      duration: Infinity,
+    });
+  }, [isInitialized, t]);
 
   React.useEffect(() => {
     setStreamPerfMemoryDebugEnabled(showMemoryDebug);

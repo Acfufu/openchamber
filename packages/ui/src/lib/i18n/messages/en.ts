@@ -3833,6 +3833,8 @@ export const dict = {
   'sessions.moveChatToProject.failed': 'Could not move the chat',
   'chat.worktreeSetup.running': 'Setting up the worktree: running the project\'s setup commands…',
   'desktopHostSwitcher.startup.fellBackToLocal': 'Its connection didn\'t open, so OpenChamber started on Local. Connect it from the instance switcher once it\'s reachable.',
+  'desktopSafeStart.title': 'OpenChamber kept crashing',
+  'desktopSafeStart.description': 'Panels are closed and folders collapsed.',
   'chat.chatInput.contextPreview.saveEdit': 'Save comment',
   'chat.chatInput.contextPreview.cancelEdit': 'Cancel editing',
   'sessions.scheduledTasks.dialog.actions.openSession': 'Open session',

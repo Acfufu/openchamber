@@ -3831,6 +3831,8 @@ export const dict = {
   'sessions.moveChatToProject.failed': 'Sohbet taşınamadı',
   'chat.worktreeSetup.running': 'Worktree hazırlanıyor: projenin kurulum komutları çalışıyor…',
   'desktopHostSwitcher.startup.fellBackToLocal': 'Bağlantısı açılamadı, bu yüzden OpenChamber Local ile başladı. Erişilebilir olduğunda örnek değiştiriciden bağlanın.',
+  'desktopSafeStart.title': 'OpenChamber art arda çöktü',
+  'desktopSafeStart.description': 'Paneller kapatıldı ve klasörler daraltıldı.',
   'chat.chatInput.contextPreview.saveEdit': 'Yorumu kaydet',
   'chat.chatInput.contextPreview.cancelEdit': 'Düzenlemeyi iptal et',
   'sessions.scheduledTasks.dialog.actions.openSession': 'Oturumu aç',

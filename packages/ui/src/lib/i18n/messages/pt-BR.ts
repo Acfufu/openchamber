@@ -3834,6 +3834,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.moveChatToProject.failed': 'Não foi possível mover o chat',
   'chat.worktreeSetup.running': 'Preparando o worktree: executando os comandos de configuração do projeto…',
   'desktopHostSwitcher.startup.fellBackToLocal': 'A conexão não abriu, então o OpenChamber iniciou no Local. Conecte-a pelo seletor de instâncias quando estiver acessível.',
+  'desktopSafeStart.title': 'O OpenChamber travou várias vezes seguidas',
+  'desktopSafeStart.description': 'Os painéis foram fechados e as pastas, recolhidas.',
   'chat.chatInput.contextPreview.saveEdit': 'Salvar comentário',
   'chat.chatInput.contextPreview.cancelEdit': 'Cancelar edição',
   'sessions.scheduledTasks.dialog.actions.openSession': 'Abrir sessão',

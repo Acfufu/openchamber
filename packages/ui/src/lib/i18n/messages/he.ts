@@ -3778,6 +3778,8 @@ export const dict = {
   'sessions.moveChatToProject.failed': 'לא ניתן היה להעביר את הצ\'אט',
   'chat.worktreeSetup.running': 'מכין את עץ העבודה: מריץ את פקודות ההכנה של הפרויקט…',
   'desktopHostSwitcher.startup.fellBackToLocal': 'החיבור אליו לא נפתח, ולכן OpenChamber הופעל על המופע המקומי. אפשר להתחבר אליו ממחליף המופעים כשהוא יהיה זמין.',
+  'desktopSafeStart.title': 'OpenChamber קרס שוב ושוב',
+  'desktopSafeStart.description': 'החלוניות נסגרו והתיקיות כווצו.',
   'chat.chatInput.contextPreview.saveEdit': 'שמור הערה',
   'chat.chatInput.contextPreview.cancelEdit': 'בטל עריכה',
   'sessions.scheduledTasks.dialog.actions.openSession': 'פתח הפעלה',
