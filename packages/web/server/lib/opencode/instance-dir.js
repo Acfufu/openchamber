@@ -13,6 +13,8 @@
  *
  * On start, folders whose server is gone are removed. A live server's folder is
  * never touched, so two servers starting together cannot remove each other's.
+ * Liveness is a pid check, so this holds only for servers in one PID namespace:
+ * containers sharing a data dir see each other's pids as gone.
  *
  * @param {object} dependencies
  * @param {typeof import('node:fs/promises')} dependencies.fsPromises

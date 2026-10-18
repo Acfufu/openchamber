@@ -1019,6 +1019,15 @@ under a running child.
   paths each overwrote the other's files, so an agent saw tools from one server
   while its calls went to another (#4470). On start a server removes the
   folders of servers whose pid is gone; a live server's folder is never touched.
+  The pid check assumes every server on the data dir runs in one PID
+  namespace: two containers sharing a data dir through a bind mount see each
+  other's pids as gone, so a starting server can remove a live peer's folder,
+  and that peer's OpenCode loses its managed tools until the next settings
+  write or restart.
+  The old shared `<data-dir>/agent-tool/` and `<data-dir>/opencode.managed.json`
+  stay on disk on purpose: an older OpenChamber running on the same data dir
+  still reads and writes them, so deleting them as stale breaks that server's
+  agent tools.
   The file contains only `plugins`: `-opencode.browser` first, then the absolute
   directory of every OpenChamber plugin currently switched on. OpenCode's
   built-in browser tools need OpenCode's own desktop app to attach a browser;
