@@ -146,6 +146,20 @@ alphabetical, and only `manual` applies the saved drag order
 (`oc.sessions.groupOrder`) and enables worktree dragging. The mobile sheet keeps
 its own manual worktree order (`useWorktreeOrderStore`).
 
+Every other list of projects shows them in the sidebar's order through
+`list/useProjectsInSidebarOrder.ts`: Settings > Projects, the project
+selector of the Settings pages, the composer's project picker until a search
+is typed, the move-chat, scheduled tasks and install-skill pickers, the
+Linear mapping, usage stats and the issues board. It applies the same
+`sortProjectsByOrder`, keeps the manual order while the sidebar shows the List
+view, and for `recent` ranks by `rankByLatestActivity` with the sidebar's
+ownership rules over the global session list, archived sessions included; a
+live session the global list has not picked up yet counts once it does. It
+reads sessions and spaces only in `recent` and only while its list is shown
+(`enabled`), keeps the last order while a closing popup fades, and does not
+hold the order under the pointer the way the sidebar does. Search ranking keeps its own order; the
+command palette lists projects only for a query, so it does not use it.
+
 Hosted mobile and Capacitor use their separate `MobileSessionsSheet` renderer.
 The shared directory-cache rules apply there, but this sidebar virtualizer does not.
 
@@ -654,6 +668,16 @@ indicators. Indicators stay inside the existing row/header action-padding bounda
 hover, keyboard focus, and always-visible action buttons move them left without hiding them.
 
 ## Decisions
+
+### Why every project list follows the sidebar's sort and has no sort of its own
+
+The maintainer decided (#4829) that a project sits in the same place in every
+list, so Settings, pickers and dialogs take the sidebar's project sort and
+offer no control of their own. The Settings project selector sorted A to Z on
+purpose before; that is replaced. The hook recomputes "Recent" from the global
+session list instead of reading the order the sidebar last drew, because the
+sidebar is not mounted on every surface (the phone drawer while closed,
+another VS Code webview).
 
 ### Why the list by time has three-line rows and not the two-line mixed row
 

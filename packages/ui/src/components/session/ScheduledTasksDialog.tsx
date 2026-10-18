@@ -10,6 +10,7 @@ import { useUIStore } from '@/stores/useUIStore';
 import { formatTimeForPreference } from '@/lib/timeFormat';
 import type { TimeFormatPreference } from '@/stores/useUIStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
+import { useProjectsInSidebarOrder } from '@/components/session/sidebar/list/useProjectsInSidebarOrder';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { refreshGlobalSessions, useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
@@ -246,7 +247,8 @@ export function ScheduledTasksView({ layout, onLeave }: {
 }) {
   const { t } = useI18n();
   const timeFormatPreference = useUIStore((state) => state.timeFormatPreference);
-  const projects = useProjectsStore((state) => state.projects);
+  const storedProjects = useProjectsStore((state) => state.projects);
+  const projects = useProjectsInSidebarOrder(storedProjects);
   const activeProject = useProjectsStore((state) => state.getActiveProject());
   const homeDirectory = useDirectoryStore((state) => state.homeDirectory);
   const { currentTheme } = useThemeSystem();
@@ -334,8 +336,9 @@ export function ScheduledTasksView({ layout, onLeave }: {
     }
   }, [t]);
 
+  // Keyed on the stored list: a "Recent" reorder must not reset the chosen scope.
   React.useEffect(() => {
-    const preferredProjectID = activeProject?.id || projects[0]?.id || (chatsAvailable ? CHAT_DRAFT_PROJECT_ID : '');
+    const preferredProjectID = activeProject?.id || storedProjects[0]?.id || (chatsAvailable ? CHAT_DRAFT_PROJECT_ID : '');
     setSelectedProjectID(preferredProjectID);
     if (preferredProjectID) {
       void reloadTasks(preferredProjectID);
@@ -343,7 +346,7 @@ export function ScheduledTasksView({ layout, onLeave }: {
       setTasks([]);
       setLoading(false);
     }
-  }, [activeProject, projects, chatsAvailable, reloadTasks]);
+  }, [activeProject, storedProjects, chatsAvailable, reloadTasks]);
 
   React.useEffect(() => {
     let timeoutID: ReturnType<typeof setTimeout> | null = null;

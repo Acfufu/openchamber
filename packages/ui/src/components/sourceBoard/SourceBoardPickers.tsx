@@ -7,6 +7,7 @@ import * as React from 'react';
 import { Popover } from '@base-ui/react/popover';
 
 import { ProjectLabel, ProjectPickerSheet } from '@/components/chat/composer/ui/DraftTargetSelectors';
+import { useProjectsInSidebarOrder } from '@/components/session/sidebar/list/useProjectsInSidebarOrder';
 import { Icon } from '@/components/icon/Icon';
 import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
@@ -60,9 +61,10 @@ export const SourceBoardProjectPicker: React.FC<{
     const [query, setQuery] = React.useState('');
     const [activeId, setActiveId] = React.useState<string | null>(null);
     const searchRef = React.useRef<HTMLInputElement>(null);
+    const orderedProjects = useProjectsInSidebarOrder(projects, open);
     const ranked = React.useMemo(
-        () => (query ? rankByQuery([...projects], query, (project) => [projectName(project), project.path]) : [...projects]),
-        [projects, query],
+        () => (query ? rankByQuery([...orderedProjects], query, (project) => [projectName(project), project.path]) : [...orderedProjects]),
+        [orderedProjects, query],
     );
     const effectiveActive = activeId && ranked.some((project) => project.id === activeId) ? activeId : ranked[0]?.id ?? null;
 
@@ -90,7 +92,7 @@ export const SourceBoardProjectPicker: React.FC<{
                 <ProjectPickerSheet
                     open={open}
                     onClose={() => setOpen(false)}
-                    projects={projects}
+                    projects={orderedProjects}
                     selectedProjectId={selected.id}
                     onSelectProject={choose}
                     theme={currentTheme}
