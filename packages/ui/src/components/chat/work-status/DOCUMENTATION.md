@@ -145,6 +145,12 @@ a fully finished list reads as it did at launch.
 The section derives per-row cost with `computeRollup` over the live-session list
 it already holds instead of opening a second subscription through the hook.
 
+Directory bootstrap publishes each session page as it arrives, so subagent rows
+do not wait for unrelated older history pages. Partial pages add coverage without
+removing cached sessions. Only the completed list establishes authoritative
+coverage and removes absent records; newer live updates and deletions win over
+both partial pages and the final snapshot.
+
 Hovering or focusing a row shows its session model's catalog display name,
 falling back to the formatted model ID. Missing model metadata produces no
 tooltip. Model-only session updates invalidate the live-session comparison.
@@ -589,6 +595,10 @@ could stay missing from the panel until Settings -> Usage forced a fresh fetch.
 `useQuotaStore.ensureLoadedForRuntime` owns both the readiness rule and the
 once-per-instance bookkeeping, so every caller can ask on each connection
 change.
+
+The visible panel's initial quota load uses the background gate's active-session
+priority. It runs ahead of queued metadata reads while keeping the same network
+concurrency limit and instance-readiness rule.
 
 ### These readouts belong to the connected instance
 
