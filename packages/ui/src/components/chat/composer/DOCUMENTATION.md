@@ -125,6 +125,12 @@ ends, and a row's own Send sends just that message. Like any send, it dismisses
 open permission requests and forms. Scheduled items stay visible in the
 queue rows with reorder and remove, but no edit or send action.
 
+While a turn runs and the composer has content, a follow-up button sits above
+Stop (inside the pill on collapsed mobile). It takes the same path as plain
+Enter under the follow-up setting: with Queue it queues and shows the rotated
+icon labelled "Queue message"; with Steer it steers into the running turn and
+looks like the ordinary send button.
+
 `BackgroundShellsStrip` lists the commands that went to the background (not the ones
 a turn is waiting for, see `background` in `sync/background-shells.ts`) of
 the session and of its

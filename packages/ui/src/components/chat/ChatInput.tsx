@@ -4201,7 +4201,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         bottomRow={mobileModelAgentRow}
                         onExpand={mobileShell.expand}
                         onPrimaryAction={handlePrimaryAction}
-                        onQueueMessage={() => { void handleQueueMessage(); }}
                         onPickLocalFiles={handlePickLocalFiles}
                         onOpenGitHubPicker={openGitHubPicker}
                         repositoryProvider={repositoryProvider}
@@ -4427,7 +4426,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onToggleExpandedInput={handleToggleExpandedInput}
                         onCyclePermissionMode={handlePermissionModeCycle}
                         onPrimaryAction={handlePrimaryAction}
-                        onQueueMessage={handleQueueMessage}
                         onAbort={handleAbort}
                         onStartDictation={toggleDictation}
                         onDictationInsert={handleDictationInsert}
