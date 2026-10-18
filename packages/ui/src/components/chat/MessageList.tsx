@@ -1119,6 +1119,12 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
         return container.querySelector(`[data-message-id="${messageId}"]`);
     }, [resolveScrollContainer]);
 
+    // A message the head of its turn's window cuts into is mounted from a
+    // later row on: its element's top is not the message's start.
+    const isMessageCut = React.useCallback((messageId: string): boolean => (
+        Boolean(resolveScrollContainer()?.querySelector(`[data-turn-message-cut="${messageId}"]`))
+    ), [resolveScrollContainer]);
+
     // Accepts any index the list renders, the trailing streaming entry
     // included — it lives at historyEntries.length and is a legitimate
     // navigation target (the timeline rail's last item).
@@ -1217,10 +1223,10 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
             return 'moved';
         }
 
-        const element = findMessageElement(anchor.messageId);
+        const element = isMessageCut(anchor.messageId) ? null : findMessageElement(anchor.messageId);
         if (!element) {
-            // Not mounted: bring its row in from the estimate; the next step
-            // measures the real position.
+            // Not mounted, or mounted from a later row: bring its row in from
+            // the estimate; the next step measures the real position.
             mountWindowedMessage(anchor.messageId);
             return scrollHistoryIndexIntoView(index) ? 'moved' : 'missing';
         }
@@ -1235,7 +1241,7 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
         // A message near either end of the timeline cannot reach the offset:
         // the scroll is clamped, and where it stopped is as close as it gets.
         return Math.abs(container.scrollTop - before) < 0.5 ? 'aligned' : 'moved';
-    }, [findMessageElement, messageIndexMap, mountWindowedMessage, resolveScrollContainer, revealFoldedMessage, scrollHistoryIndexIntoView]);
+    }, [findMessageElement, isMessageCut, messageIndexMap, mountWindowedMessage, resolveScrollContainer, revealFoldedMessage, scrollHistoryIndexIntoView]);
 
     // Installed during layout so a parent's layout effect (session entry
     // restore) already reaches this list, not the one it replaced.
@@ -1278,7 +1284,7 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
                     return false;
                 }
 
-                if (!findMessageElement(messageId)) mountWindowedMessage(messageId);
+                if (!findMessageElement(messageId) || isMessageCut(messageId)) mountWindowedMessage(messageId);
                 const didScroll = scrollMessageElementIntoView(messageId, behavior)
                     || scrollHistoryIndexIntoView(index);
                 if (didScroll && behavior !== 'smooth') {
@@ -1367,7 +1373,7 @@ const MessageList = React.forwardRef<MessageListHandle, MessageListProps>(({
         return () => {
             objectRef.current = null;
         };
-    }, [alignViewportAnchor, findMessageElement, messageIndexMap, mountWindowedMessage, resolveScrollContainer, scrollHistoryIndexIntoView, scrollMessageElementIntoView, settleNavigationTarget, turnIndexMap, ref]);
+    }, [alignViewportAnchor, findMessageElement, isMessageCut, messageIndexMap, mountWindowedMessage, resolveScrollContainer, scrollHistoryIndexIntoView, scrollMessageElementIntoView, settleNavigationTarget, turnIndexMap, ref]);
 
     const rowContext = React.useMemo(() => ({
         scrollToBottom: stableScrollToBottom,

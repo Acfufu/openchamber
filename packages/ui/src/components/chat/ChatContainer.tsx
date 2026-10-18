@@ -38,6 +38,10 @@ const TIMELINE_SETTLE_STABLE_FRAMES = 2;
 const TIMELINE_SETTLE_CAP_MS = 300;
 // Mirrors the oc-chat-hydration-reveal duration in index.css.
 const TIMELINE_REVEAL_FADE_MS = 100;
+// After a turn starts or ends, how long the transcript settles before an
+// overgrown history is cut back: past the scroll hook's 2 s send glide and
+// 1 s turn-end glide windows.
+const HISTORY_TRIM_DELAY_MS = 3000;
 import { hasActiveFormToolInCurrentTurn, recoverPendingFormWithRetry } from '@/sync/form-recovery';
 import { toast } from '@/components/ui';
 import { StatusRowContainer } from './StatusRowContainer';
@@ -1363,6 +1367,31 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         isPinned,
         showScrollButton,
     });
+
+    // A transcript someone works in keeps every turn it receives, and every
+    // timeline pass walks all of them. When a turn starts or ends with the
+    // reader at the end, the loader cuts what outgrew the cold-navigation
+    // window back to it; the older turns load again on scroll, as in a freshly
+    // opened session. Both edges count, since queued prompts and agent loops
+    // start the next turn the moment one ends. The pause lets the send glide,
+    // the turn's last block, its footer and the turn-end glide land first. A
+    // reader away from the end holds the history, so another column showing
+    // this session never cuts what they look at.
+    const turnCount = timelineController.turnIds.length;
+    const isPinnedRef = React.useRef(isPinned);
+    isPinnedRef.current = isPinned;
+    React.useEffect(() => {
+        if (!active || !currentSessionId || !effectiveSessionDirectory) return;
+        const timer = window.setTimeout(() => {
+            if (!isPinnedRef.current) return;
+            messageLoader.trimHistory({ directory: effectiveSessionDirectory, sessionID: currentSessionId });
+        }, HISTORY_TRIM_DELAY_MS);
+        return () => window.clearTimeout(timer);
+    }, [active, currentSessionId, effectiveSessionDirectory, messageLoader, sessionIsWorking, turnCount]);
+    React.useEffect(() => {
+        if (isPinned || !currentSessionId || !effectiveSessionDirectory) return;
+        return messageLoader.retainSessionHistory({ directory: effectiveSessionDirectory, sessionID: currentSessionId }, 'browsing');
+    }, [currentSessionId, effectiveSessionDirectory, isPinned, messageLoader]);
 
     const handleHistoryScroll = timelineController.handleHistoryScroll;
     React.useEffect(() => {

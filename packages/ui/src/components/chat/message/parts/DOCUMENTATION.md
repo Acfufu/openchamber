@@ -132,7 +132,17 @@ the cut and tells the message it cuts into, through
 count with the same rule. When the cut moves down, `useActivityRowGlide`
 replays the jump as a 220 ms glide of the rows (FLIP, `transform` only, skipped
 with reduced motion). The trim stays while the settled fold closes and lifts
-when the reader opens it. A final assistant message with `finish: stop`
+when the reader opens it.
+
+A long turn, in either mode, mounts only a window of its rows
+(`lib/turns/turnMessageWindow.ts`, `components/TurnMessageWindow.tsx`): past
+60 rows its newest 40, with the rest behind spacers that mount 40 at a time as
+they near the viewport. It counts rows with the same rule as the fold, and the
+head may end inside a message, whose first rows `MessageBody` skips through
+`ActivityRowSkipContext`. Counting messages left a turn of a few steps with
+dozens of parallel calls each fully mounted.
+
+A final assistant message with `finish: stop`
 collapses the earlier messages and the final message's non-text parts, keeping
 the answer and its existing footer outside. Intermediate-text summary fallback
 and compaction summaries never become final answers. An older turn without a
