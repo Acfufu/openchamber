@@ -1,8 +1,8 @@
 diff --git a/dist/cjs/index.cjs b/dist/cjs/index.cjs
-index 12c5ab2..b6ca508 100644
+index 5ebc9f8..fcd63ec 100644
 --- a/dist/cjs/index.cjs
 +++ b/dist/cjs/index.cjs
-@@ -838,10 +838,14 @@ class Virtualizer {
+@@ -884,10 +884,14 @@ class Virtualizer {
            this.range = null;
            return null;
          }
@@ -19,10 +19,10 @@ index 12c5ab2..b6ca508 100644
            // Pass the typed array so binary search + forward-walk can read
            // start/end directly from Float64Array, skipping the Proxy traps.
 diff --git a/dist/esm/index.js b/dist/esm/index.js
-index 56807ab..df2cb96 100644
+index a371294..a5ef488 100644
 --- a/dist/esm/index.js
 +++ b/dist/esm/index.js
-@@ -836,10 +836,14 @@ class Virtualizer {
+@@ -883,10 +883,14 @@ class Virtualizer {
            this.range = null;
            return null;
          }
