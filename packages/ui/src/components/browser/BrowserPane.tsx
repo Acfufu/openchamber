@@ -1,5 +1,6 @@
 import { isIMECompositionEvent } from '@/lib/ime';
 import React from 'react';
+import { z } from 'zod';
 
 import { toast } from '@/components/ui';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
@@ -118,6 +119,13 @@ const browserPartitionOf = (directory: string): string => {
   const spaceId = spaceIdOfDirectory(directory);
   return spaceId ? `openchamber-space-preview:${spaceId}` : BROWSER_PARTITION;
 };
+/** Sent by the desktop shell when a panel page asks for a new tab (`main.mjs`). */
+const BROWSER_OPEN_TAB_EVENT = 'openchamber:browser-panel-open-tab';
+const browserTabRequestSchema = z.object({
+  webContentsId: z.number(),
+  url: z.string().min(1),
+  background: z.boolean(),
+});
 /** Kept small: this rides along with every snapshot. */
 const CONSOLE_PROBLEM_LIMIT = 20;
 const GATEWAY_RETRY_DELAY_MS = 600;
@@ -744,17 +752,26 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory: tab
     };
   }, [directory, loadUrl, webviewElement]);
 
-  // Popups open in place; a detached window would escape the panel entirely.
+  // A link the page opens in a new tab (target=_blank, a modified click) gets a
+  // tab of its own beside this one; the desktop shell names the page it came from.
   React.useEffect(() => {
     if (!webviewElement) return;
-    const onNewWindow = (event: Event) => {
-      const detail = (event as CustomEvent<{ url?: string }>).detail;
-      event.preventDefault();
-      if (detail?.url) loadUrl(detail.url);
+    const onOpenTab = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const request = browserTabRequestSchema.safeParse(event.detail);
+      if (!request.success) return;
+      let ownId = -1;
+      try {
+        ownId = webviewElement.getWebContentsId();
+      } catch {
+        return;
+      }
+      if (request.data.webContentsId !== ownId) return;
+      useUIStore.getState().openContextBrowser(tabDirectory, request.data.url, { reveal: !request.data.background });
     };
-    webviewElement.addEventListener('new-window', onNewWindow);
-    return () => webviewElement.removeEventListener('new-window', onNewWindow);
-  }, [loadUrl, webviewElement]);
+    window.addEventListener(BROWSER_OPEN_TAB_EVENT, onOpenTab);
+    return () => window.removeEventListener(BROWSER_OPEN_TAB_EVENT, onOpenTab);
+  }, [tabDirectory, webviewElement]);
 
   const applyZoom = React.useCallback((level: number) => {
     const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, level));

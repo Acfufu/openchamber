@@ -442,6 +442,12 @@
         "desktop"
       ]
     },
+    "liveBrowserTabLimit": {
+      "scope": "profile",
+      "surfaces": [
+        "desktop"
+      ]
+    },
     "openTrackerLinksOnBoard": {
       "scope": "profile",
       "surfaces": [

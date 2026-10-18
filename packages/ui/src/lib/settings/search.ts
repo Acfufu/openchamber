@@ -210,6 +210,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => ctx.isDesktop && !ctx.isMobile && !ctx.isVSCode,
   },
   {
+    id: 'appearance.live-browser-tabs',
+    page: 'general',
+    titleKey: 'settings.openchamber.visual.field.liveBrowserTabs',
+    descriptionKey: 'settings.openchamber.visual.field.liveBrowserTabsInfo',
+    keywords: ['browser', 'tabs', 'memory', 'reload', 'background', 'loaded'],
+    isAvailable: (ctx) => ctx.isDesktop && !ctx.isMobile && !ctx.isVSCode,
+  },
+  {
     id: 'layout.mobile-workspace-tabs',
     page: 'general',
     titleKey: 'settings.layout.general.mobileTabs.title',

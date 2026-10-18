@@ -390,6 +390,10 @@ export const resolvePreloadPath = () => (
   isDev ? path.join(__dirname, 'preload.mjs') : path.join(app.getAppPath(), 'preload.mjs')
 );
 
+export const resolveBrowserPanelPreloadPath = () => (
+  isDev ? path.join(__dirname, 'browser-panel-preload.cjs') : path.join(app.getAppPath(), 'browser-panel-preload.cjs')
+);
+
 // Arguments the preload reads from process.argv. They are fixed at window
 // creation: the main window is created before the backend resolves, so it
 // carries empty runtime values and receives them through the init script.

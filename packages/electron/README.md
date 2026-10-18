@@ -383,7 +383,24 @@ The server (`packages/web/server/lib/fs/ripgrep.js`) looks for ripgrep in this o
   session too, so icons behind the page's own login resolve and the app's origin
   never requests anything from a third-party host. Self-signed loopback HTTPS
   pages may use an untrusted certificate authority; certificate failures for
-  external hosts and all other certificate errors remain blocked.
+  external hosts and all other certificate errors remain blocked. Its cookies
+  and storage are flushed to disk before quitting, because `app.exit()` skips
+  Chromium's own shutdown write and a fresh sign-in would be lost. Electron
+  drops session cookies (no expiry) on quit, and many sign-ins live in one, so
+  before quitting they are rewritten with an expiry (`browser-panel-cookies.mjs`),
+  as Chrome keeps them when it continues where you left off.
+- `window.open` from a page in that session (`browserPanelWindowOpenTarget`): a
+  scripted popup opens as a sandboxed child window of the app window, keeping
+  `window.opener`, so a Google, GitHub or SSO sign-in can post its result back;
+  the popup itself may open nothing further. Chromium reports `window.open(url)`
+  without window features as a new tab, the same as a target=_blank link, so the
+  session's preload (`browser-panel-preload.cjs`, exposes nothing) marks every
+  `window.open` that keeps its opener as a popup. A link aimed at a new tab is
+  noopener by default and becomes a panel tab
+  (`openchamber:browser-panel-open-tab` to the renderer). Pages of an
+  isolated space keep everything in place, so nothing leaves the space's session.
+  Popups close with the window that opened them and do not count as app windows
+  when closing the last one hides the app on macOS.
 
 ## IPC Pattern
 

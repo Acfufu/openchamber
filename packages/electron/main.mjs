@@ -45,6 +45,7 @@ import {
   readPreferredLocale,
   readThemeSource,
   resolveMainWindowBounds,
+  resolveBrowserPanelPreloadPath,
   resolvePreloadPath,
   resolveSplashBackgroundColor,
   settingsFilePath,
@@ -99,8 +100,10 @@ import {
 } from './linux-autostart.mjs';
 import { reconcileAppImageDesktopEntry } from './linux-desktop-entry.mjs';
 import { unsupportedAppSpecificOpenError, validateLocalPath } from './path-open-utils.mjs';
+import { keepSessionCookies } from './browser-panel-cookies.mjs';
 import {
   browserPanelPermissionAuditDetails,
+  browserPanelWindowOpenTarget,
   plainChromeUserAgent,
   shouldAllowBrowserPanelCertificateError,
   shouldAllowBrowserPanelPermission,
@@ -440,14 +443,27 @@ const flushRendererStorage = async () => {
     .map((window) => window.webContents
       .executeJavaScript("window.dispatchEvent(new Event('openchamber:flush-persisted-state'))", true)
       .catch(() => undefined));
+  // The browser panel's logins: session cookies get an expiry so they outlive
+  // the quit (browser-panel-cookies.mjs), and Chromium writes cookies to disk
+  // on a timer, so a sign-in shortly before quitting would be lost with the rest.
+  const panelSession = session.fromPartition(BROWSER_PANEL_PARTITION);
+  const panelCookies = keepSessionCookies(panelSession.cookies, {
+    onError: (error) => log.warn('[electron] could not keep a browser panel session cookie:', error?.message || error),
+  })
+    .then(() => panelSession.cookies.flushStore())
+    .catch((error) => {
+      log.warn('[electron] browser panel cookie flush before quit failed:', error);
+    });
   await Promise.race([
-    Promise.all(pages),
+    Promise.all([...pages, panelCookies]),
     new Promise((resolve) => setTimeout(resolve, RENDERER_STORAGE_FLUSH_TIMEOUT_MS)),
   ]);
-  try {
-    session.defaultSession.flushStorageData();
-  } catch (error) {
-    log.warn('[electron] storage flush before quit failed:', error);
+  for (const storageSession of [session.defaultSession, panelSession]) {
+    try {
+      storageSession.flushStorageData();
+    } catch (error) {
+      log.warn('[electron] storage flush before quit failed:', error);
+    }
   }
 };
 
@@ -1175,7 +1191,10 @@ const hardenPanelSession = (panelSession) => {
 };
 
 const hardenBrowserPanelSession = () => {
-  hardenPanelSession(session.fromPartition(BROWSER_PANEL_PARTITION));
+  const panelSession = session.fromPartition(BROWSER_PANEL_PARTITION);
+  hardenPanelSession(panelSession);
+  // Only the user's session: a space's pages open everything in place anyway.
+  panelSession.registerPreloadScript({ type: 'frame', filePath: resolveBrowserPanelPreloadPath() });
 
   app.on('certificate-error', (event, contents, url, error, _certificate, callback) => {
     if (isPanelSession(contents.session) && shouldAllowBrowserPanelCertificateError({ url, error })) {
@@ -2664,7 +2683,7 @@ const createBrowserWindow = ({ label, restoreGeometry, url, runtimeConfig = {}, 
 
     if (process.platform === 'darwin' && !state.quitRequested) {
       const remainingVisible = BrowserWindow.getAllWindows().filter(
-        (window) => !window.isDestroyed() && window.isVisible(),
+        (window) => !window.isDestroyed() && window.isVisible() && !isBrowserPanelPopup(window),
       ).length;
 
       if (remainingVisible <= 1) {
@@ -5832,6 +5851,52 @@ const loadUrlInsideWebContents = (contents, rawUrl) => {
   }
 };
 
+/**
+ * Sign-in popups opened by pages of the user's browser panel. They are app
+ * windows to Electron, so the checks that decide whether the app still has a
+ * window of its own leave them out, and they close with the window that holds
+ * the panel.
+ */
+const browserPanelPopups = new WeakSet();
+const isBrowserPanelPopup = (browserWindow) => browserPanelPopups.has(browserWindow);
+
+const BROWSER_PANEL_POPUP_WEB_PREFERENCES = {
+  sandbox: true,
+  contextIsolation: true,
+  nodeIntegration: false,
+};
+
+const openBrowserPanelTab = (contents, url, background) => {
+  const host = contents.hostWebContents;
+  if (!host || host.isDestroyed()) {
+    loadUrlInsideWebContents(contents, url);
+    return;
+  }
+  host.send('openchamber:emit', {
+    event: 'openchamber:browser-panel-open-tab',
+    detail: { webContentsId: contents.id, url, background },
+  });
+};
+
+const trackBrowserPanelPopup = (contents, popup) => {
+  browserPanelPopups.add(popup);
+  // The popup may open nothing of its own: a page asking for one more window
+  // gets it in place.
+  popup.webContents.setWindowOpenHandler(({ url }) => {
+    loadUrlInsideWebContents(popup.webContents, url);
+    return { action: 'deny' };
+  });
+  const hostWindow = contents.hostWebContents ? BrowserWindow.fromWebContents(contents.hostWebContents) : null;
+  if (!hostWindow) return;
+  const closePopup = () => {
+    if (!popup.isDestroyed()) popup.close();
+  };
+  hostWindow.once('closed', closePopup);
+  popup.once('closed', () => {
+    if (!hostWindow.isDestroyed()) hostWindow.removeListener('closed', closePopup);
+  });
+};
+
 app.on('web-contents-created', (_event, contents) => {
   if (contents.getType() === 'window') {
     guardAttachedWebviews(contents);
@@ -5839,9 +5904,35 @@ app.on('web-contents-created', (_event, contents) => {
   }
   if (contents.getType() !== 'webview') return;
 
-  contents.setWindowOpenHandler(({ url }) => {
-    loadUrlInsideWebContents(contents, url);
+  // Pages of a space keep everything in their own view: a window or tab of
+  // theirs would leave the space's session for the user's.
+  const isUserPanelPage = () => contents.session === session.fromPartition(BROWSER_PANEL_PARTITION);
+
+  contents.setWindowOpenHandler(({ url, disposition, postBody }) => {
+    const target = isUserPanelPage()
+      ? browserPanelWindowOpenTarget({ url, disposition, hasPostBody: Boolean(postBody) })
+      : 'in-place';
+    if (target === 'popup') {
+      const hostWindow = contents.hostWebContents ? BrowserWindow.fromWebContents(contents.hostWebContents) : null;
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          parent: hostWindow ?? undefined,
+          autoHideMenuBar: true,
+          webPreferences: BROWSER_PANEL_POPUP_WEB_PREFERENCES,
+        },
+      };
+    }
+    if (target === 'tab' || target === 'background-tab') {
+      openBrowserPanelTab(contents, url, target === 'background-tab');
+    } else if (target === 'in-place') {
+      loadUrlInsideWebContents(contents, url);
+    }
     return { action: 'deny' };
+  });
+
+  contents.on('did-create-window', (popup) => {
+    trackBrowserPanelPopup(contents, popup);
   });
 });
 
