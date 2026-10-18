@@ -2142,6 +2142,7 @@ export const dict = {
   'chat.queuedMessage.edit': 'modifier',
   'chat.queuedMessage.send': 'envoyer',
   'chat.queuedMessage.removeAria': 'Supprimer de la file d\'attente',
+  'chat.queuedMessage.goal': 'Démarre un objectif à l\'envoi',
   'chat.queuedMessage.reorderAria': 'Glisser pour réorganiser',
   'chat.queuedMessage.toast.queueFailed': 'Impossible de mettre le message en file d\'attente. Il est de retour dans l\'éditeur.',
   'chat.queuedMessage.toast.takeFailed': 'Impossible de charger le message en file d\'attente. Veuillez réessayer.',

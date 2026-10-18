@@ -5,7 +5,7 @@ import { ComposerDictation } from '@/components/dictation/ComposerDictation';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { filterVisibleAgents } from '@/stores/useAgentsStore';
 import { useUIStore } from '@/stores/useUIStore';
-import { isServerOwnedMessageQueue, createMessageQueueTarget, getMessageQueueKey, useMessageQueueStore, type QueuedContextPart, type QueuedMessage } from '@/stores/messageQueueStore';
+import { isServerOwnedMessageQueue, createMessageQueueTarget, getMessageQueueKey, useMessageQueueStore, type QueuedContextPart, type QueuedMessage, type QueuedMessageGoal } from '@/stores/messageQueueStore';
 import { useAutoReviewStore } from '@/stores/useAutoReviewStore';
 import { useSessionGoalArmStore } from '@/stores/useSessionGoalArmStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
@@ -1418,6 +1418,16 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             references: linked.map(toContextReference),
         }, skillInstruction);
         const attachmentsToQueue = [...composerAttachments, ...mentionAttachments];
+        // An armed goal belongs to this message: it leaves with it and starts
+        // when this message is delivered, whatever is sent in between.
+        const goalArm = textToQueue.trim()
+            ? useSessionGoalArmStore.getState().consume()
+            : { armed: false, objectiveOverride: null };
+        const goalSettings = useUIStore.getState();
+        const goal: QueuedMessageGoal | undefined = goalArm.armed ? {
+            tokenBudget: goalSettings.sessionGoalDefaultBudgetEnabled ? goalSettings.sessionGoalDefaultBudget : null,
+        } : undefined;
+        if (goal && goalArm.objectiveOverride?.trim()) goal.objective = goalArm.objectiveOverride;
 
         // Sending while the agent works must still take the reader to the
         // live edge — a queued message produces no user row yet, so the
@@ -1450,10 +1460,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     agent: currentAgentName ?? undefined,
                     variant: currentVariant ?? undefined,
                 } : undefined,
+                goal,
             });
         } catch (error) {
             console.warn('[queue] failed to queue message:', error);
             toast.error(t('chat.queuedMessage.toast.queueFailed'));
+            if (goalArm.armed) useSessionGoalArmStore.getState().setArmed(true, goalArm.objectiveOverride);
             // The composer was cleared on queueing; give everything back. The
             // text is appended if the user has already typed something new.
             const currentInput = composerRef.current?.getValue() ?? messageRef.current;
@@ -1547,6 +1559,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
     const handleQueuedMessageEdit = React.useCallback((queued: QueuedMessage) => {
         setMessage(queued.content);
+        // Back in the composer, the message is armed again as it was queued.
+        if (queued.goal) useSessionGoalArmStore.getState().setArmed(true, queued.goal.objective ?? null);
         restoreQueuedContext(queued.context ?? []);
         setTimeout(() => {
             composerRef.current?.focus();
@@ -1872,6 +1886,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             historySubmissions?: InputHistorySubmission[];
             delivery?: 'steer';
             skills?: SkillMentions;
+            queuedGoal?: QueuedMessageGoal | null;
         } | undefined;
         if (isBtwActive && btwSessionId && btwDirectory) {
             sendMessageOptions = {
@@ -1918,6 +1933,13 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 return;
             }
             if (queuedOnly && queuedMessagesToSend.length === 0) return;
+            // A taken message brings the goal it was queued with. Without one,
+            // the composer's armed goal is for the composer text: a queued-only
+            // send leaves it alone.
+            const queuedGoal = queuedMessagesToSend.find((queued) => queued.goal)?.goal;
+            if (queuedGoal || queuedOnly) {
+                sendMessageOptions = { ...sendMessageOptions, queuedGoal: queuedGoal ?? null };
+            }
         }
 
         const historySubmissions = buildChatInputHistorySubmissions({

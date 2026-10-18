@@ -85,6 +85,7 @@ import {
 } from "./session-actions"
 import { useInputStore, type SyntheticContextPart } from "./input-store"
 import { useSessionGoalArmStore } from "@/stores/useSessionGoalArmStore"
+import type { QueuedMessageGoal } from "@/stores/messageQueueStore"
 import { setSessionGoal } from "@/lib/sessionGoalActions"
 import { wrapSystemReminder } from "@/lib/systemReminder"
 import { useUIStore } from "@/stores/useUIStore"
@@ -354,6 +355,11 @@ type SendMessageOptions = {
   delivery?: 'steer'
   /** Skills named inline, attached to the prompt once the session exists. */
   skills?: SkillMentions
+  /**
+   * A queued message carries its own goal intent. Set (a goal or `null`), it
+   * replaces the composer's armed goal, which belongs to the composer text.
+   */
+  queuedGoal?: QueuedMessageGoal | null
 }
 
 type AssistantMessageSessionExecution = {
@@ -1830,16 +1836,23 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       const draft = options?.draftSnapshot ?? get().newSessionDraft
       const trimmedAgent = typeof agent === "string" && agent.trim().length > 0 ? agent.trim() : undefined
 
-      const goalArm = inputMode !== "shell" && content.trim().length > 0
-        ? useSessionGoalArmStore.getState().consume()
-        : { armed: false, objectiveOverride: null }
+      const queuedGoal = options?.queuedGoal
+      const goalArm = inputMode === "shell" || content.trim().length === 0
+        ? { armed: false, objectiveOverride: null }
+        : queuedGoal !== undefined
+          ? { armed: queuedGoal !== null, objectiveOverride: queuedGoal?.objective ?? null }
+          : useSessionGoalArmStore.getState().consume()
       const goalArmed = goalArm.armed
+      // A queued goal keeps the budget it was queued with.
+      const goalUiState = useUIStore.getState()
+      const goalTokenBudget = queuedGoal
+        ? queuedGoal.tokenBudget
+        : (goalUiState.sessionGoalDefaultBudgetEnabled ? goalUiState.sessionGoalDefaultBudget : null)
       if (goalArmed) {
         // Teach the agent the goal protocol from turn one — without this it
         // only learns about goal mode from the first server continuation.
-        const uiState = useUIStore.getState()
-        const budgetLine = uiState.sessionGoalDefaultBudgetEnabled
-          ? ` A token budget of ${uiState.sessionGoalDefaultBudget} tokens applies to this goal.`
+        const budgetLine = goalTokenBudget
+          ? ` A token budget of ${goalTokenBudget} tokens applies to this goal.`
           : ""
         const goalIntro = wrapSystemReminder(
           "Goal mode is active for this session. The user message above defines the goal objective. "
@@ -1851,8 +1864,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       }
       const applyArmedGoal = async (goalSessionId: string, goalDirectory: string | null | undefined) => {
         if (!goalArmed) return
-        const uiState = useUIStore.getState()
-        const tokenBudget = uiState.sessionGoalDefaultBudgetEnabled ? uiState.sessionGoalDefaultBudget : null
+        const tokenBudget = goalTokenBudget
         let objective = goalArm.objectiveOverride?.trim() || content
         if (!goalArm.objectiveOverride && content.startsWith("/")) {
           // Same directory-scoped resolution as routeMessage: the objective must
@@ -1865,7 +1877,8 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
         try {
           await setSessionGoal(goalSessionId, goalDirectory ?? undefined, { objective, tokenBudget }, null)
         } catch (error) {
-          useSessionGoalArmStore.getState().setArmed(true, goalArm.objectiveOverride)
+          // A queued message keeps its goal for the retry; only the composer's arm comes back.
+          if (queuedGoal === undefined) useSessionGoalArmStore.getState().setArmed(true, goalArm.objectiveOverride)
           throw error
         }
       }

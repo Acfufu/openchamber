@@ -2387,6 +2387,7 @@ export const dict = {
   'chat.queuedMessage.edit': 'עריכה',
   'chat.queuedMessage.send': 'שליחה',
   'chat.queuedMessage.removeAria': 'הסר מתור ההמתנה',
+  'chat.queuedMessage.goal': 'מתחיל יעד כשההודעה נשלחת',
   'chat.queuedMessage.reorderAria': 'גרור כדי לשנות סדר',
   'chat.queuedMessage.toast.queueFailed': 'לא ניתן היה להוסיף את ההודעה לתור. היא הוחזרה לתיבת הכתיבה.',
   'chat.queuedMessage.toast.takeFailed': 'לא ניתן היה לטעון את ההודעה מהתור. יש לנסות שוב.',
