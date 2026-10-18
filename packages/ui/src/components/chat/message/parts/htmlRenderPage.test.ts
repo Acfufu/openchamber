@@ -249,6 +249,56 @@ describe('the page height', () => {
 
         expect(sizes()).toEqual([509]);
     });
+
+    test('settles on one height with a block taller than the box it sits in', () => {
+        // A sketch from a real session: a 16:9 picture 237 px tall inside a
+        // 200 px box ran 4 px past the root's 300 px box. The body's own
+        // scroll height reaches the picture's end whatever the frame's height.
+        const page = mountPage(undefined, '<div style="height:200px"><div style="height:237px"></div></div>');
+        const { win } = page;
+        const root = win.document.documentElement;
+        const body = win.document.body;
+        let frameHeight = 48;
+        Object.defineProperty(win, 'innerHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'scrollHeight', { get: () => Math.max(frameHeight, 304), configurable: true });
+        Object.defineProperty(body, 'scrollHeight', { get: () => 304, configurable: true });
+        root.getBoundingClientRect = () => new win.DOMRect(0, 0, 600, 300);
+        body.getBoundingClientRect = () => new win.DOMRect(0, 0, 600, 300);
+
+        const sizes = () => page.reports.flatMap((report) => (report?.kind === 'size' ? [report.height] : []));
+        for (let round = 0; round < 6; round += 1) {
+            frameHeight = sizes().at(-1) ?? frameHeight;
+            win.dispatchEvent(new win.Event('resize'));
+        }
+
+        expect(sizes()).toEqual([304]);
+    });
+
+    test('counts the body\'s scroll height at the page\'s own zoom', () => {
+        // `body{zoom:.5}` around a 400 px block: the body is drawn 200 px
+        // tall, while its layout and scroll heights stay at 400.
+        const page = mountPage(undefined, '<div style="height:400px"></div>');
+        const { win } = page;
+        const root = win.document.documentElement;
+        const body = win.document.body;
+        let frameHeight = 48;
+        Object.defineProperty(win, 'innerHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'scrollHeight', { get: () => Math.max(frameHeight, 200), configurable: true });
+        Object.defineProperty(body, 'scrollHeight', { get: () => 400, configurable: true });
+        Object.defineProperty(body, 'offsetHeight', { get: () => 400, configurable: true });
+        root.getBoundingClientRect = () => new win.DOMRect(0, 0, 600, 200);
+        body.getBoundingClientRect = () => new win.DOMRect(0, 0, 300, 200);
+
+        const sizes = () => page.reports.flatMap((report) => (report?.kind === 'size' ? [report.height] : []));
+        for (let round = 0; round < 6; round += 1) {
+            frameHeight = sizes().at(-1) ?? frameHeight;
+            win.dispatchEvent(new win.Event('resize'));
+        }
+
+        expect(sizes()).toEqual([200]);
+    });
 });
 
 describe('a page that waits for an answer', () => {
