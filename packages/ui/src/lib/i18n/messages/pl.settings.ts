@@ -634,6 +634,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'Nie udało się przeładować opencode; wymagany restart',
   'settings.plugins.validation.fileName': 'Nazwa pliku musi być małymi literami i kończyć się na .js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'Specyfikacja jest wymagana',
+  'settings.plugins.validation.specUnloadable': 'To nie jest pakiet npm ani repozytorium Git',
   'settings.plugins.registry.badge.network.tooltip': 'Nie można połączyć się z rejestrem pakietów',
   'settings.plugins.registry.banner.updateAvailable.title': 'Dostępna aktualizacja',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

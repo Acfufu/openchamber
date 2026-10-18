@@ -1302,6 +1302,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'opencode reload failed — restart required',
   'settings.plugins.validation.fileName': 'Filename must be lowercase, end in .js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'Spec is required',
+  'settings.plugins.validation.specUnloadable': 'Not an npm package or Git repository',
   'settings.plugins.registry.badge.network.tooltip': 'Could not reach the package registry',
   'settings.plugins.registry.banner.updateAvailable.title': 'Update available',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

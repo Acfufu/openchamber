@@ -1270,6 +1270,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'Falha ao recarregar opencode; reinicialização necessária',
   'settings.plugins.validation.fileName': 'O nome do arquivo deve estar em minúsculas e terminar em .js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'A especificação é obrigatória',
+  'settings.plugins.validation.specUnloadable': 'Não é um pacote npm nem um repositório Git',
   'settings.plugins.registry.badge.network.tooltip': 'Não foi possível acessar o registro de pacotes',
   'settings.plugins.registry.banner.updateAvailable.title': 'Atualização disponível',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

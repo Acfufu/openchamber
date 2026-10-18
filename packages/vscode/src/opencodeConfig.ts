@@ -17,6 +17,7 @@ import {
 } from 'jsonc-parser';
 import { resolveNpmRegistryRequest } from '../../web/server/lib/opencode/npm-registry-config.js';
 import { writeFileAtomic } from '../../web/server/lib/opencode/atomic-write.js';
+import { toLoadablePluginSpec } from '../../web/server/lib/opencode/loadable-plugin-spec.js';
 import {
   toAgentEntity,
   fromAgentEntity,
@@ -1107,6 +1108,14 @@ const validatePluginSpec = (spec: unknown): string => {
   return spec.trim();
 };
 
+const requireLoadablePluginSpec = (spec: string): string => {
+  const loadable = toLoadablePluginSpec(spec);
+  if (loadable === null) {
+    throw codedError(`OpenCode cannot load plugin "${spec}"`, 'UNLOADABLE_SPEC');
+  }
+  return loadable;
+};
+
 const PLUGIN_FILE_NAME_PATTERN = /^[a-z0-9][a-z0-9-_.]*\.(js|ts|mjs|cjs)$/;
 
 const validatePluginFileName = (fileName: unknown): string => {
@@ -1347,7 +1356,7 @@ export const getPluginEntry = (id: string, workingDirectory?: string): PluginEnt
   listPluginEntries(workingDirectory).find((entry) => entry.id === id) || null;
 
 export const createPluginEntry = (entry: { spec?: unknown; options?: unknown; scope?: unknown }, workingDirectory?: string): void => {
-  const spec = validatePluginSpec(entry.spec);
+  const spec = requireLoadablePluginSpec(validatePluginSpec(entry.spec));
   const scope = validatePluginScope(entry.scope || 'user');
   const sources = getPluginConfigSources(workingDirectory);
   if (sources.some((source) => source.scope === scope && hasPluginSpec(readPluginArray(source.config), spec))) {
@@ -1366,7 +1375,10 @@ export const updatePluginEntry = (id: string, updates: { spec?: unknown; options
   const target = getPluginTarget(id, workingDirectory);
   if (!target) throw codedError('Plugin entry not found', 'NOT_FOUND');
   const existing = parsePluginRaw(target.plugin[target.index]);
-  const nextSpec = updates.spec === undefined ? existing.spec : validatePluginSpec(updates.spec);
+  let nextSpec = updates.spec === undefined ? existing.spec : validatePluginSpec(updates.spec);
+  // An entry already in the config keeps its spec as written; only a changed
+  // spec has to be one OpenCode loads.
+  if (nextSpec !== existing.spec) nextSpec = requireLoadablePluginSpec(nextSpec);
   const nextOptions = updates.options === undefined ? existing.options : updates.options;
   target.plugin[target.index] = serializePluginEntry({ spec: nextSpec, options: nextOptions });
   writeConfig(writePluginArray(target.config, target.plugin), target.path);

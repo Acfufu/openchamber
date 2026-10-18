@@ -592,6 +592,30 @@ Two consequences worth knowing:
   `#rrggbb` and OpenCode's migration maps anything else to `#aaaaaa`.
   `toAgentEntity` applies the same mapping so a rewritten file stays decodable.
 
+### Plugin specs written by the plugins page
+
+A plugin entry is written only when OpenCode 2 can load its spec
+(`loadable-plugin-spec.js`, used by `plugins.js` and the VS Code bridge's
+`opencodeConfig.ts`). The accepted forms follow OpenCode's own install check
+(`Npm.isInstallablePackage` in `packages/util/src/npm.ts`): an npm name with
+an optional version, tag or range, a Git spec (`github:owner/repo`,
+`git+https://…`, `git+ssh://…#ref`, `git@host:owner/repo.git`, `owner/repo`),
+or a local path. Anything else is refused with `UNLOADABLE_SPEC`, which the route
+answers as 400 with `code`, and the add dialog shows under the field. An
+existing entry keeps its spec when only its options change, so a config that
+already holds an unloadable spec stays editable.
+
+#### Why rewrite a plain `https://` repository address and not refuse it
+
+npm reads `https://github.com/owner/repo.git` as a Git repository, but
+OpenCode 2.0.32 resolves it as a folder named after the URL and fails on every
+start (measured: "Cannot find module '<cwd>/https:/github.com/…/server'").
+The same repository as `git+https://…` installs and loads. The rewrite only
+adds `git+`, and only for an address that names a repository without doubt: a
+repository on GitHub, GitLab or Bitbucket, or any address ending in `.git`. A
+page inside a repository (`/tree/main`) is refused, since the branch in its
+path would be lost.
+
 ### Canonical entity shapes
 
 One shape per entity, shared by the web routes and the VS Code bridge. The

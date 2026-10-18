@@ -1270,6 +1270,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'opencode 다시 로드 실패; 재시작이 필요합니다',
   'settings.plugins.validation.fileName': '파일 이름은 소문자여야 하며 .js / .ts / .mjs / .cjs로 끝나야 합니다',
   'settings.plugins.validation.specRequired': '명세는 필수입니다',
+  'settings.plugins.validation.specUnloadable': 'npm 패키지나 Git 저장소가 아닙니다',
   'settings.plugins.registry.badge.network.tooltip': '패키지 레지스트리에 연결할 수 없습니다',
   'settings.plugins.registry.banner.updateAvailable.title': '업데이트 가능',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

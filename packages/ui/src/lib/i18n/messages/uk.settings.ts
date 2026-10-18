@@ -1270,6 +1270,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'Не вдалося перезавантажити opencode; потрібен перезапуск',
   'settings.plugins.validation.fileName': 'Назва файлу має бути в нижньому регістрі й закінчуватися на .js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'Специфікація обов’язкова',
+  'settings.plugins.validation.specUnloadable': 'Це не npm-пакет і не Git-репозиторій',
   'settings.plugins.registry.badge.network.tooltip': 'Не вдалося підключитися до реєстру пакетів',
   'settings.plugins.registry.banner.updateAvailable.title': 'Доступне оновлення',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

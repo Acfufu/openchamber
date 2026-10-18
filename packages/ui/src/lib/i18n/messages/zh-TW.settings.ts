@@ -2486,6 +2486,7 @@ export const settingsDict = {
   'settings.plugins.toast.updatedToLatest': '外掛已更新到 {version}',
   'settings.plugins.validation.fileName': '檔案名稱必須為小寫，並以 .js / .ts / .mjs / .cjs 結尾',
   'settings.plugins.validation.specRequired': '請輸入套件或路徑',
+  'settings.plugins.validation.specUnloadable': '不是 npm 套件或 Git 儲存庫',
   'settings.view.home.cards.plugins.description': '管理 opencode 外掛',
   'settings.view.home.cards.plugins.title': '外掛',
   'settings.openchamber.visual.section.followUpBehavior': 'Follow-up behavior',

@@ -1303,6 +1303,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'opencode の再読み込みに失敗しました - 再起動が必要です',
   'settings.plugins.validation.fileName': 'ファイル名は小文字で、.js / .ts / .mjs / .cjs で終わる必要があります',
   'settings.plugins.validation.specRequired': 'Spec が必要です',
+  'settings.plugins.validation.specUnloadable': 'npm パッケージでも Git リポジトリでもありません',
   'settings.plugins.registry.badge.network.tooltip': 'パッケージレジストリに接続できませんでした',
   'settings.plugins.registry.banner.updateAvailable.title': 'アップデート可能',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

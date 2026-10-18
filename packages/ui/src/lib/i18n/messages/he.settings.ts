@@ -1302,6 +1302,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'הטעינה מחדש של opencode נכשלה — נדרשת הפעלה מחדש',
   'settings.plugins.validation.fileName': 'שם הקובץ חייב להיות באותיות קטנות ולהסתיים ב-.js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'חובה להזין מפרט',
+  'settings.plugins.validation.specUnloadable': 'זו לא חבילת npm ולא מאגר Git',
   'settings.plugins.registry.badge.network.tooltip': 'לא ניתן היה להתחבר למאגר החבילות',
   'settings.plugins.registry.banner.updateAvailable.title': 'יש עדכון זמין',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

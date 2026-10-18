@@ -1303,6 +1303,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'herladen van opencode mislukt — herstart vereist',
   'settings.plugins.validation.fileName': 'Bestandsnaam moet in kleine letters zijn en eindigen op .js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'Spec is vereist',
+  'settings.plugins.validation.specUnloadable': 'Geen npm-pakket of Git-repository',
   'settings.plugins.registry.badge.network.tooltip': 'Kan het pakketregister niet bereiken',
   'settings.plugins.registry.banner.updateAvailable.title': 'Update beschikbaar',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

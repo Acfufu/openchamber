@@ -1270,6 +1270,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'opencode 重新加载失败；需要重启',
   'settings.plugins.validation.fileName': '文件名必须为小写，并以 .js / .ts / .mjs / .cjs 结尾',
   'settings.plugins.validation.specRequired': '规格为必填项',
+  'settings.plugins.validation.specUnloadable': '不是 npm 包或 Git 仓库',
   'settings.plugins.registry.badge.network.tooltip': '无法连接到包注册表',
   'settings.plugins.registry.banner.updateAvailable.title': '有可用更新',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

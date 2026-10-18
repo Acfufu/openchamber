@@ -1244,6 +1244,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'opencode Neuladen fehlgeschlagen — Neustart erforderlich',
   'settings.plugins.validation.fileName': 'Dateiname muss klein geschrieben sein und auf .js / .ts / .mjs / .cjs enden',
   'settings.plugins.validation.specRequired': 'Spezifikation ist erforderlich',
+  'settings.plugins.validation.specUnloadable': 'Kein npm-Paket oder Git-Repository',
   'settings.plugins.registry.badge.network.tooltip': 'Paket-Registry nicht erreichbar',
   'settings.plugins.registry.banner.updateAvailable.title': 'Update verfügbar',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

@@ -1302,6 +1302,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'تعذّرت إعادة تحميل opencode — يلزم إعادة التشغيل',
   'settings.plugins.validation.fileName': 'يجب أن يكون اسم الملف بأحرف صغيرة وأن ينتهي بـ .js / .ts / .mjs / .cjs',
   'settings.plugins.validation.specRequired': 'المواصفة مطلوبة',
+  'settings.plugins.validation.specUnloadable': 'ليست حزمة npm أو مستودع Git',
   'settings.plugins.registry.badge.network.tooltip': 'تعذّر الوصول إلى سجل الحزم',
   'settings.plugins.registry.banner.updateAvailable.title': 'يتوفر تحديث',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',

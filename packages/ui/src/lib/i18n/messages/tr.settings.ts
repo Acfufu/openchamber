@@ -1278,6 +1278,7 @@ export const settingsDict = {
   'settings.plugins.toast.reloadFailed': 'opencode yeniden yüklenemedi — yeniden başlatma gerekli',
   'settings.plugins.validation.fileName': 'Dosya adı küçük harf olmalı ve .js / .ts / .mjs / .cjs ile bitmeli',
   'settings.plugins.validation.specRequired': 'Spec zorunludur',
+  'settings.plugins.validation.specUnloadable': 'npm paketi veya Git deposu değil',
   'settings.plugins.registry.badge.network.tooltip': 'Paket deposuna ulaşılamadı',
   'settings.plugins.registry.banner.updateAvailable.title': 'Güncelleme var',
   'settings.plugins.registry.banner.updateAvailable.description': '{current} → {latest}',
