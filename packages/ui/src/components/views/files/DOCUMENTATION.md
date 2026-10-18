@@ -106,6 +106,8 @@ indented 12px per level, one faint guide per ancestor level under its
 chevron, a chevron instead of a folder icon, and the git state as a coloured
 letter on the right. A blue dot before the letter marks a file open in a tab;
 it no longer hides the file's git state. Change the look there, not per tree.
+The JSON tree viewer (`components/ui/JsonTreeViewer.tsx`) takes the same
+indent and guides and copies the chevron's look; keep the copy in step.
 
 ## Refreshing after file changes
 

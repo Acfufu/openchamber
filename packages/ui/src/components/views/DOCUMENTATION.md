@@ -171,6 +171,22 @@ under the OpenChamber data directory and repository plans in a custom folder.
 accepts comments and trailing commas for preview without changing the source
 text. `JsonTreeView` defaults to strict JSON parsing for other callers.
 
+`JsonTreeViewer` (Files, chat tool output) draws its rows with the file
+tree's parts, `fileTreeRowPaddingLeft` and `FileTreeIndentGuides`, plus a
+copy of `FileTreeChevron`'s look, so nesting reads the same in both trees.
+`flattenTree` adds a closing `}` or `]` row after the last child of every
+expanded container that has children; collapsed and empty containers stay
+one row. The expand arrow stays the
+line's size on touch screens: inline `minHeight`/`minWidth` of 0 beat
+`mobile.css`'s 36px button floor, which made arrow rows taller than leaf rows
+and pushed their keys out of line, and an invisible `::before` covers the
+row's full height and part of the indent as the tap area, 26x24px. That is
+under the 36px floor on purpose: a 36px arrow is what made the rows uneven. The tree is code,
+so it renders `dir="ltr"` in every language; mirrored, it flipped brackets
+and showed `"</head>"` as `"<head/>"`. That is why the chevron is a copy:
+`FileTreeChevron`'s `rtl:-rotate-90` follows `<html dir>` and would point the
+unmirrored arrow up inside the LTR block.
+
 ## Pull request comparisons
 
 DiffView, mobile Changes and walkthrough share `PullRequestComparisonSelector`
