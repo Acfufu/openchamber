@@ -2596,6 +2596,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             keyboardHint: t('chat.modelControls.keyboardHintNavigate'),
             favorite: t('chat.modelControls.favoriteAria'),
             unfavorite: t('chat.modelControls.unfavoriteAria'),
+            provider: t('chat.modelControls.provider'),
             capabilities: t('chat.modelControls.capabilities'),
             capabilityToolCalling: t('chat.modelControls.capability.toolCalling'),
             capabilityReasoning: t('chat.modelControls.capability.reasoning'),
