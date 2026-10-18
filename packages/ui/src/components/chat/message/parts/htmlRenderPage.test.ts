@@ -205,6 +205,50 @@ describe('the page bootstrap', () => {
         expect(escapes()).toBe(1);
     });
 
+    test('reports a wheel up and a vertical swipe the page left alone, for the chat around it', () => {
+        const { win } = page;
+        const user = <T extends HappyEvent>(event: T): T => {
+            // A gesture the user made; the bootstrap ignores synthetic ones.
+            Object.defineProperty(event, 'isTrusted', { value: true });
+            return event;
+        };
+        const wheel = (target: HappyNode, deltaY: number) => target.dispatchEvent(user(new win.WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true })));
+        const touch = (type: string, x: number, y: number) => {
+            const event = user(new win.Event(type, { bubbles: true, cancelable: true }));
+            Object.defineProperty(event, 'touches', { value: [{ clientX: x, clientY: y }] });
+            win.document.body.dispatchEvent(event);
+        };
+        const scrolls = () => page.reports.flatMap((report) => (report?.kind === 'scroll' ? [report.direction] : []));
+
+        wheel(win.document.body, -40);
+        wheel(win.document.body, 40);
+        expect(scrolls()).toEqual(['up']);
+
+        // A box in the page with room above takes the wheel itself.
+        win.document.body.insertAdjacentHTML('beforeend', '<div id="box" style="overflow-y:auto"><p id="inner">rows</p></div>');
+        const box = win.document.getElementById('box');
+        const inner = win.document.getElementById('inner');
+        if (!box || !inner) throw new Error('no box');
+        Object.defineProperty(box, 'scrollTop', { value: 30, configurable: true });
+        wheel(inner, -40);
+        expect(scrolls()).toEqual(['up']);
+
+        // The page's own script took the wheel.
+        const takeIt = (event: HappyEvent) => event.preventDefault();
+        win.document.addEventListener('wheel', takeIt);
+        wheel(win.document.body, -40);
+        win.document.removeEventListener('wheel', takeIt);
+        expect(scrolls()).toEqual(['up']);
+
+        // A finger dragging down moves toward older content, up toward newer;
+        // a sideways swipe is no scroll.
+        touch('touchstart', 100, 100);
+        touch('touchmove', 101, 130);
+        touch('touchmove', 102, 90);
+        touch('touchmove', 140, 92);
+        expect(scrolls()).toEqual(['up', 'up', 'down']);
+    });
+
     test('ignores host messages that do not come from its parent', () => {
         const stream = page.win.document.body.textContent ?? '';
         const start = stream.indexOf('bold');

@@ -189,6 +189,14 @@ describe('readHtmlRenderFrameMessage', () => {
             .toEqual({ kind: 'selection-escape' });
     });
 
+    test('reads the direction of a scroll gesture the page passed on', () => {
+        const type = 'openchamber:html-render:scroll';
+        expect(readHtmlRenderFrameMessage({ data: { type, direction: 'up' } })).toEqual({ kind: 'scroll', direction: 'up' });
+        expect(readHtmlRenderFrameMessage({ data: { type, direction: 'down' } })).toEqual({ kind: 'scroll', direction: 'down' });
+        expect(readHtmlRenderFrameMessage({ data: { type, direction: 'left' } })).toBeNull();
+        expect(readHtmlRenderFrameMessage({ data: { type } })).toBeNull();
+    });
+
     test('ignores anything else, including links that are not http(s)', () => {
         expect(readHtmlRenderFrameMessage({ data: { type: 'openchamber:html-render:open-link', url: 'javascript:alert(1)' } })).toBeNull();
         expect(readHtmlRenderFrameMessage({ data: { type: 'openchamber:html-render:size', height: -1 } })).toBeNull();
