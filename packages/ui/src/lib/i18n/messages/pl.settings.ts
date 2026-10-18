@@ -1269,6 +1269,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip': 'Pokaż Kopiuj odpowiedź, Zapisz jako obraz i Odczytaj na głos w blokach tekstu asystenta, które pojawiają się przed późniejszymi wywołaniami narzędzi w tej samej odpowiedzi.',
   'settings.openchamber.visual.field.allowPromptingSubagentSessionsAria': 'Zezwalaj na wysyłanie promptów do sesji podagentów',
   'settings.openchamber.visual.field.allowPromptingSubagentSessions': 'Zezwalaj na prompty w sesjach podagentów',
+  'settings.openchamber.visual.field.saveImagesForTextOnlyModels': 'Zapisuj obrazy dla modeli, które ich nie odczytują',
+  'settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo': 'Wklejony lub załączony obraz jest zapisywany na komputerze, na którym działa OpenCode, a jego ścieżka trafia do wiadomości, więc model lub podagent może go otworzyć.',
   'settings.openchamber.visual.field.draftStartersVisible': 'Pokazuj startery na ekranie nowej sesji',
   'settings.openchamber.visual.field.draftStartersVisibleAria': 'Pokazuj startery na ekranie nowej sesji',
   'settings.openchamber.visual.field.showToolFileIcons': 'Pokaż ikony plików narzędzi',

@@ -1154,6 +1154,7 @@ interface UIStore {
   promptNavigatorEnabled: boolean;
   showSplitAssistantMessageActions: boolean;
   allowPromptingSubagentSessions: boolean;
+  saveImagesForTextOnlyModels: boolean;
   isExpandedInput: boolean;
   reportUsage: boolean;
   shortcutOverrides: Record<string, ShortcutCombo>;
@@ -1414,6 +1415,7 @@ interface UIStore {
   setPromptNavigatorEnabled: (value: boolean) => void;
   setShowSplitAssistantMessageActions: (value: boolean) => void;
   setAllowPromptingSubagentSessions: (value: boolean) => void;
+  setSaveImagesForTextOnlyModels: (value: boolean) => void;
   viewPagerPage: 'left' | 'center' | 'right';
   setViewPagerPage: (page: 'left' | 'center' | 'right') => void;
   toggleExpandedInput: () => void;
@@ -1643,6 +1645,7 @@ export const useUIStore = create<UIStore>()(
         promptNavigatorEnabled: true,
         showSplitAssistantMessageActions: false,
         allowPromptingSubagentSessions: false,
+        saveImagesForTextOnlyModels: false,
         draftStartersVisible: true,
         isExpandedInput: false,
         reportUsage: true,
@@ -3329,6 +3332,9 @@ export const useUIStore = create<UIStore>()(
         setAllowPromptingSubagentSessions: (value) => {
           set({ allowPromptingSubagentSessions: value });
         },
+        setSaveImagesForTextOnlyModels: (value) => {
+          set({ saveImagesForTextOnlyModels: value });
+        },
         setReportUsage: (value) => {
           set({ reportUsage: value });
         },
@@ -3778,6 +3784,7 @@ export const useUIStore = create<UIStore>()(
           promptNavigatorEnabled: state.promptNavigatorEnabled,
           showSplitAssistantMessageActions: state.showSplitAssistantMessageActions,
           allowPromptingSubagentSessions: state.allowPromptingSubagentSessions,
+          saveImagesForTextOnlyModels: state.saveImagesForTextOnlyModels,
           draftStartersVisible: state.draftStartersVisible,
           shortcutOverrides: state.shortcutOverrides,
           fileEditorKeymap: state.fileEditorKeymap,

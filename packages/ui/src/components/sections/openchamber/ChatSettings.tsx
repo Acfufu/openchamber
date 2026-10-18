@@ -344,6 +344,8 @@ const ComposerTab: React.FC = () => {
   const setLargeTextPasteBehavior = useUIStore((state) => state.setLargeTextPasteBehavior);
   const allowPromptingSubagentSessions = useUIStore((state) => state.allowPromptingSubagentSessions);
   const setAllowPromptingSubagentSessions = useUIStore((state) => state.setAllowPromptingSubagentSessions);
+  const saveImagesForTextOnlyModels = useUIStore((state) => state.saveImagesForTextOnlyModels);
+  const setSaveImagesForTextOnlyModels = useUIStore((state) => state.setSaveImagesForTextOnlyModels);
   const persistChatDraft = useUIStore((state) => state.persistChatDraft);
   const setPersistChatDraft = useUIStore((state) => state.setPersistChatDraft);
   const inputSpellcheckEnabled = useUIStore((state) => state.inputSpellcheckEnabled);
@@ -422,13 +424,23 @@ const ComposerTab: React.FC = () => {
             ))}
           </SettingsRadioGroup>
         </SettingsControlGroup>
-        <SettingsCheckboxRow
-          checked={allowPromptingSubagentSessions}
-          onChange={setAllowPromptingSubagentSessions}
-          label={t('settings.openchamber.visual.field.allowPromptingSubagentSessions')}
-          ariaLabel={t('settings.openchamber.visual.field.allowPromptingSubagentSessionsAria')}
-          settingsItem="chat.subagent-read-only-banner"
-        />
+        <div className={SETTINGS_OPTION_STACK_CLASS}>
+          <SettingsCheckboxRow
+            checked={allowPromptingSubagentSessions}
+            onChange={setAllowPromptingSubagentSessions}
+            label={t('settings.openchamber.visual.field.allowPromptingSubagentSessions')}
+            ariaLabel={t('settings.openchamber.visual.field.allowPromptingSubagentSessionsAria')}
+            settingsItem="chat.subagent-read-only-banner"
+          />
+          <SettingsCheckboxRow
+            checked={saveImagesForTextOnlyModels}
+            onChange={setSaveImagesForTextOnlyModels}
+            label={t('settings.openchamber.visual.field.saveImagesForTextOnlyModels')}
+            ariaLabel={t('settings.openchamber.visual.field.saveImagesForTextOnlyModels')}
+            info={t('settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo')}
+            settingsItem="chat.save-images-for-text-models"
+          />
+        </div>
       </SettingsSection>
 
       <SettingsSection title={t('settings.layout.chat.section.draftsAndHistory')} contentClassName="space-y-3">

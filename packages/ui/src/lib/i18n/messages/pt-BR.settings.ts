@@ -2320,6 +2320,8 @@ export const settingsDict = {
   "settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip": "Mostra Copiar resposta, Salvar como imagem e Ler em voz alta em blocos de texto do assistente que aparecem antes de chamadas de ferramenta posteriores na mesma resposta.",
   "settings.openchamber.visual.field.allowPromptingSubagentSessionsAria": "Permitir prompts em sessões de subagentes",
   "settings.openchamber.visual.field.allowPromptingSubagentSessions": "Permitir prompts em sessões de subagentes",
+  "settings.openchamber.visual.field.saveImagesForTextOnlyModels": "Salvar imagens para modelos que não conseguem lê-las",
+  "settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo": "Uma imagem colada ou anexada é salva na máquina onde o OpenCode roda, e o caminho dela vai para a mensagem, para que o modelo ou um subagente possa abri-la.",
   "settings.openchamber.visual.field.draftStartersVisible": "Mostrar atalhos na tela de nova sessão",
   "settings.openchamber.visual.field.draftStartersVisibleAria": "Mostrar atalhos na tela de nova sessão",
   "settings.openchamber.visual.field.showToolFileIconsAria": "Mostrar ícones de arquivos de ferramentas",

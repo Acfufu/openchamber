@@ -419,6 +419,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['subagent', 'read only', 'prompt', 'banner'],
   },
   {
+    id: 'chat.save-images-for-text-models',
+    page: 'chat',
+    titleKey: 'settings.openchamber.visual.field.saveImagesForTextOnlyModels',
+    descriptionKey: 'settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo',
+    keywords: ['image', 'screenshot', 'paste', 'vision', 'text-only', 'model', 'path', 'attachment'],
+  },
+  {
     id: 'chat.tool-file-icons',
     page: 'chat',
     titleKey: 'settings.openchamber.visual.field.showToolFileIcons',

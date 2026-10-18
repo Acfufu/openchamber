@@ -297,6 +297,23 @@ to read the declaration again when the composer takes focus, since the IME reads
 element takes focus and that can be before the report arrives. The paste handler re-checks
 focus as a backstop for that window. Every other runtime pastes images through `handlePaste` unchanged, and an IME
 without content insertion keeps refusing.
+With the profile setting `saveImagesForTextOnlyModels` on and a model whose
+metadata lists no `image` input, pasted, dropped and picked images
+(`attachFilesWithCitation`, `attachFiles`) are not attached: the composer writes
+them into a new folder under OpenCode's own temp folder
+(`opencodeClient.writeOpenCodeTempFiles`: `GET /api/info` names the folder,
+`POST /api/experimental/fs/write` writes it) and cites each one as
+`[name](absolute path)` (a plain link: a draft starting with `!` turns into a shell command), so the model or a subagent reads it by path; OpenCode's
+agents may read that folder without asking. The modality toast says where the
+images went. An image that could not be saved attaches as before, with an error
+toast. With the setting off, unknown model metadata, or a vision model, nothing
+changes. The browser annotation screenshot and comment-field image pastes keep
+attaching. The bytes go through the active runtime's OpenCode route (the
+OpenChamber server's proxy, the VS Code bridge, the relay for a phone), so the
+file lands on the machine OpenCode runs on, which may not be the user's. Why
+OpenCode writes the file and not the OpenChamber server: only OpenCode knows
+its temp folder and its filesystem, and an external OpenCode or a space runs
+elsewhere than the server.
 Large pastes (about 2,000 characters or 25 lines) follow the composer setting
 `largeTextPasteBehavior` (`ask` / `attach` / `inline` / `inline-double-paste`). Attaching creates an
 in-memory `text/plain` file named `pasted-context-N.txt`, inserts a bracket

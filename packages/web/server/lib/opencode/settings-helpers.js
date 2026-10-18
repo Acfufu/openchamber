@@ -492,6 +492,9 @@ export const createSettingsHelpers = (dependencies) => {
     if (typeof candidate.allowPromptingSubagentSessions === 'boolean') {
       result.allowPromptingSubagentSessions = candidate.allowPromptingSubagentSessions;
     }
+    if (candidate.saveImagesForTextOnlyModels === true || candidate.saveImagesForTextOnlyModels === false) {
+      result.saveImagesForTextOnlyModels = candidate.saveImagesForTextOnlyModels;
+    }
     if (typeof candidate.showOpenCodeRestartConfirm === 'boolean') {
       result.showOpenCodeRestartConfirm = candidate.showOpenCodeRestartConfirm;
     }

@@ -2100,6 +2100,39 @@ class OpencodeService {
   }
 
   // -------------------------------------------------------------------------
+  // Files on the machine OpenCode runs on
+  // -------------------------------------------------------------------------
+
+  /**
+   * Writes files into a new folder under OpenCode's own temp folder
+   * (`GET /api/info` names it; its agents read there without asking) and
+   * answers each file's absolute path as OpenCode wrote it, or its error. The
+   * bytes reach OpenCode through the OpenChamber server, so the files land
+   * where OpenCode runs, also when that is another machine. A fresh folder per
+   * call keeps a repeated name from overwriting; names must be unique within
+   * a call. The write route is experimental in OpenCode 2.x.
+   */
+  async writeOpenCodeTempFiles(
+    directory: string | null | undefined,
+    files: Array<{ filename: string; bytes: Uint8Array }>,
+  ): Promise<Array<{ filename: string; path: string } | { filename: string; error: Error }>> {
+    const client = this.clientFor(directory)
+    const info = await call("server.info", () => client.server.info())
+    const folderName = Array.from(crypto.getRandomValues(new Uint8Array(8)), (byte) => byte.toString(16).padStart(2, "0")).join("")
+    const folder = `${info.paths.tmp.replace(/[\\/]+$/, "")}/openchamber/${folderName}`
+    const results: Array<{ filename: string; path: string } | { filename: string; error: Error }> = []
+    for (const { filename, bytes } of files) {
+      try {
+        const written = await call("file.write", () => client.file.write({ path: `${folder}/${filename}`, payload: bytes }))
+        results.push({ filename, path: written.data.path })
+      } catch (error) {
+        results.push({ filename, error: error instanceof Error ? error : new Error(String(error)) })
+      }
+    }
+    return results
+  }
+
+  // -------------------------------------------------------------------------
   // File System Operations (OpenChamber routes)
   // -------------------------------------------------------------------------
 

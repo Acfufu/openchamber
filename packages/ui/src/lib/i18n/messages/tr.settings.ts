@@ -2253,6 +2253,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip': 'Aynı yanıtta sonraki araç çağrılarından önce görünen asistan metin bloklarında Yanıtı Kopyala, Görsel olarak kaydet ve Sesli oku seçeneklerini göster.',
   'settings.openchamber.visual.field.allowPromptingSubagentSessionsAria': 'Subagent session\'lara prompt göndermeye izin ver',
   'settings.openchamber.visual.field.allowPromptingSubagentSessions': 'Subagent session\'lara prompt göndermeye izin ver',
+  'settings.openchamber.visual.field.saveImagesForTextOnlyModels': 'Görselleri okuyamayan modeller için görselleri kaydet',
+  'settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo': 'Yapıştırılan veya eklenen görsel, OpenCode\'un çalıştığı makineye kaydedilir ve yolu mesaja eklenir; böylece model veya bir alt ajan onu açabilir.',
   'settings.openchamber.visual.field.draftStartersVisible': 'Yeni session ekranında starter\'ları göster',
   'settings.openchamber.visual.field.draftStartersVisibleAria': 'Yeni session ekranında starter\'ları göster',
   'settings.openchamber.visual.field.showToolFileIconsAria': 'Araç dosyası simgelerini göster',
