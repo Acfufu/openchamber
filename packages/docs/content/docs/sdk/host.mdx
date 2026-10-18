@@ -247,6 +247,17 @@ const { text } = await host.generate({ prompt: notes, system: "Summarize in one 
 
 `prompt` is 1 to 64,000 characters after trim, `system` up to 8,000, `maxOutputTokens` 1 to 4,000. Nothing enters a session and no history is kept; the extension never chooses the model. The call waits up to 960 seconds. No usable Small Model is `NO_MODEL`; a model error is `MODEL_FAILED`. See [Generate text](/sdk/#generate-text).
 
+The user may close your panel or switch to another project before the answer arrives. The generation still finishes, and the app keeps the answer for your next panel on the same surface and project, in the same window. Register `onLateGenerateResult` to receive it there:
+
+```ts
+host.onLateGenerateResult((late) => {
+  if (late.ok) showSummary(late.request.prompt, late.result.text);
+  else showError(late.error);
+});
+```
+
+`late.request` is what the closed panel sent, so you can tell which request it answers. Each answer arrives once. The app keeps answers for an hour, at most 8 per extension, and drops them when the extension is disabled or removed. A reload of the whole app or another window starts empty. Apps that do not keep late answers leave `ready.features.lateGenerateResults` unset and never call the listener.
+
 ## Error codes
 
 Failed calls throw `HostRequestError`. `code` is one of these; `message` says more.

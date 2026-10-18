@@ -64,6 +64,7 @@ var GUEST_SCROLLBAR_SCRIPT = `(${installGuestScrollbarActivity.toString()})(docu
 var patternExpressions = new Map;
 // packages/sdk/src/contract.ts
 var GUEST_FILE_STAT_KINDS = ["file", "directory", "other", "missing"];
+var GUEST_GENERATE_LATE_KEEP_MS = 60 * 60000;
 var HOST_REQUEST_ERROR_CODES = [
   "HOST_UNAVAILABLE",
   "HOST_TIMEOUT",
@@ -107,7 +108,8 @@ var HOST_PUSH_TYPES = new Set([
   "popover-closed",
   "file-open",
   "file-snapshot",
-  "file-saved"
+  "file-saved",
+  "generate-late"
 ]);
 // packages/sdk/src/service-providers.ts
 var BROWSER_PROVIDER_PATH = "/browser-control";

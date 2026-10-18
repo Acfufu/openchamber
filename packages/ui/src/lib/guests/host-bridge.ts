@@ -31,6 +31,7 @@ import {
   type HostReadyContext,
   type HostRequestErrorCode,
   type HostResultPayload,
+  type LateGenerateResult,
   type ResolveResultPayload,
   type SessionSnapshot,
   type StartSessionResult,
@@ -148,6 +149,13 @@ export const buildResolveMessage = (id: string, command: string, args: string): 
   type: 'resolve',
   id,
   payload: { command, args },
+});
+
+export const buildGenerateLateMessage = (result: LateGenerateResult): HostMessage => ({
+  channel: OPENCHAMBER_SDK_CHANNEL,
+  v: OPENCHAMBER_SDK_API_VERSION,
+  type: 'generate-late',
+  payload: result,
 });
 
 export const buildSessionLifecycleMessage = (event: SessionLifecycleEvent): HostMessage => ({
@@ -273,6 +281,7 @@ export const answerGuestMessage = async (
     case 'file-change':
     case 'file-save':
     case 'file-unsupported':
+    case 'generate-late-listen':
       return null;
     case 'toast':
       effects.toast(message.payload);

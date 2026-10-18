@@ -132,6 +132,33 @@ The SDK adds `HostActionMessage`, `GuestActionResultMessage`, `GuestActionItem`,
 
 The runner cancels on runtime/catalog invalidation and marks the operation inactive synchronously, so queued messages cannot mutate host state during React teardown. Timeout, completion, frame-load failure, or host unmount clears the invocation and subscriptions. Unmount cleanup yields one microtask for Strict Mode's effect reattachment. Already accepted remote effects are not rolled back; no automatic retry. Web/desktop use the existing direct or relay frame loader; VS Code and mobile remain unsupported. `examples/hello-kit` demonstrates a background message-length toast.
 
+## Late generate answers
+
+`LateGenerateResult`, `ready.features.lateGenerateResults`, the guest notice `generate-late-listen` and the host push `generate-late` live here; `HostClient.onLateGenerateResult` sends the notice on registration and again on every `ready` while a listener exists. The UI host owns keeping: `packages/ui/src/lib/guests/generate-results.ts` holds the outcomes, `PluginPane` decides when a `generate` reply has no frame to go to and registers a listening frame.
+
+- A `generate` reply goes to the frame that asked while the pane still owns that frame and no later document in it has said `hello` (`PluginPane` counts them). Otherwise it is kept. A reply that lands while a frame is navigating, before the new document's `hello`, still goes to the frame and is lost there.
+- Hidden frames (slash-command resolvers, background actions) do not advertise the feature, ignore `generate-late-listen`, and keep nothing: they are no panel the user pressed a button in, and a resolver frame would otherwise take an answer meant for the visible panel.
+- A kept outcome belongs to runtime, extension id, installation `storageId`, surface and project directory, and goes to a listening frame with the same owner, once. A frame that cannot take it leaves it kept.
+- Bounds: `GUEST_GENERATE_LATE_KEEP_MS` (one hour), `GUEST_GENERATE_LATE_MAX` (8) per extension with the oldest dropped first, and 2 000 000 characters across all kept outcomes.
+- A ready catalog of the same runtime that no longer has the extension active, approved for `model`, or with the same `storageId` drops its outcomes at once; a loading catalog or another runtime's catalog drops nothing.
+- The request runs to the server's own deadline. No layer cancels it when the frame goes.
+
+### Why keep the answer and not cancel the request
+
+The user pressed Generate and asked for that text; closing a panel or switching project is not a request to throw it away. Cancelling end to end (issue #5040's first proposal) needs a cancel message, an abort path through the host bridge and the route, and still loses the answer. The maintainer chose delivery; the server's prompt-derived deadline stays the only limit on the work.
+
+### Why the host keeps it in the window's memory and not on the server
+
+The answer already comes back to the window that sent the request, and that window is where the user pressed the button, so the window can hand it to the next frame with no new route and no copy of model output on disk. A reload or another window starts empty; the request belongs to the window that sent it, and an app restart ends the request anyway. A server store would deliver to whichever client opened the panel first, a phone or another window.
+
+### Why the owner includes surface and project
+
+The outcome should appear where the user pressed Generate. Panel tabs are kept per project, so a panel in another project or an attach dialog of the same extension is somewhere else. A frame that follows the user across projects reads its current directory at each delivery.
+
+### Why a listen notice and not a push to every reconnecting frame
+
+An extension built against an older SDK has no listener, and a push it ignores would count as delivered. The frame asks only when its code registered `onLateGenerateResult`, and the host only advertises the feature it implements, so old guests and old hosts keep working unchanged.
+
 ## Not here yet
 
 `issues.search` / `issues.get` on the host, a public OAuth broker, a second `host.provider`, file watching or globbing from the guest (it gets `listDir` and `stat`, not a search). `attach` is the chip. `startSession` creates a session and writes that snapshot. `sessionLink` writes that snapshot on the current session. `prompt` writes or sends on that session. `onSessionLifecycle` is the live phase. Search and the task list live in the guest. `@openchamber/sdk/ui` is the drawing kit: buttons, fields, select, list, tabs, badges, banners, menu, and `mountText`. No issue page, card, attach picker, or PR window; the guest composes those from the blocks. `mountText` lifts `![alt](https://…)` and `[label](https://…)` and hands link clicks to `onOpenUrl`. `ready.theme.tokens` carries the host surface and interactive colors. Call `applyHostReady` before mount.
