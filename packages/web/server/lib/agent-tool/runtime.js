@@ -560,13 +560,15 @@ export const createAgentToolRuntime = (dependencies) => {
     crypto,
     fsPromises,
     path,
-    dataDir,
+    instanceDir,
     getActivePort,
     getActiveHost = () => null,
     executeAction,
     resolveSessionDirectory,
   } = dependencies;
-  const pluginRoot = path.join(dataDir, 'agent-tool');
+  // The plugin embeds this server's tool declarations, so it lives in this
+  // server's own directory (see ../opencode/instance-dir.js).
+  const pluginRoot = path.join(instanceDir, 'agent-tool');
   const pluginDirectory = path.join(pluginRoot, PLUGIN_ID);
   const pluginPath = path.join(pluginDirectory, 'index.js');
   const pluginManifestPath = path.join(pluginDirectory, 'package.json');

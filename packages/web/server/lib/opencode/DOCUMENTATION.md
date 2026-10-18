@@ -43,6 +43,7 @@ Diagnostic logging for the timeline export (`proxy.js` error lines, the lifecycl
 - `packages/web/server/lib/agent-tool/runtime.js`: managed OpenCode custom-tool materialization, environment injection, same-machine authentication (loopback, or the bound address for a concrete bind), and fixed CLI action dispatch.
 - `packages/web/server/lib/opencode/managed-plugin-config.js`: the `OPENCODE_CONFIG_CONTENT` merge used only on the fallback path, when the user's own environment owns `OPENCODE_CONFIG`.
 - `packages/web/server/lib/opencode/managed-config-file.js`: the managed OpenCode config layer — materializes the enabled OpenChamber plugins (agent tools, system prompt optimizer) and publishes them in a file OpenCode watches.
+- `packages/web/server/lib/opencode/instance-dir.js`: this server's own folder under `<data-dir>/run/instances/<pid>/` for the files its managed OpenCode reads, and removal of folders left by servers that are gone.
 
 ### Managed plugins on OpenCode 2.x
 A configured plugin must be a DIRECTORY holding a `package.json` that resolves an
@@ -1004,7 +1005,12 @@ OpenChamber injects its own OpenCode plugins through a file it owns rather than
 through the process environment, because an environment variable cannot change
 under a running child.
 
-- Contract: the managed child gets `OPENCODE_CONFIG=<data-dir>/opencode.managed.json`.
+- Contract: the managed child gets `OPENCODE_CONFIG=<data-dir>/run/instances/<server-pid>/opencode.managed.json`.
+  Each server writes the file and the agent-tool plugin in its own folder
+  (`instance-dir.js`): several servers can share one data dir, and with shared
+  paths each overwrote the other's files, so an agent saw tools from one server
+  while its calls went to another (#4470). On start a server removes the
+  folders of servers whose pid is gone; a live server's folder is never touched.
   The file contains only `plugins`: `-opencode.browser` first, then the absolute
   directory of every OpenChamber plugin currently switched on. OpenCode's
   built-in browser tools need OpenCode's own desktop app to attach a browser;

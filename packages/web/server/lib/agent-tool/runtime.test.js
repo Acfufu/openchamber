@@ -27,7 +27,7 @@ const createRuntime = async (overrides = {}) => {
     crypto,
     fsPromises: fs,
     path,
-    dataDir,
+    instanceDir: dataDir,
     getActivePort: () => 3901,
     executeAction,
     ...overrides,

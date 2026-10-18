@@ -100,9 +100,12 @@ all tools are on, and the flattened calls already work through
 
 1. The OpenChamber HTTP listener binds and publishes its authoritative port.
 2. `materializePlugin()` writes the plugin under
-   `<openchamber-data-dir>/agent-tool/` and returns its directory; the managed
-   config layer lists that directory in `<data-dir>/opencode.managed.json` and
-   rewrites the file whenever a tool setting changes.
+   `<instance-dir>/agent-tool/` and returns its directory; the managed
+   config layer lists that directory in `<instance-dir>/opencode.managed.json` and
+   rewrites the file whenever a tool setting changes. `<instance-dir>` is
+   `<data-dir>/run/instances/<server-pid>/` (`../opencode/instance-dir.js`):
+   the plugin carries this server's tool declarations, so a second server on
+   the same data dir must not overwrite it (#4470).
 3. `createChildEnv()` adds a random per-child token and the callback URL to the
    managed OpenCode child environment. They are present even while every tool
    is off, so a tool switched on later can call back without a restart. The URL
