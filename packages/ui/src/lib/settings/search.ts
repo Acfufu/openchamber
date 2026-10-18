@@ -989,6 +989,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['icon', 'favicon', 'upload', 'color', 'accent color', 'appearance', 'project metadata'],
   },
   {
+    id: 'projects.close',
+    page: 'projects',
+    titleKey: 'settings.projects.page.actions.closeProject',
+    keywords: ['close', 'remove', 'delete', 'forget', 'project'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
     id: 'projects.actions',
     page: 'projects',
     titleKey: 'settings.projects.actions.title',
