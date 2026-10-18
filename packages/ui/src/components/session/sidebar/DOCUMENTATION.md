@@ -255,9 +255,13 @@ The one-line Tree rows open to their subsessions like the project tree, with
 their own expansion state; in search they show the branches that lead to a
 match (`pruneSessionTreeForSidebarQuery`). The two-line rows, in List and with
 Detailed rows, never expand: their node drops its children, which feed the
-badges instead. A run row in either opens its overview. Search
-keeps a root whose subsession matches (`sessionTreeMatchesSidebarQuery`): those
-subsessions are nowhere else in the sidebar. The zone counts only sessions that match
+badges instead. A run row in either opens its overview. Search in Tree
+keeps a root whose subsession matches: those subsessions are nowhere else in
+the sidebar, and the one-line rows open to them; with Detailed rows the root
+stays listed too, though its row cannot open. Search in List matches the
+root itself only, as its project lists do, because List rows never show
+subsessions; the phone's search lists top-level
+sessions only, too. `matchZoneSessionsForSidebarQuery` owns both rules. In Tree the zone counts only sessions that match
 themselves (`countSessionTreeQueryMatches`) over the whole tree, carried on the
 item as `searchMatchCount`, since a two-line row drops its children. A group subtracts the trees
 that moved out of it with the same counter its search data used
@@ -690,6 +694,14 @@ Timeline dropped its third line when a row had no branch, PR, goal, badge or
 model, so rows changed height while git status loaded; here every line is
 always rendered at a fixed height, and the virtualizer's per-kind estimate
 stays exact.
+
+### Why List search skips subsessions and does not reveal them
+
+List rows are flat on purpose, so a root kept for its subsession's match
+showed a row whose match the user could neither see nor open, under a count
+that included it. Revealing the subsession would make List rows expand, which
+is what Tree is for. The maintainer chose that List search matches only the
+sessions List shows (#4843); Tree keeps looking through the whole tree.
 
 ### Why tree guides end in a corner at the last child
 
