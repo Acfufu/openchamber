@@ -227,6 +227,7 @@ import { MobilePillComposer } from './composer/ui/MobilePillComposer';
 import { ComposerContextChips } from './composer/ui/ComposerContextChips';
 import { LargeTextPasteChoice, type LargeTextPasteChoiceAction } from './composer/ui/LargeTextPasteChoice';
 import { LinkedReferenceRow } from './composer/ui/LinkedReferenceRow';
+import { usePlaceholderFitsOneLine } from './composer/ui/usePlaceholderFitsOneLine';
 import { RevertedMessagesStrip } from './RevertedMessagesStrip';
 import { SessionSuggestionChip } from '@/components/chat/SessionSuggestionChip';
 import { SessionDoneHintRow } from '@/components/chat/SessionDoneHintRow';
@@ -274,7 +275,6 @@ const MAX_MOBILE_COMPOSER_LINES = 16;
 const MOBILE_COMPOSER_BOUND_GAP_PX = 4;
 const EMPTY_QUEUE: QueuedMessage[] = [];
 const NO_ATTACH_GUESTS: [] = [];
-const COMPACT_CHAT_PLACEHOLDER_MAX_WIDTH = 560;
 
 const getFileMentionInputSourceForInsertedText = (insertedText: string): FileMentionAutocompleteInputSource => (
     insertedText.includes('@') ? 'paste' : 'manual'
@@ -715,7 +715,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         (state) => currentSessionId ? state.byParent[currentSessionId]?.pendingPermissionMode : undefined,
         [currentSessionId],
     ));
-    const [isNarrowComposer, setIsNarrowComposer] = React.useState(false);
     const [attachmentPreview, setAttachmentPreview] = React.useState<ToolPopupContent>({
         open: false,
         title: '',
@@ -813,31 +812,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const isComposerExpanded = isDesktopExpanded || isMobileExpanded;
     // Rounder composer on mobile (touch UI reads better with a softer corner).
     const chatInputRadius = isMobile ? '1.5rem' : 'var(--radius-xl)';
-    const useCompactChatPlaceholder = isMobile || isNarrowComposer;
-
-    React.useEffect(() => {
-        const element = dropZoneRef.current;
-        if (!element) return;
-
-        const updateWidth = (width: number) => {
-            const next = width > 0 && width < COMPACT_CHAT_PLACEHOLDER_MAX_WIDTH;
-            setIsNarrowComposer((prev) => (prev === next ? prev : next));
-        };
-
-        updateWidth(element.clientWidth);
-
-        if (typeof ResizeObserver === 'undefined') {
-            const handleResize = () => updateWidth(element.clientWidth);
-            window.addEventListener('resize', handleResize);
-            return () => window.removeEventListener('resize', handleResize);
-        }
-
-        const observer = new ResizeObserver((entries) => {
-            updateWidth(entries[0]?.contentRect.width ?? element.clientWidth);
-        });
-        observer.observe(element);
-        return () => observer.disconnect();
-    }, []);
 
     const knownAgentNames = React.useMemo(
         () => new Set(agents.map((agent) => agent.name.toLowerCase())),
@@ -2648,6 +2622,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // it. Apply the editor's line and screen bounds before using that height as
     // a floor, otherwise long salvage text can push the action row off-screen.
     const dictationHeightHostRef = React.useRef<HTMLDivElement | null>(null);
+    // The short hint drops the @, $ and / pointers, so it only replaces the
+    // full one when that would wrap.
+    const fullChatPlaceholderFits = usePlaceholderFitsOneLine(dictationHeightHostRef, t('chat.chatInput.placeholder.chat'));
+    const useCompactChatPlaceholder = isMobile || !fullChatPlaceholderFits;
     const [dictationContentHeight, setDictationContentHeight] = React.useState<number | null>(null);
     const handleDictationContentHeightChange = React.useCallback((height: number | null) => {
         setDictationContentHeight((prev) => (prev === height ? prev : height));
