@@ -1526,7 +1526,7 @@ export const dict = {
   'contextSidebar.breakdown.user': 'Utilisateur',
   'contextSidebar.breakdown.assistant': 'Assistant',
   'contextSidebar.breakdown.toolCalls': 'Appels d\'outils',
-  'contextSidebar.breakdown.other': 'Autre',
+  'contextSidebar.breakdown.other': 'Système et outils',
   'contextSidebar.stats.messages': 'Messages',
   'contextSidebar.stats.user': 'Utilisateur',
   'contextSidebar.stats.assistant': 'Assistant',

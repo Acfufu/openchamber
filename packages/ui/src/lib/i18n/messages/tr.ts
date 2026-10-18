@@ -1655,7 +1655,7 @@ export const dict = {
   'contextSidebar.breakdown.user': 'Kullanıcı',
   'contextSidebar.breakdown.assistant': 'Asistan',
   'contextSidebar.breakdown.toolCalls': 'Araç Çağrıları',
-  'contextSidebar.breakdown.other': 'Diğer',
+  'contextSidebar.breakdown.other': 'Sistem ve araçlar',
   'contextSidebar.stats.messages': 'Mesajlar',
   'contextSidebar.stats.user': 'Kullanıcı',
   'contextSidebar.stats.assistant': 'Asistan',

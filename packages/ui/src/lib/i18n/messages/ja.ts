@@ -1779,7 +1779,7 @@ export const dict: Record<I18nKey, string> = {
   'contextSidebar.breakdown.user': 'ユーザー',
   'contextSidebar.breakdown.assistant': 'アシスタント',
   'contextSidebar.breakdown.toolCalls': 'ツール呼び出し',
-  'contextSidebar.breakdown.other': 'その他',
+  'contextSidebar.breakdown.other': 'システムとツール',
   'contextSidebar.stats.messages': 'メッセージ',
   'contextSidebar.stats.user': 'ユーザー',
   'contextSidebar.stats.assistant': 'アシスタント',

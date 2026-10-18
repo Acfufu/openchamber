@@ -1974,7 +1974,7 @@ export const dict: Record<I18nKey, string> = {
   'contextSidebar.actions.copy': 'Kopiuj',
   'contextSidebar.actions.copyJson': 'Kopiuj JSON',
   'contextSidebar.breakdown.assistant': 'Asystent',
-  'contextSidebar.breakdown.other': 'Inne',
+  'contextSidebar.breakdown.other': 'System i narzędzia',
   'contextSidebar.breakdown.toolCalls': 'Wywołania narzędzi',
   'contextSidebar.breakdown.user': 'Użytkownik',
   'contextSidebar.context.percentUsed': 'Wykorzystano {percent}%',

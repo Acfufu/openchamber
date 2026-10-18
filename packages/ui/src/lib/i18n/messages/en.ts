@@ -1783,7 +1783,7 @@ export const dict = {
   'contextSidebar.breakdown.user': 'User',
   'contextSidebar.breakdown.assistant': 'Assistant',
   'contextSidebar.breakdown.toolCalls': 'Tool Calls',
-  'contextSidebar.breakdown.other': 'Other',
+  'contextSidebar.breakdown.other': 'System & tools',
   'contextSidebar.stats.messages': 'Messages',
   'contextSidebar.stats.user': 'User',
   'contextSidebar.stats.assistant': 'Assistant',

@@ -1783,7 +1783,7 @@ export const dict: Record<I18nKey, string> = {
   'contextSidebar.breakdown.user': '사용자',
   'contextSidebar.breakdown.assistant': '어시스턴트',
   'contextSidebar.breakdown.toolCalls': '도구 호출',
-  'contextSidebar.breakdown.other': '기타',
+  'contextSidebar.breakdown.other': '시스템 및 도구',
   'contextSidebar.stats.messages': '메시지',
   'contextSidebar.stats.user': '사용자',
   'contextSidebar.stats.assistant': '어시스턴트',

@@ -1532,7 +1532,7 @@ export const dict = {
   'contextSidebar.breakdown.user': 'Benutzer',
   'contextSidebar.breakdown.assistant': 'Assistent',
   'contextSidebar.breakdown.toolCalls': 'Werkzeugaufrufe',
-  'contextSidebar.breakdown.other': 'Andere',
+  'contextSidebar.breakdown.other': 'System & Werkzeuge',
   'contextSidebar.stats.messages': 'Nachrichten',
   'contextSidebar.stats.user': 'Benutzer',
   'contextSidebar.stats.assistant': 'Assistent',

@@ -1737,7 +1737,7 @@ export const dict: Record<I18nKey, string> = {
   "contextSidebar.breakdown.user": "Usuario",
   "contextSidebar.breakdown.assistant": "Asistente",
   "contextSidebar.breakdown.toolCalls": "Llamadas a herramientas",
-  "contextSidebar.breakdown.other": "Otro",
+  "contextSidebar.breakdown.other": "Sistema y herramientas",
   "contextSidebar.stats.messages": "Mensajes",
   "contextSidebar.stats.user": "Usuario",
   "contextSidebar.stats.assistant": "Asistente",

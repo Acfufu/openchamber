@@ -1764,7 +1764,7 @@ export const dict: Record<I18nKey, string> = {
   'contextSidebar.breakdown.user': '使用者',
   'contextSidebar.breakdown.assistant': '助理',
   'contextSidebar.breakdown.toolCalls': '工具呼叫',
-  'contextSidebar.breakdown.other': '其他',
+  'contextSidebar.breakdown.other': '系統與工具',
   'contextSidebar.stats.messages': '訊息',
   'contextSidebar.stats.user': '使用者',
   'contextSidebar.stats.assistant': '助理',

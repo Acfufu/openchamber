@@ -198,9 +198,11 @@ export const WorkStatusRow: React.FC<RowProps> = ({
   if (!tooltip) return row;
 
   return (
-    <Tooltip delayDuration={750}>
+    // Above the row, as on every dense row, so it never covers the rows
+    // under it or the actions beside it.
+    <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>{row}</TooltipTrigger>
-      <TooltipContent side="left" sideOffset={8} className="max-w-[min(320px,calc(100vw-24px))] whitespace-normal break-words text-start">
+      <TooltipContent side="top" sideOffset={4} className="max-w-[min(320px,calc(100vw-24px))] whitespace-normal break-words text-start">
         {tooltip}
       </TooltipContent>
     </Tooltip>

@@ -399,6 +399,8 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
           key={entry.id}
           leading={renderLinkedIcon(entry)}
           label={renderLinkedLabel(entry)}
+          // The title truncates in a narrow panel; the full one shows on hover.
+          tooltip={entry.title ? renderLinkedLabel(entry) : undefined}
           muted
           // In the Tracker, read through this session's project; Cmd or Ctrl,
           // and anything the app cannot show, opens the link.
@@ -415,9 +417,9 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
                 event.stopPropagation();
                 unlinkLinkedThread(entry);
               }}
-              className="shrink-0 rounded p-0.5 transition-opacity hover:opacity-70 disabled:opacity-40"
+              className="shrink-0 rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground/60"
             >
-              <Icon name="close" className="size-3.5 text-muted-foreground" />
+              <Icon name="close" className="size-3.5" />
             </button>
           )}
           ariaLabel={entry.kind === 'linear'
@@ -447,7 +449,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
                 event.stopPropagation();
                 unpinNote(note.id);
               }}
-              className="shrink-0 rounded p-0.5 transition-opacity hover:opacity-70 disabled:opacity-40"
+              className="shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
             >
               <Icon name="pushpin-2-fill" className="size-3.5" style={{ color: 'var(--primary)' }} />
             </button>
@@ -469,7 +471,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
                 event.stopPropagation();
                 unpinPlan(plan.id);
               }}
-              className="shrink-0 rounded p-0.5 transition-opacity hover:opacity-70 disabled:opacity-40"
+              className="shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-40"
             >
               <Icon name="pushpin-2-fill" className="size-3.5" style={{ color: 'var(--primary)' }} />
             </button>
