@@ -95,7 +95,7 @@ import {
     useScopedBlockingForms,
     useParentSession,
     useSession,
-    useSessions,
+    useSessionStartTimes,
 } from '@/sync/sync-context';
 import { useSync } from '@/sync/use-sync';
 import { useI18n } from '@/lib/i18n';
@@ -1346,13 +1346,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     // a `subagent: true` command; a call's report finishes that call's row
     // (see `ToolPart`), and a run started before the loaded history stays in
     // the session's subagent list, so the chat never shifts for either.
-    const directorySessions = useSessions(effectiveSessionDirectory);
-    const viewportMessages = React.useMemo(() => {
-        const childStartedAt = (childSessionID: string): number | undefined => (
-            directorySessions.find((session) => session.id === childSessionID)?.time.created
-        );
-        return keepCommandSubagentReports(sessionMessages, childStartedAt);
-    }, [directorySessions, sessionMessages]);
+    const sessionStartTimes = useSessionStartTimes(effectiveSessionDirectory);
+    const viewportMessages = React.useMemo(
+        () => keepCommandSubagentReports(sessionMessages, (childSessionID) => sessionStartTimes.get(childSessionID)),
+        [sessionStartTimes, sessionMessages],
+    );
 
     const timelineController = useChatTimelineController({
         sessionId: currentSessionId,

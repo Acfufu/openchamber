@@ -240,8 +240,12 @@ panel, draft target selectors and preset chips) are memoized, and the props
 read the text through `messageRef` or `useStableHandler`, derived objects are
 memoized, and `useBtwPanelState` and `useMobileComposerShell` return stable
 objects. `useBtwPanelState` reads the parent and fork sessions as primitives,
-so a streaming turn's `session.updated` events do not re-render the composer.
-`__tests__/ChatInput.keystroke.test.tsx` counts the renders per keystroke.
+and `useChatSearchDirectory` reads only the session's directory, so a
+streaming turn's `session.updated` events do not re-render the composer. The
+editor is memoized and every handler `ChatInput` passes it is a
+`useStableHandler`, so it renders only when what it shows changes.
+`__tests__/ChatInput.keystroke.test.tsx` counts the renders per keystroke and
+per streamed session update.
 
 A glass surface never carries its own shadow: the shadow sits on a wrapper
 (or the glass moves to an inner layer). Chromium grows a backdrop-filter

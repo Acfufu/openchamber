@@ -1240,7 +1240,10 @@ step (`session.updated` moves `time.updated`), so always-mounted chrome that
 reads a few fields of either goes through `useSessionSelector` or
 `useSessionMessagesSelector` with an equality for the derived value, never
 `useSession` or `useSessionMessages`. `useSessionDirectory` is one such
-selector. A list that must ignore sessions another source already holds reads
+selector. The same holds for a directory's session list: `useSessions`
+changes on every streamed step, so a reader that needs when sessions started
+uses `useSessionStartTimes`, which changes only when a session is added or
+removed. A list that must ignore sessions another source already holds reads
 `useLiveSessionsExcluding(ids)` instead of filtering `useAllLiveSessions()`.
 
 ## Store splitting pattern

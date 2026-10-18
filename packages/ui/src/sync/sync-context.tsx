@@ -3687,6 +3687,48 @@ export function useSessions(directory?: string) {
   )
 }
 
+const sessionStartTimesCache = new WeakMap<State["session"], ReadonlyMap<string, number>>()
+
+const readSessionStartTimes = (sessions: State["session"]): ReadonlyMap<string, number> => {
+  let startTimes = sessionStartTimesCache.get(sessions)
+  if (!startTimes) {
+    startTimes = new Map(sessions.map((session) => [session.id, session.time.created]))
+    sessionStartTimesCache.set(sessions, startTimes)
+  }
+  return startTimes
+}
+
+const haveSameStartTimes = (left: ReadonlyMap<string, number>, right: ReadonlyMap<string, number>): boolean => {
+  if (left === right) return true
+  if (left.size !== right.size) return false
+  for (const [sessionID, created] of left) {
+    if (right.get(sessionID) !== created) return false
+  }
+  return true
+}
+
+/**
+ * When each session of a directory started, by session id. Keeps its identity
+ * until a session is added or removed: the session list is replaced on every
+ * streamed step (`session.updated` moves `time.updated`), start times never
+ * change.
+ */
+export function useSessionStartTimes(directory?: string): ReadonlyMap<string, number> {
+  const store = useDirectoryStore(directory)
+  const cacheRef = useRef<ReadonlyMap<string, number> | null>(null)
+  const getSnapshot = useCallback(() => {
+    const next = readSessionStartTimes(store.getState().session)
+    const cached = cacheRef.current
+    if (cached && haveSameStartTimes(cached, next)) return cached
+    cacheRef.current = next
+    return next
+  }, [store])
+  const subscribe = useCallback((notify: () => void) => store.subscribe((state, previous) => {
+    if (state.session !== previous.session) notify()
+  }), [store])
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
 const selectPermissionRequestsBySession = (state: State) => state.permission
 const selectFormRequestsBySession = (state: State) => state.form
 

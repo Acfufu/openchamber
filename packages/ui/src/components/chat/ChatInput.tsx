@@ -159,6 +159,7 @@ import {
     ComposerEditor,
     type ComposerChange,
     type ComposerEditorHandle,
+    type ComposerSelection,
 } from './composer/editor/ComposerEditor';
 import { useComposerHeightLimit } from './composer/editor/useComposerHeightLimit';
 import { usePendingComposerText } from './composer/state/usePendingComposerText';
@@ -4091,6 +4092,26 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         prevWasAbortedRef.current = pendingAbort;
     }, [abortPromptSessionId, acknowledgeSessionAbort, currentSessionId]);
 
+    // The editor is memoized: stable handlers let it skip the composer's
+    // renders while a reply streams, which change nothing it shows.
+    const handleEditorChange = useStableHandler(handleComposerChange);
+    const handleEditorKeyDown = useStableHandler((event: KeyboardEvent) => {
+        // Every interception branch calls preventDefault, so the event itself
+        // reports whether the composer consumed it.
+        handleKeyDown(event);
+        return event.defaultPrevented;
+    });
+    const handleEditorKeyUp = useStableHandler((event: KeyboardEvent) => largeTextPasteGesture.keyUp(event));
+    const handleEditorSelectionChange = useStableHandler((selection: ComposerSelection) => {
+        largeTextPasteGesture.invalidate();
+        cursorPosRef.current = selection.start;
+        updateAutocompleteOverlayPosition();
+    });
+    const handleEditorBlur = useStableHandler(() => {
+        largeTextPasteGesture.invalidate();
+        mobileShell.onEditorBlur();
+    });
+
     return (
         <>
         <form
@@ -4367,26 +4388,13 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                                 data-testid="chat-input"
                                 value={message}
                                 languageContext={languageContext}
-                                onChange={handleComposerChange}
-                                onKeyDown={(event) => {
-                                    // Every interception branch calls
-                                    // preventDefault, so the event itself
-                                    // reports whether the composer consumed it.
-                                    handleKeyDown(event);
-                                    return event.defaultPrevented;
-                                }}
+                                onChange={handleEditorChange}
+                                onKeyDown={handleEditorKeyDown}
                                 onPaste={handlePaste}
-                                onKeyUp={(event) => largeTextPasteGesture.keyUp(event)}
-                                onSelectionChange={(selection) => {
-                                    largeTextPasteGesture.invalidate();
-                                    cursorPosRef.current = selection.start;
-                                    updateAutocompleteOverlayPosition();
-                                }}
+                                onKeyUp={handleEditorKeyUp}
+                                onSelectionChange={handleEditorSelectionChange}
                                 onFocus={mobileShell.onEditorFocus}
-                                onBlur={() => {
-                                    largeTextPasteGesture.invalidate();
-                                    mobileShell.onEditorBlur();
-                                }}
+                                onBlur={handleEditorBlur}
                                 placeholder={isBtwActive
                                     ? t('chat.btw.mainComposerPlaceholder')
                                     : currentSessionId || newSessionDraftOpen
