@@ -71,6 +71,9 @@ mock.module('@/components/ui', () => ({
 
 mock.module('@/lib/gitApi', () => ({
   checkIsGitRepository: async () => true,
+  resolveGitPrimaryRoot: async () => project.path,
+  resolveGitRepositoryPrefix: async () => '',
+  validateWorktreeDirectory: async () => ({ valid: true, insideWorktreeRoot: true }),
 }));
 
 mock.module('@/lib/git/branchNameGenerator', () => ({
@@ -100,6 +103,7 @@ mock.module('@/lib/projectResolution', () => ({
 
 mock.module('@/lib/worktrees/worktreeBootstrap', () => ({
   waitForWorktreeBootstrap: mock(async () => undefined),
+  waitForWorktreeGitReady: async () => undefined,
 }));
 
 mock.module('@/lib/worktrees/worktreeStatus', () => ({
