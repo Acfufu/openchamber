@@ -52,6 +52,8 @@ const SCROLL_MESSAGE = `${MESSAGE_PREFIX}scroll`;
 const CLEAR_SELECTION_MESSAGE = `${MESSAGE_PREFIX}clear-selection`;
 const MARKS_MESSAGE = `${MESSAGE_PREFIX}marks`;
 const REVEAL_MESSAGE = `${MESSAGE_PREFIX}reveal`;
+// From the host: the pointer entered or left the frame (see SCROLLBAR_CSS).
+const POINTER_MESSAGE = `${MESSAGE_PREFIX}pointer`;
 // The longest selection a page reports; the bootstrap cuts at this length.
 const HTML_RENDER_SELECTION_MAX_LENGTH = 20_000;
 // How long a revealed quote flashes; the same as the chat's own flash.
@@ -171,17 +173,43 @@ const OPTION_CSS = '.oc-options{display:grid;gap:12px;grid-template-columns:repe
     // Focus draws no ring in the app: a focused control takes its hover fill.
     + '.oc-option:focus-visible,.oc-button:focus-visible{outline:none}';
 
-// The page sits on the chat's own background, and a scrollbar inside the
-// reply would read as a box within the thread, so it stays hidden. Media
-// shrinks to the column. What is still wider (a wide table) scrolls sideways,
-// without the elastic bounce at its edges; text is the chat's own size
-// (--oc-text), and a page that sizes its text in rem or em scales with the
-// interface size setting as the chat does; the page never scrolls vertically
-// while it fits its frame (see the bootstrap), so a vertical swipe still
-// scrolls the chat. Only the horizontal bounce is turned off: turning off the
-// vertical one would also stop a vertical swipe from reaching the chat.
-const BASE_CSS = 'html{background:transparent;color:var(--foreground);font-family:var(--font-sans);font-size:var(--oc-text,14px);line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;scrollbar-width:none;overflow-x:auto;overscroll-behavior-x:none}'
-    + 'html::-webkit-scrollbar{display:none}body{margin:0}a{color:var(--primary)}code,kbd,pre,samp{font-family:var(--font-mono)}img,svg,video,canvas{max-width:100%}'
+// The page sits on the chat's own background. Media shrinks to the column.
+// What is still wider (a wide table) scrolls sideways, without the elastic
+// bounce at its edges; text is the chat's own size (--oc-text), and a page
+// that sizes its text in rem or em scales with the interface size setting as
+// the chat does; the page never scrolls vertically while it fits its frame
+// (see the bootstrap), so a vertical swipe still scrolls the chat. Only the
+// horizontal bounce is turned off: turning off the vertical one would also
+// stop a vertical swipe from reaching the chat.
+//
+// A page wider than the frame has a horizontal scrollbar, drawn like the
+// app's own (10px, the thumb inset 2px, a darker tone under the pointer), but
+// its thumb shows only while the pointer is over the page: a scrollbar always
+// on screen would read as a box within the thread. The host marks the root
+// with `data-oc-pointer` while the pointer is over the frame element, the
+// same signal that shows the page's corner buttons. The page's own `:hover`
+// is not used: in our checks with synthetic pointer input it stayed set after
+// the pointer left the sandboxed frame. An attribute and not a class, so the
+// tooltip check below does not rebuild its set on every enter and leave, and
+// a page that rewrites its root's classes does not drop it. On a touch screen, where
+// nothing hovers, it always shows, as the page's corner buttons do. Its track
+// stays in place while hidden, so hovering moves nothing; the bootstrap adds
+// its height to the page's. The vertical bar has no width: the page never
+// scrolls vertically in the chat. Firefox has no per-axis scrollbar styles,
+// so there both bars are thin and follow the same hover rule; a vertical one
+// shows only on a page taller than its frame. Safari on iOS draws no styled
+// scrollbar and reserves no room for one.
+const SCROLLBAR_THUMB = 'color-mix(in srgb,var(--foreground) 18%,transparent)';
+const SCROLLBAR_THUMB_HOVER = 'color-mix(in srgb,var(--foreground) 36%,transparent)';
+const SCROLLBAR_CSS = 'html::-webkit-scrollbar{width:0;height:10px;background:transparent}html::-webkit-scrollbar-corner,html::-webkit-scrollbar-track{background:transparent}'
+    + 'html::-webkit-scrollbar-thumb{background-color:transparent;border:2px solid transparent;border-radius:6px;background-clip:padding-box}'
+    + `html[data-oc-pointer]::-webkit-scrollbar-thumb{background-color:${SCROLLBAR_THUMB}}html[data-oc-pointer]::-webkit-scrollbar-thumb:hover{background-color:${SCROLLBAR_THUMB_HOVER}}`
+    + `@media (pointer:coarse){html::-webkit-scrollbar-thumb{background-color:${SCROLLBAR_THUMB}}}`
+    + `@supports not selector(::-webkit-scrollbar){html{scrollbar-width:thin;scrollbar-color:transparent transparent}html[data-oc-pointer]{scrollbar-color:${SCROLLBAR_THUMB} transparent}`
+    + `@media (pointer:coarse){html{scrollbar-color:${SCROLLBAR_THUMB} transparent}}}`;
+const BASE_CSS = 'html{background:transparent;color:var(--foreground);font-family:var(--font-sans);font-size:var(--oc-text,14px);line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;overflow-x:auto;overscroll-behavior-x:none}'
+    + SCROLLBAR_CSS
+    + 'body{margin:0}a{color:var(--primary)}code,kbd,pre,samp{font-family:var(--font-mono)}img,svg,video,canvas{max-width:100%}'
     + '::highlight(oc-chat-quote),::highlight(oc-chat-quote-focus),::highlight(oc-chat-quote-flash){background-color:var(--oc-quote-mark,rgba(127,127,127,.35))}'
     + OPTION_CSS;
 
@@ -211,7 +239,16 @@ function themeCss(theme: HtmlRenderTheme): string {
 // shrink back to the root's box, on every frame for as long as the page was
 // shown. The body's own scroll height does not depend on the frame's. It is
 // measured before the page's own `zoom`, so it is scaled by the body's drawn
-// height over its layout height to match the box it is added to.
+// height over its layout height to match the box it is added to. A page wider
+// than its frame adds the height of its horizontal scrollbar (the window's
+// height less the root's client height), so the bar sits under the content
+// instead of over its last line. Not when the content ends exactly at the
+// frame's bottom and the bar was already there: that is content sized to the
+// frame (`min-height:100vh`, where vh counts the bar's room too), which grew
+// with every bar's height added under it, up to the height cap. The bar then
+// sits over the bottom of that content. The bar comes and goes with the
+// page's width without resizing the root, so the tooltip check below also
+// sizes the page again when the bar's height changed.
 //
 // A page that fits its frame cannot scroll at all. A document that can scroll
 // keeps a touch that starts on it: on a phone, a swipe over a page that fit
@@ -269,10 +306,11 @@ function themeCss(theme: HtmlRenderTheme): string {
 // and resize; a CSS :hover tooltip changes nothing in the DOM, so hover counts.
 const BOOTSTRAP_SCRIPT = `(function(){var s=document.getElementById("oc-html-render-theme");if(!s||window.parent===window)return;var B=${JSON.stringify(BASE_CSS)};`
     + `window.addEventListener("message",function(e){var d=e.data;if(e.source!==window.parent||!d||d.type!==${JSON.stringify(THEME_MESSAGE)}||!d.variables||typeof d.variables!=="object")return;var c=":root{color-scheme:"+(d.appearance==="light"?"light":"dark")+";";for(var k in d.variables){if(/^--[a-z0-9-]+$/.test(k))c+=k+":"+String(d.variables[k]).replace(/[;{}<>]/g,"")+";";}s.textContent=c+"}"+B;});`
+    + `window.addEventListener("message",function(e){var d=e.data;if(e.source!==window.parent||!d||d.type!==${JSON.stringify(POINTER_MESSAGE)})return;if(d.over===true)document.documentElement.setAttribute("data-oc-pointer","");else document.documentElement.removeAttribute("data-oc-pointer");});`
     + `document.addEventListener("click",function(e){var t=e.target,a=t&&t.closest?t.closest("a[href]"):null,u;if(!a)return;try{u=new URL(a.getAttribute("href"),document.baseURI);}catch(x){return;}if(!/^https?:$/.test(u.protocol))return;e.preventDefault();window.parent.postMessage({type:${JSON.stringify(OPEN_LINK_MESSAGE)},url:u.href},"*");},true);`
-    + `var h,z=function(){var r=document.documentElement,d=document.body,v=r.scrollHeight>r.clientHeight?r.scrollHeight:r.getBoundingClientRect().height,i,b;`
+    + `var h,G=0,z=function(){var r=document.documentElement,d=document.body,v=r.scrollHeight>r.clientHeight?r.scrollHeight:r.getBoundingClientRect().height,i,b;`
     + `if(d&&!/^(?:hidden|clip|scroll|auto)$/.test(getComputedStyle(d).overflowY)){b=d.getBoundingClientRect();b=b.top+window.scrollY+(d.clientTop+d.scrollHeight)*(d.offsetHeight?b.height/d.offsetHeight:1);if(b>v)v=b;}if(N){N=0;W();}`
-    + `for(i=0;i<P.length;i++){b=P[i].getBoundingClientRect();if(getComputedStyle(P[i]).position==="absolute"&&(b.width||b.height)&&b.bottom+window.scrollY>v)v=b.bottom+window.scrollY;}v=Math.ceil(v);r.style.overflowY=v>window.innerHeight+1?"auto":"hidden";if(v===h)return;h=v;window.parent.postMessage({type:${JSON.stringify(SIZE_MESSAGE)},height:v},"*");};window.addEventListener("resize",z);`
+    + `for(i=0;i<P.length;i++){b=P[i].getBoundingClientRect();if(getComputedStyle(P[i]).position==="absolute"&&(b.width||b.height)&&b.bottom+window.scrollY>v)v=b.bottom+window.scrollY;}i=window.innerHeight-r.clientHeight;v=Math.ceil(v);if(i&&!(i===G&&v===window.innerHeight))v+=i;G=i;r.style.overflowY=v>window.innerHeight+1?"auto":"hidden";if(v===h)return;h=v;window.parent.postMessage({type:${JSON.stringify(SIZE_MESSAGE)},height:v},"*");};window.addEventListener("resize",z);`
     + `if(window.ResizeObserver){var o=new ResizeObserver(z);o.observe(document.documentElement);document.addEventListener("DOMContentLoaded",function(){if(document.body)o.observe(document.body);});}`
     + `document.addEventListener("DOMContentLoaded",z);window.addEventListener("load",z);`
     + `window.addEventListener("keydown",function(e){var t=e.composedPath()[0],f;if(!e.isTrusted||e.isComposing||!(e.metaKey||e.ctrlKey)||/^[acvxyz]$/i.test(e.key)&&!e.altKey||t&&(t.isContentEditable||/^(?:INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;`
@@ -313,7 +351,7 @@ const BOOTSTRAP_SCRIPT = `(function(){var s=document.getElementById("oc-html-ren
     + `if(!e.isTrusted||e.defaultPrevented||Math.abs(dy)<=Math.abs(dx))return;if(dy<0)GS("down");else if(!GU(e.target))GS("up");},{passive:true});`
     + `var P=[],Q=0,N=1,C=function(e){for(var a=e.parentElement;a&&a!==document.body;a=a.parentElement){var o=getComputedStyle(a);if(o.overflowX!=="visible"||o.overflowY!=="visible")return 1;}return 0;},`
     + `W=function(){P=[];var a=document.body?document.body.getElementsByTagName("*"):[];for(var i=0;i<a.length&&i<5000;i++){var p=getComputedStyle(a[i]).position;if((p==="absolute"||p==="fixed")&&!C(a[i]))P.push(a[i]);}},`
-    + `F=function(){Q=0;if(N){N=0;W();}var w=document.documentElement.clientWidth;for(var i=0;i<P.length;i++){var e=P[i],x=e.__ocx||0,y=e.__ocy||0,r=e.getBoundingClientRect(),l=r.left-x,g=r.right-x,t=r.top-y,b=r.bottom-y,nx=0,ny=0;if(!r.width&&!r.height)continue;`
+    + `F=function(){Q=0;if(window.innerHeight-document.documentElement.clientHeight!==G)z();if(N){N=0;W();}var w=document.documentElement.clientWidth;for(var i=0;i<P.length;i++){var e=P[i],x=e.__ocx||0,y=e.__ocy||0,r=e.getBoundingClientRect(),l=r.left-x,g=r.right-x,t=r.top-y,b=r.bottom-y,nx=0,ny=0;if(!r.width&&!r.height)continue;`
     + `if(g>0&&l<w&&r.width<=w){if(g>w)nx=w-g;if(l+nx<0)nx=-l;}if(t<0&&b>0)ny=-t;if(nx!==x||ny!==y){e.__ocx=nx;e.__ocy=ny;e.style.translate=nx||ny?nx+"px "+ny+"px":"";}}},`
     + `U=function(r){if(r)N=1;if(!Q)Q=requestAnimationFrame(F);};`
     + `new MutationObserver(function(m){for(var i=0;i<m.length;i++)if(m[i].type==="childList"||m[i].attributeName==="class")N=1;U(0);}).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["style","class"]});`
@@ -401,6 +439,8 @@ export function buildHtmlRenderDocument(
 }
 
 export const htmlRenderThemeMessage = (theme: HtmlRenderTheme) => ({ type: THEME_MESSAGE, ...theme });
+
+export const htmlRenderPointerMessage = (over: boolean) => ({ type: POINTER_MESSAGE, over });
 
 export const htmlRenderAnswerStateMessage = (state: HtmlRenderAnswerState) => ({ type: ANSWER_STATE_MESSAGE, ...state });
 

@@ -7,6 +7,7 @@ import {
     buildHtmlRenderDocument,
     htmlRenderClearSelectionMessage,
     htmlRenderMarksMessage,
+    htmlRenderPointerMessage,
     htmlRenderRevealMessage,
     htmlRenderSubmitReply,
     readHtmlRenderFrameMessage,
@@ -342,6 +343,83 @@ describe('the page height', () => {
         }
 
         expect(sizes()).toEqual([200]);
+    });
+
+    test('adds the horizontal scrollbar\'s height under a page wider than its frame', () => {
+        // A 300 px page wider than its frame: the bar takes 10 px off the
+        // root's client height whatever the frame's height.
+        const page = mountPage(undefined, '<div style="width:1100px;height:300px"></div>');
+        const { win } = page;
+        const root = win.document.documentElement;
+        let frameHeight = 48;
+        Object.defineProperty(win, 'innerHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { get: () => frameHeight - 10, configurable: true });
+        Object.defineProperty(root, 'scrollHeight', { get: () => Math.max(frameHeight - 10, 300), configurable: true });
+        root.getBoundingClientRect = () => new win.DOMRect(0, 0, 600, 300);
+
+        const sizes = () => page.reports.flatMap((report) => (report?.kind === 'size' ? [report.height] : []));
+        for (let round = 0; round < 6; round += 1) {
+            frameHeight = sizes().at(-1) ?? frameHeight;
+            win.dispatchEvent(new win.Event('resize'));
+        }
+
+        expect(sizes()).toEqual([310]);
+        expect(root.style.overflowY).toBe('hidden');
+    });
+
+    test('settles on one height with a wide page sized to its frame', () => {
+        // `body{min-height:100vh}` around 80 px of content wider than the
+        // frame: the body is as tall as the frame, scrollbar room included,
+        // so each bar height added under it grew the page by as much.
+        const page = mountPage(undefined, '<div style="width:1100px;height:80px"></div>');
+        const { win } = page;
+        const root = win.document.documentElement;
+        let frameHeight = 48;
+        const pageHeight = () => Math.max(frameHeight, 80);
+        Object.defineProperty(win, 'innerHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { get: () => frameHeight - 10, configurable: true });
+        Object.defineProperty(root, 'scrollHeight', { get: () => pageHeight(), configurable: true });
+        root.getBoundingClientRect = () => new win.DOMRect(0, 0, 600, pageHeight());
+
+        const sizes = () => page.reports.flatMap((report) => (report?.kind === 'size' ? [report.height] : []));
+        for (let round = 0; round < 6; round += 1) {
+            frameHeight = sizes().at(-1) ?? frameHeight;
+            win.dispatchEvent(new win.Event('resize'));
+        }
+
+        expect(sizes()).toEqual([90]);
+    });
+
+    test('sizes again when the scrollbar appears without the root resizing', async () => {
+        const page = mountPage(undefined, '<div id="row" style="height:300px"></div>');
+        const { win } = page;
+        const root = win.document.documentElement;
+        let bar = 0;
+        Object.defineProperty(win, 'innerHeight', { get: () => 300, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { get: () => 300 - bar, configurable: true });
+        Object.defineProperty(root, 'scrollHeight', { get: () => 300, configurable: true });
+        root.getBoundingClientRect = () => new win.DOMRect(0, 0, 600, 300);
+        win.dispatchEvent(new win.Event('resize'));
+
+        // The page's script makes a row wider than the frame.
+        bar = 10;
+        win.document.getElementById('row')?.setAttribute('style', 'width:1100px;height:300px');
+        await settle();
+
+        const sizes = page.reports.flatMap((report) => (report?.kind === 'size' ? [report.height] : []));
+        expect(sizes).toEqual([300, 310]);
+    });
+});
+
+describe('the page scrollbar', () => {
+    test('is marked shown while the host says the pointer is over the frame', () => {
+        const page = mountPage();
+        const root = page.win.document.documentElement;
+
+        page.send(htmlRenderPointerMessage(true));
+        expect(root.hasAttribute('data-oc-pointer')).toBe(true);
+        page.send(htmlRenderPointerMessage(false));
+        expect(root.hasAttribute('data-oc-pointer')).toBe(false);
     });
 });
 

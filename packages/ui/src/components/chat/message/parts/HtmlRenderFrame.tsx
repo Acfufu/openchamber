@@ -38,6 +38,7 @@ import {
     htmlRenderClearSelectionMessage,
     htmlRenderFileName,
     htmlRenderMarksMessage,
+    htmlRenderPointerMessage,
     htmlRenderRevealMessage,
     htmlRenderSubmitReply,
     htmlRenderTheme,
@@ -162,14 +163,23 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
         return subscribePageMarks(partId, postMarks);
     }, [partId, postMarks]);
 
+    // The page shows its horizontal scrollbar only while the pointer is over
+    // it; a page loaded under the pointer learns that on load.
+    const pointerOverRef = React.useRef(false);
+    const postPointer = React.useCallback((over: boolean) => {
+        pointerOverRef.current = over;
+        frameRef.current?.contentWindow?.postMessage(htmlRenderPointerMessage(over), '*');
+    }, []);
+
     const handleLoad = React.useCallback(() => {
         loadedRef.current = true;
         postState();
         postMarks();
+        if (pointerOverRef.current) postPointer(true);
         const pending = pendingRevealRef.current;
         pendingRevealRef.current = null;
         if (pending) frameRef.current?.contentWindow?.postMessage(htmlRenderRevealMessage(pending), '*');
-    }, [postMarks, postState]);
+    }, [postMarks, postPointer, postState]);
 
     React.useEffect(() => {
         const frame = frameRef.current;
@@ -258,6 +268,8 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
             srcDoc={srcDoc}
             sandbox="allow-scripts allow-forms"
             onLoad={handleLoad}
+            onPointerEnter={() => postPointer(true)}
+            onPointerLeave={() => postPointer(false)}
             className={className}
             // A frame whose color scheme differs from the page's own paints an
             // opaque canvas; matching it keeps the page on the chat background.
