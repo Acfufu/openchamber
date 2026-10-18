@@ -28,7 +28,7 @@ const BODY = '<p>Use <strong>bold</strong> text here.</p><p>fix it now</p><p>the
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 260));
 
-const mountPage = (answerState?: HtmlRenderAnswerState) => {
+const mountPage = (answerState?: HtmlRenderAnswerState, body = BODY) => {
     const win = new Window({ url: 'http://localhost' });
     // What the page posted, as the host reads it, and as JSON.
     const reports: FrameReport[] = [];
@@ -57,7 +57,7 @@ const mountPage = (answerState?: HtmlRenderAnswerState) => {
     const script = [...source.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]).join(';');
     if (!script) throw new Error('no bootstrap');
     const answerJson = /<script type="application\/json" id="oc-html-render-answer">[\s\S]*?<\/script>/.exec(source)?.[0] ?? '';
-    win.document.body.innerHTML = BODY;
+    win.document.body.innerHTML = body;
     win.document.head.innerHTML = `<style id="oc-html-render-theme"></style>${answerJson}`;
     // happy-dom does not run a script the test appends, so the scripts run
     // with the page's globals passed in by name.
@@ -214,6 +214,40 @@ describe('the page bootstrap', () => {
         }));
 
         expect(page.highlights.size).toBe(0);
+    });
+});
+
+describe('the page height', () => {
+    test('settles on one height with a tooltip parked below the page\'s last block', () => {
+        // The page from #4940: its tooltip, hidden and positioned absolutely
+        // with no offsets, sits at the end of the page and reaches past the
+        // root's box. happy-dom has no layout, so the boxes are given: the
+        // root is 492 px tall, the tooltip ends at 509 px, and like a real
+        // root the scroll height never drops below the frame's own height.
+        // The tooltip is the body's child: happy-dom computes no `overflow`,
+        // so a wrapper around it would count as a box that clips.
+        const page = mountPage(undefined, '<p>Chart and table</p><div id="tip" style="position:absolute"></div>');
+        const { win } = page;
+        const root = win.document.documentElement;
+        let frameHeight = 48;
+        const box = (top: number, height: number) => new win.DOMRect(0, top, 600, height);
+        Object.defineProperty(win, 'innerHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { get: () => frameHeight, configurable: true });
+        Object.defineProperty(root, 'scrollHeight', { get: () => Math.max(frameHeight, 509), configurable: true });
+        root.getBoundingClientRect = () => box(0, 492);
+        const tip = win.document.getElementById('tip');
+        if (!tip) throw new Error('no tooltip');
+        tip.getBoundingClientRect = () => box(491, 18);
+
+        // The host gives the frame each height the page reports, and the
+        // page measures again when its frame resizes.
+        const sizes = () => page.reports.flatMap((report) => (report?.kind === 'size' ? [report.height] : []));
+        for (let round = 0; round < 6; round += 1) {
+            frameHeight = sizes().at(-1) ?? frameHeight;
+            win.dispatchEvent(new win.Event('resize'));
+        }
+
+        expect(sizes()).toEqual([509]);
     });
 });
 
