@@ -46,6 +46,14 @@ const repositoryItemOfUrl = (url: string): string | null => {
     return `${reference.identity?.instance ?? ''}/${reference.project.owner}/${reference.project.name}${kind}${reference.number}`.toLowerCase();
 };
 
+/** The repository a link to an issue or PR points into, as `https://host/owner/name` in lowercase; null for anything else. */
+export const repositoryUrlOfItemLink = (url: string): string | null => {
+    const changeRequest = parseChangeRequestReference(url);
+    const reference = changeRequest?.project ? changeRequest : parseIssueReference(url);
+    if (!reference?.project) return null;
+    return `${new URL(url.trim()).origin}/${reference.project.owner}/${reference.project.name}`.toLowerCase();
+};
+
 /** Whether two links name the same issue or PR, whatever page of it each opens. */
 export const isSameRepositoryItemLink = (left: string, right: string): boolean => {
     const item = repositoryItemOfUrl(left);

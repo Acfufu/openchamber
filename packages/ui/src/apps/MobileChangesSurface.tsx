@@ -159,7 +159,14 @@ export const MobileChangesSurface: React.FC<MobileChangesSurfaceProps> = (props)
   // A draft waiting for a new space shows the space's changes, and none of this computer's until it runs.
   const draftSpace = useDraftSpaceTarget();
   const rootDirectory = normalizePath(panelContentDirectory(draftSpace, useEffectiveDirectory())) ?? '';
-  const repository = useNestedGitDirectory(rootDirectory || null, { enabled: props.visible ?? true, recheckOnOpen: true });
+  const discovered = useNestedGitDirectory(rootDirectory || null, { enabled: props.visible ?? true, recheckOnOpen: true });
+  // A PR the board asked to show from a repository under the folder is shown
+  // there, while the Git selection stays where it was.
+  const requestedRepository = usePullRequestSelectionStore((state) => (rootDirectory ? state.changesRepositories.get(rootDirectory) : undefined));
+  const repository = requestedRepository && discovered.rootIsGitRepo === false
+    && Array.isArray(discovered.nestedRepos) && discovered.nestedRepos.includes(requestedRepository)
+    ? { ...discovered, gitDirectory: requestedRepository }
+    : discovered;
   if (draftSpace?.kind === 'preparing') return <SpacePreparing />;
   return <MobileChangesPane {...props} rootDirectory={rootDirectory} repository={repository} />;
 };
@@ -1073,7 +1080,9 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
             repositories={nestedRepos}
             selectedRepository={gitDirectory ?? null}
             onSelectRepository={(repository) => {
-              if (rootDirectory) selectNestedRepo(rootDirectory, repository);
+              if (!rootDirectory) return;
+              usePullRequestSelectionStore.getState().clearChangesRepository(rootDirectory);
+              selectNestedRepo(rootDirectory, repository);
             }}
             repositoryRoot={rootDirectory ?? undefined}
           />
