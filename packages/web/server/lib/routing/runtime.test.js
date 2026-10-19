@@ -169,6 +169,16 @@ describe('resolveAutoSelection', () => {
     expect(events.at(-1)).toMatchObject({ type: 'openchamber:routing.decision', properties: { sessionId: 's1', category: 'hard' } });
   });
 
+  it('asks with the instructions as one string, the form the Test probe uses and Kev accepts (#4175)', async () => {
+    const { runtime, jev } = makeRuntime({ answers: { category: { choice: 'hard', confidence: 0.97 } } });
+    await runtime.resolveAutoSelection(send());
+    await runtime.testClassifier();
+    const [routing, probe] = jev.ask.mock.calls.map(([request]) => request);
+    expect(routing.questions.category.instructions).toEqual(expect.any(String));
+    expect(routing.questions.category.instructions).toContain('The thing to classify is `request`');
+    expect(probe.questions.probe.instructions).toEqual(expect.any(String));
+  });
+
   it('uses the fallback pair and keeps the composer agent when the category has no model', async () => {
     const { runtime } = makeRuntime({ answers: { category: { choice: 'trivial', confidence: 0.99 } } });
     const resolved = await runtime.resolveAutoSelection(send({ agent: 'build', requestText: 'fix typo' }));
