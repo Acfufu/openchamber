@@ -1023,6 +1023,25 @@ describe('getStatus', () => {
     await expect(getStatus(repo)).resolves.toMatchObject({ current: 'main' });
   });
 
+  it('reports a branch with no commit yet as unborn until the first commit (#4886)', async () => {
+    if (!canRunGit()) return;
+
+    const repo = createTempDir();
+    runGit(repo, ['init', '-b', 'main']);
+    runGit(repo, ['config', 'user.email', 'test@example.com']);
+    runGit(repo, ['config', 'user.name', 'Test User']);
+    fs.writeFileSync(path.join(repo, 'README.md'), '# Test\n');
+
+    await expect(getStatus(repo)).resolves.toMatchObject({ current: 'main', unborn: true });
+
+    runGit(repo, ['add', 'README.md']);
+    runGit(repo, ['commit', '-m', 'Initial commit']);
+
+    await expect(getStatus(repo)).resolves.toMatchObject({ current: 'main', unborn: false });
+    runGit(repo, ['checkout', '--detach']);
+    await expect(getStatus(repo)).resolves.toMatchObject({ unborn: false });
+  });
+
   it('never rewrites the index, so a terminal commit does not meet its lock (#2229)', async () => {
     if (!canRunGit()) return;
 

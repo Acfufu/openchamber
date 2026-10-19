@@ -3005,7 +3005,13 @@ async function readStatus(normalizedDirectory, lightMode) {
     // in it: on a forgotten build or dependency directory that is a scan of
     // tens of thousands of files and hundreds of megabytes per status read.
     // Directories are expanded to their files afterwards, up to a bound.
-    const status = await git.status(['-unormal']);
+    // HEAD is probed alongside: Git reports an unborn branch (a fresh
+    // `git init`, nothing committed) as an ordinary empty one, and clients
+    // must tell the two apart (`unborn` below).
+    const [status, headProbe] = await Promise.all([
+      git.status(['-unormal']),
+      runGitCommand(repoRoot, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeoutMs: GIT_PROBE_TIMEOUT_MS }),
+    ]);
     status.files = await expandUntrackedDirectories(repoRoot, status.files);
 
     // Light mode: skip numstat + new-file line counting for faster response.
@@ -3265,6 +3271,10 @@ async function readStatus(normalizedDirectory, lightMode) {
     return {
       current: status.current,
       tracking,
+      // Exit 1 from `rev-parse --verify --quiet HEAD` means HEAD names a branch
+      // with no commit yet. Any other failure (timeout, corrupt repository) is
+      // not that answer, and stays false so the repository reads as established.
+      unborn: headProbe.exitCode === 1,
       ahead,
       behind,
       aheadBase,

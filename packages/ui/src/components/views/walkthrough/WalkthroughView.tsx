@@ -111,7 +111,7 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
   // The walkthrough documents one repository. When the root is not itself a
   // repository, that is the resolved nested repository; everything below keys
   // off `directory`.
-  const { rootIsGitRepo, gitDirectory, nestedRepos } = useNestedGitDirectory(rootDirectory || null, { enabled: visible });
+  const { rootIsGitRepo, gitDirectory, nestedRepos, repositoryOptions } = useNestedGitDirectory(rootDirectory || null, { enabled: visible });
   const directory = gitDirectory ?? rootDirectory;
 
   // Panel width, not viewport width: this surface is resizable independently of
@@ -422,10 +422,10 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
           inPanelHeader ? 'flex-1 py-1 pe-1' : 'shrink-0 border-b border-border/60 px-3 py-2'
         )}
       >
-        {rootIsGitRepo === false && Array.isArray(nestedRepos) && nestedRepos.length > 0 ? (
+        {repositoryOptions ? (
           <div className="shrink-0">
             <NestedRepoPicker
-              repositories={nestedRepos}
+              repositories={repositoryOptions}
               selectedRepository={gitDirectory ?? null}
               onSelectRepository={(repository) => {
                 if (rootDirectory) selectNestedRepo(rootDirectory, repository);

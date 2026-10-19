@@ -83,9 +83,10 @@ interface GitHeaderProps {
   pullRequestProvider?: SourceControlProvider | null;
   prChecks?: GitHubChecksSummary | null;
   onOpenPullRequest?: () => void;
-  // Nested repository picker: shown when the Git tab operates on a repository
-  // nested inside a non-repository root. Options are absolute repository
-  // paths; `repositoryRoot` is the root those paths are relative to.
+  // Nested repository picker: shown when the Git tab's root is not a
+  // repository, or is one with no commits yet, and has repositories nested
+  // inside it. Options are absolute repository paths; `repositoryRoot` is the
+  // root those paths are relative to.
   repositoryOptions?: string[];
   selectedRepository?: string | null;
   onSelectRepository?: (repository: string) => void;

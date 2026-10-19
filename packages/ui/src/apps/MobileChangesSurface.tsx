@@ -163,8 +163,7 @@ export const MobileChangesSurface: React.FC<MobileChangesSurfaceProps> = (props)
   // A PR the board asked to show from a repository under the folder is shown
   // there, while the Git selection stays where it was.
   const requestedRepository = usePullRequestSelectionStore((state) => (rootDirectory ? state.changesRepositories.get(rootDirectory) : undefined));
-  const repository = requestedRepository && discovered.rootIsGitRepo === false
-    && Array.isArray(discovered.nestedRepos) && discovered.nestedRepos.includes(requestedRepository)
+  const repository = requestedRepository && discovered.repositoryOptions?.includes(requestedRepository)
     ? { ...discovered, gitDirectory: requestedRepository }
     : discovered;
   if (draftSpace?.kind === 'preparing') return <SpacePreparing />;
@@ -182,7 +181,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
   const { git, sourceControl } = useRuntimeAPIs();
   // When the root is not itself a repository, changes come from the resolved
   // nested repository instead.
-  const { rootIsGitRepo, gitDirectory, nestedRepos } = repository;
+  const { rootIsGitRepo, gitDirectory, nestedRepos, repositoryOptions } = repository;
   const currentDirectory = gitDirectory ?? rootDirectory;
   const status = useGitStatus(currentDirectory || null);
   const choosesPushDestination = useIsContributorWorktree(currentDirectory);
@@ -1075,9 +1074,9 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
             {status?.current || currentDirectory || ''}
           </p>
         </div>
-        {rootIsGitRepo === false && Array.isArray(nestedRepos) && nestedRepos.length > 0 ? (
+        {repositoryOptions ? (
           <NestedRepoPicker
-            repositories={nestedRepos}
+            repositories={repositoryOptions}
             selectedRepository={gitDirectory ?? null}
             onSelectRepository={(repository) => {
               if (!rootDirectory) return;

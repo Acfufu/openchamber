@@ -413,7 +413,11 @@ const GIT_DIRS_SKIP_LIST = new Set(['node_modules', 'dist', 'build', '.venv', 't
 // Walks rootPath and returns every nested git repository path (a directory
 // containing a `.git` entry — a directory, a worktree pointer file, or a
 // symlink). A repository boundary stops descent: nested repos inside repos
-// are not reported. The root itself, when it is a repo, yields no results.
+// are not reported. The root's own `.git` is the exception and the walk goes
+// on below it: whether a root repository hides the ones inside it is the
+// client's call, made from the root's status (a root with no commits yet
+// hides nothing). Clients ask only for roots that are not repositories or
+// have no commits, so an established root is never walked.
 // Symlinked directories are followed, the way the file tree follows them: a
 // parent folder of links to repositories kept elsewhere is a common way to
 // group them into one project. Each real directory is walked once, so a link
@@ -481,10 +485,8 @@ const findGitDirectories = async ({ rootPath, fsPromises, path: pathModule, maxD
       subdirectories.push(dirent.name);
     }
 
-    if (isRepoBoundary) {
-      if (dir !== rootPath) {
-        results.push(dir);
-      }
+    if (isRepoBoundary && dir !== rootPath) {
+      results.push(dir);
       return;
     }
 

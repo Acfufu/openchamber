@@ -231,6 +231,11 @@ export interface GitStatus {
   files: GitStatusFile[];
   isClean: boolean;
   /**
+   * True when the branch has no commit yet (a fresh `git init`). Absent from
+   * runtimes that do not report it (VS Code), which reads as false.
+   */
+  unborn?: boolean;
+  /**
    * Per-file line stats split by Git scope. A file with edits in both scopes
    * appears in both maps; the values are never summed into each other.
    */

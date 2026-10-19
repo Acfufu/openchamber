@@ -1716,17 +1716,22 @@ describe('fs git-dirs', () => {
     return res;
   };
 
-  it('returns an empty list when the root itself is a repository', async () => {
-    const { handler, readdir } = registerGitDirs({
-      '/workspace': [['.git', 'dir'], ['proj-a', 'dir']],
-      '/workspace/proj-a': [['.git', 'dir']],
+  it('walks past the root\'s own .git and never reports the root', async () => {
+    // A root repository with no commits yet hides nothing below it (#4886);
+    // the client asks for it and decides from the root's status.
+    const { handler } = registerGitDirs({
+      '/workspace': [['.git', 'dir'], ['proj-a', 'dir'], ['docs', 'dir']],
+      '/workspace/docs': [['readme.txt', 'file']],
+      '/workspace/proj-a': [['.git', 'dir'], ['src', 'dir']],
     });
 
     const res = await callGitDirs(handler, { path: '/workspace' });
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ path: '/workspace', repositories: [] });
-    expect(readdir).toHaveBeenCalledTimes(1);
+    expect(res.body).toEqual({
+      path: '/workspace',
+      repositories: [{ path: '/workspace/proj-a', name: 'proj-a' }],
+    });
   });
 
   it('finds nested repositories with a .git directory', async () => {

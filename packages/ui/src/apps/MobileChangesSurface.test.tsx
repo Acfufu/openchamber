@@ -133,7 +133,7 @@ test('mobile comparisons drill into files, retry, resume, change source, and yie
   const render = () => act(async () => {
     root.render(<SyncProvider sdk={SYNC_SDK} directory={directory}><I18nProvider><RuntimeAPIContext.Provider value={apis}>
       <MobileChangesPane rootDirectory={directory}
-        repository={{ rootIsGitRepo: true, gitDirectory: directory, nestedRepos: null, nestedRepoSelection: null }}
+        repository={{ rootIsGitRepo: true, gitDirectory: directory, nestedRepos: null, nestedRepoSelection: null, repositoryOptions: null }}
         visible={visible} initialDiff={initialDiff} />
     </RuntimeAPIContext.Provider></I18nProvider></SyncProvider>);
   });
@@ -364,7 +364,7 @@ test('bounds Revert All fan-out to two in-flight revert requests', async () => {
     await act(async () => {
       root.render(<SyncProvider sdk={SYNC_SDK} directory="/repo"><I18nProvider><RuntimeAPIContext.Provider value={apis}>
         <MobileChangesPane rootDirectory="/repo"
-          repository={{ rootIsGitRepo: true, gitDirectory: '/repo', nestedRepos: null, nestedRepoSelection: null }}
+          repository={{ rootIsGitRepo: true, gitDirectory: '/repo', nestedRepos: null, nestedRepoSelection: null, repositoryOptions: null }}
           visible />
       </RuntimeAPIContext.Provider></I18nProvider></SyncProvider>);
     });
@@ -489,7 +489,7 @@ test('mobile changes last turn scope lists the turn diffs, opens one, and shows 
     await act(async () => {
       root.render(<SyncProvider sdk={SYNC_SDK} directory="/repo"><I18nProvider><RuntimeAPIContext.Provider value={apis}>
         <MobileChangesPane rootDirectory="/repo"
-          repository={{ rootIsGitRepo: true, gitDirectory: '/repo', nestedRepos: null, nestedRepoSelection: null }}
+          repository={{ rootIsGitRepo: true, gitDirectory: '/repo', nestedRepos: null, nestedRepoSelection: null, repositoryOptions: null }}
           visible />
       </RuntimeAPIContext.Provider></I18nProvider></SyncProvider>);
     });
@@ -618,7 +618,7 @@ test('mobile changes last turn scope paints loading before the turn fetch settle
     await act(async () => {
       root.render(<SyncProvider sdk={SYNC_SDK} directory="/repo"><I18nProvider><RuntimeAPIContext.Provider value={apis}>
         <MobileChangesPane rootDirectory="/repo"
-          repository={{ rootIsGitRepo: true, gitDirectory: '/repo', nestedRepos: null, nestedRepoSelection: null }}
+          repository={{ rootIsGitRepo: true, gitDirectory: '/repo', nestedRepos: null, nestedRepoSelection: null, repositoryOptions: null }}
           visible />
       </RuntimeAPIContext.Provider></I18nProvider></SyncProvider>);
     });
