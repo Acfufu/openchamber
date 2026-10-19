@@ -86,6 +86,8 @@ const CHART_SERIES = {
     light: ['#2563eb', '#0d9488', '#7c3aed', '#db2777', '#65a30d'],
 } as const;
 
+const darkLift = (foreground: string) => `inset 0 1px 0 0 color-mix(in srgb,${foreground} 1.5%,transparent), 0 1px 1px 0 rgb(0 0 0 / 0.28), 0 2px 3px -2px rgb(0 0 0 / 0.2)`;
+
 /**
  * The variables a page styles against. The names follow the shadcn
  * convention models already write. The agent-facing description in
@@ -98,6 +100,7 @@ export function htmlRenderTheme(theme: Theme, metrics: HtmlRenderMetrics): HtmlR
     // accent fill and border with readable accent text. A dark theme mixes the
     // accent into transparent so the tone sits on the surface behind it.
     const tint = (amount: number, base: string) => `color-mix(in srgb,${primary.base} ${amount}%,${base})`;
+    const errorTint = (amount: number, base: string) => `color-mix(in srgb,${status.error} ${amount}%,${base})`;
     const readable = getReadableThemeColors(theme);
     return {
         appearance: theme.metadata.variant,
@@ -133,10 +136,37 @@ export function htmlRenderTheme(theme: Theme, metrics: HtmlRenderMetrics): HtmlR
                 ? `inset 0 1px 0 0 color-mix(in srgb,${surface.foreground} 6%,transparent), 0 1px 1px 0 rgb(0 0 0 / 0.31), 0 2px 5px -2px rgb(0 0 0 / 0.4)`
                 : 'inset 0 1px 0 0 rgb(255 255 255 / 0.45), 0 1px 2px 0 rgb(0 0 0 / 0.08)',
             '--oc-button-sheen': dark ? `linear-gradient(180deg,color-mix(in srgb,${surface.foreground} 1%,transparent),transparent 50%)` : 'none',
+            // The destructive button (TINT_DESTRUCTIVE): the same light with
+            // a fainter error tint, mixed into transparent in dark themes like
+            // the main one.
+            '--oc-destructive-text': readable.tinted.error,
+            '--oc-destructive-bg': dark ? errorTint(11, 'transparent') : errorTint(7, surface.background),
+            '--oc-destructive-hover': dark ? errorTint(16, 'transparent') : errorTint(11, surface.background),
+            '--oc-destructive-active': dark ? errorTint(22, 'transparent') : errorTint(16, surface.background),
+            '--oc-destructive-border': errorTint(dark ? 15 : 9, 'transparent'),
             // What the app marks chosen with (a pressed chip): the selection
             // fill and its readable text.
             '--oc-selection': interactive.selection,
             '--oc-selection-foreground': readable.selectionForeground,
+            // The light of the app's text fields and raised pills
+            // (`.oc-raised`, `.oc-field`, `.oc-recessed` in
+            // styles/design-system.css): in light themes a field is pressed
+            // into the page and a pill lifts on a short shadow; in dark themes
+            // both take a lit top line, and a field's fill is washed halfway
+            // toward the canvas so it sits a tone below the pills.
+            '--oc-edge': `color-mix(in srgb,${surface.foreground} ${dark ? 6 : 10}%,transparent)`,
+            '--oc-field-bg': dark ? `color-mix(in srgb,${surface.background} 50%,${surface.elevated})` : surface.elevated,
+            '--oc-field-lift': dark ? darkLift(surface.foreground) : 'inset 0 1px 2px 0 rgb(0 0 0 / 0.04)',
+            '--oc-raised-bg': dark ? surface.elevated : surface.background,
+            '--oc-raised-lift': dark ? darkLift(surface.foreground) : '0 1px 2px 0 rgb(0 0 0 / 0.06)',
+            '--oc-recessed': `inset 0 1px 2px 0 rgb(0 0 0 / ${dark ? 0.4 : 0.05})`,
+            '--oc-hover': interactive.hover,
+            '--oc-active': interactive.active,
+            // Status text that stays readable on its own pale tint (a badge).
+            '--oc-success-text': readable.tinted.success,
+            '--oc-warning-text': readable.tinted.warning,
+            '--oc-error-text': readable.tinted.error,
+            '--oc-info-text': readable.tinted.info,
             '--oc-rem': `${metrics.rem}px`,
             // Not listed for agents: the page's root font size (see BASE_CSS).
             '--oc-text': `${metrics.text}px`,
@@ -170,8 +200,73 @@ const OPTION_CSS = '.oc-options{display:grid;gap:12px;grid-template-columns:repe
     + '.oc-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:calc(var(--oc-rem) * 2);padding:0 calc(var(--oc-rem) * .75);border:1px solid var(--oc-button-border);border-radius:calc(var(--oc-rem) * .4375);background-color:var(--oc-button-bg);background-image:var(--oc-button-sheen);box-shadow:var(--oc-button-shadow);color:var(--oc-button-text);font:inherit;font-size:calc(var(--oc-rem) * .84375);line-height:1.45;font-weight:500;white-space:nowrap;cursor:pointer;transition:background-color .15s}'
     + '.oc-button:hover,.oc-button:focus-visible{background-color:var(--oc-button-hover)}.oc-button:active{background-color:var(--oc-button-active);background-image:none;box-shadow:none}'
     + '.oc-button:disabled{opacity:.5;cursor:default;pointer-events:none}'
+    // Two more of the app's Button variants: outline for a secondary action
+    // (raised and neutral, canvas-coloured in light themes) and destructive.
+    + '.oc-button[data-variant=outline]{--oc-button-bg:var(--oc-raised-bg);--oc-button-hover:var(--oc-raised-bg);--oc-button-active:var(--oc-raised-bg);--oc-button-border:transparent;--oc-button-text:var(--card-foreground);--oc-button-shadow:inset 0 0 0 1px var(--oc-edge),var(--oc-raised-lift)}'
+    + '.oc-button[data-variant=outline]:hover,.oc-button[data-variant=outline]:focus-visible{background-image:linear-gradient(var(--oc-hover),var(--oc-hover))}'
+    + '.oc-button[data-variant=outline]:active{background-image:linear-gradient(var(--oc-active),var(--oc-active));box-shadow:inset 0 0 0 1px var(--oc-edge)}'
+    + '.oc-button[data-variant=destructive]{--oc-button-bg:var(--oc-destructive-bg);--oc-button-hover:var(--oc-destructive-hover);--oc-button-active:var(--oc-destructive-active);--oc-button-border:var(--oc-destructive-border);--oc-button-text:var(--oc-destructive-text)}'
     // Focus draws no ring in the app: a focused control takes its hover fill.
     + '.oc-option:focus-visible,.oc-button:focus-visible{outline:none}';
+
+// Ready classes for what pages draw again and again: boxes, secondary text,
+// tables, badges, legend dots and bars, and form fields, in the app's look.
+// A third of a page's characters went into its own CSS for these, written
+// anew on every page and looking different on every model. Agents still
+// write plain HTML; the classes only spare them the styling. The
+// agent-facing description in packages/web/server/lib/agent-tool/runtime.js
+// names them; change both together.
+const badgeTone = (tone: 'success' | 'warning' | 'error' | 'info', color: string) => `.oc-badge[data-tone=${tone}]{--oc-tone:${color};--oc-tone-text:var(--oc-${tone}-text)}`;
+const CHEVRON = 'linear-gradient(45deg,transparent 50%,var(--muted-foreground) 50%),linear-gradient(135deg,var(--muted-foreground) 50%,transparent 50%)';
+const KIT_CSS = '.oc-box{box-sizing:border-box;padding:16px;border-radius:var(--radius);background-color:color-mix(in srgb,var(--foreground) 4%,transparent)}'
+    + '.oc-box .oc-box{background-color:color-mix(in srgb,var(--foreground) 6%,transparent)}'
+    + '.oc-muted{color:var(--muted-foreground)}'
+    + '.oc-num{font-variant-numeric:tabular-nums;text-align:end}'
+    // The chat's own Markdown table (chat/markdown/decorate.ts): a framed
+    // block that scrolls sideways when wider than the column, rows apart by
+    // a hairline.
+    + '.oc-table{overflow-x:auto;overscroll-behavior-x:none;border:1px solid color-mix(in srgb,var(--border) 80%,transparent);border-radius:calc(var(--oc-rem) * .5);background-color:var(--card)}'
+    + '.oc-table table{width:100%;border-collapse:collapse}'
+    + '.oc-table th,.oc-table td{padding:.625em 1em;text-align:start;vertical-align:middle;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent)}'
+    + '.oc-table th{font-weight:600}.oc-table td{color:color-mix(in srgb,var(--foreground) 90%,transparent)}'
+    + '.oc-table tr:last-child>td{border-bottom:0}.oc-table .oc-num{text-align:end}'
+    + '.oc-badge{display:inline-flex;align-items:center;padding:.0625em .5em;border-radius:999px;background-color:color-mix(in srgb,var(--foreground) 6%,transparent);color:var(--muted-foreground);font-size:.8125em;font-weight:500;line-height:1.45;white-space:nowrap}'
+    + '.oc-badge[data-tone]{background-color:color-mix(in srgb,var(--oc-tone) 15%,transparent);color:var(--oc-tone-text)}'
+    + badgeTone('success', 'var(--success)') + badgeTone('warning', 'var(--warning)') + badgeTone('error', 'var(--destructive)') + badgeTone('info', 'var(--info)')
+    + '.oc-dot{display:inline-block;width:.5em;height:.5em;border-radius:50%;background-color:var(--color,var(--chart-1));vertical-align:.1em}'
+    + '.oc-bar{display:block;height:8px;border-radius:999px;overflow:hidden;background-color:color-mix(in srgb,var(--foreground) 8%,transparent)}'
+    + '.oc-bar::before{content:"";display:block;width:var(--value,0%);max-width:100%;height:100%;border-radius:inherit;background-color:var(--color,var(--chart-1))}'
+    // A field is the app's Input (components/ui/input.tsx): sized in the
+    // app's rem like .oc-button, its edge brightening on focus.
+    + '.oc-field{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:calc(var(--oc-rem) * .8125);font-weight:500}'
+    + '.oc-field .oc-muted{font-weight:400}'
+    + '.oc-input{box-sizing:border-box;width:100%;min-width:0;height:calc(var(--oc-rem) * 2);margin:0;padding:0 calc(var(--oc-rem) * .625);border:0;border-radius:calc(var(--oc-rem) * .4375);background-color:var(--oc-field-bg);box-shadow:inset 0 0 0 1px var(--oc-edge),var(--oc-field-lift);color:var(--card-foreground);font:inherit;font-size:calc(var(--oc-rem) * .84375);font-weight:400;line-height:1.45;outline:none;transition:background-color .15s}'
+    + '.oc-input::placeholder{color:var(--muted-foreground)}'
+    + '.oc-input:hover:not(:focus){background-image:linear-gradient(var(--oc-hover),var(--oc-hover))}'
+    + '.oc-input:focus{--oc-edge:color-mix(in srgb,var(--foreground) 26%,transparent)}'
+    + '.oc-input[aria-invalid=true]{--oc-edge:var(--destructive)}'
+    + '.oc-input:disabled{opacity:.5;cursor:default}'
+    + 'textarea.oc-input{height:auto;min-height:calc(var(--oc-rem) * 4);padding:calc(var(--oc-rem) * .5) calc(var(--oc-rem) * .625);resize:vertical}'
+    // A native select draws its own box in some engines, so it gets the
+    // field's and a chevron drawn in the theme's muted text.
+    + `select.oc-input{appearance:none;-webkit-appearance:none;padding-inline-end:calc(var(--oc-rem) * 1.75);background-image:${CHEVRON};background-position:calc(100% - calc(var(--oc-rem) * 1.0625)) 50%,calc(100% - calc(var(--oc-rem) * .75)) 50%;background-size:5px 5px;background-repeat:no-repeat;cursor:pointer}`
+    + `select.oc-input:hover:not(:focus){background-image:${CHEVRON},linear-gradient(var(--oc-hover),var(--oc-hover));background-size:5px 5px,5px 5px,auto;background-position:calc(100% - calc(var(--oc-rem) * 1.0625)) 50%,calc(100% - calc(var(--oc-rem) * .75)) 50%,0 0}`
+    + 'select.oc-input:dir(rtl){background-position:calc(var(--oc-rem) * .75) 50%,calc(var(--oc-rem) * 1.0625) 50%}'
+    + 'select.oc-input:dir(rtl):hover:not(:focus){background-position:calc(var(--oc-rem) * .75) 50%,calc(var(--oc-rem) * 1.0625) 50%,0 0}'
+    // The app's Switch (components/ui/switch.tsx) on a plain checkbox.
+    + '.oc-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;box-sizing:border-box;width:36px;height:20px;margin:0;border:2px solid transparent;border-radius:999px;background-color:var(--border);vertical-align:middle;cursor:pointer;transition:background-color .15s}'
+    + '.oc-switch::before{content:"";position:absolute;top:0;inset-inline-start:0;width:16px;height:16px;border-radius:50%;background-color:var(--muted-foreground);transition:transform .15s}'
+    + '.oc-switch:checked{background-color:var(--primary)}'
+    + '.oc-switch:checked::before{background-color:var(--primary-foreground);transform:translateX(16px)}'
+    + '.oc-switch:checked:dir(rtl)::before{transform:translateX(-16px)}'
+    + '.oc-switch:disabled{opacity:.5;cursor:default}.oc-switch:focus-visible{outline:none}'
+    // One choice among a few, or tabs: the app's active-pill strip, a
+    // recessed track with the chosen option raised.
+    // As wide as its options, also in a flex column that would stretch it.
+    + '.oc-segmented{display:inline-flex;width:fit-content;max-width:100%;gap:2px;padding:2px;box-sizing:border-box;overflow-x:auto;border-radius:calc(var(--oc-rem) * .625);background-color:color-mix(in srgb,var(--foreground) 4%,transparent);box-shadow:var(--oc-recessed)}'
+    + '.oc-segmented>button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:calc(var(--oc-rem) * 1.75);padding:0 calc(var(--oc-rem) * .625);border:0;border-radius:calc(var(--oc-rem) * .5);background:transparent;color:var(--muted-foreground);font:inherit;font-size:calc(var(--oc-rem) * .8125);font-weight:500;white-space:nowrap;cursor:pointer;transition:color .15s}'
+    + '.oc-segmented>button:hover,.oc-segmented>button:focus-visible{color:var(--foreground);outline:none}'
+    + '.oc-segmented>button[aria-pressed=true]{background-color:var(--oc-raised-bg);box-shadow:inset 0 0 0 1px var(--oc-edge),var(--oc-raised-lift);color:var(--card-foreground)}';
 
 // The page sits on the chat's own background. Media shrinks to the column.
 // What is still wider (a wide table) scrolls sideways, without the elastic
@@ -211,7 +306,8 @@ const BASE_CSS = 'html{background:transparent;color:var(--foreground);font-famil
     + SCROLLBAR_CSS
     + 'body{margin:0}a{color:var(--primary)}code,kbd,pre,samp{font-family:var(--font-mono)}img,svg,video,canvas{max-width:100%}'
     + '::highlight(oc-chat-quote),::highlight(oc-chat-quote-focus),::highlight(oc-chat-quote-flash){background-color:var(--oc-quote-mark,rgba(127,127,127,.35))}'
-    + OPTION_CSS;
+    + OPTION_CSS
+    + KIT_CSS;
 
 const CSS_VARIABLE_NAME = /^--[a-z0-9-]+$/;
 const sanitizeCssValue = (value: string): string => value.replace(/[;{}<>]/g, '');

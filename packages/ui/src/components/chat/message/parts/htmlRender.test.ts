@@ -88,6 +88,14 @@ describe('answer state', () => {
         }
     });
 
+    test('gives every page the ready kit classes the tool description names, kept across a theme switch', () => {
+        const document = buildHtmlRenderDocument('<p>a</p>', theme);
+        for (const rule of ['.oc-box{', '.oc-muted{', '.oc-table{', '.oc-num{', '.oc-badge{', '.oc-badge[data-tone=error]{', '.oc-dot{', '.oc-bar{', '.oc-field{', '.oc-input{', '.oc-switch{', '.oc-segmented{', '.oc-button[data-variant=outline]{', '.oc-button[data-variant=destructive]{']) {
+            // A rule of its own, not the tail of a longer selector.
+            expect(document.split(`}${rule}`).length - 1).toBe(2);
+        }
+    });
+
     test('carries the page\'s answer as JSON that no data can break out of', () => {
         const document = buildHtmlRenderDocument('<p>a</p>', theme, { answerState: { waiting: false, answer: { note: '</script><script>alert(1)</script>' } } });
         const start = document.indexOf('<script type="application/json" id="oc-html-render-answer">');
@@ -233,6 +241,18 @@ describe('htmlRenderTheme', () => {
             expect(series).toEqual(dark
                 ? ['#60a5fa', '#2dd4bf', '#a78bfa', '#f472b6', '#a3e635']
                 : ['#2563eb', '#0d9488', '#7c3aed', '#db2777', '#65a30d']);
+        }
+    });
+
+    test('defines every variable the kit classes read, in both modes', () => {
+        const fonts = { rem: 16, text: 14, sans: 'sans-serif', mono: 'monospace' };
+        const document = buildHtmlRenderDocument('<p>a</p>', theme);
+        const read = new Set(Array.from(document.matchAll(/var\((--oc-[a-z-]+)/g), (match) => match[1]));
+        // Set by the class itself or by the page.
+        for (const local of ['--oc-tone', '--oc-tone-text']) read.delete(local);
+        for (const dark of [true, false]) {
+            const { variables } = htmlRenderTheme(getDefaultTheme(dark), fonts);
+            expect([...read].filter((name) => !(name in variables))).toEqual([]);
         }
     });
 
