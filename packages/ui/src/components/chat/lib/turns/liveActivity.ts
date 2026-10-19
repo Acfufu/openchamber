@@ -1,3 +1,4 @@
+import { isInvisibleText } from '@/lib/invisibleText';
 import { getLastConversationRecord, type ToolPart } from '@/lib/opencode/model';
 import { renderedPage } from '@/lib/opencode/tools';
 import { isSessionNoticePart } from '@/lib/opencode/session-notices';
@@ -23,7 +24,7 @@ export function getLiveFinalMessage(messages: readonly ChatMessageEntry[]): Chat
     // of reading the last record.
     const last = getLastConversationRecord(messages);
     return last?.info.role === 'assistant' && last.info.finish === 'stop'
-        && last.parts.some((part) => part.type === 'text' && part.text.trim().length > 0)
+        && last.parts.some((part) => part.type === 'text' && !isInvisibleText(part.text))
         ? last : undefined;
 }
 

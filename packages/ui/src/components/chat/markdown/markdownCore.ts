@@ -7,6 +7,7 @@ import { INLINE_REFERENCE_CHIP_CLASS, INTERACTIVE_REFERENCE_CHIP_CLASS, buildAge
 import { isAppLinkUrl } from '@/lib/url';
 import { isSessionDeepLink } from '@/lib/sessionLinks';
 import { isVSCodeRuntime } from '@/lib/desktop';
+import { isInvisibleText } from '@/lib/invisibleText';
 import {
   contentFingerprint,
   EMPTY_FINGERPRINT,
@@ -312,7 +313,8 @@ const lexSplit = (text: string, from: number, kept: Segment[]): Split | null => 
   let lastType = '';
   for (const token of tokens) {
     const length = token.raw?.length ?? 0;
-    if (token.type !== 'space') {
+    // A paragraph of only zero-width characters draws an empty line (#5215).
+    if (token.type !== 'space' && !isInvisibleText(token.raw ?? '')) {
       segments.push({ start: offset, end: offset + length });
       lastType = token.type;
     }
@@ -438,6 +440,7 @@ const streamBlocks = (
   live: boolean,
   rawHtml: MarkdownRawHtmlMode = 'escape',
 ): MarkdownBlock[] => {
+  if (isInvisibleText(text)) return [];
   // Raw HTML of a document may open in one block and close in another; the
   // allowlist pass must see it whole.
   if (!live && rawHtml === 'sanitize') return [{ raw: text, src: text, mode: 'full', highlight: true }];

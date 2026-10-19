@@ -2,6 +2,7 @@ import React from 'react';
 import { animate, type AnimationPlaybackControls } from 'motion';
 import type { Part } from '@/lib/opencode/model';
 import { cn } from '@/lib/utils';
+import { isInvisibleText } from '@/lib/invisibleText';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
@@ -23,14 +24,14 @@ const TOOL_ROW_DESCRIPTION_CLASS = cn('typography-meta', TOOL_ROW_TEXT_CLASS);
 type PartWithText = Part & { text?: string; content?: string; time?: { start?: number; end?: number } };
 
 const cleanReasoningText = (text: string): string => {
-    if (typeof text !== 'string' || text.trim().length === 0) {
+    if (typeof text !== 'string' || isInvisibleText(text)) {
         return '';
     }
 
     return text
         .split('\n')
         .map((line: string) => line.replace(/^>\s?/, '').trimEnd())
-        .filter((line: string) => line.trim().length > 0)
+        .filter((line: string) => !isInvisibleText(line))
         .join('\n')
         .trim();
 };
@@ -363,7 +364,7 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
     // reasoning starts even before the block-level reveal (commitStreamedText)
     // has committed a first complete line — otherwise "Thinking…" never shows
     // for the first moments of a short, single-paragraph response.
-    if (!isStreaming && (!text || text.trim().length === 0)) {
+    if (!isStreaming && isInvisibleText(text)) {
         return null;
     }
 
@@ -535,7 +536,7 @@ const ReasoningPart = React.memo(({
     // While genuinely streaming, keep the block mounted even before the
     // block-level reveal commits a first line, so the busy header appears
     // immediately instead of waiting on committed text.
-    if (!isStreaming && (!throttledText || throttledText.trim().length === 0)) {
+    if (!isStreaming && isInvisibleText(throttledText)) {
         return null;
     }
 

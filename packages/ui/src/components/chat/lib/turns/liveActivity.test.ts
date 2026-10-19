@@ -90,6 +90,10 @@ describe('live turn boundaries', () => {
         expect(getLiveFinalMessage([assistant('form', [text('Which?'), tool('form', 'form', { status: 'running' })])])).toBeUndefined();
     });
 
+    test('a stop step whose only text is a zero-width space is not a final answer', () => {
+        expect(getLiveFinalMessage([assistant('blank', [text('\u200B')], { finish: 'stop' })])).toBeUndefined();
+    });
+
     test('plumbing messages after the final answer stay transparent', () => {
         const final = assistant('final', [text('Done')], { finish: 'stop' });
         const synthetic: ChatMessageEntry = {

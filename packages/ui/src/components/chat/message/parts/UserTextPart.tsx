@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { isInvisibleText } from '@/lib/invisibleText';
 import { Icon } from '@/components/icon/Icon';
 import type { FilePart, Part } from '@/lib/opencode/model';
 import {
@@ -343,7 +344,7 @@ const UserTextPart: React.FC<UserTextPartProps> = ({
         );
     }
 
-    if ((!textContent || textContent.trim().length === 0) && terminalContextState.contexts.length === 0) {
+    if (isInvisibleText(textContent) && terminalContextState.contexts.length === 0) {
         return null;
     }
 
