@@ -17,6 +17,7 @@ import { toJsonRecord } from "@/lib/opencode/json"
 import { ascendingId } from "@/lib/opencode/ids"
 import { mergeSessionDirectoryMetadata, resolveGlobalSessionDirectory, useGlobalSessionsStore } from "@/stores/useGlobalSessionsStore"
 import { readGlobalSessionLineage } from "@/stores/sessionLineage"
+import { isRestorableOnItsOwn } from "./session-restore-rule"
 import { useConfigStore } from "@/stores/useConfigStore"
 import { waitForOpenCodeStartup } from "./opencode-startup-gate"
 import { registerSessionDirectory } from "./sync-refs"
@@ -1796,9 +1797,11 @@ function commitArchivedSessions(stamps: SessionArchiveStamp[], directory: string
  * OpenChamber's own (OpenCode has no route for it), so this goes to the
  * OpenChamber unarchive route rather than the OpenCode client.
  *
- * A subsession is the agent's, not the user's: it is never restored on its
- * own. Restoring a top-level session brings its archived subsessions back with
- * it, so the agent runs it holds are whole again.
+ * A subsession is the agent's: under an archived parent it is never restored
+ * on its own. Restoring a top-level session brings its archived subsessions
+ * back with it, so the agent runs it holds are whole again. A subsession
+ * archived alone while its parent stayed active is restored on its own, back
+ * under that parent.
  */
 export async function unarchiveSession(sessionId: string, expectedRuntimeKey = getRuntimeKey()): Promise<boolean> {
   const { restoredIds } = await restoreSessionTree(sessionId, expectedRuntimeKey)
@@ -1813,7 +1816,9 @@ async function restoreSessionTree(
   rootId: string,
   expectedRuntimeKey: string,
 ): Promise<{ restoredIds: string[]; failedIds: string[] }> {
-  if (useGlobalSessionsStore.getState().entityById.get(rootId)?.parentID) {
+  const { entityById } = useGlobalSessionsStore.getState()
+  const root = entityById.get(rootId)
+  if (root && !isRestorableOnItsOwn(root, entityById)) {
     recordSessionActionFailure(rootId, new Error("a subsession is restored with its parent"))
     return { restoredIds: [], failedIds: [rootId] }
   }
@@ -1890,8 +1895,8 @@ export type UnarchiveSessionsOptions = {
   expectedRuntimeKey?: string
   /**
    * Undo of an archive that just happened: put back exactly the sessions it
-   * moved, subsessions included. Without it a subsession is only restored
-   * with its parent.
+   * moved, subsessions included. Without it a subsession is restored on its
+   * own only while its parent is active (`isRestorableOnItsOwn`).
    */
   undo?: boolean
 }

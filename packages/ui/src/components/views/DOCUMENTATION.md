@@ -284,3 +284,16 @@ Most focused tests use Bun. `MultiFileDiffEntry.vitest.tsx` exercises the real
 diff component through the web workspace's Vitest runner because its transitive
 UI imports require Vite asset transforms. The web test configuration includes
 UI `*.vitest.tsx` fixtures; the isolated Bun runner intentionally does not.
+
+## Archive page
+
+`ArchiveView` lists archived top-level sessions. A subsession whose parent is
+archived too is left out: it comes back when the parent is restored. A
+subsession archived while its parent stays active is listed, indented under a
+row with the parent's title, and the subsessions of one parent sit together at
+the place of the newest of them. Without that row such a session would show
+nowhere: the sidebar hides archived sessions, and the parent is not in the
+archive. Restore brings it back on its own, under that parent. One rule,
+`isRestorableOnItsOwn` in `sync/session-restore-rule.ts`, decides what the page
+lists, when the chat header's session menu offers Restore, and what the restore
+action accepts, so the three never disagree.
