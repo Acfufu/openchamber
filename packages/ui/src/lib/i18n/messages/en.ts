@@ -2641,6 +2641,8 @@ export const dict = {
   'chat.chatInput.toast.imagesSaving': 'Saving {files}…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} can\'t read images. Saved {files} to {folder}.',
   'chat.chatInput.toast.imageSaveFailed': 'Couldn\'t save {files}. Attached instead.',
+  'chat.chatInput.toast.imagesSaved': 'Saved {files} to {folder}.',
+  'chat.chatInput.toast.imageCopySaveFailed': 'Couldn\'t save {files}.',
   'chat.chatInput.toast.someFilesSkipped': 'Some files were skipped:\n{summary}',
   'chat.chatInput.toast.vscodePickFailed': 'Failed to pick files in VS Code',
   'chat.chatInput.toast.openSessionFirst': 'Open a session first',

@@ -2595,6 +2595,8 @@ export const dict: Record<I18nKey, string> = {
   "chat.chatInput.toast.imagesSaving": "Guardando {files}…",
   "chat.chatInput.toast.imagesSavedForTextModel": "{model} no puede leer imágenes. {files} se guardó en {folder}.",
   "chat.chatInput.toast.imageSaveFailed": "No se pudo guardar {files}. Se adjuntó en su lugar.",
+  "chat.chatInput.toast.imagesSaved": "{files} guardado en {folder}.",
+  "chat.chatInput.toast.imageCopySaveFailed": "No se pudo guardar {files}.",
   "chat.chatInput.toast.someFilesSkipped": "Algunos archivos se omitieron:\n{summary}",
   "chat.chatInput.toast.vscodePickFailed": "No se pudieron seleccionar archivos en VS Code",
   "chat.chatInput.toast.openSessionFirst": "Abre una sesión primero",

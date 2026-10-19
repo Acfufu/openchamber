@@ -2640,6 +2640,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.toast.imagesSaving': '{files} を保存中…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} は画像を読み取れません。{files} を {folder} に保存しました。',
   'chat.chatInput.toast.imageSaveFailed': '{files} を保存できませんでした。代わりに添付しました。',
+  'chat.chatInput.toast.imagesSaved': '{files} を {folder} に保存しました。',
+  'chat.chatInput.toast.imageCopySaveFailed': '{files} を保存できませんでした。',
   'chat.chatInput.toast.someFilesSkipped': '一部のファイルがスキップされました:\n{summary}',
   'chat.chatInput.toast.vscodePickFailed': 'VS Codeでのファイル選択に失敗しました',
   'chat.chatInput.toast.openSessionFirst': '先にセッションを開いてください',

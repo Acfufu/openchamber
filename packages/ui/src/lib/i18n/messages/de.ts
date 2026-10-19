@@ -3489,6 +3489,8 @@ export const dict = {
   'chat.chatInput.toast.imagesSaving': '{files} wird gespeichert…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} kann keine Bilder lesen. {files} in {folder} gespeichert.',
   'chat.chatInput.toast.imageSaveFailed': '{files} konnte nicht gespeichert werden. Stattdessen angehängt.',
+  'chat.chatInput.toast.imagesSaved': '{files} in {folder} gespeichert.',
+  'chat.chatInput.toast.imageCopySaveFailed': '{files} konnte nicht gespeichert werden.',
   'projectActions.actions.autoDiscoverTooltip': 'Automatisch erkannte Aktionen',
   'onboarding.localSetup.windows.stepInstallWslSuffix': 'WSL installieren',
   'chat.goal.toast.distillFallback': 'Das Ziel überschritt das Limit und konnte nicht verdichtet werden — für die Auswertung wird eine gekürzte Version verwendet',

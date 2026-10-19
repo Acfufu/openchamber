@@ -2470,6 +2470,8 @@ export const dict = {
   'chat.chatInput.toast.imagesSaving': '{files} kaydediliyor…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} görselleri okuyamıyor. {files}, {folder} klasörüne kaydedildi.',
   'chat.chatInput.toast.imageSaveFailed': '{files} kaydedilemedi. Bunun yerine eklendi.',
+  'chat.chatInput.toast.imagesSaved': '{files}, {folder} klasörüne kaydedildi.',
+  'chat.chatInput.toast.imageCopySaveFailed': '{files} kaydedilemedi.',
   'chat.chatInput.toast.someFilesSkipped': 'Bazı dosyalar atlandı:\\n{summary}',
   'chat.chatInput.toast.vscodePickFailed': 'VS Code\'da dosya seçilemedi',
   'chat.chatInput.toast.openSessionFirst': 'Önce bir session açın',

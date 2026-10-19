@@ -2641,6 +2641,8 @@ export const dict = {
   'chat.chatInput.toast.imagesSaving': '{files} opslaan…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} kan geen afbeeldingen lezen. {files} opgeslagen in {folder}.',
   'chat.chatInput.toast.imageSaveFailed': 'Kon {files} niet opslaan. In plaats daarvan bijgevoegd.',
+  'chat.chatInput.toast.imagesSaved': '{files} opgeslagen in {folder}.',
+  'chat.chatInput.toast.imageCopySaveFailed': 'Kon {files} niet opslaan.',
   'chat.chatInput.toast.someFilesSkipped': 'Sommige bestanden zijn overgeslagen:\n{summary}',
   'chat.chatInput.toast.vscodePickFailed': 'Kan geen bestanden kiezen in VS Code',
   'chat.chatInput.toast.openSessionFirst': 'Open eerst een sessie',

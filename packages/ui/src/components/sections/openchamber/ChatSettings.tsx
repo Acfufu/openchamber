@@ -344,8 +344,8 @@ const ComposerTab: React.FC = () => {
   const setLargeTextPasteBehavior = useUIStore((state) => state.setLargeTextPasteBehavior);
   const allowPromptingSubagentSessions = useUIStore((state) => state.allowPromptingSubagentSessions);
   const setAllowPromptingSubagentSessions = useUIStore((state) => state.setAllowPromptingSubagentSessions);
-  const saveImagesForTextOnlyModels = useUIStore((state) => state.saveImagesForTextOnlyModels);
-  const setSaveImagesForTextOnlyModels = useUIStore((state) => state.setSaveImagesForTextOnlyModels);
+  const savePastedImagesAsFiles = useUIStore((state) => state.savePastedImagesAsFiles);
+  const setSavePastedImagesAsFiles = useUIStore((state) => state.setSavePastedImagesAsFiles);
   const persistChatDraft = useUIStore((state) => state.persistChatDraft);
   const setPersistChatDraft = useUIStore((state) => state.setPersistChatDraft);
   const inputSpellcheckEnabled = useUIStore((state) => state.inputSpellcheckEnabled);
@@ -433,12 +433,12 @@ const ComposerTab: React.FC = () => {
             settingsItem="chat.subagent-read-only-banner"
           />
           <SettingsCheckboxRow
-            checked={saveImagesForTextOnlyModels}
-            onChange={setSaveImagesForTextOnlyModels}
-            label={t('settings.openchamber.visual.field.saveImagesForTextOnlyModels')}
-            ariaLabel={t('settings.openchamber.visual.field.saveImagesForTextOnlyModels')}
-            info={t('settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo')}
-            settingsItem="chat.save-images-for-text-models"
+            checked={savePastedImagesAsFiles}
+            onChange={setSavePastedImagesAsFiles}
+            label={t('settings.openchamber.visual.field.savePastedImagesAsFiles')}
+            ariaLabel={t('settings.openchamber.visual.field.savePastedImagesAsFiles')}
+            info={t('settings.openchamber.visual.field.savePastedImagesAsFilesInfo')}
+            settingsItem="chat.save-pasted-images"
           />
         </div>
       </SettingsSection>

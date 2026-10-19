@@ -1451,6 +1451,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.toast.imagesSaving': 'Zapisywanie {files}…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} nie odczytuje obrazów. Zapisano {files} w {folder}.',
   'chat.chatInput.toast.imageSaveFailed': 'Nie udało się zapisać {files}. Dołączono zamiast tego.',
+  'chat.chatInput.toast.imagesSaved': 'Zapisano {files} w {folder}.',
+  'chat.chatInput.toast.imageCopySaveFailed': 'Nie udało się zapisać {files}.',
   'chat.chatInput.toast.attachmentsTooLarge': 'Załączniki są zbyt duże, aby je wysłać. Spróbuj zmniejszyć liczbę lub rozmiar obrazów.',
   'chat.chatInput.toast.clipboardAttachFailed': 'Nie udało się dołączyć obrazu ze schowka',
   'chat.chatInput.toast.clipboardTextAttachFailed': 'Nie udało się dołączyć wklejonego tekstu jako pliku',

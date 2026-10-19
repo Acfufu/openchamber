@@ -2641,6 +2641,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.toast.imagesSaving': '{files} 저장 중…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model}은(는) 이미지를 읽을 수 없습니다. {files}을(를) {folder}에 저장했습니다.',
   'chat.chatInput.toast.imageSaveFailed': '{files}을(를) 저장하지 못했습니다. 대신 첨부했습니다.',
+  'chat.chatInput.toast.imagesSaved': '{files}을(를) {folder}에 저장했습니다.',
+  'chat.chatInput.toast.imageCopySaveFailed': '{files}을(를) 저장하지 못했습니다.',
   'chat.chatInput.toast.someFilesSkipped': '일부 파일을 건너뛰었습니다:\n{summary}',
   'chat.chatInput.toast.vscodePickFailed': 'VS Code에서 파일 선택에 실패했습니다',
   'chat.chatInput.toast.openSessionFirst': '먼저 세션을 여세요',

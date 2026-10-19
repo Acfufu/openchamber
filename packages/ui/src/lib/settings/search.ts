@@ -419,11 +419,11 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['subagent', 'read only', 'prompt', 'banner'],
   },
   {
-    id: 'chat.save-images-for-text-models',
+    id: 'chat.save-pasted-images',
     page: 'chat',
-    titleKey: 'settings.openchamber.visual.field.saveImagesForTextOnlyModels',
-    descriptionKey: 'settings.openchamber.visual.field.saveImagesForTextOnlyModelsInfo',
-    keywords: ['image', 'screenshot', 'paste', 'vision', 'text-only', 'model', 'path', 'attachment'],
+    titleKey: 'settings.openchamber.visual.field.savePastedImagesAsFiles',
+    descriptionKey: 'settings.openchamber.visual.field.savePastedImagesAsFilesInfo',
+    keywords: ['image', 'screenshot', 'paste', 'vision', 'text-only', 'model', 'path', 'attachment', 'file', 'link'],
   },
   {
     id: 'chat.tool-file-icons',

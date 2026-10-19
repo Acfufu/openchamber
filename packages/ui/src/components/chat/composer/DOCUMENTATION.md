@@ -297,17 +297,22 @@ to read the declaration again when the composer takes focus, since the IME reads
 element takes focus and that can be before the report arrives. The paste handler re-checks
 focus as a backstop for that window. Every other runtime pastes images through `handlePaste` unchanged, and an IME
 without content insertion keeps refusing.
-With the profile setting `saveImagesForTextOnlyModels` on and a model whose
-metadata lists no `image` input, pasted, dropped and picked images
-(`attachFilesWithCitation`, `attachFiles`) are not attached: the composer writes
-them into a new folder under OpenCode's own temp folder
-(`opencodeClient.writeOpenCodeTempFiles`: `GET /api/info` names the folder,
-`POST /api/experimental/fs/write` writes it) and cites each one as
-`[name](absolute path)` (a plain link: a draft starting with `!` turns into a shell command), so the model or a subagent reads it by path; OpenCode's
-agents may read that folder without asking. The modality toast says where the
-images went. An image that could not be saved attaches as before, with an error
-toast. With the setting off, unknown model metadata, or a vision model, nothing
-changes. The browser annotation screenshot and comment-field image pastes keep
+With the profile setting `savePastedImagesAsFiles` on, pasted, dropped and
+picked images (`attachFilesWithCitation`, `attachFiles`) are written into a new
+folder under OpenCode's own temp folder (`opencodeClient.writeOpenCodeTempFiles`:
+`GET /api/info` names the folder, `POST /api/experimental/fs/write` writes it)
+and cited as `[name](absolute path)` (a plain link: a draft starting with `!`
+turns into a shell command), so the model, a subagent or a tool reads the file
+by path; OpenCode's agents may read that folder without asking.
+`imageSaveModeForModel` picks one of three cases. A model whose metadata lists
+no `image` input gets only the link, since it could not read the attachment
+(#5087), and the modality toast says where the images went. Any other model,
+unknown metadata included, also gets the image attached under the link's name,
+with no second `[name]` citation (#5218). An image that could not be saved
+attaches as before, with an error toast. With the setting off nothing is
+saved. One setting covers both cases: a split by model kind read as a puzzle of
+exceptions in Settings, and nobody needs the files for one kind of model only.
+The browser annotation screenshot and comment-field image pastes keep
 attaching. The bytes go through the active runtime's OpenCode route (the
 OpenChamber server's proxy, the VS Code bridge, the relay for a phone), so the
 file lands on the machine OpenCode runs on, which may not be the user's. Why

@@ -2586,6 +2586,8 @@ export const dict = {
   'chat.chatInput.toast.imagesSaving': 'جارٍ حفظ {files}…',
   'chat.chatInput.toast.imagesSavedForTextModel': 'لا يستطيع {model} قراءة الصور. تم حفظ {files} في {folder}.',
   'chat.chatInput.toast.imageSaveFailed': 'تعذّر حفظ {files}. أُرفق بدلًا من ذلك.',
+  'chat.chatInput.toast.imagesSaved': 'تم حفظ {files} في {folder}.',
+  'chat.chatInput.toast.imageCopySaveFailed': 'تعذّر حفظ {files}.',
   'chat.chatInput.toast.someFilesSkipped': "تم تخطي بعض الملفات:\n{summary}",
   'chat.chatInput.toast.vscodePickFailed': 'تعذّر اختيار الملفات في VS Code',
   'chat.chatInput.toast.openSessionFirst': 'افتح جلسة أولًا',

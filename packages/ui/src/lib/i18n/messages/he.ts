@@ -2586,6 +2586,8 @@ export const dict = {
   'chat.chatInput.toast.imagesSaving': 'שומר את {files}…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} לא יכול לקרוא תמונות. {files} נשמר ב-{folder}.',
   'chat.chatInput.toast.imageSaveFailed': 'לא ניתן לשמור את {files}. צורף במקום זאת.',
+  'chat.chatInput.toast.imagesSaved': '{files} נשמר ב-{folder}.',
+  'chat.chatInput.toast.imageCopySaveFailed': 'לא ניתן לשמור את {files}.',
   'chat.chatInput.toast.someFilesSkipped': "חלק מהקבצים דולגו:\n{summary}",
   'chat.chatInput.toast.vscodePickFailed': 'לא ניתן היה לבחור קבצים ב-VS Code',
   'chat.chatInput.toast.openSessionFirst': 'יש לפתוח הפעלה קודם',

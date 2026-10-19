@@ -6,6 +6,7 @@ import {
     buildImagePathCitationText,
     findAttachmentCitationRanges,
     findImagePathCitationNames,
+    imageSaveModeForModel,
     isGenericImageFilename,
     nextPastedContextFilename,
 } from '../attachmentCitations';
@@ -80,5 +81,26 @@ describe('attachment citations', () => {
         expect(findImagePathCitationNames(draft)).toEqual(['image-1.png', 'shot.png']);
         expect(assignImageAttachmentFilenames([{ name: 'image.png', type: 'image/png' }], findImagePathCitationNames(draft)))
             .toEqual(['image-2.png']);
+    });
+});
+
+describe('image save mode', () => {
+    test('attaches only while the setting is off', () => {
+        expect(imageSaveModeForModel(false, ['text'])).toBe('attach');
+        expect(imageSaveModeForModel(false, ['text', 'image'])).toBe('attach');
+        expect(imageSaveModeForModel(false, undefined)).toBe('attach');
+    });
+
+    test('a model without image input gets the saved file in place of the attachment', () => {
+        expect(imageSaveModeForModel(true, ['text'])).toBe('instead');
+    });
+
+    test('a model that takes images gets the attachment and the saved file', () => {
+        expect(imageSaveModeForModel(true, ['text', 'image'])).toBe('alongside');
+        expect(imageSaveModeForModel(true, ['TEXT', 'IMAGE'])).toBe('alongside');
+    });
+
+    test('unknown model metadata counts as a model that takes the attachment', () => {
+        expect(imageSaveModeForModel(true, undefined)).toBe('alongside');
     });
 });

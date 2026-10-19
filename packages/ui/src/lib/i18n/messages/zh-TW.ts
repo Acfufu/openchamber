@@ -2616,6 +2616,8 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.toast.imagesSaving': '正在儲存 {files}…',
   'chat.chatInput.toast.imagesSavedForTextModel': '{model} 無法讀取圖片。已將 {files} 儲存到 {folder}。',
   'chat.chatInput.toast.imageSaveFailed': '無法儲存 {files}。已改為附加。',
+  'chat.chatInput.toast.imagesSaved': '已將 {files} 儲存到 {folder}。',
+  'chat.chatInput.toast.imageCopySaveFailed': '無法儲存 {files}。',
   'chat.chatInput.toast.someFilesSkipped': '部分檔案被跳過：\n{summary}',
   'chat.chatInput.toast.vscodePickFailed': '在 VS Code 中選擇檔案失敗',
   'chat.chatInput.toast.openSessionFirst': '請先開啟一個會話',

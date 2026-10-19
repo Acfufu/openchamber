@@ -492,8 +492,8 @@ export const createSettingsHelpers = (dependencies) => {
     if (typeof candidate.allowPromptingSubagentSessions === 'boolean') {
       result.allowPromptingSubagentSessions = candidate.allowPromptingSubagentSessions;
     }
-    if (candidate.saveImagesForTextOnlyModels === true || candidate.saveImagesForTextOnlyModels === false) {
-      result.saveImagesForTextOnlyModels = candidate.saveImagesForTextOnlyModels;
+    if (candidate.savePastedImagesAsFiles === true || candidate.savePastedImagesAsFiles === false) {
+      result.savePastedImagesAsFiles = candidate.savePastedImagesAsFiles;
     }
     if (typeof candidate.showOpenCodeRestartConfirm === 'boolean') {
       result.showOpenCodeRestartConfirm = candidate.showOpenCodeRestartConfirm;
