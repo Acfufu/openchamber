@@ -796,7 +796,10 @@ const ToolScrollableTextOutput: React.FC<{
 
     if (isShellTool(part.tool)) {
         return (
-            <div className="relative typography-code text-muted-foreground/90">
+            // min-h-7 holds the copy button (top-1 + h-6): an absolute child taller
+            // than one output line overflows the scroller, and platforms with
+            // classic scrollbars (Windows) then show one for a single line.
+            <div className="relative min-h-7 typography-code text-muted-foreground/90">
                 <div className="absolute inset-e-1 top-1 z-10">
                     <CopyToolOutputButton output={renderedOutput} />
                 </div>
