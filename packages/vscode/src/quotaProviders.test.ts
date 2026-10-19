@@ -773,7 +773,7 @@ describe('Codex quota provider (VS Code parity)', () => {
     );
     const refused = await fetchQuotaForProvider('codex');
     assert.equal(refused.ok, false);
-    assert.equal(refused.error, 'Usage is not available for this OpenAI sign-in method; chat still works');
+    assert.equal(refused.error, 'OpenAI shows usage for Sign in with ChatGPT only at chatgpt.com/settings/usage. The legacy Codex sign-ins show it here.');
 
     globalThis.fetch = async () => new Response('unauthorized', { status: 401 });
     const expired = await fetchQuotaForProvider('codex');

@@ -94,7 +94,11 @@ On the first OpenCode Go usage refresh after upgrading, OpenChamber deletes the 
 
 Codex `credits.balance` is an OpenAI credit count, not a dollar amount. Web/Electron and VS Code expose it as a plain numeric `credits_balance.valueLabel` under the UI's localized Credits Balance title, without a currency symbol or two-decimal money rounding. Numeric strings are accepted; zero, unlimited, and unavailable balances retain their existing handling. Keep `providers/codex.js` and `packages/vscode/src/quotaProviders.ts` in sync. The separate business-account `spend_control.individual_limit` window is unchanged.
 
-A Codex usage 401 whose body has `error.type: "rejected_by_access_enforcement"` means the sign-in may not read usage (OpenCode's `chatgpt-token-sharing` method hits it) while the session itself is valid, so both runtimes report usage as unavailable for the sign-in method. Any other 401 reads as an expired session. Web and VS Code keep this branch identical.
+A Codex usage 401 whose body has `error.type: "rejected_by_access_enforcement"` is OpenCode's `chatgpt-token-sharing` sign-in ("Sign in with ChatGPT"). Its token is minted for `https://api.openai.com/v1` with the `chatgpt.tokens.use.direct` scope, which OpenAI admits only on the Responses route, and OpenAI publishes no usage endpoint for that sign-in: its guidance is to link to `chatgpt.com/settings/usage`. Both runtimes say exactly that and name the legacy Codex sign-ins as the ones that show usage in the app. Any other 401 reads as an expired session. Web and VS Code keep this branch identical.
+
+### Why no `ChatGPT-Account-Id` for the token-sharing sign-in
+
+The token-sharing credential carries `{ clientID, scopes }` and no account id, so the request goes without the `ChatGPT-Account-Id` header the legacy sign-ins send. Adding the header was weighed and dropped: the refusal comes from scope enforcement (`no_matching_rule`) on a route the token is not admitted to, and OpenAI documents the Responses route as the only one this token may use. If OpenAI ships a usage endpoint for this sign-in, it replaces the message.
 
 ## Claude credential and limit semantics
 

@@ -932,15 +932,15 @@ export const listConfiguredQuotaProviders = async () => {
   return Array.from(configured);
 };
 
-// A 401 is not always an expired token: for a still-valid sign-in that may not
-// read usage (OpenCode's `chatgpt-token-sharing`) the endpoint answers with an
-// access-enforcement body. Same wording as the web server's Codex provider.
+// A 401 is not always an expired token: the usage endpoint refuses OpenCode's
+// `chatgpt-token-sharing` token with an access-enforcement body, and OpenAI has
+// no usage endpoint for that sign-in. Same wording as the web server's Codex provider.
 const codexErrorBodySchema = z.object({ error: z.object({ type: z.string() }) });
 
 const codexUnauthorizedMessage = async (response: Response): Promise<string> => {
   const body = codexErrorBodySchema.safeParse(await response.json().catch(() => null));
   return body.success && body.data.error.type === 'rejected_by_access_enforcement'
-    ? 'Usage is not available for this OpenAI sign-in method; chat still works'
+    ? 'OpenAI shows usage for Sign in with ChatGPT only at chatgpt.com/settings/usage. The legacy Codex sign-ins show it here.'
     : 'Session expired \u2014 please re-authenticate with OpenAI';
 };
 
