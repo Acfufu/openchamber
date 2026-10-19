@@ -3,6 +3,7 @@ import { LegendList, type LegendListRef } from '@legendapp/list/react';
 
 import ChatMessage from './ChatMessage';
 import { TimelineNotice } from './message/TimelineNotice';
+import { readSessionNotice } from '@/lib/opencode/session-notices';
 import { useRunningSubagentRuns, withRunningSubagentRuns } from './lib/runningSubagentRuns';
 import { isSkippedTimelineMessage, isBackgroundReportEntry, isTimelineNoticeRole } from './lib/timelineRoles';
 import { earlierAssistantText } from './lib/turns/earlierAssistantText';
@@ -206,6 +207,7 @@ const MessageRow = React.memo<MessageRowProps>(({
     // Roles that are not a conversation turn render as their own timeline row
     // (or as nothing); only user and assistant go through ChatMessage.
     const role = message.info.role;
+    if (readSessionNotice(message.info)) return <TimelineNotice message={message.info} />;
     if (isSkippedTimelineMessage(message.info)) return null;
     if (isTimelineNoticeRole(role) || isBackgroundReportEntry(message.info)) return <TimelineNotice message={message.info} />;
 

@@ -440,6 +440,9 @@ export function translateWireEvent(event: OpenCodeEvent): SyncEvent[] {
               time: { created: event.created },
               text: event.data.text,
               description: `Instructions updated: ${Object.keys(event.data.delta ?? {}).join(", ")}`,
+              // The metadata OpenCode stores with the message, so a live update
+              // reads the same as one loaded from history.
+              metadata: { notice: "instructions", instructionSources: Object.keys(event.data.delta ?? {}) },
             },
           },
         },

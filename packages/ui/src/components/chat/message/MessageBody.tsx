@@ -12,6 +12,8 @@ import type { TurnChangedFile, TurnGroupingContext } from '../lib/turns/types';
 import { cn } from '@/lib/utils';
 import { isEmptyTextPart, extractTextContent } from './partUtils';
 import { FadeInOnReveal } from './FadeInOnReveal';
+import { SessionNoticeBlock } from './SessionNoticeBlock';
+import { readSessionNoticePart } from '@/lib/opencode/session-notices';
 import { Button } from '@/components/ui/button';
 import { ErrorResponseDetails } from '@/components/chat/ErrorResponseDetails';
 import { SaveProjectPlanDialog } from '@/components/session/SaveProjectPlanDialog';
@@ -1738,6 +1740,19 @@ const AssistantMessageBody = React.memo(({
             if (part.type === 'tool') {
                 const toolPart = part as ToolPartType;
                 const toolName = toolPart.tool?.toLowerCase() ?? '';
+
+                // A session notice that landed during this step (see
+                // `attachSyntheticContext`) draws as its own info row.
+                const notice = readSessionNoticePart(toolPart);
+                if (notice) {
+                    rendered.push(
+                        <FadeInOnReveal key={`notice-${toolPart.id}`}>
+                            <SessionNoticeBlock notice={notice} blockId={toolPart.id} />
+                        </FadeInOnReveal>
+                    );
+                    i++;
+                    continue;
+                }
 
                 if (!isToolRowShown(toolPart)) {
                     i++;
