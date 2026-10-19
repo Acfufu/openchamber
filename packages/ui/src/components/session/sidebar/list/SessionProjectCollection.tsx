@@ -20,6 +20,7 @@ import { runBackgroundNetworkTask } from '@/lib/background-network';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import type { GitHubPullRequestRef, SourceControlReadContext } from '@/lib/api/types';
 import { limitSourceControlDiscoveryCandidates } from '../sourceControlDiscovery';
+import { reconcileRegisteredContextDirectories, type RegisteredContextDirectories } from './registeredContextDirectories';
 import { subscribeOpenchamberEvents } from '@/lib/openchamberEvents';
 import { getLinkedGitHubPullRequests, getLinkedGitLabThreads, getLinkedSidebarIssues, type GitLabThreadRef } from '@/lib/linkedIssues';
 import { useTrackedItems } from '@/lib/trackedItems/interest';
@@ -374,6 +375,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   const activeContextRegistrations = useGitHubPrStatusStore((state) => state.activeContextRegistrations);
   const sourceControlContextsOwnerId = React.useId();
   const retriedMissingChangeRequestKeysRef = React.useRef<Set<string>>(new Set());
+  const registeredContextDirectoriesRef = React.useRef<RegisteredContextDirectories>(new Map());
   const sessionOrderIndex = React.useMemo(
     () => new Map(collection.orderedSessions.map((session, index) => [session.id, index])),
     [collection.orderedSessions],
@@ -604,10 +606,17 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   // summaries below instead.
   React.useEffect(() => {
     const candidates = discoveryCandidates;
+    const discoveryRuntimeKey = getRuntimeKey();
+    const candidateDirectories = new Set(candidates.map((candidate) => candidate.directory));
+    reconcileRegisteredContextDirectories(
+      registeredContextDirectoriesRef.current,
+      discoveryRuntimeKey,
+      candidateDirectories,
+      (runtimeKey, directory) => releaseActiveSourceControlContexts(runtimeKey, directory, sourceControlContextsOwnerId),
+    );
     if (candidates.length === 0) return;
 
     let cancelled = false;
-    const discoveryRuntimeKey = getRuntimeKey();
     const discover = async (changedDirectory?: string, retryAfterMs = SIDEBAR_MISSING_CHANGE_REQUEST_RETURN_MS) => {
       const now = Date.now();
       const contextsByDirectory = new Map<string, Promise<SourceControlReadContext[] | null>>();
@@ -719,7 +728,6 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
       }
     });
     void discover();
-    const candidateDirectories = new Set(candidates.map((candidate) => candidate.directory));
     const releaseActivity = subscribeOpenchamberEvents((event) => {
       if (!cancelled && event.type === 'source-control-activity' && candidateDirectories.has(event.directory)) {
         void discover(event.directory, 0);
@@ -735,9 +743,6 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
       releases.forEach((release) => release());
       releaseActivity();
       document.removeEventListener('visibilitychange', onReturn);
-      for (const candidate of candidates) {
-        releaseActiveSourceControlContexts(discoveryRuntimeKey, candidate.directory, sourceControlContextsOwnerId);
-      }
     };
   }, [
     beginActiveSourceControlContextsLoad,
@@ -751,6 +756,12 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     sourceControl,
     sourceControlContextsOwnerId,
   ]);
+  React.useEffect(() => () => reconcileRegisteredContextDirectories(
+    registeredContextDirectoriesRef.current,
+    getRuntimeKey(),
+    new Set(),
+    (runtimeKey, directory) => releaseActiveSourceControlContexts(runtimeKey, directory, sourceControlContextsOwnerId),
+  ), [releaseActiveSourceControlContexts, sourceControlContextsOwnerId]);
   // Batched summaries go to the bound entries the shown rows read.
   const shownPrKeys = React.useMemo(
     () => getActiveSourceControlStatusKeys(activeContextRegistrations, shownPrTargets.values()),
