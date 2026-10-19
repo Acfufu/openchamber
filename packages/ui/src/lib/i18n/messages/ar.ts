@@ -12,6 +12,7 @@ import { fileContentSearchI18n } from './file-content-search.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { sessionWarmingI18n } from './session-warming.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
@@ -3805,6 +3806,7 @@ export const dict = {
   ...htmlRenderI18n.ar,
   ...usageStatsI18n.ar,
   ...webSearchI18n.ar,
+  ...sessionWarmingI18n.ar,
   ...isolatedSpacesI18n.ar,
   ...sourceBoardI18n.ar,
   ...projectActionsI18n.ar,

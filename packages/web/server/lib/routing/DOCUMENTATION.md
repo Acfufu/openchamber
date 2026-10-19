@@ -107,10 +107,12 @@ Auto. There is no env gate — the feature shipped dark behind
   and neither is a send routed to a user category, a fallback for low
   confidence or an error, or a hold that would change the agent (another
   agent is another system prompt, which misses the cache anyway). Warm means
-  within 5 minutes of the last answer finishing, or, when OpenCode's `warming`
-  is on for the directory, within its `duration` (30 minutes for `true`) plus
-  5 minutes. The config is read only after the first 5 minutes; an unreadable
-  one counts as warming off. The decision event names the category the send
+  within 5 minutes of the last answer finishing; for a session OpenChamber
+  keeps warm itself (`../session-warming`, `isSessionWarm`), until its warm
+  window ends plus 5 minutes; otherwise, when OpenCode's `warming` is on for the
+  directory, within its `duration` (30 minutes for `true`) plus 5 minutes. The
+  config is read only after the first 5 minutes, and not for a session
+  OpenChamber keeps warm; an unreadable one counts as warming off. The decision event names the category the send
   ran as and carries `cacheHold.requested`, the one Jev chose.
 - Auto is offered (`autoReady`) with a usable classification provider
   (`jevAvailable`), `enabled`, a fallback model and at least two enabled

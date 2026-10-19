@@ -22,6 +22,7 @@ const readyConfig = () => {
 const makeRuntime = ({
   config = readyConfig(), token = 'key', classifierSource = null, customEndpoint = null, providerKeys = {}, zenPromotionActive = true,
   enterprise = false, pinned = null, catalog = [], answers, askError, lastAnswer = null, configEntries = [], nowMs = 1_000_000_000,
+  warmSessions = [],
 } = {}) => {
   const events = [];
   const store = {
@@ -58,6 +59,7 @@ const makeRuntime = ({
     },
     readSessionHistory: async () => ({ history: [], lastAnswer }),
     readConfigEntries,
+    isSessionWarm: (sessionId) => warmSessions.includes(sessionId),
     now: () => nowMs,
   });
   return { runtime, store, jev, events, readConfigEntries };
@@ -236,8 +238,8 @@ describe('preserving the prompt cache', () => {
     return config;
   };
   const answeredBy = (model, minutesAgo) => ({ ...model, completed: NOW - minutesAgo * MINUTE });
-  const route = async ({ choice, config = cacheConfig(), lastAnswer, configEntries, agent = 'build' }) => {
-    const made = makeRuntime({ config, lastAnswer, configEntries, nowMs: NOW, answers: { category: { choice, confidence: 0.95 } } });
+  const route = async ({ choice, config = cacheConfig(), lastAnswer, configEntries, agent = 'build', warmSessions }) => {
+    const made = makeRuntime({ config, lastAnswer, configEntries, warmSessions, nowMs: NOW, answers: { category: { choice, confidence: 0.95 } } });
     const resolved = await made.runtime.resolveAutoSelection({ sessionId: 's1', model: AUTO, agent, requestText: 'push it' });
     return { ...made, resolved };
   };
@@ -269,6 +271,12 @@ describe('preserving the prompt cache', () => {
 
     const turnedOff = [{ info: { warming: true } }, { info: { warming: false } }];
     expect((await route({ choice: 'trivial', lastAnswer: answeredBy(HARD, 20), configEntries: turnedOff })).resolved.decision.category).toBe('trivial');
+  });
+
+  it('holds a session OpenChamber keeps warm without reading the OpenCode config', async () => {
+    const { resolved, readConfigEntries } = await route({ choice: 'trivial', lastAnswer: answeredBy(HARD, 50), warmSessions: ['s1'] });
+    expect(resolved.decision.category).toBe('hard');
+    expect(readConfigEntries).not.toHaveBeenCalled();
   });
 
   it('treats the cache as cold when the OpenCode config cannot be read', async () => {

@@ -574,7 +574,15 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.field.sessionWarming',
     descriptionKey: 'settings.openchamber.defaults.field.sessionWarmingInfo',
-    keywords: ['warming', 'warm', 'cache', 'prompt cache', 'keep-alive', 'idle'],
+    keywords: ['warming', 'warm', 'cache', 'prompt cache', 'keep-alive', 'idle', 'per session', 'keep warm'],
+  },
+  {
+    id: 'sessions.warming-duration',
+    page: 'sessions',
+    titleKey: 'settings.openchamber.defaults.sessionWarming.duration',
+    keywords: ['warming', 'warm', 'duration', 'how long', 'hour', 'cache'],
+    // VS Code shows only OpenCode's switch, without a duration.
+    isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
     id: 'sessions.permission-default',

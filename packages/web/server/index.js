@@ -89,6 +89,7 @@ import { createOpenCodeWatcherRuntime } from './lib/opencode/watcher.js';
 import { createSessionAssistRuntime } from './lib/session-assist/runtime.js';
 import { createSessionGoalRuntime } from './lib/session-goal/runtime.js';
 import { createContextObligatoryRuntime } from './lib/context-obligatory/runtime.js';
+import { createSessionWarmingRuntime } from './lib/session-warming/runtime.js';
 import { createLinearSessionStatusRuntime } from './lib/linear/status-runtime.js';
 import { createSessionKnowledgeRuntime } from './lib/session-knowledge/runtime.js';
 import { createMessageSearchRuntime } from './lib/message-search/runtime.js';
@@ -1072,6 +1073,16 @@ const contextObligatoryRuntime = createContextObligatoryRuntime({
   persistContextCursor: (sessionID, directory, patch) => persistSessionMetadataPatch(sessionID, patch, { directory }),
 });
 
+// Keeps the prompt cache of the sessions the user picked warm while they sit
+// idle; the per-session counterpart of OpenCode's `warming` config.
+const sessionWarmingRuntime = createSessionWarmingRuntime({
+  dataDir: OPENCHAMBER_DATA_DIR,
+  buildOpenCodeUrl,
+  getOpenCodeAuthHeaders,
+  broadcast: broadcastOpenChamberUiEvent,
+});
+sessionWarmingRuntime.start();
+
 const linearSessionStatusRuntime = createLinearSessionStatusRuntime();
 
 const globalMessageStreamHub = createGlobalMessageStreamHub({
@@ -1088,6 +1099,7 @@ const routingRuntime = createRoutingRuntime({
   buildOpenCodeUrl,
   getOpenCodeAuthHeaders,
   broadcastGlobalUiEvent: broadcastOpenChamberUiEvent,
+  isSessionWarm: (sessionId, cacheLifetimeMs) => sessionWarmingRuntime.isSessionWarm(sessionId, cacheLifetimeMs),
 });
 
 // "In work": Jev opens a session when real work starts in it and hints when a
@@ -1207,6 +1219,7 @@ globalMessageStreamHub.subscribeEvent((event) => {
     sessionWorkRuntime.processPayload(payload, directory || payload.properties?.directory || '');
     sessionGoalRuntime.processPayload(payload, directory || payload.properties?.directory || '');
     contextObligatoryRuntime.processPayload(payload, directory || payload.properties?.directory || '');
+    sessionWarmingRuntime.processPayload(payload);
     linearSessionStatusRuntime.processPayload(payload);
   }
 });
@@ -1943,6 +1956,7 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   sessionWorkRuntime,
   sessionGoalRuntime,
   contextObligatoryRuntime,
+  sessionWarmingRuntime,
   messageQueueRuntime,
   dispatchResultsRuntime,
   messageSearchRuntime,
@@ -2542,6 +2556,7 @@ async function main(options = {}) {
     environmentRuntime,
     listConfiguredProjects,
     messageSearchRuntime,
+    sessionWarmingRuntime,
     crypto,
     fs,
     os,

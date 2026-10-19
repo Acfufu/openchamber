@@ -75,6 +75,7 @@ import { policySnapshotFromWire } from "@/stores/utils/permissionAutoAccept"
 import { selectSafetyNetAvailable, useRoutingStore } from "@/stores/useRoutingStore"
 import { useMessageQueueStore } from "@/stores/messageQueueStore"
 import { subscribeMessageQueueSync } from "./message-queue-sync"
+import { subscribeSessionWarmingSync } from "./session-warming-sync"
 import { subscribeSpacePermissionModes } from "./permission-mode-sync"
 import { spaceFoldersOfProject, subscribeSpaceCatalogs } from "./space-catalog-sync"
 import {
@@ -3007,6 +3008,7 @@ export function SyncProvider(props: {
   // Abort controller owned by the pipeline closure. Cleanup aborts + flushes.
   useEffect(() => {
     const unsubscribeQueueEvents = subscribeMessageQueueSync(runtimeKey)
+    const unsubscribeSessionWarming = subscribeSessionWarmingSync(runtimeKey)
     const unsubscribeSpaceModes = subscribeSpacePermissionModes(runtimeKey)
     const unsubscribeSpaceCatalogs = subscribeSpaceCatalogs(runtimeKey)
     const resyncAfterStreamGap = (reason: SessionMaterializationReason) => {
@@ -3143,6 +3145,7 @@ export function SyncProvider(props: {
       }
       pipeline.cleanup()
       unsubscribeQueueEvents()
+      unsubscribeSessionWarming()
       unsubscribeSpaceModes()
       unsubscribeSpaceCatalogs()
     }

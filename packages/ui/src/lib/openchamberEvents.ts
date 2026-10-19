@@ -6,6 +6,7 @@ import { subscribeRuntimeEndpointChanged } from './runtime-switch';
 import { isVSCodeRuntime } from './desktop';
 import { canDriveBrowserPage } from './browser/hostCapability';
 import { messageQueueUpdatedEventSchema, type MessageQueueUpdatedEvent } from '@/stores/messageQueueStore';
+import { sessionWarmingSnapshotSchema, type SessionWarmingSnapshot } from '@/stores/useSessionWarmingStore';
 import { z } from 'zod';
 import { trackedItemRecordsSchema } from './trackedItems/model';
 
@@ -187,6 +188,8 @@ type OpenChamberEvent =
   | RoutingPermissionHeldEvent
   | RoutingSafetySkippedEvent
   | MessageQueueUpdatedEvent
+  /** Which sessions the server keeps warm, as a full snapshot. */
+  | { type: 'session-warming'; snapshot: SessionWarmingSnapshot }
   /** The host follows this space's queue again; what changed in a gap is read from the space. */
   | { type: 'space-queue-stream'; spaceId: string }
   | ScheduledTaskRanEvent
@@ -393,6 +396,12 @@ const dispatchFromEnvelope = (envelope: { type: string; properties: unknown }) =
     if (parsed.success) {
       for (const listener of listeners) listener(parsed.data);
     }
+    return;
+  }
+
+  if (envelope.type === 'openchamber:session-warming') {
+    const parsed = sessionWarmingSnapshotSchema.safeParse(envelope.properties);
+    if (parsed.success) for (const listener of listeners) listener({ type: 'session-warming', snapshot: parsed.data });
     return;
   }
 

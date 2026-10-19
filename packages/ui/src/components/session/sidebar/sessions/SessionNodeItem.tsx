@@ -75,6 +75,8 @@ import { getSessionGoal } from '@/lib/sessionGoalMetadata';
 import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
 import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
 import { setSessionWorkState } from '@/sync/session-actions';
+import { useSessionWarmingStore, useSessionWarmUntil } from '@/stores/useSessionWarmingStore';
+import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { sessionGoalStatusColor, sessionGoalStatusLabelKey } from '@/lib/sessionGoalPresentation';
 import { getChatsRootFromDirectory, isChatDirectoryPath } from '@/lib/chatDirectories';
 import { getMultiRunIdentity, sameMultiRunIdentity } from '@/lib/multirun/identity';
@@ -655,6 +657,20 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       await setSessionWorkState(session.id, sessionDirectory, isInWork ? 'done' : 'open');
     } catch {
       toast.error(t('sessions.sidebar.session.work.updateFailed'));
+    }
+  };
+  // Per-session warming is offered only while Settings chose it, for a root
+  // session the host's OpenCode runs (a space's sessions run on its own).
+  const perSessionWarming = useSessionWarmingStore((state) => state.enabled);
+  const isWarmed = useSessionWarmUntil(session.id) !== undefined;
+  const canKeepWarm = perSessionWarming && !archivedBucket && !node.session.parentID
+    && Boolean(sessionDirectory) && !isSpaceDirectory(sessionDirectory);
+  const toggleSessionWarm = async () => {
+    if (!sessionDirectory) return;
+    try {
+      await useSessionWarmingStore.getState().setSessionWarm(session.id, sessionDirectory, !isWarmed);
+    } catch {
+      toast.error(t('sessions.warming.toggleFailed'));
     }
   };
   // SAFETY: sessionGoalStatusLabelKey contains an i18n key for every SessionGoalStatus.
@@ -1333,6 +1349,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         <Item onClick={() => { void toggleSessionWork(); }} className="[&>svg]:me-1">
           <Icon name={isInWork ? 'check' : 'eye'} className="me-1 h-4 w-4" />
           {isInWork ? t('sessions.sidebar.session.work.markDone') : t('sessions.sidebar.session.work.track')}
+        </Item>
+        </SessionMenuItemHint>
+      ) : null}
+      {canKeepWarm ? (
+        <SessionMenuItemHint hint={isWarmed ? t('sessions.sidebar.session.menuHint.stopWarm') : t('sessions.sidebar.session.menuHint.keepWarm')}>
+        <Item onClick={() => { void toggleSessionWarm(); }} className="[&>svg]:me-1">
+          <Icon name={isWarmed ? 'fire-fill' : 'fire'} className="me-1 h-4 w-4" />
+          {isWarmed ? t('sessions.sidebar.session.menu.stopWarm') : t('sessions.sidebar.session.menu.keepWarm')}
         </Item>
         </SessionMenuItemHint>
       ) : null}
