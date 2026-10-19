@@ -160,6 +160,11 @@ Antigravity reports dual-layer quota for Google Cloud Code / Antigravity IDE acc
 - **Windows**: each model row carries its group's rolling 5-hour (`5h`) and 7-day weekly (`weekly`) limits across Gemini and 3P (Claude/GPT) model groups. The provider card itself exposes no top-level windows (`windows: {}`), matching the Google provider: one overview row could only reflect a single group and would mislead a user whose tighter limit lives in the other group.
 - **Bottleneck prioritization**: when a group's weekly limit is exhausted or more constrained than its 5-hour limit, the weekly window is prioritized first in the model's window map.
 - **Runtime parity**: `packages/web/server/lib/quota/providers/antigravity/` and `packages/vscode/src/quotaProviders.ts` (`fetchAntigravityQuota`) implement the same summary parsing, fallback chain, and bottleneck ordering — keep them in sync.
+- **Client identity**: both runtimes take their request headers from `providers/antigravity/client.js`. The `User-Agent` is `antigravity/<ANTIGRAVITY_CLIENT_VERSION> <os>/<arch>`, with the platform of the machine the request runs on. Google gates the "Gemini Models" group of the daily host's `retrieveUserQuotaSummary` by that version: `antigravity/1.11.5` got the Claude/GPT group alone, answered 200, and the Gemini rows disappeared without an error (#5138). Keep the constant at the version Antigravity's own updater lists (the `version:` line of its `latest-arm64-mac.yml` manifest, URL in the file). A summary that has groups but none for Gemini logs one server-side warning per process that names the constant. The Google provider keeps its own headers.
+
+### Why a pinned client version and not one read from Antigravity's updater
+
+Reading the updater manifest on every start would track releases without a code change, but it adds a request to a Google host the quota card does not otherwise need, and a failed or changed manifest would still need a fallback version in code. A single constant plus the missing-group warning keeps the requests the same and makes the next stale version show up in the server log.
 
 ## MiniMax M3 / Token Plan migration
 

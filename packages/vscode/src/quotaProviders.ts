@@ -10,6 +10,7 @@ import { readConfig } from './opencodeConfig';
 import { isRecord, toProviderEntity } from './opencode-config-v2';
 import { fetchExeDevUsage } from './exeDevQuota';
 import { refreshGoogleAccessToken } from '../../web/server/lib/quota/providers/google/oauth.js';
+import { antigravityHeaders, warnIfGeminiGroupMissing } from '../../web/server/lib/quota/providers/antigravity/client.js';
 
 type AuthEntry = Record<string, unknown> | string;
 type AuthFile = Record<string, AuthEntry>;
@@ -1157,6 +1158,7 @@ const fetchGoogleModels = async (
   accessToken: string,
   projectId?: string,
   endpoints: readonly string[] = GOOGLE_ENDPOINTS,
+  clientHeaders: Record<string, string> = GOOGLE_HEADERS,
 ) => {
   const body = projectId ? { project: projectId } : {};
 
@@ -1169,7 +1171,7 @@ const fetchGoogleModels = async (
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          ...GOOGLE_HEADERS,
+          ...clientHeaders,
         },
         body: JSON.stringify(body),
         signal: controller?.signal,
@@ -1346,7 +1348,7 @@ const fetchAntigravityQuotaSummary = async (accessToken: string, projectId?: str
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          ...GOOGLE_HEADERS,
+          ...antigravityHeaders(),
         },
         body: JSON.stringify(body),
         signal: controller?.signal,
@@ -1395,8 +1397,10 @@ const fetchAntigravityQuota = async (): Promise<ProviderResult> => {
 
   const [summaryPayload, rawModelsPayload] = await Promise.all([
     fetchAntigravityQuotaSummary(accessToken, projectId),
-    fetchGoogleModels(accessToken, projectId, ANTIGRAVITY_ENDPOINTS),
+    fetchGoogleModels(accessToken, projectId, ANTIGRAVITY_ENDPOINTS, antigravityHeaders()),
   ]);
+
+  warnIfGeminiGroupMissing(summaryPayload);
 
   const modelGroupWindows: Array<{
     groupType: 'gemini' | '3p';
