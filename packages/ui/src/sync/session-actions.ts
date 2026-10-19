@@ -16,6 +16,7 @@ import { opencodeClient, type SyntheticContextInput } from "@/lib/opencode/clien
 import { toJsonRecord } from "@/lib/opencode/json"
 import { ascendingId } from "@/lib/opencode/ids"
 import { mergeSessionDirectoryMetadata, resolveGlobalSessionDirectory, useGlobalSessionsStore } from "@/stores/useGlobalSessionsStore"
+import { readGlobalSessionLineage } from "@/stores/sessionLineage"
 import { useConfigStore } from "@/stores/useConfigStore"
 import { waitForOpenCodeStartup } from "./opencode-startup-gate"
 import { registerSessionDirectory } from "./sync-refs"
@@ -1805,27 +1806,8 @@ export async function unarchiveSession(sessionId: string, expectedRuntimeKey = g
 }
 
 /** Archived subsessions under a session, each parent before its children. */
-function archivedSubsessionIds(rootId: string): string[] {
-  const childrenByParentId = new Map<string, string[]>()
-  for (const session of useGlobalSessionsStore.getState().archivedSessions) {
-    if (!session.parentID) continue
-    const siblings = childrenByParentId.get(session.parentID) ?? []
-    siblings.push(session.id)
-    childrenByParentId.set(session.parentID, siblings)
-  }
-  const ids: string[] = []
-  const seen = new Set([rootId])
-  const queue = [rootId]
-  for (let index = 0; index < queue.length; index += 1) {
-    for (const childId of childrenByParentId.get(queue[index]) ?? []) {
-      if (seen.has(childId)) continue
-      seen.add(childId)
-      ids.push(childId)
-      queue.push(childId)
-    }
-  }
-  return ids
-}
+const archivedSubsessionIds = (rootId: string): string[] =>
+  readGlobalSessionLineage().descendantsOf(rootId, "archived").map((session) => session.id)
 
 async function restoreSessionTree(
   rootId: string,

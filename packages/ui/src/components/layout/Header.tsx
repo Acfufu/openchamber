@@ -26,7 +26,7 @@ import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useQuotaAutoRefresh, useQuotaStore } from '@/stores/useQuotaStore';
 import { useGitBranchLabel } from '@/stores/useGitStore';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
-import { archiveUndoToastOptions, collectSessionSubtreeIds } from '@/components/session/sidebar/sessions/sessionSubtreeActions';
+import { archiveUndoToastOptions, collectSessionMoveDescendants, collectSessionSubtreeIds } from '@/components/session/sidebar/sessions/sessionSubtreeActions';
 import { streamPerfCount } from '@/stores/utils/streamDebug';
 
 import { useDesktopWindowControlsLayout } from '@/hooks/useDesktopWindowControlsLayout';
@@ -533,21 +533,10 @@ export const Header: React.FC = () => {
     const root = sessions.find((session) => session.id === currentSessionId);
     if (!root) return;
 
-    const descendants: typeof sessions = [];
-    const pendingParentIds = [currentSessionId];
-    for (let index = 0; index < pendingParentIds.length; index += 1) {
-      const parentId = pendingParentIds[index];
-      for (const session of sessions) {
-        if (session.parentID !== parentId) continue;
-        descendants.push(session);
-        pendingParentIds.push(session.id);
-      }
-    }
-
     requestSessionTreeMove({
       kind: 'quick',
       root,
-      descendants,
+      descendants: collectSessionMoveDescendants(root, []),
       sourceDirectory: sessionDirectory,
       messages: buildSessionTreeMoveMessages(t, {
         success: 'sessions.sidebar.session.moveToWorktree.success',
@@ -563,19 +552,10 @@ export const Header: React.FC = () => {
     const sessions = useGlobalSessionsStore.getState().activeSessions;
     const root = sessions.find((session) => session.id === currentSessionId);
     if (!root) return;
-    const descendants: typeof sessions = [];
-    const pendingParentIds = [currentSessionId];
-    for (let index = 0; index < pendingParentIds.length; index += 1) {
-      for (const session of sessions) {
-        if (session.parentID !== pendingParentIds[index]) continue;
-        descendants.push(session);
-        pendingParentIds.push(session.id);
-      }
-    }
     requestSessionTreeMove({
       kind: 'project',
       root,
-      descendants,
+      descendants: collectSessionMoveDescendants(root, []),
       sourceDirectory: sessionDirectory,
       projectDirectory,
       messages: buildSessionTreeMoveMessages(t, {

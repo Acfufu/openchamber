@@ -402,11 +402,12 @@ all / Expand all.
   never expand, show no chevron, no folders and no worktree groups. Folders are
   not projected, so the row menu hides `Move to folder`. Their archive/delete
   actions still cover the full subtree, because `collectSessionSubtreeIds`
-  resolves descendants from the global cache at action time. `Move to
-  worktree` and `Export Markdown` do the same through
-  `buildActiveSessionTreeFromCache`, which builds the active tree from the
-  global cache and stops at an archived session, as the project tree does. The
-  export offers its sub-agent tasks dialog from that tree.
+  resolves descendants from the global session lineage
+  (`stores/sessionLineage.ts`) at action time. `Move to worktree` and
+  `Export Markdown` do the same through `collectSessionMoveDescendants` and
+  `buildActiveSessionTreeFromCache`, which take the active lineage and stop at
+  an archived session, as the project tree does. The export offers its
+  sub-agent tasks dialog from that tree.
 - `worktreeIndex.ts` is the shared worktree index (normalized keys,
   project-root exclusion, first-wins dedupe) for In work and the timeline, project
   grouping, and the session switcher. A session in `<worktree>/sub` resolves to
@@ -626,7 +627,7 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   Tree worktree group reveals 7 sessions, 7 more per Show more, and 10 in
   VS Code. Reveal
   controls change the logical list, not the viewport's bounded mounted window.
-- Archiving or deleting a session takes its whole active subtree with it on every surface, because the server does not cascade `time.archived`. In work and managed Chats build their rows with `buildActiveSessionNode` from `list/sessionCollection.ts`, so the descendants a row collects match the project tree at any depth; the mobile sessions sheet resolves the same lineage with `getDescendantIds` over its full active list rather than the rendered bucket. `sessions/sessionSubtreeActions.ts` owns the single-versus-batch store calls and the outcome toasts for all of them, and `collectSessionSubtreeIds` extends the surface's own descendant list at action time with a walk over the global active-plus-archived cache, so an active subagent below an archived intermediate is still archived (archive skips the archived intermediate; delete includes it). A projection that flattens a tree to one level silently leaves grandchildren active.
+- Archiving or deleting a session takes its whole active subtree with it on every surface, because the server does not cascade `time.archived`. In work and managed Chats build their rows with `buildActiveSessionNode` from `list/sessionCollection.ts`, so the descendants a row collects match the project tree at any depth; the mobile sessions sheet resolves the same lineage with `getDescendantIds` over its full active list rather than the rendered bucket. `sessions/sessionSubtreeActions.ts` owns the single-versus-batch store calls and the outcome toasts for all of them, and `collectSessionSubtreeIds` extends the surface's own descendant list at action time with the global session lineage (`stores/sessionLineage.ts`), so an active subagent below an archived intermediate is still archived (archive skips the archived intermediate; delete includes it). A projection that flattens a tree to one level silently leaves grandchildren active. The project menu's "Archive all" archives the subagents of each selected session in the same batch; its dialog and success toast count top-level sessions, the rows the user sees.
 - Subsessions belong to the agent run that spawned them, not to the user. They appear only nested under an active parent: the archive (sidebar bucket, auto folders and the Archive page) lists top-level sessions only, an archived subsession or one under an archived parent is hidden rather than promoted to a row of its own, and there is no restore for a subsession; it comes back when its parent is restored. A subsession whose parent is not loaded yet stays visible as a root.
 - Folder membership may contain both a parent session and its descendants. Rendering treats only the highest assigned ancestors as folder roots because their normal session trees already include assigned descendants; persisted membership remains unchanged for cleanup and move semantics.
 - Sidebar selection holds the clicked row's viewport position across navigation-driven sidebar updates. Wheel or touch input cancels the hold immediately, so programmatic compensation never fights intentional scrolling.
