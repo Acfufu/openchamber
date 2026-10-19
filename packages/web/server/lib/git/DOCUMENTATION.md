@@ -87,7 +87,8 @@ An identity is one repository's complete answer: signature, provider account (`a
 - `validateWorktreeCreate(directory, input)`: Validate worktree creation parameters (mode, branchName, startRef, upstream config).
 - `createWorktree(directory, input)`: Create a new worktree (supports 'new' and 'existing' modes, upstream setup). Population never runs repository hooks or executable content filters. Contributor-fork worktrees also skip stored project setup and request setup commands during creation; they remain Git-ready and require a later exact-checkout digest-bound trust operation before executable checkout content may run. A trusted hook runs only from an operation-private mode-`0700` directory as a verified mode-`0500` content snapshot. The executor never reopens the repository hook pathname after approval, preserves `GIT_DIR`, `GIT_WORK_TREE`, arguments, and working directory in the trust digest, and removes the snapshot under a fresh bounded cleanup deadline even after cancellation.
 - `createWorktree(directory, input)`: Create a new worktree (supports 'new' and 'existing' modes, upstream setup). When the current tracked branch has no unpublished commits, the UI supplies its remote-tracking ref and this operation fetches that branch once before creating the worktree. A failed fetch falls back to the local branch and reports `sourceFetchFailed`; other remote start refs still require an existing local ref when their fetch fails. After populating the worktree, the repository's `post-checkout` hook runs once with git's standard arguments (null ref as previous HEAD, the checked-out HEAD, and flag `1`) from the worktree directory, mirroring `git worktree add` without `--no-checkout`; a missing or non-executable hook is skipped and a failing hook is logged as a warning, never failing worktree creation or the session bootstrap.
-- `removeWorktree(directory, input)`: Remove a worktree (optionally delete local branch). `--force` discards uncommitted work, so callers that must keep it snapshot first. A directory that is not a registered worktree is deleted only when it sits inside the data-dir worktree root (`<opencode data>/worktree/<projectID>`), never inside a configured `worktree.directory`, which can be shared with other projects (`".."`); inside a configured folder only a registered worktree that git failed to delete is removed; the VS Code runtime (`packages/vscode/src/gitService.ts`) applies the same guard. A registered linked worktree is released through the caller-injected `input.disposeInstance` hook after the match is confirmed and before `git worktree remove`, while the directory path still resolves; disposal is best-effort, so a failing hook is logged as a warning and never fails the removal. `DELETE /api/git/worktrees` builds that hook from the OpenCode URL/auth helpers injected into `registerGitRoutes`. The hook evicts the worktree root and every running location inside it from `GET /api/debug/location`, because a project opened on a folder of its repository runs its sessions in `<worktree>/ai`, a location of its own; when the list cannot be read it still evicts the root and rethrows the list error. The VS Code bridge does the same. The primary workspace and the orphan fallback never dispose, because neither is a registered linked worktree.
+- `removeWorktree(directory, input)`: Remove a worktree (optionally delete local branch). `--force` discards uncommitted work, so callers that must keep it snapshot first. A directory that is not a registered worktree is deleted only when it sits inside the data-dir worktree root (`<opencode data>/worktree/<projectID>`), never inside a configured `worktree.directory`, which can be shared with other projects (`".."`); inside a configured folder only a registered worktree that git failed to delete is removed; the VS Code runtime (`packages/vscode/src/gitService.ts`) applies the same guard. A registered linked worktree is released through the caller-injected `input.disposeInstance` hook after the match is confirmed and before `git worktree remove`, while the directory path still resolves; disposal is best-effort, so a failing hook is logged as a warning and never fails the removal. `DELETE /api/git/worktrees` builds that hook from the OpenCode URL/auth helpers injected into `registerGitRoutes`. The hook evicts the worktree root and every running location inside it from `GET /api/debug/location`, because a project opened on a folder of its repository runs its sessions in `<worktree>/ai`, a location of its own; when the list cannot be read it still evicts the root and rethrows the list error. The VS Code bridge does the same. The primary workspace and the orphan fallback never dispose, because neither is a registered linked worktree. From the release until the removal settles the worktree counts as being removed (see *Worktree removal and the folder's OpenCode location*), and a busy failure releases the instance again before the next attempt.
+- `waitForWorktreeRemoval(directory)`: resolves once no removal of a worktree holding `directory` is in progress, at once when none is. The OpenCode proxy awaits it before forwarding a directory-scoped request.
 - `snapshotWorktree(directory, { ref })` (`POST /api/git/worktrees/snapshot`): Record the worktree's complete state (HEAD plus staged, unstaged and untracked-but-not-ignored files) as a commit whose parent is HEAD, stored at `ref`. Only `refs/openchamber/runs/<group>/<session>` refs are accepted, so snapshots never appear as branches or tags. A throwaway index (`GIT_INDEX_FILE`) keeps the real index, HEAD, branch and files untouched; the commit uses a fixed OpenChamber identity. Returns `{ ref, commit, head }`. Used by multi-run Keep and code fusion (`packages/ui/src/lib/multirun/DOCUMENTATION.md`); VS Code implements it in the bridge git runtime.
 - `isLinkedWorktree(directory)`: Check if directory is a linked worktree (not primary).
 
@@ -97,6 +98,37 @@ An identity is one repository's complete answer: signature, provider account (`a
 - When the setting is absent, or names no usable directory, worktrees keep landing in OpenChamber's data-dir folder keyed by project ID. Changing the setting only affects worktrees created afterwards; nothing is moved.
 - `removeWorktree` deletes an unregistered leftover only under the data-dir root, so worktrees created before the setting was set stay removable while a shared configured folder such as `".."` can never make a sibling project eligible for deletion; a config read failure there falls back to the data-dir root instead of blocking the removal. Creation still fails loudly on an unreadable config so a worktree is never created in an unchosen folder.
 - Both the web and VS Code readers merge a secondary user config file (`opencode.jsonc` beside `opencode.json`) as an override layer, as OpenCode does, so `worktree.directory` set there applies in every runtime.
+
+### Worktree removal and the folder's OpenCode location
+
+Any directory-scoped OpenCode request for a folder inside a worktree starts that
+folder's location, with its local MCP servers, whose working directory is the
+folder. On Windows a process whose working directory is a folder keeps that
+folder from being deleted, so a location started again after the release makes
+`git worktree remove` fail with "Permission denied" and leaves the empty folder
+behind (#4111). Measured on Windows with OpenCode 2.0.32: the release
+(`debug.location.evict`) returns only after the location's MCP servers and their
+children have exited, and the location starts again within half a second when
+the open chat of that worktree reads its folder in reply to the stop.
+
+- From the release until the removal settles, `waitForWorktreeRemoval` holds
+  every request naming a folder inside the worktree. The OpenCode proxy awaits it
+  for the directory in the query (`directory`, `location[directory]`) and in the
+  header, decoded the way OpenCode decodes it, for at most 60 seconds. Once the
+  folder is gone OpenCode answers those requests 404 without starting anything.
+- A busy failure releases the location again before the next attempt, for a
+  request that reached OpenCode before the hold began.
+- The VS Code bridge proxy (`packages/vscode/src/bridge-proxy-runtime.ts`) holds
+  the same requests through the extension's own `waitForWorktreeRemoval`.
+
+#### Why hold requests in the proxy and not move the open chat away first
+
+Moving the UI off the worktree before the removal would stop only the reads of
+the screen in front of the user, and changes what the user sees while a removal
+can still fail. The proxy is the one place every client request passes, so the
+hold covers web, desktop and mobile alike and leaves the UI as it is; the held
+reads wait a few seconds and the UI moves to the project after the removal as
+before.
 
 ### Worktree removal with .git directory symlinks
 
