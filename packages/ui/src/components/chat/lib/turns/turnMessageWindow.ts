@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { TIMELINE_FOLLOW_REARM_THRESHOLD_PX } from '../scroll/timelineScrollAnchoring';
-
 // A turn's assistant messages are one row of the virtualized timeline, so a
 // long agentic turn mounted every step at once whenever any part of it was on
 // screen. Past this many rows a turn mounts only a window of them and mounts
@@ -36,17 +34,15 @@ export const initialMessageWindow = (rowCount: number): TurnMessageWindowRange =
 });
 
 /**
- * The window of a settled activity fold the reader just opened: the end of
- * the fold that stays on screen. A reader on the timeline's end is held
- * there, so the fold grows upward from the final answer and its newest steps
- * are what they see; anywhere else the header stays put, the fold opens
- * downward, and its first steps are what they see.
+ * The window of a settled activity fold the reader just opened. Its header
+ * stays where the reader clicked it, also on the timeline's end (opening a
+ * row lets go of the end, see useChatTimelineScroll), so the fold opens
+ * downward and its first steps are what they see.
  */
-export const openedFoldMessageWindow = (rowCount: number, readerAtEnd: boolean): TurnMessageWindowRange => (
-    readerAtEnd
-        ? { hiddenHead: windowedCount(rowCount), hiddenTail: 0 }
-        : { hiddenHead: 0, hiddenTail: windowedCount(rowCount) }
-);
+export const openedFoldMessageWindow = (rowCount: number): TurnMessageWindowRange => ({
+    hiddenHead: 0,
+    hiddenTail: windowedCount(rowCount),
+});
 
 /** How a row range falls on the turn's messages. */
 interface MountedMessages {
@@ -91,13 +87,6 @@ export const resolveMountedMessages = (
         tailMessages += 1;
     }
     return { headMessages, headSkipRows: headLeft, tailMessages, hiddenHeadRows, hiddenTailRows };
-};
-
-/** Whether the chat timeline holding `element` is scrolled to its end. */
-export const isReaderAtTimelineEnd = (element: Element): boolean => {
-    const scroller = element.closest('[data-scrollbar="chat"]');
-    if (!scroller) return false;
-    return scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop <= TIMELINE_FOLLOW_REARM_THRESHOLD_PX;
 };
 
 /**

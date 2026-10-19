@@ -80,6 +80,7 @@ import { useStreamingTextThrottle } from '../../hooks/useStreamingTextThrottle';
 import { getStreamingOutputAppend, getToolOutput } from './toolOutput';
 import { toAbsoluteFilePath } from '@/lib/path-utils';
 import { hasTextSelectionInside } from '@/lib/textSelection';
+import { dispatchRowExpand } from '@/components/chat/lib/scroll/timelineScrollIntent';
 import {
     executeOutputTruncation,
     executeScript,
@@ -1582,7 +1583,7 @@ type ToolRowHeader = {
 const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subagentSessionId?: string }> = ({
     part,
     isExpanded,
-    onToggle,
+    onToggle: toggleRow,
     isMobile,
     onShowPopup,
     animateTailText = true,
@@ -1590,6 +1591,11 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
     subagentSessionId: taskSessionId,
 }) => {
     const { t } = useI18n();
+    const rowRef = React.useRef<HTMLDivElement>(null);
+    const onToggle = (toolId: string) => {
+        if (!isExpanded) dispatchRowExpand(rowRef.current);
+        toggleRow(toolId);
+    };
     const state = part.state;
     const stateWithData = state as ToolStateWithMetadata;
     const metadata = stateWithData.metadata;
@@ -1907,7 +1913,7 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
     }
 
     return (
-        <div>
+        <div ref={rowRef}>
             {}
             <div
                 className={cn(

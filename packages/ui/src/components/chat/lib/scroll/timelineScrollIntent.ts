@@ -57,6 +57,23 @@ export function onFrameScroll(container: HTMLElement, listener: (direction: Fram
     return () => container.removeEventListener(FRAME_SCROLL_EVENT, handle);
 }
 
+// The reader opened a row (a tool, an agent task, a reasoning block, folded
+// work). The row raises this event from its element as it opens, so the
+// timeline holding it lets go of the end before the row grows: the content
+// opens below the header the reader clicked, instead of the end pulling the
+// header up and out of view.
+const ROW_EXPAND_EVENT = 'openchamber:row-expand';
+
+export function dispatchRowExpand(row: HTMLElement | null): void {
+    row?.dispatchEvent(new CustomEvent(ROW_EXPAND_EVENT, { bubbles: true }));
+}
+
+/** Listens for rows the reader opens inside `container`. */
+export function onRowExpand(container: HTMLElement, listener: () => void): () => void {
+    container.addEventListener(ROW_EXPAND_EVENT, listener);
+    return () => container.removeEventListener(ROW_EXPAND_EVENT, listener);
+}
+
 // Middle-button press starts the platform's autoscroll pan (Windows/Linux
 // Chromium); the pan then scrolls without wheel events, so the press itself is
 // the gesture. Inside a nested scroller the pan belongs to that scroller.

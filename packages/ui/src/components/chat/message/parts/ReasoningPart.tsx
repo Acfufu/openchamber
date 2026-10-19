@@ -16,6 +16,7 @@ import { useStreamingTextThrottle } from '../../hooks/useStreamingTextThrottle';
 import { commitStreamedText } from '../../lib/streamTextCommit';
 import type { StreamPhase } from '../types';
 import { useReasoningReveal } from '@/components/chat/search/reasoningReveal';
+import { dispatchRowExpand } from '@/components/chat/lib/scroll/timelineScrollIntent';
 
 const TOOL_ROW_TEXT_CLASS = '!text-[length:var(--text-meta)] !leading-5 sm:!leading-6 tracking-normal';
 const TOOL_ROW_TITLE_CLASS = cn('typography-meta font-medium', TOOL_ROW_TEXT_CLASS);
@@ -226,7 +227,9 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
         : presentation?.expandLabel ?? t('chat.reasoningTrace.expandAria');
     const title = presentation?.title ?? t('chat.reasoningTrace.thinking');
 
+    const rowRef = React.useRef<HTMLDivElement>(null);
     const handleToggle = React.useCallback(() => {
+        if (!isExpanded) dispatchRowExpand(rowRef.current);
         setShouldRenderExpandedContent(true);
         setExpansion({ expanded: !isExpanded, source: 'user' });
     }, [isExpanded]);
@@ -390,7 +393,7 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
     );
 
     return (
-        <div data-reasoning-block-id={blockId} data-reasoning-message-id={reasoningMessageId} data-message-text-export-root="true">
+        <div ref={rowRef} data-reasoning-block-id={blockId} data-reasoning-message-id={reasoningMessageId} data-message-text-export-root="true">
             <div
                 role="button"
                 tabIndex={0}

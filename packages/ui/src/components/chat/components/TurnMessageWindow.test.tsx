@@ -11,7 +11,6 @@ import {
     TURN_ROW_WINDOW_THRESHOLD,
     TurnMessageWindowContext,
     createTurnMessageWindowStore,
-    isReaderAtTimelineEnd,
     openedFoldMessageWindow,
     resolveMountedMessages,
     shouldHoldRevealAnchor,
@@ -130,9 +129,9 @@ describe('turn message window', () => {
         expect(spacer()).toBeNull();
     });
 
-    test('a fold opened away from the end mounts its first steps above a tail spacer', async () => {
+    test('an opened fold mounts its first steps above a tail spacer', async () => {
         const store = createTurnMessageWindowStore();
-        store.setRange('turn', openedFoldMessageWindow(100, false));
+        store.setRange('turn', openedFoldMessageWindow(100));
         const messages = steps(100);
         await render(store, messages);
         expect(mountedIds()).toEqual(messages.slice(0, TURN_ROW_WINDOW_SIZE).map((message) => message.info.id));
@@ -140,19 +139,9 @@ describe('turn message window', () => {
         expect(tailSpacer()).not.toBeNull();
     });
 
-    test('a fold opened on the end mounts its newest steps below a head spacer', async () => {
-        const store = createTurnMessageWindowStore();
-        store.setRange('turn', openedFoldMessageWindow(100, true));
-        const messages = steps(100);
-        await render(store, messages);
-        expect(mountedIds()).toEqual(messages.slice(-TURN_ROW_WINDOW_SIZE).map((message) => message.info.id));
-        expect(spacer()).not.toBeNull();
-        expect(tailSpacer()).toBeNull();
-    });
-
     test('revealing the tail mounts the steps below the window', async () => {
         const store = createTurnMessageWindowStore();
-        store.setRange('turn', openedFoldMessageWindow(100, false));
+        store.setRange('turn', openedFoldMessageWindow(100));
         await render(store, steps(100));
         await act(async () => store.setRange('turn', { hiddenHead: 0, hiddenTail: 30 }));
         expect(mountedIds()).toHaveLength(70);
@@ -261,50 +250,13 @@ describe('mounted messages of a row range', () => {
 });
 
 describe('opened fold window', () => {
-    test('a short fold opens whole from either end', () => {
-        expect(openedFoldMessageWindow(TURN_ROW_WINDOW_THRESHOLD, true)).toEqual(FULL_MESSAGE_WINDOW);
-        expect(openedFoldMessageWindow(TURN_ROW_WINDOW_THRESHOLD, false)).toEqual(FULL_MESSAGE_WINDOW);
+    test('a short fold opens whole', () => {
+        expect(openedFoldMessageWindow(TURN_ROW_WINDOW_THRESHOLD)).toEqual(FULL_MESSAGE_WINDOW);
     });
 
-    test('a long fold keeps the end that stays on screen', () => {
+    test('a long fold opens at its first steps, under the header', () => {
         const hidden = TURN_ROW_WINDOW_THRESHOLD + 1 - TURN_ROW_WINDOW_SIZE;
-        expect(openedFoldMessageWindow(TURN_ROW_WINDOW_THRESHOLD + 1, true)).toEqual({ hiddenHead: hidden, hiddenTail: 0 });
-        expect(openedFoldMessageWindow(TURN_ROW_WINDOW_THRESHOLD + 1, false)).toEqual({ hiddenHead: 0, hiddenTail: hidden });
-    });
-});
-
-describe('reader at the timeline end', () => {
-    const scrollerWith = (scrollTop: number) => {
-        const scroller = document.createElement('div');
-        scroller.setAttribute('data-scrollbar', 'chat');
-        Object.defineProperty(scroller, 'scrollHeight', { value: 3000 });
-        Object.defineProperty(scroller, 'clientHeight', { value: 800 });
-        scroller.scrollTop = scrollTop;
-        const header = document.createElement('button');
-        scroller.append(header);
-        document.body.append(scroller);
-        return header;
-    };
-    let restore: () => void;
-    beforeEach(() => {
-        const win = new Window({ url: 'http://localhost' });
-        const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
-        Object.defineProperty(globalThis, 'document', { value: win.document, configurable: true, writable: true });
-        restore = () => {
-            if (previous) Object.defineProperty(globalThis, 'document', previous);
-            else Reflect.deleteProperty(globalThis, 'document');
-        };
-    });
-    afterEach(() => restore());
-
-    test('on the end, within the follow band, and away from it', () => {
-        expect(isReaderAtTimelineEnd(scrollerWith(2200))).toBe(true);
-        expect(isReaderAtTimelineEnd(scrollerWith(2170))).toBe(true);
-        expect(isReaderAtTimelineEnd(scrollerWith(1500))).toBe(false);
-    });
-
-    test('outside a chat timeline is not on its end', () => {
-        expect(isReaderAtTimelineEnd(document.createElement('button'))).toBe(false);
+        expect(openedFoldMessageWindow(TURN_ROW_WINDOW_THRESHOLD + 1)).toEqual({ hiddenHead: 0, hiddenTail: hidden });
     });
 });
 
