@@ -715,6 +715,18 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       fsPromises,
       path,
       openchamberDataDir,
+      // Folders are shared by every client of this server; each one reads
+      // them again when told they changed.
+      onChanged: (updatedAt) => {
+        const clients = getOpenChamberEventClients();
+        for (const client of clients) {
+          try {
+            writeSseEvent(client, { type: 'openchamber:session-folders-changed', properties: { updatedAt } });
+          } catch {
+            clients.delete(client);
+          }
+        }
+      },
     });
     // Content search looks for ripgrep on the same PATH user commands get, so
     // a desktop app launched from the Dock still finds a Homebrew install.

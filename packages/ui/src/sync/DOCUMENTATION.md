@@ -992,6 +992,13 @@ requests a queue refresh on every main-stream connection or transport switch,
 including the first connection. The queue store coalesces these requests with
 bootstrap and owns snapshot ordering and legacy-upload lifetime.
 
+Chat folders follow the same shape through `session-folders-sync.ts`: the
+provider subscribes for the runtime it mounted with, a
+`session-folders-changed` control event with a newer revision reads the
+server's folders again, and every control-stream connection reads them and
+sends the changes still queued. `useSessionFoldersStore` owns the revision
+ordering, the queue and the first contact with a server.
+
 Keep this in sync with `handleDirectoryEvent` in `sync-context.tsx`:
 
 | Event type | Fields to clone |

@@ -131,8 +131,16 @@ small gap. Zone and project labels share the header size and no rule
 separates projects, as zones and projects are sections of equal weight. Its tree starts 32px in
 (`MOBILE_TREE_BASE_PADDING_PX`), so root session titles start where the
 project label does next to the project icon's 32px slot (no tile: a bare
-20px glyph, or a 24px image with rounded corners; zone icons likewise); the phone has no session
-folders. Its display menu offers the Pinned and In work toggles and, in Tree,
+20px glyph, or a 24px image with rounded corners; zone icons likewise). In
+Tree the phone shows the project's and each worktree's chat folders above
+their other sessions, in the desktop's order with sub-folders named
+"Parent / Child", each a folder row with its filed top-level sessions one
+level under it. The phone does not create, rename, delete or file folders: its
+rows have no menu, and the swipe actions already hold the five actions a phone
+uses most; folders are edited on the desktop or the web, and the phone shows
+the change at once. Collapsing a folder there is the phone's own, as
+everywhere. A search lists its matches without folders, and List has none,
+as on the desktop. Its display menu offers the Pinned and In work toggles and, in Tree,
 Detailed rows; pinned sessions and sessions in work stay under their project
 in both views. VS Code excludes
 worktrees and managed

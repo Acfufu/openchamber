@@ -77,6 +77,7 @@ import { useMobileSessionTreeStore } from '@/stores/useMobileSessionTreeStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useSessionDisplayStore, type ProjectSortOrder } from '@/stores/useSessionDisplayStore';
 import { useSessionPinnedStore } from '@/stores/useSessionPinnedStore';
+import { useSessionFoldersStore, type SessionFolder } from '@/stores/useSessionFoldersStore';
 import { isSessionPinned } from '@/lib/sessionPins';
 import { toggleSessionPin } from '@/sync/session-pins';
 import { orderWorktrees, useWorktreeOrderStore } from '@/stores/useWorktreeOrderStore';
@@ -161,6 +162,7 @@ type MobileSessionsSheetProps = {
 };
 
 const EMPTY_PINNED_SESSION_IDS = new Set<string>();
+const EMPTY_FOLDERS: readonly SessionFolder[] = [];
 
 // Same orders, same labels as the desktop sidebar's sort menu — the setting
 // itself is shared, so the two surfaces must offer the same choices.
@@ -1184,6 +1186,16 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
 
   const normalizedQuery = query.trim().toLowerCase();
 
+  // The chat folders every client of the server shares. The phone shows them
+  // in Tree but does not change them; collapsing one is this device's own.
+  // A search lists its matches without folders.
+  const foldersMap = useSessionFoldersStore((state) => state.foldersMap);
+  const collapsedFolderIds = useSessionFoldersStore((state) => state.collapsedFolderIds);
+  const toggleFolderCollapse = useSessionFoldersStore((state) => state.toggleFolderCollapse);
+  const folderListFor = (bucket: WorktreeBucket): readonly SessionFolder[] => (
+    normalizedQuery ? EMPTY_FOLDERS : foldersMap[bucket.path] ?? EMPTY_FOLDERS
+  );
+
   // On open, bring the current session (or at least its project) into view —
   // the list keeps its scroll position between opens, so a long project list
   // otherwise lands wherever it was left. Rows carry data-active-* markers.
@@ -1337,11 +1349,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
       pageSize?: number;
       /** Roots that always render and never count against the page (pinned). */
       alwaysVisibleIds?: Set<string>;
+      /** The bucket's chat folders, shown above its other sessions in Tree. */
+      folders?: readonly SessionFolder[];
     },
   ) => {
     const pageSize = options?.pageSize ?? SESSIONS_PER_BUCKET;
     const controlIndent = depth === null ? TIMELINE_CHAT_INDENT : treeTextLeft(depth);
     const alwaysVisibleIds = options?.alwaysVisibleIds;
+    const folders = options?.folders ?? EMPTY_FOLDERS;
 
     // Group children by parent within this bucket, and treat sessions whose parent
     // is not in this bucket as top-level so nothing is hidden.
@@ -1355,9 +1370,22 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
         childrenByParent.set(parentId, list);
       }
     }
-    const roots = bucket.sessions.filter((entry) => {
+    const bucketRoots = bucket.sessions.filter((entry) => {
       const parentId = getParentId(entry);
       return !parentId || !idsInBucket.has(parentId);
+    });
+    // A top-level session filed in a folder shows under that folder, with its
+    // subsessions, and not again below; a folder's sessions do not use the page.
+    const folderIdBySession = new Map<string, string>();
+    for (const folder of folders) {
+      for (const sessionId of folder.sessionIds) if (!folderIdBySession.has(sessionId)) folderIdBySession.set(sessionId, folder.id);
+    }
+    const rootsByFolder = new Map<string, Session[]>();
+    const roots = folders.length === 0 ? bucketRoots : bucketRoots.filter((entry) => {
+      const folderId = folderIdBySession.get(entry.id);
+      if (!folderId) return true;
+      rootsByFolder.set(folderId, [...(rootsByFolder.get(folderId) ?? []), entry]);
+      return false;
     });
 
     // The lanes of a run become one entry at the first lane's position.
@@ -1440,8 +1468,65 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
       );
     };
 
+    // Folders in the desktop's order: each folder, then its sub-folders named
+    // "Parent / Child", all on one level.
+    const folderIds = new Set(folders.map((folder) => folder.id));
+    const childFolders = new Map<string, SessionFolder[]>();
+    for (const folder of folders) {
+      if (!folder.parentId || !folderIds.has(folder.parentId)) continue;
+      childFolders.set(folder.parentId, [...(childFolders.get(folder.parentId) ?? []), folder]);
+    }
+    const orderedFolders: Array<{ folder: SessionFolder; displayName: string }> = [];
+    const placeFolder = (folder: SessionFolder, parentPath: string): void => {
+      if (orderedFolders.some((entry) => entry.folder.id === folder.id)) return;
+      const displayName = parentPath ? `${parentPath} / ${folder.name}` : folder.name;
+      orderedFolders.push({ folder, displayName });
+      for (const child of childFolders.get(folder.id) ?? []) placeFolder(child, displayName);
+    };
+    for (const folder of folders) if (!folder.parentId || !folderIds.has(folder.parentId)) placeFolder(folder, '');
+
+    const renderFolder = ({ folder, displayName }: { folder: SessionFolder; displayName: string }): React.ReactNode => {
+      const folderRoots = rootsByFolder.get(folder.id) ?? [];
+      const folderDepth = depth ?? 0;
+      // An empty folder has nothing to show or hide, as on the desktop.
+      const empty = folderRoots.length === 0;
+      const expanded = empty || !collapsedFolderIds.has(folder.id);
+      return (
+        <React.Fragment key={`folder:${folder.id}`}>
+          <button
+            type="button"
+            className="flex min-h-10 w-full items-center gap-0.5 py-1 pe-3 text-start transition-colors hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            onClick={() => {
+              if (revealedRowId) {
+                handleRowKeyRevealedChange(revealedRowId, false);
+                return;
+              }
+              if (!empty) toggleFolderCollapse(folder.id);
+            }}
+            aria-expanded={empty ? undefined : expanded}
+            aria-label={empty
+              ? displayName
+              : expanded
+                ? t('sessions.sidebar.folderItem.collapseAria', { folderName: displayName })
+                : t('sessions.sidebar.folderItem.expandAria', { folderName: displayName })}
+            style={{ paddingInlineStart: treeRowLeft(folderDepth), touchAction: 'manipulation' }}
+          >
+            {empty ? <span aria-hidden className="size-3.5 shrink-0" /> : <FileTreeChevron expanded={expanded} />}
+            <Icon name={expanded && !empty ? 'folder-open' : 'folder'} className="mx-px size-3 shrink-0 text-muted-foreground" />
+            <span className="block min-w-0 flex-1 truncate typography-ui-label font-medium text-foreground/85">
+              {displayName}
+            </span>
+          </button>
+          {expanded
+            ? folderRoots.map((session, index) => renderNode(session, folderDepth + 1, [], index === folderRoots.length - 1))
+            : null}
+        </React.Fragment>
+      );
+    };
+
     return (
       <div>
+        {orderedFolders.map(renderFolder)}
         {visibleRoots.map((entry, index) => {
           const isLast = index === visibleRoots.length - 1;
           return entry.kind === 'run'
@@ -2539,8 +2624,8 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
                           const worktreeBuckets = buckets.filter((bucket) => bucket !== rootBucket);
                           return (
                             <>
-                              {rootBucket && rootBucket.sessions.length > 0
-                                ? renderBucketSessions(`${node.project.id}::${rootBucket.key}`, rootBucket, 0)
+                              {rootBucket && (rootBucket.sessions.length > 0 || folderListFor(rootBucket).length > 0)
+                                ? renderBucketSessions(`${node.project.id}::${rootBucket.key}`, rootBucket, 0, { folders: folderListFor(rootBucket) })
                                 : null}
                               {worktreeBuckets.map((bucket) => {
                                 const worktreeExpanded = isWorktreeExpanded(node, bucket);
@@ -2552,7 +2637,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
                                   <div className={cn('mt-1.5', removing && 'opacity-60')} aria-busy={removing || undefined}>
                                     {renderBucketHeader(node, bucket, removing, activeWorktreePath)}
                                     <MobileDisclosure open={worktreeExpanded}>
-                                      {() => renderBucketSessions(`${node.project.id}::${bucket.key}`, bucket, 1)}
+                                      {() => renderBucketSessions(`${node.project.id}::${bucket.key}`, bucket, 1, { folders: folderListFor(bucket) })}
                                     </MobileDisclosure>
                                   </div>
                                   )}
