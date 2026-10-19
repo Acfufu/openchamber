@@ -1717,6 +1717,7 @@ export const dict: Record<I18nKey, string> = {
   "filesView.error.switchToEditMode": "Alterne para o modo de edição para resolver o problema.",
   "filesView.error.readFileFailed": "Não foi possível ler o arquivo",
   "filesView.editor.htmlPreviewTitle": "Pré-visualização HTML",
+  "filesView.editor.htmlAnnotate.intro": "Esta é uma seleção anotada da pré-visualização de um arquivo HTML.",
   "filesView.diagram.closeDiagramView": "Fechar visualização de diagrama",
   "filesView.diagram.saveDiagram": "Salvar diagrama",
   "filesView.excalidraw.installHint": "Instale a extensão Excalidraw para desenhar neste arquivo.",

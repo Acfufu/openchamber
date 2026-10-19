@@ -1514,6 +1514,7 @@ export const dict = {
   'filesView.error.switchToEditMode': 'Passez en mode édition pour résoudre le problème.',
   'filesView.error.readFileFailed': 'Échec de la lecture du fichier',
   'filesView.editor.htmlPreviewTitle': 'Aperçu HTML',
+  'filesView.editor.htmlAnnotate.intro': 'Ceci est une sélection annotée de l\'aperçu d\'un fichier HTML.',
   'contextUsage.aria.label': 'Utilisation du contexte',
   'contextUsage.mobile.title': 'Utilisation du contexte',
   'contextUsage.mobile.usedTokens': 'Jetons utilisés',

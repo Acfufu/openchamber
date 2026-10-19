@@ -1744,6 +1744,7 @@ export const dict: Record<I18nKey, string> = {
   'filesView.error.switchToEditMode': '請切換到編輯模式修復問題。',
   'filesView.error.readFileFailed': '讀取檔案失敗',
   'filesView.editor.htmlPreviewTitle': 'HTML 預覽',
+  'filesView.editor.htmlAnnotate.intro': '這是來自 HTML 檔案預覽的標註選取範圍。',
   'filesView.diagram.closeDiagramView': '關閉圖表檢視',
   'filesView.diagram.saveDiagram': '儲存圖表',
   'filesView.excalidraw.installHint': '安裝 Excalidraw 擴充功能即可在此檔案中繪圖。',

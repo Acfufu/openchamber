@@ -1715,6 +1715,7 @@ export const dict = {
   'filesView.error.switchToEditMode': 'יש לעבור למצב עריכה כדי לתקן את הבעיה.',
   'filesView.error.readFileFailed': 'קריאת הקובץ נכשלה',
   'filesView.editor.htmlPreviewTitle': 'תצוגה מקדימה של HTML',
+  'filesView.editor.htmlAnnotate.intro': 'זוהי בחירה עם הערות מתצוגה מקדימה של קובץ HTML.',
   'filesView.diagram.closeDiagramView': 'סגור את תצוגת התרשים',
   'filesView.diagram.saveDiagram': 'שמור תרשים',
   'filesView.excalidraw.installHint': 'יש להתקין את ההרחבה Excalidraw כדי לצייר בקובץ הזה.',

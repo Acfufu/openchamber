@@ -192,9 +192,36 @@ server for a grant (`POST /api/fs/preview`) and loads the page from
 `/api/fs/preview/<grant>/<path>`; the frame's `sandbox` has no
 `allow-same-origin`, so the page runs as an opaque origin with no session and
 cannot reach the app's API, DOM or terminal. Its neighbouring images, styles
-and scripts load through the grant in the path. VS Code renders `srcDoc` in
-the same sandbox. The server side (read root, CORS, CSP) is described in
+and scripts load through the grant in the path. A page outside the workspace
+asks for its grant with `allowOutsideWorkspace`, and the server scopes it to
+the page's folder. VS Code renders `srcDoc` in the same sandbox. The server
+side (read root, CORS, CSP) is described in
 `packages/web/server/lib/fs/DOCUMENTATION.md`.
+
+The preview toolbar has the browser panel's "Annotate page" toggle
+(`useHtmlPreviewAnnotation`, a thin use of `components/browser/useFrameAnnotation.ts`,
+which pages in the chat share) on web and desktop; phones and VS Code do not
+show it. The server puts a bridge into every previewed HTML page, and
+`lib/browser/previewFrameHost.ts` turns the frame into an `AnnotationHost`, so
+`runAnnotationSession` runs the same overlay and the result attaches to the
+composer through `useAnnotationAttach`, with an intro naming the file preview.
+Before starting, the host probes the bridge; a page that never answers (it
+navigated away, or its own CSP blocks inline scripts or `eval`) ends in the
+"could not annotate" toast. The prompt names the file path: the preview URL
+carries the grant, which is a credential and stays out of prompts. On desktop
+the screenshot is the on-screen part of the frame's area of the window
+(`visibleFrameArea`, `desktop_capture_page_rect`),
+taken after the overlay has torn itself down; a browser cannot photograph a
+frame, so on web the annotation goes without one. A reload or another file
+ends a running session.
+
+### Why a bridge in the page and not a webview
+
+The browser panel annotates through a `<webview>`, which the app can script
+directly. Showing the preview in a webview on desktop would have reused that
+as is, but left web without annotation and given the Files view two preview
+engines. The bridge works the same in both, and gives the app no reach into
+the page that the page's own scripts lack.
 
 The Markdown preview renders the file's raw HTML the way GitHub does
 (`SimpleMarkdownRenderer allowRawHtml`): right after marked, a separate

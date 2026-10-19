@@ -96,6 +96,7 @@ import { MediaArtifact } from './files/previews/MediaArtifact';
 import { TableArtifact } from './files/previews/TableArtifact';
 import { useMarkdownLocalAssets } from './files/previews/useMarkdownLocalAssets';
 import { useHtmlPreviewUrl } from './files/useHtmlPreviewUrl';
+import { useHtmlPreviewAnnotation } from './files/useHtmlPreviewAnnotation';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
 import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController } from '@/components/comments';
@@ -3828,13 +3829,26 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   const htmlPreviewRequest = React.useMemo(
     () => (selectedFile?.path && isHtml && htmlViewMode === 'preview' && !runtime.isVSCode
-      ? { path: selectedFile.path, directory: root || '', revision: String(fileContentRevision) }
+      ? {
+        path: selectedFile.path,
+        directory: root || '',
+        revision: String(fileContentRevision),
+        outsideWorkspace: selectedFileReadOptions.allowOutsideWorkspace,
+      }
       : null),
-    [selectedFile?.path, isHtml, htmlViewMode, runtime.isVSCode, root, fileContentRevision],
+    [selectedFile?.path, isHtml, htmlViewMode, runtime.isVSCode, root, fileContentRevision, selectedFileReadOptions.allowOutsideWorkspace],
   );
 
   const assetAuthErrorFallback = t('filesView.error.readFileFailed');
   const htmlPreview = useHtmlPreviewUrl(htmlPreviewRequest, assetAuthErrorFallback);
+  const htmlPreviewFrameRef = React.useRef<HTMLIFrameElement | null>(null);
+  const htmlPreviewAnnotation = useHtmlPreviewAnnotation({
+    frameRef: htmlPreviewFrameRef,
+    directory: root,
+    pageKey: htmlPreview.status === 'ready' ? htmlPreview.url : '',
+  });
+  // Like the browser panel, annotation is a pointer tool: phones do not get it.
+  const canAnnotateHtmlPreview = !isMobile && htmlPreview.status === 'ready';
   React.useEffect(() => {
     if (htmlPreview.status === 'error') setFileError(htmlPreview.message);
     else if (htmlPreview.status === 'ready') setFileError(null);
@@ -4607,6 +4621,26 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           />
         )}
 
+        {canAnnotateHtmlPreview && (
+          withTooltip(t('contextPanel.browser.annotate.toggle'),
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={htmlPreviewAnnotation.toggle}
+              aria-pressed={htmlPreviewAnnotation.isAnnotating}
+              className={cn(
+                'size-6 p-0 transition-colors hover:bg-[var(--interactive-hover)] focus-visible:bg-[var(--interactive-hover)] active:bg-[var(--interactive-hover)]',
+                htmlPreviewAnnotation.isAnnotating
+                  ? 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)] hover:bg-[var(--interactive-selection)] focus-visible:bg-[var(--interactive-selection)] active:bg-[var(--interactive-selection)]'
+                  : 'text-muted-foreground opacity-65 hover:opacity-100'
+              )}
+              aria-label={t('contextPanel.browser.annotate.toggle')}
+            >
+              <Icon name="markup" className="size-4" />
+            </Button>
+          )
+        )}
+
         {isSelectedSvg && (
           <PreviewToggleButton
             currentMode={svgViewMode}
@@ -5227,6 +5261,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             <div className="h-full overflow-hidden">
               {/* No allow-same-origin: the page is untrusted and must not run as the app. */}
               <iframe
+                ref={htmlPreviewFrameRef}
                 src={htmlPreview.status === 'ready' ? htmlPreview.url : undefined}
                 srcDoc={runtime.isVSCode ? (() => {
                   const basePath = selectedFile.path.substring(0, selectedFile.path.lastIndexOf('/') + 1);

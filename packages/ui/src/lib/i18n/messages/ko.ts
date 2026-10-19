@@ -1763,6 +1763,7 @@ export const dict: Record<I18nKey, string> = {
   'filesView.error.switchToEditMode': '문제를 수정하려면 편집 모드로 전환하세요.',
   'filesView.error.readFileFailed': '파일 읽기 실패',
   'filesView.editor.htmlPreviewTitle': 'HTML 미리보기',
+  'filesView.editor.htmlAnnotate.intro': 'HTML 파일 미리보기에서 주석을 단 선택 영역입니다.',
   'filesView.diagram.closeDiagramView': '다이어그램 보기 닫기',
   'filesView.diagram.saveDiagram': '다이어그램 저장',
   'filesView.excalidraw.installHint': '이 파일에서 그리려면 Excalidraw 확장을 설치하세요.',

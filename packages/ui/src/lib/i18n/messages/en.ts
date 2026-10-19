@@ -1763,6 +1763,7 @@ export const dict = {
   'filesView.error.switchToEditMode': 'Switch to edit mode to fix the issue.',
   'filesView.error.readFileFailed': 'Failed to read file',
   'filesView.editor.htmlPreviewTitle': 'HTML Preview',
+  'filesView.editor.htmlAnnotate.intro': 'This is an annotated selection from an HTML file preview.',
   'filesView.diagram.closeDiagramView': 'Close diagram view',
   'filesView.diagram.saveDiagram': 'Save diagram',
   'filesView.excalidraw.installHint': 'Install the Excalidraw extension to draw in this file.',
