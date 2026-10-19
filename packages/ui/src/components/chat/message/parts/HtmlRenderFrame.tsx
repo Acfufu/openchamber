@@ -377,8 +377,9 @@ function PageSelectionScope({
 export function ShownPage({ part }: { part: ToolPart }) {
     // Kept while the call's state is the same object, so the page is not sent
     // its answer state again on every render.
+    const { t } = useI18n();
     const page = React.useMemo(() => renderedPage(part.tool, part.state), [part.tool, part.state]);
-    return page ? <HtmlRenderFrame part={part} html={page.html} title={page.title} ask={page.ask} /> : null;
+    return page ? <HtmlRenderFrame part={part} html={page.html} title={page.title || t('chat.htmlRender.untitled')} ask={page.ask} /> : null;
 }
 
 interface HtmlRenderFrameProps {

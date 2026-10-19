@@ -675,11 +675,26 @@ describe('render.page', () => {
     expect(result.note).toContain("Don't announce");
   });
 
+  it('names a page sent without a title after its own title or first heading', async () => {
+    const { service } = createService();
+    const named = (html) => service.execute('render.page', { html }, '/repo').then((result) => result.title);
+
+    expect(await named('<html><head><title> Q3 &amp; Q4 </title></head><h1>Other</h1></html>')).toBe('Q3 & Q4');
+    expect(await named('<title></title><div><h2>Release <b>2.4</b></h2></div>')).toBe('Release 2.4');
+    expect(await named(`<h1>${'x'.repeat(200)}</h1>`)).toBe('x'.repeat(120));
+    expect(await named(page)).toBe('Page');
+  });
+
+  it('asks for html and title in one call when html is missing', async () => {
+    const { service } = createService();
+    await expect(service.execute('render.page', { title: 'Coverage' }, '/repo'))
+      .rejects.toMatchObject({ message: expect.stringContaining('Send html and title together in one call') });
+  });
+
   it.each([
     [{ title: 'Coverage' }, 'html is required'],
     [{ html: '   ', title: 'Coverage' }, 'html is required'],
     [{ html: 'x'.repeat(200_001), title: 'Coverage' }, 'the limit is 200000'],
-    [{ html: page }, 'title is required'],
     [{ html: page, title: 't'.repeat(121) }, 'the limit is 120'],
   ])('refuses %o with a reason the agent can act on', async (input, reason) => {
     const { service } = createService();

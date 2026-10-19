@@ -44,7 +44,7 @@ other.
   knowledge Plans list does: in place in the panel on desktop and web, in the
   drawer's plan viewer on mobile. No
   window reached is `503`.
-- `render-page.js` runs `render.page` for the `openchamber_render` agent tool.
+- `render-page.js` runs `render.page` for the `openchamber_render` agent tool. Only `html` is required: a page sent without a title is named after its own `<title>`, else its first h1 to h3, else "Page", with the same rule the chat uses (`renderedPage` in `packages/ui/src/lib/opencode/tools.ts`). Weaker models sent title and html in separate calls, each refused call costing the whole page again; a missing html now also asks for both in one call.
   The chat draws the page from the call's own input, so the action stores
   nothing: it checks `html` (at most 200,000 characters) and `title` (at most
   120) and answers `403` while `agentRenderToolEnabled` is `false`. With

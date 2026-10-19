@@ -433,6 +433,48 @@ describe('managed agent tool runtime', () => {
     expect(sent[2].contextDirectory).toBeUndefined();
   });
 
+  it('runs the one action of a single-action tool, reviving a call stuffed into the action as JSON', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    const prepared = await prepareManagedEnv(runtime, { includeControl: true, includeRender: true });
+    const tools = await loadTools(dataDir, 'single-action');
+
+    // Nothing to choose: the schema takes any string and does not require one.
+    expect(tools.openchamber_render.input.properties.action).toEqual({ type: 'string', description: expect.stringContaining('render.page: ') });
+    expect(tools.openchamber_render.input.required).toEqual([]);
+    // A tool with several actions keeps its strict list.
+    expect(tools.openchamber.input.properties.action.oneOf.length).toBeGreaterThan(1);
+    expect(tools.openchamber.input.required).toEqual(['action']);
+
+    const sent = [];
+    const originalFetch = globalThis.fetch;
+    const originalUrl = process.env.OPENCHAMBER_AGENT_TOOL_URL;
+    const originalToken = process.env.OPENCHAMBER_AGENT_TOOL_TOKEN;
+    process.env.OPENCHAMBER_AGENT_TOOL_URL = prepared.OPENCHAMBER_AGENT_TOOL_URL;
+    process.env.OPENCHAMBER_AGENT_TOOL_TOKEN = prepared.OPENCHAMBER_AGENT_TOOL_TOKEN;
+    globalThis.fetch = async (_endpoint, init) => {
+      sent.push(JSON.parse(init.body));
+      return new Response(JSON.stringify({ schemaVersion: 1, ok: true, action: 'render.page', data: {} }));
+    };
+    const context = { sessionID: 'ses_1', agent: 'build', messageID: 'msg_1', id: 'call_1', signal: new AbortController().signal, progress: async () => {} };
+
+    try {
+      // The shape a model produced: title inside a JSON action, html beside it.
+      await tools.openchamber_render.execute({ action: '{"action": "render.page", "title": "Commits"}', html: '<p>a</p>' }, context);
+      // A revived field never replaces one the call carried itself.
+      await tools.openchamber_render.execute({ action: '{"parameters": {"title": "Stuffed"}}', parameters: { html: '<p>b</p>', title: 'Real' } }, context);
+      // No action at all still runs the only one.
+      await tools.openchamber_render.execute({ parameters: { html: '<p>c</p>', title: 'Bare' } }, context);
+    } finally {
+      globalThis.fetch = originalFetch;
+      process.env.OPENCHAMBER_AGENT_TOOL_URL = originalUrl;
+      process.env.OPENCHAMBER_AGENT_TOOL_TOKEN = originalToken;
+    }
+
+    expect(sent[0].input).toEqual({ action: 'render.page', html: '<p>a</p>', title: 'Commits' });
+    expect(sent[1].input).toEqual({ action: 'render.page', html: '<p>b</p>', title: 'Real' });
+    expect(sent[2].input).toEqual({ action: 'render.page', html: '<p>c</p>', title: 'Bare' });
+  });
+
   it('normalizes the two string boolean spellings a model sends, and nothing else', async () => {
     const { runtime, dataDir } = await createRuntime();
     const prepared = await prepareManagedEnv(runtime, { includeKnowledge: true });

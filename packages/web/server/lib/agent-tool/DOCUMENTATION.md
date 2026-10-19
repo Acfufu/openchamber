@@ -163,6 +163,12 @@ default and when to set it. Field names and JSON types carry the rest.
 - The action schema carries `oneOf` and no `enum`. A node combining `enum` and
   `oneOf` is valid JSON Schema, but some OpenAI-compatible gateways reject it
   and answer with an empty completion instead of an error.
+- A tool with a single action (render, notify) declares `action` as a plain,
+  optional string and always runs its one action. A weaker model put the whole
+  render call into `action` as a JSON string, title included, with the html
+  beside it; the strict `oneOf` refused that before the tool ran, and every
+  retry sent the whole page again. Such a string is revived, and its fields
+  fill only what the call did not already carry.
 - Obvious fields rely on their names and JSON types. Parameter descriptions are
   reserved for formats, dependencies, scope, and behavior that cannot be safely
   inferred from the field name.
