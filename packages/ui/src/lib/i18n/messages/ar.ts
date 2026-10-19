@@ -137,6 +137,7 @@ export const dict = {
   'terminalView.actions.copy': 'نسخ',
   'terminalView.actions.paste': 'لصق',
   'terminalView.toast.pasteFailed': 'تعذّرت قراءة الحافظة. استخدم اختصار لوحة المفاتيح للصق.',
+  'terminalView.toast.pasteFailedTouch': 'تعذّرت قراءة الحافظة.',
   'terminalView.actions.restart': 'إعادة تشغيل الطرفية',
   'chat.message.terminalContext': '{terminal}، الأسطر {start}-{end}',
   'chat.message.context.codeComment': 'تعليق على {file}، الأسطر {start}-{end}',

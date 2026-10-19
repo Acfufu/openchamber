@@ -165,6 +165,7 @@ export const dict = {
   'terminalView.actions.copy': 'Kopiëren',
   'terminalView.actions.paste': 'Plakken',
   'terminalView.toast.pasteFailed': 'Kan het klembord niet lezen. Gebruik de sneltoets voor plakken.',
+  'terminalView.toast.pasteFailedTouch': 'Kan het klembord niet lezen.',
   'terminalView.actions.restart': 'Terminal herstarten',
   'chat.message.terminalContext': '{terminal}, regels {start}-{end}',
   'chat.message.context.codeComment': 'Commentaar op {file}, regels {start}-{end}',

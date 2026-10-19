@@ -176,6 +176,7 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.actions.copy': 'Copiar',
   'terminalView.actions.paste': 'Pegar',
   'terminalView.toast.pasteFailed': 'No se pudo leer el portapapeles. Usa el atajo de teclado para pegar.',
+  'terminalView.toast.pasteFailedTouch': 'No se pudo leer el portapapeles.',
   'terminalView.actions.restart': 'Reiniciar terminal',
   'chat.message.terminalContext': '{terminal}, líneas {start}-{end}',
   'chat.message.context.codeComment': 'Comentario en {file}, líneas {start}-{end}',

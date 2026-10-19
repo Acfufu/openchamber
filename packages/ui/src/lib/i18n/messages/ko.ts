@@ -166,6 +166,7 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.actions.copy': '복사',
   'terminalView.actions.paste': '붙여넣기',
   'terminalView.toast.pasteFailed': '클립보드를 읽을 수 없습니다. 붙여넣기 단축키를 사용하세요.',
+  'terminalView.toast.pasteFailedTouch': '클립보드를 읽을 수 없습니다.',
   'terminalView.actions.restart': '터미널 다시 시작',
   'chat.message.terminalContext': '{terminal}, {start}-{end}행',
   'chat.message.context.codeComment': '{file} {start}-{end}행에 대한 댓글',

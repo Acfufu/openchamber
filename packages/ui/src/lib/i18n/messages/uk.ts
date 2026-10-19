@@ -176,6 +176,7 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.actions.copy': 'Копіювати',
   'terminalView.actions.paste': 'Вставити',
   'terminalView.toast.pasteFailed': 'Не вдалося прочитати буфер обміну. Скористайтеся комбінацією клавіш для вставлення.',
+  'terminalView.toast.pasteFailedTouch': 'Не вдалося прочитати буфер обміну.',
   'terminalView.actions.restart': 'Перезапустити термінал',
   'chat.message.terminalContext': '{terminal}, рядки {start}-{end}',
   'chat.message.context.codeComment': 'Коментар до {file}, рядки {start}-{end}',

@@ -166,6 +166,7 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.actions.copy': 'Kopiuj',
   'terminalView.actions.paste': 'Wklej',
   'terminalView.toast.pasteFailed': 'Nie udało się odczytać schowka. Użyj skrótu klawiaturowego do wklejania.',
+  'terminalView.toast.pasteFailedTouch': 'Nie udało się odczytać schowka.',
   'terminalView.actions.restart': 'Uruchom terminal ponownie',
   'chat.message.terminalContext': '{terminal}, wiersze {start}-{end}',
   'chat.message.context.codeComment': 'Komentarz do {file}, wiersze {start}-{end}',

@@ -137,6 +137,7 @@ export const dict = {
   'terminalView.actions.copy': 'העתק',
   'terminalView.actions.paste': 'הדבק',
   'terminalView.toast.pasteFailed': 'לא ניתן היה לקרוא את הלוח. יש להשתמש בקיצור המקשים להדבקה.',
+  'terminalView.toast.pasteFailedTouch': 'לא ניתן היה לקרוא את הלוח.',
   'terminalView.actions.restart': 'הפעל מחדש את המסוף',
   'chat.message.terminalContext': '{terminal}, שורות {start}-{end}',
   'chat.message.context.codeComment': 'הערה על {file}, שורות {start}-{end}',

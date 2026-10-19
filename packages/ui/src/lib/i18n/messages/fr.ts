@@ -165,6 +165,7 @@ export const dict = {
   'terminalView.actions.copy': 'Copier',
   'terminalView.actions.paste': 'Coller',
   'terminalView.toast.pasteFailed': 'Impossible de lire le presse-papiers. Utilisez le raccourci clavier pour coller.',
+  'terminalView.toast.pasteFailedTouch': 'Impossible de lire le presse-papiers.',
   'terminalView.actions.restart': 'Redémarrer le terminal',
   'chat.message.terminalContext': '{terminal}, lignes {start}-{end}',
   'chat.message.context.codeComment': 'Commentaire sur {file}, lignes {start}-{end}',

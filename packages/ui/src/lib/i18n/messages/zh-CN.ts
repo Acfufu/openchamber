@@ -166,6 +166,7 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.actions.copy': '复制',
   'terminalView.actions.paste': '粘贴',
   'terminalView.toast.pasteFailed': '无法读取剪贴板。请使用粘贴快捷键。',
+  'terminalView.toast.pasteFailedTouch': '无法读取剪贴板。',
   'terminalView.actions.restart': '重启终端',
   'chat.message.terminalContext': '{terminal}，第 {start}-{end} 行',
   'chat.message.context.codeComment': '对 {file} 第 {start}-{end} 行的评论',

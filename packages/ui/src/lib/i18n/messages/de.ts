@@ -3216,6 +3216,7 @@ export const dict = {
   'terminalView.actions.copy': 'Kopieren',
   'terminalView.actions.paste': 'Einfügen',
   'terminalView.toast.pasteFailed': 'Die Zwischenablage konnte nicht gelesen werden. Verwende die Tastenkombination zum Einfügen.',
+  'terminalView.toast.pasteFailedTouch': 'Die Zwischenablage konnte nicht gelesen werden.',
   'terminalView.actions.restart': 'Terminal neu starten',
   'chat.message.terminalContext': '{terminal}, Zeilen {start}-{end}',
   'chat.message.context.codeComment': 'Kommentar zu {file}, Zeilen {start}-{end}',

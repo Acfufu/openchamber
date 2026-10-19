@@ -165,6 +165,7 @@ export const dict = {
   'terminalView.actions.copy': 'Copy',
   'terminalView.actions.paste': 'Paste',
   'terminalView.toast.pasteFailed': 'Could not read the clipboard. Use the paste keyboard shortcut.',
+  'terminalView.toast.pasteFailedTouch': 'Could not read the clipboard.',
   'terminalView.actions.restart': 'Restart terminal',
   'chat.message.terminalContext': '{terminal}, lines {start}-{end}',
   'chat.message.context.codeComment': 'Comment on {file}, lines {start}-{end}',

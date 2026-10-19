@@ -176,6 +176,7 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.actions.copy': 'Copiar',
   'terminalView.actions.paste': 'Colar',
   'terminalView.toast.pasteFailed': 'Não foi possível ler a área de transferência. Use o atalho de teclado para colar.',
+  'terminalView.toast.pasteFailedTouch': 'Não foi possível ler a área de transferência.',
   'terminalView.actions.restart': 'Reiniciar terminal',
   'chat.message.terminalContext': '{terminal}, linhas {start}-{end}',
   'chat.message.context.codeComment': 'Comentário em {file}, linhas {start}-{end}',
