@@ -48,7 +48,10 @@ the user can want independently:
   most (no page background, no outer card, theme variables). How to write the
   page is the `html` input's description: layout, boxes, the theme variables
   the chat injects (`packages/ui/src/components/chat/message/parts/htmlRender.ts`;
-  change both together), image files by path from anywhere on the machine as
+  change both together), how a page with its own colors, such as a project
+  mockup, keeps clear of them (a color on all its text and a background of its
+  own, since the injected base stylesheet colors unset text and the frame is
+  transparent), image files by path from anywhere on the machine as
   the image grant route allows, and the temporary directory to save a
   screenshot in (`os.tmpdir()/opencode`) so it stays out of the project. How
   to ask on a page is the `awaitAnswer` input's description.
