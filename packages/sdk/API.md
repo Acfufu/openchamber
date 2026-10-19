@@ -142,7 +142,7 @@ Access tokens never appear in `ready` or in request results.
 | ----------------- | --------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------- |
 | `toast` | `{ kind: 'info' \| 'success' \| 'error', message, copy?, dismiss?, persistent? }` | `Promise<void>` | Show a toast, optionally with host-owned Copy and OK buttons; see Toast buttons below |
 | `openUrl`         | `url: string`                     | `Promise<void>`                | Open URL in the host                                                                  |
-| `openSurface`     | `surfaceId: string`               | `Promise<void>`                | Switch host chrome to that surface                                                    |
+| `openSurface`     | `surfaceId: string`               | `Promise<void>`                | Show that surface; resolves once it is on screen, rejects `NO_DIRECTORY` or `UNSUPPORTED` when it cannot open |
 | `writeClipboard`  | `text: string`                    | `Promise<void>`                | Copy in the host (1–32000 chars)                                                      |
 | `compose`         | `{ text, mode?: 'append'          | 'replace' }`                   | `Promise<void>`                                                                       |
 | `attach`          | `AttachIssueRequest`              | `Promise<void>`                | Composer chip, alongside other attached items                                         |

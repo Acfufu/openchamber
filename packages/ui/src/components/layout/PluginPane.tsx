@@ -48,6 +48,7 @@ import { guestGenerate } from '@/lib/guests/generate';
 import { guestGenerateResults, lateGenerateResult, type GenerateOwner } from '@/lib/guests/generate-results';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { openGuestCommit, readCurrentBranch } from '@/lib/guests/open-commit';
+import { openGuestSurface } from '@/lib/guests/open-surface';
 import { getRegisteredRuntimeAPIs } from '@/contexts/runtimeAPIRegistry';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { isMobileSurfaceRuntime } from '@/lib/runtimeSurface';
@@ -81,7 +82,6 @@ import { openExternalUrl } from '@/lib/url';
 import { cn } from '@/lib/utils';
 import { closeGuestTabsEverywhere } from '@/lib/guests/tabs';
 import { pluginIdFromMode, type PluginContextPanelMode } from '@/lib/surfaces/modes';
-import { useUIStore } from '@/stores/useUIStore';
 import { useInputStore } from '@/sync/input-store';
 import { useBackgroundShellsStore } from '@/sync/background-shells';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
@@ -325,6 +325,8 @@ export const PluginPane: React.FC<PluginPaneProps> = ({
   readyRef.current = ready;
   const directoryRef = React.useRef(directory);
   directoryRef.current = directory;
+  const effectiveDirectoryRef = React.useRef(effectiveDirectory);
+  effectiveDirectoryRef.current = effectiveDirectory;
   const sessionIdRef = React.useRef(currentSessionId);
   sessionIdRef.current = currentSessionId;
   const sessionBusyRef = React.useRef(sessionBusy);
@@ -667,10 +669,13 @@ export const PluginPane: React.FC<PluginPaneProps> = ({
           showGuestToast(request);
         },
         openUrl: openExternalUrl,
-        openSurface: (surfaceMode) => {
-          const dir = directoryRef.current || '';
-          if (dir) useUIStore.getState().openContextSurface(dir, surfaceMode);
-        },
+        openSurface: (surfaceMode) => openGuestSurface({
+          mode: surfaceMode,
+          // A status section in a chat draft without a project has no
+          // directory of its own; the rail opens its panels under the chat's.
+          directory: directoryRef.current || effectiveDirectoryRef.current || null,
+          supported: !isVSCodeRuntime() && !isMobileSurfaceRuntime(),
+        }),
         writeClipboard: async (text) => {
           const result = await copyTextToClipboard(text);
           return result.ok;

@@ -154,6 +154,11 @@ export type HostClient = {
    * Diff view `UNSUPPORTED`.
    */
   openCommit: (sha: string) => Promise<void>;
+  /**
+   * Show a context panel surface (`git`, or `plugin:<panel id>`). Resolves once
+   * it is on screen; one already open stays open. No chat or project yet is
+   * `NO_DIRECTORY`, a surface that cannot open here `UNSUPPORTED`.
+   */
   openSurface: (surfaceId: string) => Promise<void>;
   writeClipboard: (text: string) => Promise<void>;
   compose: (request: ComposeRequest) => Promise<void>;
