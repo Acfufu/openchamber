@@ -220,7 +220,7 @@ every surface reached only through those is unreachable.
 |---|---|---|
 | Chat timeline | MOUNTED | `VSCodeLayout` → `ChatView` → `ChatContainer` → `MessageList` |
 | Composer | MOUNTED | `ChatContainer` → `ChatInput` (model/agent controls, autocomplete, attachments, dictation, GitHub issue/PR pickers, `ReviewFlowDialog`, `PendingChangesBar`) |
-| Work status panel | MOUNTED | `ChatContainer` → `WorkStatusPanel` |
+| Work status panel | NOT MOUNTED | `ChatContainer` skips `WorkStatusPanel` when `isVSCodeRuntime()` (`workStatusPanelMountable`) |
 | Permission / form cards | MOUNTED | `ChatContainer` → `PermissionCard`, `FormCard` |
 | Timeline dialog | MOUNTED | `ChatContainer` → `TimelineDialog` |
 | Tool output / inline diff preview | MOUNTED | `MessageList` → `ToolPart`, `ToolOutputDialog` (`DiffViewToggle`, not `DiffView`) |
