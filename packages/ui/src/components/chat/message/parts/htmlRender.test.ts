@@ -72,6 +72,13 @@ describe('buildHtmlRenderDocument', () => {
         expect(document).toContain('--oc-quote-mark');
     });
 
+    test('lets the host run the annotation overlay in the page, answering only the parent', () => {
+        const document = buildHtmlRenderDocument('<p>a</p>', theme);
+        expect(document).toContain('"openchamber-preview-bridge"');
+        expect(document).toContain('e.source!==window.parent');
+        expect(document).toContain('(0,eval)(d.code)');
+    });
+
     test('writes only well-formed variables and strips characters that would close the rule', () => {
         const document = buildHtmlRenderDocument('<p>a</p>', theme);
         expect(document).toContain(':root{color-scheme:dark;--background:#111;--foreground:#eee;--evil:red/stylescript;}');

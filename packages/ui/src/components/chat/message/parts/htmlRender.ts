@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { FrameScrollDirection } from '@/components/chat/lib/scroll/timelineScrollIntent';
+import { PREVIEW_BRIDGE_CHANNEL } from '@/lib/browser/previewFrameHost';
 import type { ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import type { JsonValue } from '@/lib/opencode/model';
 import { getReadableThemeColors } from '@/lib/theme/readableColors';
@@ -320,6 +321,18 @@ function themeCss(theme: HtmlRenderTheme): string {
     return `:root{color-scheme:${theme.appearance};${declarations}}${BASE_CSS}`;
 }
 
+// Lets the host annotate the page the way the Files view annotates an HTML
+// preview: the host posts the annotation overlay's code, the page evaluates it
+// and posts the settled value back (lib/browser/previewFrameHost.ts is the
+// host's half; packages/web/server/lib/fs/preview-bridge.js is the same
+// listener for previews, change both together). Only the parent's messages
+// are read, and the code runs with what the page's own scripts already have.
+const ANNOTATION_BRIDGE = `(function(C){window.addEventListener("message",function(e){var d=e.data,t,r,m=function(x){return String(x&&x.message||x);};`
+    + 'if(e.source!==window.parent||!d||d.channel!==C||d.type!=="eval"||typeof d.id!=="string"||typeof d.code!=="string")return;'
+    + 'r=function(k,v){try{window.parent.postMessage({channel:C,type:"result",id:d.id,ok:k,value:v},"*");}catch(x){window.parent.postMessage({channel:C,type:"result",id:d.id,ok:false,value:m(x)},"*");}};'
+    + 'try{t=(0,eval)(d.code);}catch(x){r(false,m(x));return;}'
+    + `Promise.resolve(t).then(function(v){r(true,v===undefined?null:v);},function(x){r(false,m(x));});});})(${JSON.stringify(PREVIEW_BRIDGE_CHANNEL)});`;
+
 // Runs in the page's head, before its own styles and scripts. It rewrites its
 // own <style> element rather than setting inline properties, so the page's
 // own :root rules still win. The height it reports is the document's content
@@ -404,6 +417,7 @@ const BOOTSTRAP_SCRIPT = `(function(){var s=document.getElementById("oc-html-ren
     + `window.addEventListener("message",function(e){var d=e.data;if(e.source!==window.parent||!d||d.type!==${JSON.stringify(THEME_MESSAGE)}||!d.variables||typeof d.variables!=="object")return;var c=":root{color-scheme:"+(d.appearance==="light"?"light":"dark")+";";for(var k in d.variables){if(/^--[a-z0-9-]+$/.test(k))c+=k+":"+String(d.variables[k]).replace(/[;{}<>]/g,"")+";";}s.textContent=c+"}"+B;});`
     + `window.addEventListener("message",function(e){var d=e.data;if(e.source!==window.parent||!d||d.type!==${JSON.stringify(POINTER_MESSAGE)})return;if(d.over===true)document.documentElement.setAttribute("data-oc-pointer","");else document.documentElement.removeAttribute("data-oc-pointer");});`
     + `document.addEventListener("click",function(e){var t=e.target,a=t&&t.closest?t.closest("a[href]"):null,u;if(!a)return;try{u=new URL(a.getAttribute("href"),document.baseURI);}catch(x){return;}if(!/^https?:$/.test(u.protocol))return;e.preventDefault();window.parent.postMessage({type:${JSON.stringify(OPEN_LINK_MESSAGE)},url:u.href},"*");},true);`
+    + ANNOTATION_BRIDGE
     + `var h,G=0,z=function(){var r=document.documentElement,d=document.body,v=r.scrollHeight>r.clientHeight?r.scrollHeight:r.getBoundingClientRect().height,i,b;`
     + `if(d&&!/^(?:hidden|clip|scroll|auto)$/.test(getComputedStyle(d).overflowY)){b=d.getBoundingClientRect();b=b.top+window.scrollY+(d.clientTop+d.scrollHeight)*(d.offsetHeight?b.height/d.offsetHeight:1);if(b>v)v=b;}if(N){N=0;W();}`
     + `for(i=0;i<P.length;i++){b=P[i].getBoundingClientRect();if(getComputedStyle(P[i]).position==="absolute"&&(b.width||b.height)&&b.bottom+window.scrollY>v)v=b.bottom+window.scrollY;}i=window.innerHeight-r.clientHeight;v=Math.ceil(v);if(i&&!(i===G&&v===window.innerHeight))v+=i;G=i;r.style.overflowY=v>window.innerHeight+1?"auto":"hidden";if(v===h)return;h=v;window.parent.postMessage({type:${JSON.stringify(SIZE_MESSAGE)},height:v},"*");};window.addEventListener("resize",z);`

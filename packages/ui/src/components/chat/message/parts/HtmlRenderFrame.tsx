@@ -2,11 +2,15 @@ import React from 'react';
 
 import { isCapacitorMobileApp } from '@/apps/mobileNativeChrome';
 import { Icon } from '@/components/icon/Icon';
+import type { IconName } from '@/components/icon/icons';
 import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
+import { useFrameAnnotation } from '@/components/browser/useFrameAnnotation';
 import { useWaitingBlink } from '@/hooks/useDurationTicker';
+import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import type { BrowserAnnotationPayload } from '@/lib/browser/contract';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -118,6 +122,8 @@ interface HtmlRenderDocumentProps {
     /** Delivers what the page sent with `openchamber.submit`; rejects with the reason it was not delivered. */
     onSubmit?: (submission: HtmlRenderSubmission) => Promise<void>;
     onContentHeight?: (height: number) => void;
+    /** Receives the frame, for a caller that drives the page from outside (annotation). */
+    frameRef?: React.RefObject<HTMLIFrameElement | null>;
 }
 
 /**
@@ -127,7 +133,7 @@ interface HtmlRenderDocumentProps {
  * state its script holds survives. The page's selections, quote marks and
  * reveals pass through here to the chat (see pageQuoteBridge.ts).
  */
-function HtmlRenderDocument({ partId, html, title, className, style, contained = false, answerState = NO_ANSWER, onSubmit, onContentHeight }: HtmlRenderDocumentProps) {
+function HtmlRenderDocument({ partId, html, title, className, style, contained = false, answerState = NO_ANSWER, onSubmit, onContentHeight, frameRef: outerFrameRef }: HtmlRenderDocumentProps) {
     const theme = useHtmlRenderTheme();
     const [initialTheme] = React.useState(theme);
     const [initialAnswerState] = React.useState(answerState);
@@ -136,6 +142,10 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
         [contained, html, initialAnswerState, initialTheme],
     );
     const frameRef = React.useRef<HTMLIFrameElement>(null);
+    const setFrame = React.useCallback((node: HTMLIFrameElement | null) => {
+        frameRef.current = node;
+        if (outerFrameRef) outerFrameRef.current = node;
+    }, [outerFrameRef]);
     const handleRef = React.useRef<PageFrameHandle | null>(null);
     // A reveal that arrives before the page has loaded waits for it.
     const loadedRef = React.useRef(false);
@@ -263,7 +273,7 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
 
     return (
         <iframe
-            ref={frameRef}
+            ref={setFrame}
             title={title}
             srcDoc={srcDoc}
             sandbox="allow-scripts allow-forms"
@@ -363,10 +373,38 @@ interface HtmlRenderFrameProps {
     ask: RenderedPageAsk;
 }
 
+/** A small quiet icon button in the row above a page, like the Files preview toolbar's. */
+function PageToolButton({ label, icon, pressed, onClick }: {
+    label: string;
+    icon: IconName;
+    /** Set for a toggle: it carries the selection fill while on. */
+    pressed?: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <Button
+            variant="ghost"
+            size="sm"
+            aria-label={label}
+            title={label}
+            aria-pressed={pressed}
+            onClick={onClick}
+            className={cn(
+                'size-6 p-0',
+                pressed
+                    ? 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)] hover:bg-[var(--interactive-selection)]'
+                    : 'text-muted-foreground hover:text-foreground',
+            )}
+        >
+            <Icon name={icon} className="size-4" />
+        </Button>
+    );
+}
+
 /**
  * A page an agent showed with `openchamber_render`, inline in the reply. The
  * frame takes the height the page reports, so the page scrolls with the chat;
- * full screen and download sit in the corner.
+ * annotation, full screen and download sit in a row above it.
  */
 // Its own component: the blink re-renders this dot once a second, not the page around it.
 function WaitingDot() {
@@ -385,6 +423,24 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
     const pageHtml = loadedHtml ?? html;
     const [height, setHeight] = React.useState(() => rememberedHeights.get(partId) ?? HTML_RENDER_MIN_HEIGHT);
     const [fullscreen, setFullscreen] = React.useState(false);
+
+    // The browser panel's annotation, on the page in its message: the agent
+    // learns which element or area the user means, with a screenshot on the
+    // desktop. Like the panel, a pointer tool: phones and VS Code do not get it.
+    const frameRef = React.useRef<HTMLIFrameElement>(null);
+    const directory = useEffectiveDirectory() ?? '';
+    const describePage = React.useCallback((payload: BrowserAnnotationPayload): BrowserAnnotationPayload => (
+        // The frame's own address is about:srcdoc; the page's title is what names it in the chat.
+        { ...payload, pageUrl: '', pageTitle: title }
+    ), [title]);
+    const annotation = useFrameAnnotation({
+        frameRef,
+        directory,
+        pageKey: partId,
+        intro: t('chat.htmlRender.annotate.intro'),
+        describePage,
+    });
+    const canAnnotate = !isVSCodeRuntime() && loadedHtml !== null;
 
     const handleContentHeight = React.useCallback((contentHeight: number) => {
         const next = clampHtmlRenderHeight(contentHeight);
@@ -449,8 +505,31 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
     const waiting = ask.kind === 'waiting' && answeredSummary === undefined;
 
     return (
-        <div className="my-2">
-        <PageSelectionScope messageId={messageId} partId={partId} className="group/html-render relative" style={{ height }}>
+        <div className="group/html-render my-2">
+        {isMobile ? null : (
+            // A row of its own above the page: over the page the buttons
+            // covered its own controls in the top corner. The row keeps its
+            // height while the buttons fade in, so hovering moves nothing.
+            <div className={cn(
+                'flex h-6 items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/html-render:opacity-100 pointer-coarse:opacity-100',
+                // The way out of annotation stays in view while it runs.
+                annotation.isAnnotating && 'opacity-100',
+            )}>
+                {canAnnotate ? (
+                    <PageToolButton
+                        label={t('contextPanel.browser.annotate.toggle')}
+                        icon="markup"
+                        pressed={annotation.isAnnotating}
+                        onClick={annotation.toggle}
+                    />
+                ) : null}
+                <PageToolButton label={t('chat.htmlRender.fullscreen')} icon="fullscreen" onClick={() => setFullscreen(true)} />
+                {canDownload ? (
+                    <PageToolButton label={t('chat.htmlRender.download')} icon="download" onClick={() => { void handleDownload(); }} />
+                ) : null}
+            </div>
+        )}
+        <PageSelectionScope messageId={messageId} partId={partId} className="relative" style={{ height }}>
             {loadedHtml === null ? null : (
                 <HtmlRenderDocument
                     partId={partId}
@@ -460,32 +539,11 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
                     answerState={answerState}
                     onSubmit={handleSubmit}
                     onContentHeight={handleContentHeight}
+                    frameRef={frameRef}
                 />
             )}
             {isMobile ? null : (
                 <>
-                    <div className="absolute end-1 top-1 flex gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/html-render:opacity-100 pointer-coarse:opacity-100">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label={t('chat.htmlRender.fullscreen')}
-                            title={t('chat.htmlRender.fullscreen')}
-                            onClick={() => setFullscreen(true)}
-                        >
-                            <Icon name="fullscreen" />
-                        </Button>
-                        {canDownload ? (
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                aria-label={t('chat.htmlRender.download')}
-                                title={t('chat.htmlRender.download')}
-                                onClick={() => { void handleDownload(); }}
-                            >
-                                <Icon name="download" />
-                            </Button>
-                        ) : null}
-                    </div>
                     <Dialog open={fullscreen} onOpenChange={setFullscreen}>
                         <DialogContent className="max-w-[min(72rem,100%)] gap-0 overflow-hidden bg-background p-0">
                             <DialogTitle className="truncate px-5 py-4 pe-12">{title}</DialogTitle>
