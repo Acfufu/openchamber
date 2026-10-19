@@ -181,7 +181,20 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
         frameRef.current?.contentWindow?.postMessage(htmlRenderPointerMessage(over), '*');
     }, []);
 
+    // A page flashed white for a moment each time the timeline mounted it
+    // again while scrolling: what a new frame paints before the page's own
+    // document (an empty document, a frame process without its first frame)
+    // is not the page, and under the app's dark theme it came out white. The
+    // frame stays hidden until the page has drawn itself: its first size
+    // report (sent once it is laid out, before slow images finish) or its
+    // load, whichever comes first. Its space is already held at the page's
+    // remembered height. A later load swaps documents without an empty one
+    // in between, so the frame stays shown. Hidden by opacity: Chromium may
+    // throttle the rendering of a cross-origin frame under visibility:hidden,
+    // and the size report would then wait for the load.
+    const [shown, setShown] = React.useState(false);
     const handleLoad = React.useCallback(() => {
+        setShown(true);
         loadedRef.current = true;
         postState();
         postMarks();
@@ -224,7 +237,10 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
             const frame = frameRef.current;
             if (!frame || event.source !== frame.contentWindow) return;
             const message = readHtmlRenderFrameMessage(event);
-            if (message?.kind === 'size') onContentHeight?.(message.height);
+            if (message?.kind === 'size') {
+                setShown(true);
+                onContentHeight?.(message.height);
+            }
             if (message?.kind === 'open-link') void openExternalUrl(message.url);
             if (message?.kind === 'key') replayKeyChord(frame, message.chord);
             if (message?.kind === 'scroll') dispatchFrameScroll(frame, message.direction);
@@ -283,7 +299,7 @@ function HtmlRenderDocument({ partId, html, title, className, style, contained =
             className={className}
             // A frame whose color scheme differs from the page's own paints an
             // opaque canvas; matching it keeps the page on the chat background.
-            style={{ ...style, colorScheme: theme.appearance }}
+            style={{ ...style, colorScheme: theme.appearance, opacity: shown ? undefined : 0 }}
         />
     );
 }
