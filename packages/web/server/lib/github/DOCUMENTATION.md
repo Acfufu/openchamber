@@ -235,7 +235,7 @@ that page, so callers cannot mistake a partial page for a complete one.
 - Aggregation is by bound repository authority plus directory and branch, so account or binding changes cannot reuse old status.
 - If multiple entries exist, sidebar keeps the strongest visible PR state.
 - Visual state is based on PR health, not merge permissions.
-- Orange (`blocked`) means not good yet: failed checks or conflicts (`mergeable: false`, `dirty`) to fix, or checks still running to wait for. The status line names which, in that order: "Merge conflicts", "Checks failing", "Checks running". A `blocked` merge state alone, which usually means a required review is missing, keeps the open colour and never reads "Ready to merge". Sidebar, Git view and Git header apply the same rule.
+- Orange (`blocked`) means something to fix: failed checks or conflicts (`mergeable: false`, `dirty`). The status line names which, in that order: "Merge conflicts", "Checks failing". Checks still running keep the open colour, without any extra mark: a second "waiting" signal only raised the question of what is waiting. Their status line reads "Checks running", never "Ready to merge". A `blocked` merge state alone, which usually means a required review is missing, also keeps the open colour and never reads "Ready to merge". Sidebar, Git view and Git header apply the same rule.
 
 ## Git view behavior
 
