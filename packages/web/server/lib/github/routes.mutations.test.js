@@ -693,6 +693,45 @@ describe('canonical GitHub mutations', () => {
     if (status === 200) expect(response.body.target.number).toBe(7);
   });
 
+  it('finishes the stacking an interrupted create left undone, and never stacks a PR twice', async () => {
+    const account = await auth.setGitHubAuth({ accessToken: 'token-one', user: { id: 1, login: 'actor' } });
+    const target = {
+      repositoryId: 'repo-one', bindingRevision: 3, primaryRemote: 'origin',
+      project: { id: 'acme/app', owner: 'acme', name: 'app' }, head: 'feature', base: 'lower',
+    };
+    const actor = { provider: 'github', instance: 'github.com', accountId: account.accountId };
+    const input = { kind: 'create', actor, credential: credentialFor(account), target, title: 'Title', headRemote: 'origin' };
+    const running = (key) => ({ key, inputDigest: digestMutationInput(input), kind: 'change-request-create', actor, target, state: 'running' });
+    const base = pullRequest().base;
+    const created = pullRequest({ number: 8, base: { ...base, ref: 'lower', repo: { ...base.repo, default_branch: 'main' } } });
+    let alreadyStacked = true;
+    const writes = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, options) => {
+      const { pathname, searchParams } = new URL(url);
+      if (pathname === '/repos/acme/app/stacks' && options.method === 'GET') return jsonResponse(alreadyStacked ? [{ number: 3 }] : []);
+      if (pathname.startsWith('/repos/acme/app/stacks')) {
+        writes.push({ path: pathname, body: JSON.parse(options.body) });
+        return jsonResponse({ number: 4 }, 201);
+      }
+      if (searchParams.get('head') === 'acme:lower') return jsonResponse([pullRequest({ number: 6, head: { ...pullRequest().head, ref: 'lower' } })]);
+      return jsonResponse([created]);
+    }));
+    const replay = async (key) => {
+      const { app } = makeApp({ store: makeStore([running(key)]) });
+      return (await request(app).post('/api/source-control/github/pr/create')
+        .send({ ...context(account.accountId, { idempotencyKey: key, target }), title: 'Title' }).expect(200)).body;
+    };
+
+    // GitHub already keeps it in a stack: said so, nothing written.
+    expect(await replay('one')).toMatchObject({ target: { number: 8 }, result: { stacked: true } });
+    expect(writes).toEqual([]);
+
+    // Not stacked yet: it joins the open PR its base belongs to.
+    alreadyStacked = false;
+    expect((await replay('two')).result).toEqual({ stacked: true });
+    expect(writes).toEqual([{ path: '/repos/acme/app/stacks', body: { pull_requests: [6, 8] } }]);
+  });
+
   describe('comments and reviews', () => {
     const pullTarget = { project: { owner: 'acme', name: 'app' }, number: 7 };
     const recordRequests = (respond) => {

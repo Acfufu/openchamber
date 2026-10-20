@@ -556,7 +556,15 @@ export function registerGitHubRoutes(app, options = {}) {
       .filter((pr) => sameProject(pullTargetProject(pr), expectedProject))
       .filter((pr) => pr.head.repo
         && sameProject({ owner: pr.head.repo.owner.login, name: pr.head.repo.name }, sourceProject));
-    return candidates.length === 1 ? { state: 'succeeded', result: { number: candidates[0].number } } : { state: 'outcome-unknown' };
+    if (candidates.length !== 1) return { state: 'outcome-unknown' };
+    const found = candidates[0];
+    // The create may have ended before its PR joined the stack below it (the
+    // connection dropped, the server stopped): finish that here, so the
+    // receipt says where the PR stands as the uninterrupted create would.
+    const stacked = sameProject(sourceProject, expectedProject)
+      ? await settleStack(octokit, expectedProject, found.number, base, found.base?.repo?.default_branch)
+      : undefined;
+    return { state: 'succeeded', result: stacked === undefined ? { number: found.number } : { number: found.number, stacked } };
   };
   // A create's claim target has no number yet; the receipt names the created
   // pull request from the recorded result so clients can link to it.
@@ -737,6 +745,22 @@ export function registerGitHubRoutes(app, options = {}) {
     } catch {
       return false;
     }
+  };
+  /**
+   * Where a PR found after an interrupted create stands: true when GitHub
+   * already keeps it in a stack, else as `stackOnParent` would leave it.
+   * Undefined when GitHub cannot say, so the receipt claims nothing.
+   */
+  const settleStack = async (octokit, project, number, base, defaultBranch) => {
+    let listed;
+    try {
+      listed = await octokit.request('GET /repos/{owner}/{repo}/stacks', { owner: project.owner, repo: project.name, pull_request: number });
+    } catch {
+      return undefined;
+    }
+    if (!Array.isArray(listed?.data)) return undefined;
+    if (listed.data.some((stack) => isPlainObject(stack) && Number.isSafeInteger(stack.number))) return true;
+    return stackOnParent(octokit, project, number, base, defaultBranch);
   };
   const postComment = async (octokit, project, number, body) => {
     let response;
