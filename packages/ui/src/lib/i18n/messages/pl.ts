@@ -1552,6 +1552,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.resetToDefault': 'Przywróć domyślne',
   'chat.modelControls.searchAgents': 'Szukaj agentów',
   'chat.modelControls.searchModels': 'Szukaj modeli...',
+  'chat.modelControls.modelListAria': 'Modele',
   'chat.modelControls.searchProvidersOrModels': 'Szukaj dostawców lub modeli',
   'chat.modelControls.selectAgent': 'Wybierz agenta',
   'chat.modelControls.selectModel': 'Wybierz model',

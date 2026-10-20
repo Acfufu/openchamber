@@ -2785,6 +2785,7 @@ export const dict = {
   'chat.modelControls.noAgentSelected': 'No agent selected.',
   'chat.modelControls.resetToDefault': 'Reset to default',
   'chat.modelControls.searchModels': 'Search models',
+  'chat.modelControls.modelListAria': 'Models',
   'chat.modelControls.searchAgents': 'Search agents',
   'chat.modelControls.noModelsFound': 'No models found',
   'chat.modelControls.favorites': 'Favorites',

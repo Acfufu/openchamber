@@ -2785,6 +2785,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.noAgentSelected': '선택된 에이전트가 없습니다',
   'chat.modelControls.resetToDefault': '기본값으로 초기화',
   'chat.modelControls.searchModels': '모델 검색',
+  'chat.modelControls.modelListAria': '모델',
   'chat.modelControls.searchAgents': '검색 에이전트',
   'chat.modelControls.noModelsFound': '모델 없음',
   'chat.modelControls.favorites': '즐겨찾기',

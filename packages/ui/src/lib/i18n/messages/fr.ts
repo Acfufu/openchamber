@@ -2462,6 +2462,7 @@ export const dict = {
   'chat.modelControls.noAgentSelected': 'Aucun agent sélectionné.',
   'chat.modelControls.resetToDefault': 'Réinitialiser aux valeurs par défaut',
   'chat.modelControls.searchModels': 'Rechercher des modèles',
+  'chat.modelControls.modelListAria': 'Modèles',
   'chat.modelControls.searchAgents': 'Rechercher des agents',
   'chat.modelControls.noModelsFound': 'Aucun modèle trouvé',
   'chat.modelControls.favorites': 'Favoris',

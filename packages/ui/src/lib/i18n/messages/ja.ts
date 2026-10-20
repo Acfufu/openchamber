@@ -2784,6 +2784,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.noAgentSelected': 'エージェントが選択されていません。',
   'chat.modelControls.resetToDefault': 'デフォルトにリセット',
   'chat.modelControls.searchModels': 'モデルを検索',
+  'chat.modelControls.modelListAria': 'モデル',
   'chat.modelControls.searchAgents': 'エージェントを検索',
   'chat.modelControls.noModelsFound': 'モデルが見つかりません',
   'chat.modelControls.favorites': 'お気に入り',

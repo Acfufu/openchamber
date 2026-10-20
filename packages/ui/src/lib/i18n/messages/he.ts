@@ -2730,6 +2730,7 @@ export const dict = {
   'chat.modelControls.noAgentSelected': 'לא נבחר סוכן.',
   'chat.modelControls.resetToDefault': 'אפס לברירת המחדל',
   'chat.modelControls.searchModels': 'חיפוש מודלים',
+  'chat.modelControls.modelListAria': 'מודלים',
   'chat.modelControls.searchAgents': 'חיפוש סוכנים',
   'chat.modelControls.noModelsFound': 'לא נמצאו מודלים',
   'chat.modelControls.favorites': 'מועדפים',

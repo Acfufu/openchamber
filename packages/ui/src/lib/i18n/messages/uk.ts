@@ -2739,6 +2739,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.modelControls.noAgentSelected": "Агент не вибрано.",
   "chat.modelControls.resetToDefault": "Скинути до замовчування",
   "chat.modelControls.searchModels": "Пошук моделей",
+  "chat.modelControls.modelListAria": "Моделі",
   "chat.modelControls.searchAgents": "Пошук агентів",
   "chat.modelControls.noModelsFound": "Моделі не знайдено",
   "chat.modelControls.favorites": "Вибране",

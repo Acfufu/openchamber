@@ -2613,6 +2613,7 @@ export const dict = {
   'chat.modelControls.noAgentSelected': 'Agent seçilmedi.',
   'chat.modelControls.resetToDefault': 'Varsayılana sıfırla',
   'chat.modelControls.searchModels': 'Modelleri ara',
+  'chat.modelControls.modelListAria': 'Modeller',
   'chat.modelControls.searchAgents': 'Agent\'leri ara',
   'chat.modelControls.noModelsFound': 'Model bulunamadı',
   'chat.modelControls.favorites': 'Favoriler',

@@ -2739,6 +2739,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.modelControls.noAgentSelected": "Nenhum agente selecionado.",
   "chat.modelControls.resetToDefault": "Reiniciar ao valor padrão",
   "chat.modelControls.searchModels": "Pesquisar modelos",
+  "chat.modelControls.modelListAria": "Modelos",
   "chat.modelControls.searchAgents": "Pesquisar agentes",
   "chat.modelControls.noModelsFound": "Nenhum modelo encontrado",
   "chat.modelControls.favorites": "Favoritos",

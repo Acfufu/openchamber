@@ -2751,6 +2751,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.noAgentSelected': '未选择智能体。',
   'chat.modelControls.resetToDefault': '重置为默认',
   'chat.modelControls.searchModels': '搜索模型',
+  'chat.modelControls.modelListAria': '模型',
   'chat.modelControls.searchAgents': '搜索智能体',
   'chat.modelControls.noModelsFound': '未找到模型',
   'chat.modelControls.favorites': '收藏',

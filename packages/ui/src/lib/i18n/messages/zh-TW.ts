@@ -2760,6 +2760,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.noAgentSelected': '未選擇 Agent。',
   'chat.modelControls.resetToDefault': '重設為預設',
   'chat.modelControls.searchModels': '搜尋模型',
+  'chat.modelControls.modelListAria': '模型',
   'chat.modelControls.searchAgents': '搜尋 Agent',
   'chat.modelControls.noModelsFound': '找不到模型',
   'chat.modelControls.favorites': '我的最愛',
