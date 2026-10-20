@@ -1667,6 +1667,8 @@ export type GitHubPullRequestLiveSummary = GitHubPullRequestRef & {
   mergeable: boolean | null;
   mergeableState: string | null;
   /** Null for closed/merged PRs, whose checks are not actionable. */
+  /** The branch it targets, so a PR retargeted on the host is followed too. */
+  base?: string;
   checks: GitHubChecksSummary | null;
 };
 

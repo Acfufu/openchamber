@@ -139,6 +139,7 @@ function liveMergeRequestSummary(ref, raw) {
     checks,
   };
   if (text(raw.sha)) summary.headSha = raw.sha;
+  if (text(raw.target_branch)) summary.base = raw.target_branch;
   return summary;
 }
 

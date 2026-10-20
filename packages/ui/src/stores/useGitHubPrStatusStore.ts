@@ -828,6 +828,7 @@ const applyLiveSummary = (
     && (pr.mergeable ?? null) === summary.mergeable
     && (pr.mergeableState ?? null) === summary.mergeableState
     && (!summary.headSha || pr.headSha === summary.headSha)
+    && (!summary.base || pr.base === summary.base)
     && sameChecks(getStatusChecks(status), summary.checks);
   if (unchanged) {
     return null;
@@ -837,6 +838,7 @@ const applyLiveSummary = (
     draft: summary.draft,
     title: summary.title,
     headSha: summary.headSha ?? pr.headSha,
+    base: summary.base ?? pr.base,
     mergeable: summary.mergeable,
     mergeableState: summary.mergeableState,
   };
