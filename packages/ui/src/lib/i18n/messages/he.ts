@@ -16,6 +16,7 @@ import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
 import { sourceBoardI18n } from './source-board.i18n';
+import { stacksI18n } from './stacks.i18n';
 import { projectActionsI18n } from './project-actions.i18n';
 import { gitIdentityEditorI18n } from './git-identity-editor.i18n';
 import { environmentI18n } from './environment.i18n';
@@ -3816,6 +3817,7 @@ export const dict = {
   ...sessionWarmingI18n.he,
   ...isolatedSpacesI18n.he,
   ...sourceBoardI18n.he,
+  ...stacksI18n.he,
   ...projectActionsI18n.he,
   ...gitIdentityEditorI18n.he,
   ...environmentI18n.he,

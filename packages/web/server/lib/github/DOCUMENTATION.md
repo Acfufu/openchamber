@@ -90,6 +90,15 @@
 - The route then enriches that result with checks, mergeability, and permission-related fields.
 - The client caches and shares the result between sidebar and Git view.
 
+## Stacked pull requests
+
+GitHub keeps a chain of PRs, each targeting the branch of the one below, as a stack (`stack` / `stackEntry` in GraphQL, `/repos/{o}/{r}/stacks` in REST).
+
+- `references/detail` answers a PR's stack beside its detail (`fetchPullStack`, its own query so a host without stacks, such as an older GitHub Enterprise Server, fails it alone): `{ number, base, layers }`, bottom layer first; `null` in none, absent when it could not be read. `pulls/context` adds the same `stack` for a PR GitHub marks as stacked, so an agent given the PR knows its layers.
+- Merge goes through `PUT /pulls/{n}/merge-async`, the only endpoint that merges a stacked PR (with its open layers below it) or enters a merge queue. The answer is followed for up to 20 s: `merged` reports `{ merged: true }`, a queue `{ merged: false, outcome: 'queued' }`, one still running `{ merged: false, outcome: 'merging' }` (the PR's live state shows the rest), a failure GitHub's reason as a refused mutation. A host without the endpoint (404) merges through the classic `PUT /merge`.
+- Creating a PR whose base is another open PR's branch in the same repository adds it to that PR's stack (`POST /stacks/{n}/add`, or `POST /stacks` with both when there is none). The create result says `stacked: true`, or `stacked: false` when GitHub refused (the parent is not its stack's top layer, a host without stacks); the PR stands on its base either way.
+- GitHub has no API for its own Rebase stack, and rebasing layer by layer through `updatePullRequestBranch` can replay a rewritten lower layer's old commits, so the app links to the PR's page for it.
+
 ## Bound issues and repository metadata
 
 - Issue lists and upstream detection start at the trusted primary remote. Branch selectors and optional issue detail selectors must match that repository or one of its parent/source repositories.

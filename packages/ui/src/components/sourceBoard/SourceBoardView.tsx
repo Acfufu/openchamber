@@ -31,7 +31,7 @@ import { forgetGitHubPullStatuses, useGitHubAcrossReferenceList, useGitHubReadCo
 import { openExternalUrl } from '@/lib/url';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
-import type { GitHubReference, GitHubReferenceKind, LinearMappingResult, ProjectEntry, SourceControlReadContext } from '@/lib/api/types';
+import type { GitHubReference, GitHubReferenceKind, LinearMappingResult, ProjectEntry, PullRequestStackLayer, SourceControlReadContext } from '@/lib/api/types';
 import { isRightToLeft, useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { resolveLinearMappedProjectPath } from '@/lib/linearProjectMapping';
@@ -427,7 +427,17 @@ const SourceBoardBody: React.FC<{
     }, [pinnedLinearId, pinnedLinearStatus, setQuery]);
     const currentDirectory = useEffectiveDirectory();
     const worktreesByProject = useSessionUIStore((state) => state.availableWorktreesByProject);
-    const [worktreeRequest, setWorktreeRequest] = React.useState<{ project: SourceBoardProject; selection: ReferencePickerSelection } | null>(null);
+    // New Worktree opens on the previewed item, or on a new branch on top of a PR's.
+    const [worktreeRequest, setWorktreeRequest] = React.useState<
+        | { project: SourceBoardProject; selection: ReferencePickerSelection; onTopOf?: undefined }
+        | { project: SourceBoardProject; selection?: undefined; onTopOf: string }
+        | null
+    >(null);
+    // Another layer of the previewed PR's stack opens here, read on its own like a link.
+    const openStackLayer = React.useCallback((layer: PullRequestStackLayer) => {
+        setPinRequest((request) => request + 1);
+        setPinnedLink({ kind: 'pull', url: layer.url });
+    }, []);
 
     // A Linear issue starts in its team's project, else the mapping's default,
     // else the project the board was last on; the user can pick another.
@@ -485,6 +495,8 @@ const SourceBoardBody: React.FC<{
             startIn={startIn}
             onLeave={onLeave}
             worktreeAvailable={!readsNestedRepository}
+            stack={previewItem?.source === 'github' && browser.githubDetail.status === 'ready' ? browser.githubDetail.value.pull?.stack ?? null : null}
+            onStartOnTop={actionProject ? (pull) => setWorktreeRequest({ project: actionProject, onTopOf: pull.head }) : undefined}
         />
     ) : null;
 
@@ -535,6 +547,7 @@ const SourceBoardBody: React.FC<{
             footer={actions}
             linearStateControl={previewItem?.source === 'linear' ? <SourceBoardLinearStatus issue={previewItem.issue} onChanged={browser.list.retry} /> : undefined}
             onOpenLinearIssue={(issue) => browser.openItem({ source: 'linear', issue })}
+            onOpenStackLayer={openStackLayer}
             onOpenChecks={previewPull && context ? () => setChecksOpenFor(previewKey) : undefined}
             onRefresh={previewItem?.source === 'github' && context ? refreshFromHost : undefined}
             threadActions={threadActions}
@@ -649,6 +662,7 @@ const SourceBoardBody: React.FC<{
             onOpenChange={(next) => { if (!next) setWorktreeRequest(null); }}
             project={worktreeRequest?.project}
             initialSelection={worktreeRequest?.selection}
+            initialSourceBranch={worktreeRequest?.onTopOf}
             onWorktreeCreated={(worktreePath) => {
                 useSessionUIStore.getState().openNewSessionDraft({ directoryOverride: worktreePath, preserveDirectoryOverride: true });
                 onLeave?.();

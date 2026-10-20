@@ -1874,6 +1874,8 @@ describe('createWorktree', () => {
     ).not.toBe('pending');
     // The branch's upstream, not the first remote in the list.
     expect(hydrateCheckout).toHaveBeenCalledWith({ directory: created.path, parentRemoteName: 'upstream' });
+    // The branch it started from is recorded as its parent.
+    expect(readBranchConfig(created.path, 'feature/from-local', 'gh-merge-base')).toBe('main');
   });
 
   const installPostCheckoutHook = (repo, script, executable = true) => {
@@ -2220,6 +2222,8 @@ describe('createWorktree', () => {
 
       expect(readBranchConfig(created.path, 'openchamber/feature', 'remote')).toBe('');
       expect(readBranchConfig(created.path, 'openchamber/feature', 'merge')).toBe('');
+      // A remote start names its branch as the parent.
+      expect(readBranchConfig(created.path, 'openchamber/feature', 'gh-merge-base')).toBe('main');
     } finally {
       if (previousXdgDataHome === undefined) {
         delete process.env.XDG_DATA_HOME;
@@ -5453,6 +5457,30 @@ describe.runIf(canRunGit())('getRangeDiff', () => {
     expect(await getBranchBase(repository, 'react')).toEqual({ base: null });
     runGit(repository, ['checkout', '--no-track', '-b', 'loose', 'origin/react']);
     expect(await getBranchBase(repository, 'loose')).toEqual({ base: 'origin/react' });
+  });
+
+  it('keeps a recorded parent through a rebase, where the reflog loses it', async () => {
+    const { repository } = createRepositoryWithRemote();
+    runGit(repository, ['checkout', '-b', 'layer-one', 'origin/react']);
+    runGit(repository, ['checkout', '-b', 'layer-two', 'layer-one']);
+    runGit(repository, ['config', 'branch.layer-two.gh-merge-base', 'layer-one']);
+    fs.writeFileSync(path.join(repository, 'two.txt'), 'two\n');
+    runGit(repository, ['add', '.']);
+    runGit(repository, ['commit', '-m', 'two']);
+    // The lower layer moves on, and the upper one is restacked onto it.
+    runGit(repository, ['checkout', 'layer-one']);
+    fs.writeFileSync(path.join(repository, 'one.txt'), 'one\n');
+    runGit(repository, ['add', '.']);
+    runGit(repository, ['commit', '-m', 'one']);
+    runGit(repository, ['checkout', 'layer-two']);
+    runGit(repository, ['rebase', 'layer-one']);
+    expect(await getBranchBase(repository, 'layer-two')).toEqual({ base: 'layer-one' });
+    // A parent that is only a remote branch here still answers.
+    runGit(repository, ['config', 'branch.layer-two.gh-merge-base', 'react']);
+    expect(await getBranchBase(repository, 'layer-two')).toEqual({ base: 'react' });
+    // A parent that no longer exists gives way to the reflog, which here has nothing.
+    runGit(repository, ['config', 'branch.layer-two.gh-merge-base', 'gone']);
+    expect(await getBranchBase(repository, 'layer-two')).toEqual({ base: null });
   });
 
   it('asks for a new base after restacking and compares against the selected parent', async () => {

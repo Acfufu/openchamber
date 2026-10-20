@@ -3648,10 +3648,33 @@ async function isOwnRemoteCopy(git, source, branchName) {
   return fullName.slice('refs/remotes/'.length).split('/').slice(1).join('/') === branchName;
 }
 
+// The parent a branch was made on, as `gh` records it (`gh pr create` reads it
+// as the default base). Kept in the repository's config, it outlives a rebase,
+// which voids the reflog's creation record.
+const branchParentKey = (branch) => `branch.${branch}.gh-merge-base`;
+
+/** The local branch `ref` names, or null for a remote ref, a commit or `HEAD`. */
+async function localBranchNameOf(directory, ref) {
+  const result = await runGitCommand(directory, ['rev-parse', '--symbolic-full-name', ref]);
+  const fullName = String(result.stdout || '').trim();
+  return result.success && fullName.startsWith('refs/heads/') ? fullName.slice('refs/heads/'.length) : null;
+}
+
 /**
- * Resolve the branch the given branch was created from, from its reflog.
- * Returns { base: null } when git has no authoritative record (clone, detached
- * start, reflog expired) — callers must not fall back to main/master.
+ * Records `parent` as the branch `branch` was made on. A failed write leaves
+ * the reflog to answer, so it never fails the creation it follows.
+ */
+async function recordBranchParent(directory, branch, parent) {
+  if (!parent || parent === branch) return;
+  await runGitCommand(directory, ['config', branchParentKey(branch), parent]);
+}
+
+/**
+ * Resolve the branch the given branch was made on: the parent recorded when it
+ * was created (`branch.<name>.gh-merge-base`), else the creation source in its
+ * reflog. Returns { base: null } when git has no authoritative record (clone,
+ * detached start, reflog expired or rebased) — callers must not fall back to
+ * main/master.
  */
 export async function getBranchBase(directory, branch) {
   const branchName = String(branch || '').trim();
@@ -3660,6 +3683,24 @@ export async function getBranchBase(directory, branch) {
   }
 
   const { git } = await createRepositoryGitContext(directory);
+
+  const recordedParent = await git
+    .raw(['config', '--get', branchParentKey(branchName)])
+    .then((value) => String(value || '').trim())
+    .catch(() => '');
+  if (recordedParent && recordedParent !== branchName) {
+    // The parent is often only a remote branch here (a branch made on a
+    // pull request's head); a bare name its remote copy answers to still
+    // names it, and callers qualify it to that copy.
+    const remotes = await git.raw(['remote']).then((value) => String(value || '').split('\n').map((name) => name.trim()).filter(Boolean)).catch(() => []);
+    for (const ref of [`refs/heads/${recordedParent}`, ...remotes.map((remote) => `refs/remotes/${remote}/${recordedParent}`)]) {
+      const resolves = await git
+        .raw(['rev-parse', '--verify', '--quiet', ref])
+        .then((value) => Boolean(String(value || '').trim()))
+        .catch(() => false);
+      if (resolves) return { base: recordedParent };
+    }
+  }
 
   let reflog = '';
   try {
@@ -5284,6 +5325,8 @@ async function attachGitWorktreeToCandidateWithoutRemoteRollback(context, candid
     });
   }
   let createdLocalBranch = false;
+  // The branch a new branch starts from, when it starts from a remote one.
+  let parsedStartBranch = null;
   // A leftover change request branch this attempt moves; a failed attempt puts it back.
   let movedLocalBranch = null;
   const worktreeAddArgs = ['worktree', 'add', '--no-checkout'];
@@ -5351,6 +5394,7 @@ async function attachGitWorktreeToCandidateWithoutRemoteRollback(context, candid
 
     const parsedRemoteStartRef = await resolveRemoteBranchRef(context.primaryWorktree, startRef);
     if (parsedRemoteStartRef) {
+      parsedStartBranch = parsedRemoteStartRef.branch;
       worktreeAddArgs.splice(2, 0, '--no-track');
       inferredUpstream = {
         remote: parsedRemoteStartRef.remote,
@@ -5369,6 +5413,12 @@ async function attachGitWorktreeToCandidateWithoutRemoteRollback(context, candid
 
   await runGitCommandOrThrow(context.primaryWorktree, worktreeAddArgs, 'Failed to create git worktree');
   await publishWorktreeTopologyChange(context.primaryWorktree);
+  // A new branch's parent is the branch it starts from, a lower layer of a
+  // stack included; its pull request and comparisons default to it.
+  if (mode === 'new' && startRef && startRef !== 'HEAD') {
+    const parent = parsedStartBranch ?? await localBranchNameOf(context.primaryWorktree, startRef);
+    await recordBranchParent(context.primaryWorktree, localBranch, parent);
+  }
 
   // Undoes what this attempt did to the local branch, once its worktree is removed.
   const releaseLocalBranch = async () => {

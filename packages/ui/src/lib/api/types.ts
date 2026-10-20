@@ -11,6 +11,7 @@ import type {
   IssueComment,
   MergeChangeRequestInput,
   PageResult,
+  PullRequestStack,
   ProjectUpstream,
   ReadyChangeRequestInput,
   CommentInput,
@@ -26,6 +27,7 @@ import type {
   SourceControlDeviceFlowStart,
   SourceControlIdentity,
   SourceControlEmptyMutationResult,
+  SourceControlCreateMutationResult,
   SourceControlMergeMutationResult,
   SourceControlMutationReceipt,
   SourceControlReadyMutationResult,
@@ -1637,6 +1639,8 @@ export type GitHubPullRequestContextResult = {
   diff?: string;
   checks?: GitHubChecksSummary | null;
   checkRuns?: GitHubCheckRun[];
+  /** Sent only when the PR is a layer of a stack. */
+  stack?: PullRequestStack;
 };
 
 export type GitHubPullRequestStatus = {
@@ -1829,8 +1833,11 @@ export type GitHubReferenceDetail = {
     commits: GitHubReferenceCommit[];
     /** How many commits the PR has in all; null when the host does not say. */
     commitTotal: number | null;
+    /** The stack the PR is a layer of; null when it is in none, absent when the host could not say. */
+    stack?: PullRequestStack | null;
   } | null;
 };
+
 
 export type GitHubReferenceCommit = {
   sha: string;
@@ -1974,7 +1981,7 @@ export interface SourceControlAPI {
     branch: string,
     options?: { force?: boolean },
   ): Promise<ChangeRequestStatus>;
-  changeRequestCreate(payload: CreateChangeRequestInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
+  changeRequestCreate(payload: CreateChangeRequestInput): Promise<SourceControlMutationReceipt<SourceControlCreateMutationResult>>;
   changeRequestUpdate(payload: UpdateChangeRequestInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
   changeRequestMerge(payload: MergeChangeRequestInput): Promise<SourceControlMutationReceipt<SourceControlMergeMutationResult>>;
   changeRequestReady(payload: ReadyChangeRequestInput): Promise<SourceControlMutationReceipt<SourceControlReadyMutationResult>>;

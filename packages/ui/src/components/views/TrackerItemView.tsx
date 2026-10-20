@@ -151,6 +151,9 @@ const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubRefer
         [refreshDetail, retryLookup],
     );
     const threadActions = useThreadActions(reference, context, refreshItem);
+    // Another layer of the PR's stack opens as a tab of its own, read through the same folder.
+    const showTrackerItem = useShowTrackerItem();
+    const stack = detail.status === 'ready' ? detail.value.pull?.stack ?? null : null;
     // For a change made on the host's own site, which the server's
     // short-lived answers would otherwise hide for up to half a minute.
     const refreshFromHost = async () => {
@@ -185,7 +188,8 @@ const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubRefer
                 onIncludeDiffChange={() => undefined}
                 now={now}
                 // Starting work happens on the board and in New Worktree; here the item is read and acted on.
-                footer={<SourceBoardActions item={item} project={null} context={context} onStartWorktree={() => undefined} onChanged={() => void refreshItem()} worktreeAvailable={false} />}
+                footer={<SourceBoardActions item={item} project={null} context={context} onStartWorktree={() => undefined} onChanged={() => void refreshItem()} worktreeAvailable={false} stack={stack} />}
+                onOpenStackLayer={(layer) => { showTrackerItem(layer.url, directory); }}
                 onOpenChecks={pull && context ? () => setChecksOpen(true) : undefined}
                 onRefresh={context ? refreshFromHost : undefined}
                 threadActions={threadActions}

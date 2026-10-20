@@ -20,6 +20,7 @@ every source, GitHub, Linear and each extension, as its own row.
 | `referenceSources.ts` | Which cache a list or a Linear preview comes from, and its key. |
 | `referenceCache.ts` | Stale-while-revalidate lists and values. |
 | `liveReferences.ts` | The followed live state laid over listed items and PR statuses. |
+| `PullStackRows.tsx` | A PR's stack map in the preview. |
 | `resolveComposerReferences.ts`, `useAttachReferences.ts` | Turning confirmed items into composer chips with their full context. |
 | `referencePickerItems.ts` | Item union, keys, state looks, filters. |
 
@@ -101,6 +102,30 @@ Tracker then show one state for the same PR.
 - Attaching reads the full context the agent receives through the provider-neutral source-control reads (`issueGet` + `issueComments`, `changeRequestContext`) with the same read context: issue with all comments, PR context with the diff only when "Also send the diff" is checked for that PR, Linear issue with comments. Chips and context parts use the provider-neutral kinds `repository-issue` and `change-request` (with its provider). Each item resolves on its own; the ones that fail stay checked in the picker with the reason, the rest attach.
 - Linear sub-issues: a sub-issue's row names its parent above the title, a parent's row shows how many sub-issues are finished (`2/5`, or `20+` when the list counted only the first 20). The preview has a Parent row and, once the detail lands, a Sub-issues section. Clicking either previews that issue through `openItem`, kept like a pinned item while the list does not hold it; the picker and the board both pass `onOpenLinearIssue`. A parent or sub-issue comes without labels, so the preview takes labels and parent from its detail when it has one. The agent gets the parent and sub-issues with the issue's JSON.
 - The composer keeps attached items as a list (`chat/composer/composerReferences.ts`). The same item attached again replaces its chip in place.
+
+## Stacked pull requests
+
+A PR that is a layer of a stack (GitHub's own, or on GitLab a chain of merge
+requests by branch) shows a Stack section in its preview, under the details
+and above the description, read with its detail (`pull.stack`). It is a
+section of its own, like a Linear issue's sub-issues, because a list of
+layers does not fit the one-line label and value rows. Its heading names the
+layer's place (`3 of 3`, counted from the bottom); then the layers top first, each one line with its state, number and
+title, the previewed one marked in its live colour, and the branch the stack
+lands on last. Another layer opens where the surface opens items: on the board
+in the board's own preview (read on its own, like a link), in the Tracker as a
+tab of its own. A GitHub stack with more than one open layer links to its page
+for Rebase stack, which GitHub's API does not offer, from the heading's end.
+
+- Merge on a stacked PR says which open layers below it merge with it, and
+  the toast says how many did. A merge GitHub queues or is still running says
+  so; the live state shows when it lands.
+- New branch on top (the board's attach menu, the Git view's branch PR) opens
+  New Worktree on a new branch starting from the PR's branch, its local copy
+  when there is one. The server records that branch as the new one's parent,
+  so its comparisons and its PR target it, and GitHub stacks the new PR on it
+  when it is created. Offered for open PRs whose branch is in their own
+  repository; a fork's branch cannot be stacked on.
 
 ## Keyboard
 
@@ -297,7 +322,8 @@ preview's footer holds actions instead of what the agent gets.
   open, a toast says so.
 - The Tracker's branch tab (`views/git/BranchPullRequestPreview.tsx`) shows the checked-out
   branch's open PR with this same preview: no new-session or worktree actions,
-  since the branch is already here. Its item tabs (`views/TrackerItemView.tsx`)
+  since the branch is already here, except New branch on top, which starts the
+  next layer of a stack in a worktree of its own. Its item tabs (`views/TrackerItemView.tsx`)
   show any issue, PR or Linear issue the same way, also without them: starting
   work happens on the board and in New Worktree. `PullRequestSection` keeps the create form
   and the merged/closed state. The form is one row of branch → base (picked in
