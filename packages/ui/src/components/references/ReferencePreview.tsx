@@ -39,7 +39,8 @@ const ZOOMABLE_IMAGE_CLASS = '[&_[data-markdown-content]_img:not(a_img):not([ari
  * `pinned` (desktop pane): the item header and the send summary stay in view
  * while the meta grid, description and comments scroll between them, so a
  * long preview never hides the diff switch. Inline (mobile): one flow inside
- * the sheet's own scroll.
+ * the sheet's own scroll. Either way a divider sets the meta grid apart from
+ * what follows it.
  */
 const PreviewFrame: React.FC<{ pinned: boolean; header: React.ReactNode; meta: React.ReactNode; footer: React.ReactNode; children: React.ReactNode }> = ({ pinned, header, meta, footer, children }) => {
     const imagePreview = useReferenceImagePreview();
@@ -61,7 +62,7 @@ const PreviewFrame: React.FC<{ pinned: boolean; header: React.ReactNode; meta: R
             </div>
             <ScrollableOverlay outerClassName="min-h-0 flex-1" className="px-6 pb-5 pt-4" disableHorizontal>
                 <article className={cn('flex flex-col gap-4', ZOOMABLE_IMAGE_CLASS)} onClick={imagePreview.onClick}>
-                    {meta}
+                    <div className="border-b border-border/60 pb-4">{meta}</div>
                     {children}
                 </article>
             </ScrollableOverlay>
@@ -464,7 +465,7 @@ const GitHubPreview: React.FC<{
             }
         >
             {stack ? (
-                <section className="flex flex-col gap-2 border-t border-border/60 pt-4">
+                <section className="flex flex-col gap-2 border-b border-border/60 pb-4">
                     <h4 className="flex items-center gap-2 typography-ui-label font-semibold text-foreground">
                         {t('stacks.preview.label')}
                         {stackPosition > 0 ? (
