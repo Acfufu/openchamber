@@ -35,6 +35,8 @@ import type { GitHubReference, GitHubReferenceKind, LinearMappingResult, Project
 import { isRightToLeft, useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { resolveLinearMappedProjectPath } from '@/lib/linearProjectMapping';
+import { useTrackedItems } from '@/lib/trackedItems/interest';
+import type { TrackedItem } from '@/lib/trackedItems/model';
 import { normalizeProjectPath, resolveProjectForSessionDirectory } from '@/lib/projectResolution';
 import { useLinearAuthStore } from '@/stores/useLinearAuthStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
@@ -56,6 +58,7 @@ import { useThreadActions } from './threadActions';
 import { useBoardRevalidation } from './useBoardRevalidation';
 
 const NO_REPOSITORIES: readonly string[] = [];
+const NO_FOLLOWED: TrackedItem[] = [];
 const LIST_MIN_WIDTH = 280;
 /** Below this the list leaves its column for a dropdown, so the preview keeps the width. */
 const NARROW_BOARD_WIDTH = 960;
@@ -162,7 +165,8 @@ const SourceBoard: React.FC<{ layout: SourceBoardLayout; onLeave?: () => void; o
     const [repositoryKind, setRepositoryKind] = React.useState<GitHubReferenceKind | undefined>(undefined);
     // The phone's board page is mounted only while shown.
     const desktopBoardOpen = useUIStore((state) => state.isSourceBoardOpen);
-    useBoardRevalidation(layout === 'mobile' || desktopBoardOpen);
+    const onScreen = layout === 'mobile' || desktopBoardOpen;
+    useBoardRevalidation(onScreen);
 
     // The remembered project while it still exists, else the app's own.
     const project = projects.find((entry) => entry.id === choice.projectId)
@@ -294,6 +298,7 @@ const SourceBoard: React.FC<{ layout: SourceBoardLayout; onLeave?: () => void; o
             initialRepositoryKind={repositoryKind}
             onSelectKind={selectKind}
             layout={layout}
+            onScreen={onScreen}
             onLeave={onLeave}
             onClose={onClose}
         />
@@ -316,10 +321,12 @@ const SourceBoardBody: React.FC<{
     initialRepositoryKind?: GitHubReferenceKind;
     onSelectKind: (kind: SourceBoardKind) => void;
     layout: SourceBoardLayout;
+    /** False while the desktop board is kept mounted but closed: nothing it lists is followed then. */
+    onScreen: boolean;
     onLeave?: () => void;
     /** The phone page's close button. */
     onClose?: () => void;
-}> = ({ tab, project, directory, allRepositories, linearTeamId, mapping, projects, scopePicker, kinds, initialRepositoryKind, onSelectKind, layout, onLeave, onClose }) => {
+}> = ({ tab, project, directory, allRepositories, linearTeamId, mapping, projects, scopePicker, kinds, initialRepositoryKind, onSelectKind, layout, onScreen, onLeave, onClose }) => {
     const isMobile = layout === 'mobile';
     const { t } = useI18n();
     const { sourceControl } = useRuntimeAPIs();
@@ -347,7 +354,7 @@ const SourceBoardBody: React.FC<{
         query: pinnedLink?.url ?? '',
     });
     const pinnedLookup = allRepositories ? pinnedAcross : pinnedSingle;
-    const { detail: pinnedLinear } = useLinearIssueDetail(tab === 'linear' ? pinnedLinearId : null, true);
+    const { detail: pinnedLinear, followed: pinnedLinearFollowed } = useLinearIssueDetail(tab === 'linear' ? pinnedLinearId : null, true);
     // Only the item the link names: a lookup that fell back to a search lists others.
     const namesPinnedLink = (item: GitHubReference) => pinnedLink !== null && isSameRepositoryItemLink(item.url, pinnedLink.url);
     const pinnedAcrossItem = tab === 'repository' && allRepositories ? pinnedAcross.items.find(namesPinnedLink) ?? null : null;
@@ -368,7 +375,15 @@ const SourceBoardBody: React.FC<{
         linearTeamId,
         initialGitHubKind: initialRepositoryKind,
         pinnedItem,
+        onScreen,
     });
+    // The item a link asked to show is followed like a listed one; a lookup
+    // that fell back to a search lists others, which are not.
+    const pinnedFollowed = React.useMemo(() => (pinnedItem?.source === 'linear'
+        ? pinnedLinearFollowed
+        : pinnedLookup.followed.filter((item) => item.provider !== 'linear' && item.number === pinnedReference?.number)
+    ), [pinnedItem, pinnedLinearFollowed, pinnedLookup.followed, pinnedReference]);
+    useTrackedItems(onScreen && pinnedItem ? pinnedFollowed : NO_FOLLOWED);
     const { previewItem, setQuery, selectGitHubKind, showItem } = browser;
     const shownPinRequestRef = React.useRef(0);
     const linearFocus = useSourceBoardStore((state) => (tab === 'linear' ? state.linearFocus : null));

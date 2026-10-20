@@ -266,15 +266,19 @@ const PullDetailRows: React.FC<{
 const NO_CHECKS: CachedValue<GitHubChecksSummary | null> = { status: 'ready', value: null };
 
 /**
- * The previewed PR's checks come with its own detail (GitHub's head commit,
- * GitLab's pipeline), one PR at a time, so the preview never waits for the
- * statuses a whole list asks for. Closed and merged PRs have none to show.
+ * The previewed PR's checks as its row has them, the status that stays
+ * current while the preview is open. Until that arrives they come with the
+ * PR's own detail (GitHub's head commit, GitLab's pipeline), so the preview
+ * never waits for the statuses a whole list asks for. Closed and merged PRs
+ * have none to show.
  */
 const previewChecks = (
     reference: GitHubReference,
+    pullStatus: CachedValue<GitHubPullStatus | null>,
     detail: CachedValue<GitHubReferenceDetail>,
 ): CachedValue<GitHubChecksSummary | null> => {
     if (reference.kind !== 'pull' || reference.state !== 'open') return NO_CHECKS;
+    if (pullStatus.status === 'ready' && pullStatus.value?.checks) return { status: 'ready', value: pullStatus.value.checks };
     return mapDetail(detail, (value) => value.pull?.checks ?? null);
 };
 
@@ -438,7 +442,7 @@ const GitHubPreview: React.FC<{
                                     <span className="truncate">{reference.base}</span>
                                 </span>
                             </MetaRow>
-                            <PullDetailRows detail={detail} checks={previewChecks(reference, detail)} links={pullLinks} onOpenChecks={onOpenChecks} />
+                            <PullDetailRows detail={detail} checks={previewChecks(reference, pullStatus, detail)} links={pullLinks} onOpenChecks={onOpenChecks} />
                         </>
                     ) : null}
                     {reviewersControl && reference.kind === 'pull' ? (

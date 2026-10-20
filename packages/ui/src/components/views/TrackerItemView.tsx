@@ -27,9 +27,13 @@ import { useMinuteTickerNow } from '@/hooks/useDurationTicker';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type { GitHubReferenceKind } from '@/lib/api/types';
 import { useI18n } from '@/lib/i18n';
+import { useTrackedItems } from '@/lib/trackedItems/interest';
+import type { TrackedItem } from '@/lib/trackedItems/model';
 import { openExternalUrl } from '@/lib/url';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useUIStore } from '@/stores/useUIStore';
+
+const NO_FOLLOWED: TrackedItem[] = [];
 
 type TrackerItemViewProps = {
     /** The item's link, as its tab keeps it. */
@@ -68,7 +72,7 @@ export const TrackerItemView: React.FC<TrackerItemViewProps> = (props) => {
     const content = !target
         ? <UnavailableState url={url} />
         : target.source === 'linear'
-            ? <LinearTrackerItem url={url} identifier={target.identifier} onUnavailable={fallBack} onShown={settle} />
+            ? <LinearTrackerItem url={url} identifier={target.identifier} visible={props.visible} onUnavailable={fallBack} onShown={settle} />
             : <RepositoryTrackerItem {...props} kind={target.kind} onUnavailable={fallBack} onShown={settle} />;
 
     // The preview scrolls on its own, with its actions pinned under it.
@@ -100,7 +104,7 @@ const UnavailableState: React.FC<{ url: string }> = ({ url }) => {
 type FallBack = () => void;
 
 const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubReferenceKind; onUnavailable: FallBack; onShown: () => void }> = ({
-    url, directory, panelDirectory, foreign, kind, onUnavailable, onShown,
+    url, directory, panelDirectory, foreign, visible, kind, onUnavailable, onShown,
 }) => {
     const { t } = useI18n();
     const { sourceControl } = useRuntimeAPIs();
@@ -112,6 +116,13 @@ const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubRefer
     const lookup = useGitHubReferenceList({ enabled: linkRepository.status === 'ready', directory: readDirectory, kind, filter: DEFAULT_REPOSITORY_FILTER, query: url });
     // Only the item the link names: a lookup that fell back to a search lists others.
     const reference = lookup.items.find((item) => isSameRepositoryItemLink(item.url, url)) ?? null;
+    // While the tab is on screen its item's state, checks included, follows the
+    // host; the other rows of a lookup that fell back to a search do not.
+    const followed = React.useMemo(
+        () => lookup.followed.filter((item) => item.provider !== 'linear' && item.number === reference?.number),
+        [lookup.followed, reference],
+    );
+    useTrackedItems(visible ? followed : NO_FOLLOWED);
     const readContext = useGitHubReadContext(readDirectory);
     const context = readContext && readContext !== 'missing' ? readContext : null;
 
@@ -211,10 +222,11 @@ const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubRefer
     );
 };
 
-const LinearTrackerItem: React.FC<{ url: string; identifier: string; onUnavailable: FallBack; onShown: () => void }> = ({ url, identifier, onUnavailable, onShown }) => {
+const LinearTrackerItem: React.FC<{ url: string; identifier: string; visible: boolean; onUnavailable: FallBack; onShown: () => void }> = ({ url, identifier, visible, onUnavailable, onShown }) => {
     const { t } = useI18n();
     const source = useLinearSourceStatus();
-    const { detail, refresh } = useLinearIssueDetail(source === 'ready' ? identifier : null, true);
+    const { detail, refresh, followed } = useLinearIssueDetail(source === 'ready' ? identifier : null, true);
+    useTrackedItems(visible ? followed : NO_FOLLOWED);
     const showTrackerItem = useShowTrackerItem();
     const now = useMinuteTickerNow(true);
 

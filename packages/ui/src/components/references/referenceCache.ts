@@ -44,7 +44,18 @@ export type CachedList<T> = {
     error: string | null;
     /** Folders the latest page of a list over several repositories left out; empty otherwise. */
     skipped: ListSkip[];
+    /** When each page shown was read, by the index of its first item; empty before any answer. */
+    pageReads: PageRead[];
 };
+
+/**
+ * When an answer was read. `forced` marks a read asked for after a change or
+ * a refresh (a retry, a write's follow-up), which the server answers without
+ * its short-lived cache.
+ */
+export type ReadStamp = { at: number; forced: boolean };
+
+export type PageRead = { start: number; read: ReadStamp };
 
 export type CachedValue<T> =
     | { status: 'idle' }
@@ -56,13 +67,14 @@ type PageFetcher<T> = (cursor: string | null) => Promise<ListPage<T>>;
 
 type ListRecord<T> = CachedList<T> & {
     cursor: string | null;
+    /** When the first page was answered (0 before any), for its freshness. */
     fetchedAt: number;
     /** Bumped when the first page is asked again; older answers are dropped. */
     generation: number;
     fetchPage: PageFetcher<T>;
 };
 
-type ValueRecord<T> = { state: CachedValue<T>; fetchedAt: number };
+type ValueRecord<T> = { state: CachedValue<T>; fetchedAt: number; forced: boolean };
 
 type Listener = () => void;
 
@@ -168,6 +180,7 @@ export function createListCache<T>(limit = 40, now: () => number = Date.now): Li
                 loadingMore: false,
                 error: null,
                 skipped: [],
+                pageReads: [],
                 cursor: null,
                 fetchedAt: 0,
                 generation,
@@ -195,10 +208,12 @@ export function createListCache<T>(limit = 40, now: () => number = Date.now): Li
                     refreshing: false,
                     error: null,
                     skipped: [],
+                    pageReads: [],
                     fetchedAt: now(),
                 });
                 return;
             }
+            const at = now();
             update(key, current, {
                 status: 'ready',
                 skipped: page.skipped ?? [],
@@ -208,7 +223,8 @@ export function createListCache<T>(limit = 40, now: () => number = Date.now): Li
                 hasMore: page.hasMore,
                 refreshing: false,
                 error: null,
-                fetchedAt: now(),
+                pageReads: [{ start: 0, read: { at, forced: Boolean(options?.force) } }],
+                fetchedAt: at,
             });
         });
     };
@@ -232,6 +248,7 @@ export function createListCache<T>(limit = 40, now: () => number = Date.now): Li
             }
             update(key, current, {
                 items: [...current.items, ...page.items],
+                pageReads: [...current.pageReads, { start: current.items.length, read: { at: now(), forced: false } }],
                 cursor: page.cursor,
                 hasMore: page.hasMore,
                 loadingMore: false,
@@ -265,6 +282,8 @@ export type ValueCache<T> = {
      */
     ensureMany: (keys: string[], fetch: (keys: string[]) => Promise<ReadonlyMap<string, T>>, batchSize: number) => void;
     read: (key: string) => CachedValue<T> | null;
+    /** When the value shown for `key` was read; null when there is none. */
+    readOf: (key: string) => ReadStamp | null;
     subscribe: (key: string, listener: Listener) => () => void;
     /** Changes on every write; a snapshot for readers of several keys at once. */
     version: () => number;
@@ -281,17 +300,17 @@ export function createValueCache<T>(limit = 40, now: () => number = Date.now): V
     };
 
     /** Track `key` as asked by `request`, keeping a stale value visible meanwhile. */
-    const track = (key: string, request: Promise<Settled<T>>): Promise<T> => {
+    const track = (key: string, request: Promise<Settled<T>>, forced = false): Promise<T> => {
         if (store.get(key)?.state.status !== 'ready') {
-            store.set(key, { state: { status: 'loading' }, fetchedAt: 0 });
+            store.set(key, { state: { status: 'loading' }, fetchedAt: 0, forced: false });
         }
         const promise = request.then((outcome) => {
             inflight.delete(key);
             if (!outcome.ok) {
-                store.set(key, { state: { status: 'error', error: outcome.message }, fetchedAt: 0 });
+                store.set(key, { state: { status: 'error', error: outcome.message }, fetchedAt: 0, forced: false });
                 throw new Error(outcome.message);
             }
-            store.set(key, { state: { status: 'ready', value: outcome.value }, fetchedAt: now() });
+            store.set(key, { state: { status: 'ready', value: outcome.value }, fetchedAt: now(), forced });
             return outcome.value;
         });
         inflight.set(key, promise);
@@ -303,7 +322,7 @@ export function createValueCache<T>(limit = 40, now: () => number = Date.now): V
         const running = inflight.get(key);
         if (options?.force) {
             const after = running ? running.then(() => undefined, () => undefined) : Promise.resolve();
-            return track(key, settle(after.then(fetch)));
+            return track(key, settle(after.then(fetch)), true);
         }
         if (existing?.state.status === 'ready' && isFresh(key)) {
             return Promise.resolve(existing.state.value);
@@ -334,6 +353,10 @@ export function createValueCache<T>(limit = 40, now: () => number = Date.now): V
         ensure,
         ensureMany,
         read: (key) => store.get(key)?.state ?? null,
+        readOf: (key) => {
+            const record = store.get(key);
+            return record?.state.status === 'ready' ? { at: record.fetchedAt, forced: record.forced } : null;
+        },
         subscribe: (key, listener) => store.subscribe(key, listener),
         version: () => store.version,
         clear: () => {
@@ -396,7 +419,7 @@ export function useCachedList<T>(
     );
 
     return {
-        ...(snapshot ?? { status: 'loading', unavailable: null, items: [], hasMore: false, refreshing: false, loadingMore: false, error: null, skipped: [] }),
+        ...(snapshot ?? { status: 'loading', unavailable: null, items: [], hasMore: false, refreshing: false, loadingMore: false, error: null, skipped: [], pageReads: [] }),
         loadMore,
         retry,
     };

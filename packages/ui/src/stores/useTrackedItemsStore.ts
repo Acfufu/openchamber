@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { GitHubIssueLiveSummary, LinearIssueLiveSummary } from '@/lib/api/types';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { z } from 'zod';
-import { trackedItemKey, trackedItemRecordSchema, type TrackedItemState, type TrackedLinearIssue, type TrackedThread } from '@/lib/trackedItems/model';
+import { trackedItemKey, trackedItemRecordSchema, type TrackedItem, type TrackedItemState, type TrackedLinearIssue, type TrackedThread } from '@/lib/trackedItems/model';
 import { createDeferredSafeJSONStorage } from './utils/safeStorage';
 import { getLinkedChangeRequestVisualSummary, type PrVisualSummary } from './useGitHubPrStatusStore';
 
@@ -75,6 +75,14 @@ export const useTrackedItemsStore = create<TrackedItemsStore>()(persist(
     },
   },
 ));
+
+/** What the server last said about each item, in order; null for a missing item or one never answered. */
+export const useTrackedRecords = (items: ReadonlyArray<TrackedItem | null>): Array<TrackedItemState | null> => {
+  const runtimeKey = getRuntimeKey();
+  return useTrackedItemsStore(useShallow((state) => items.map((item) => (
+    item ? state.records[storeKey(runtimeKey, trackedItemKey(item))] ?? null : null
+  ))));
+};
 
 /** Live state of each GitHub or GitLab issue, in order; null until known. */
 export const useTrackedIssueStates = (items: ReadonlyArray<TrackedThread<'issue'>>): Array<GitHubIssueLiveSummary | null> => {

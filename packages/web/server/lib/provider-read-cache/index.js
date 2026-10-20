@@ -12,7 +12,8 @@
 // that provider's answers, and so does an agent turn finishing, since the
 // agent may have opened or changed something. `POST <prefix>/read-cache/refresh`
 // clears them on request: the board's refresh button, for a change made on the
-// provider's own site.
+// provider's own site. Both a change and a refresh are reported through
+// `onChange(provider)`, so the live state the server follows is read again too.
 
 const SECOND = 1000;
 const MAX_ENTRIES = 300;
@@ -38,6 +39,10 @@ const CACHED_READS = new Map([
   ['/pulls/context', 15 * SECOND],
 ]);
 
+// Reads sent as a POST because their request is too large for a query; they
+// change nothing, so they neither clear answers nor count as a change.
+const POST_READS = new Set(['/references/across']);
+
 const routeOf = (path) => ROUTES.find((route) => path.startsWith(`${route.prefix}/`)) ?? null;
 
 const requestKey = (req, provider) => {
@@ -48,7 +53,7 @@ const requestKey = (req, provider) => {
 
 const isConnectedAnswer = (body) => !(Object.prototype.toString.call(body) === '[object Object]' && body.connected === false);
 
-export function createProviderReadCache({ now = Date.now } = {}) {
+export function createProviderReadCache({ now = Date.now, onChange = () => {} } = {}) {
   const entries = new Map();
   const inFlight = new Map();
 
@@ -71,16 +76,23 @@ export function createProviderReadCache({ now = Date.now } = {}) {
   const middleware = (req, res, next) => {
     const route = routeOf(req.path);
     if (!route) return next();
-    if (req.method === 'POST' && req.path === `${route.prefix}/read-cache/refresh`) {
+    const subpath = req.path.slice(route.prefix.length);
+    if (req.method === 'POST' && subpath === '/read-cache/refresh') {
       clear(route.provider);
+      onChange(route.provider);
       return res.json({ ok: true });
     }
+    if (req.method === 'POST' && POST_READS.has(subpath)) return next();
     if (req.method !== 'GET') {
       // A change to this provider makes every kept answer of it suspect.
-      res.on('finish', () => { if (res.statusCode < 400) clear(route.provider); });
+      res.on('finish', () => {
+        if (res.statusCode >= 400) return;
+        clear(route.provider);
+        onChange(route.provider);
+      });
       return next();
     }
-    const ttlMs = CACHED_READS.get(req.path.slice(route.prefix.length));
+    const ttlMs = CACHED_READS.get(subpath);
     if (!ttlMs) return next();
     const key = requestKey(req, route.provider);
     const cached = entries.get(key);

@@ -5,7 +5,8 @@ import { createProviderReadCache } from './index.js';
 
 function setup({ answer = (req) => ({ items: [req.query.page ?? '1'] }), status = 200 } = {}) {
   let clock = 1_000;
-  const cache = createProviderReadCache({ now: () => clock });
+  const changed = [];
+  const cache = createProviderReadCache({ now: () => clock, onChange: (provider) => changed.push(provider) });
   const app = express();
   app.use(cache.middleware);
   const calls = { list: 0 };
@@ -16,13 +17,14 @@ function setup({ answer = (req) => ({ items: [req.query.page ?? '1'] }), status 
     res.status(status).json(answer(req));
   });
   app.post('/api/source-control/github/pr/merge', (_req, res) => res.json({ ok: true }));
+  app.post('/api/source-control/github/references/across', (_req, res) => res.json({ items: [] }));
   app.get('/api/source-control/github/auth/status', (_req, res) => { calls.status = (calls.status ?? 0) + 1; res.json({ ok: true }); });
   const hold = () => {
     let release;
     gate = { promise: new Promise((resolve) => { release = resolve; }) };
     return () => { gate = null; release(); };
   };
-  return { app, cache, calls, hold, tick: (ms) => { clock += ms; } };
+  return { app, cache, calls, changed, hold, tick: (ms) => { clock += ms; } };
 }
 
 describe('provider read cache', () => {
@@ -96,5 +98,18 @@ describe('provider read cache', () => {
     await request(app).post('/api/source-control/github/read-cache/refresh').expect(200, { ok: true });
     await request(app).get('/api/source-control/github/pulls/list').expect(200);
     expect(calls.list).toBe(2);
+  });
+
+  it('reports a change and a refresh to the provider, never a read sent as a POST', async () => {
+    const { app, calls, changed } = setup();
+    await request(app).get('/api/source-control/github/pulls/list').expect(200);
+    await request(app).post('/api/source-control/github/references/across').expect(200);
+    await request(app).get('/api/source-control/github/pulls/list').expect(200);
+    expect(calls.list).toBe(1);
+    expect(changed).toEqual([]);
+
+    await request(app).post('/api/source-control/github/pr/merge').expect(200);
+    await request(app).post('/api/source-control/gitlab/read-cache/refresh').expect(200);
+    expect(changed).toEqual(['github', 'gitlab']);
   });
 });

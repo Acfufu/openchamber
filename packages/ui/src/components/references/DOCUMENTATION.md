@@ -19,6 +19,7 @@ every source, GitHub, Linear and each extension, as its own row.
 | `useReferenceImagePreview.tsx` | Opening the preview's pictures in the chat's image viewer. |
 | `referenceSources.ts` | Which cache a list or a Linear preview comes from, and its key. |
 | `referenceCache.ts` | Stale-while-revalidate lists and values. |
+| `liveReferences.ts` | The followed live state laid over listed items and PR statuses. |
 | `resolveComposerReferences.ts`, `useAttachReferences.ts` | Turning confirmed items into composer chips with their full context. |
 | `referencePickerItems.ts` | Item union, keys, state looks, filters. |
 
@@ -42,7 +43,51 @@ project.
 - Keys someone is subscribed to are never evicted; the 40-entry bound is a soft target.
 - GitHub pages come from `GET /api/source-control/github/references` (server: `packages/web/server/lib/github/DOCUMENTATION.md`), read with the project's GitHub read context (`useGitHubReadContext`): the account its binding names, or the current github.com account for a repository nobody bound. List and preview cache keys carry that account. Linear lists use `linear.issuesList` with the filter's status, whose issues (`assignee=me` or `created`) and priority, combined; picking in the filter menu keeps it open.
 
-- An open PR turns orange on failed checks, checks still running, or a conflict, as in the sidebar. A page does not carry that (mergeability alone made a 30-PR page about three times slower), so once the list shows, `useGitHubPullStatuses` asks `references/status` for the open PRs it lists, ten per request and all at once (a whole page in one query takes GitHub about ten seconds, at the edge of the request timeout), and the rows and the preview recolour when it lands. The preview's Checks line does not wait for that batch: the previewed PR's own detail carries its checks (GitHub's head-commit `statusCheckRollup`, summarized like the batch; GitLab's pipeline). On the board the totals open `SourceBoardChecksDialog`, which reads the PR's runs, steps and failed annotations through `useChangeRequestContextStore` (the PR panel's cache) when it opens, and again while runs are still going. `components/views/git/CheckRunList.tsx` draws the runs for both. Statuses are cached per PR and head commit. Until a status arrives, or when it fails, a PR reads as open. GitLab projects ask nothing and keep their state colour.
+- An open PR turns orange on failed checks or a conflict, as in the sidebar; checks still running keep the open colour. A page does not carry that (mergeability alone made a 30-PR page about three times slower), so once the list shows, `useGitHubPullStatuses` asks `references/status` for the open PRs it lists, ten per request and all at once (a whole page in one query takes GitHub about ten seconds, at the edge of the request timeout), and the rows and the preview recolour when it lands. The preview's Checks line shows the same status as the row; until it arrives, the previewed PR's own detail carries its checks (GitHub's head-commit `statusCheckRollup`, summarized like the batch; GitLab's pipeline). On the board the totals open `SourceBoardChecksDialog`, which reads the PR's runs, steps and failed annotations through `useChangeRequestContextStore` (the PR panel's cache) when it opens, and again while runs are still going. `components/views/git/CheckRunList.tsx` draws the runs for both. Statuses are cached per PR and head commit. Until a status arrives, or when it fails, a PR reads as open.
+
+## Live state of listed items
+
+A list and the statuses asked for it are what the host said when they were
+read. While a surface is on screen (the picker, the board while open, a
+Tracker tab while shown), the open items its list shows are also followed
+through the server's tracked items (`liveReferences.ts`, `lib/trackedItems`,
+server `tracked-items`), the same live state behind the sidebar's badges: the
+server reads them on a cadence (30 s while checks run), after an agent turn,
+after a change made through the app and on the board's refresh, and pushes a
+state only when it moved. A followed state answered after the list was read is
+laid over the row: a PR's state, draft, title, head commit, checks and
+mergeability, an issue's state and title, a Linear issue's state and title. A
+GitLab merge request gets its pipeline colour this way, which no list status
+carries.
+
+- Followed items are read with the account the list was read with
+  (`accountId` of the read context), so the same PR on the sidebar and the
+  board is one item on the server.
+- Each page of a list, and each PR status, counts as read 30 s before it
+  arrived, the age of the server's own short-lived answers
+  (`provider-read-cache`), so a followed state from just before it still wins
+  and an older one never does. A read forced after a change or a refresh
+  (`ReadStamp.forced`: a retry, the read after a write) is answered anew and
+  counts from when it arrived, so a change the user just made is never
+  replaced by the state from before it.
+- At most the first 50 open items of a list are followed (the server reads
+  GitHub PRs 25 to a query, sequentially); the client sends
+  at most 300 items in all, the server's limit, the surfaces declared first in
+  full. The list on screen is followed, never the other tab loaded in the
+  background or a board kept mounted while closed.
+- What joins or leaves a list (a new PR, a PR merged out of an open filter)
+  still waits for the list to be read again: on open, on window return and
+  after an agent turn finishes, for lists read more than 60 s ago.
+
+### Why followed items and not reading lists again on a timer
+
+A list that stays on screen used to show what it read until the window lost
+and regained focus, so a PR whose checks finished meanwhile stayed orange. A
+client timer would read whole pages (GitHub search, ten-PR status batches) and
+send them over a relay that is paid per byte even when nothing changed. The
+server already follows the sidebar's items on a state-based cadence and pushes
+only changes, so listed items join that set; the sidebar, the board and the
+Tracker then show one state for the same PR.
 
 ## Preview and attach
 
@@ -89,10 +134,11 @@ preview's footer holds actions instead of what the agent gets.
   scope picker share one row, then the switch, then the search with the
   filter beside it; an open item puts a back button and its number in that
   header instead.
-- What the board shows stays current through `sourceBoard/useBoardRevalidation.ts`.
-  While the board is on screen, lists, the preview and PR statuses read more
-  than 60 s ago are read again when it opens and when the window gets focus
-  back.
+- What the board shows stays current through `sourceBoard/useBoardRevalidation.ts`
+  and the followed live state (*Live state of listed items*). While the board
+  is on screen, lists, the preview and PR statuses read more than 60 s ago are
+  read again when it opens, when the window gets focus back and when an agent
+  turn finishes.
 - The repository tab is the project's host only: GitHub or GitLab, whichever
   `useRepositoryHostProvider` names; a project with no supported remote shows
   Linear alone.
@@ -205,9 +251,10 @@ preview's footer holds actions instead of what the agent gets.
   start only from a line in a review, so GitHub has no such button.
 - The board's issue or PR preview has a refresh button beside the host link
   (`onRefresh`). It asks the server to forget that host's short-lived answers
-  (`sourceControl.refreshProviderReads`, `POST <provider>/read-cache/refresh`)
-  and then reads the item's detail and the list again, so a change made on the
-  host's own site shows without waiting out the cache. VS Code has no board and
+  (`sourceControl.refreshProviderReads`, `POST <provider>/read-cache/refresh`),
+  which also makes the server read that host's followed items now, and then
+  reads the item's detail and the list again, so a change made on the host's
+  own site shows without waiting out the cache. VS Code has no board and
   answers the call as unsupported.
 - The side panel and its rail stay beside the board. A board under 960 px
   wide shows the kinds by icon and drops the list column: a trigger left of the search names the previewed
