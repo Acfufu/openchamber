@@ -7,14 +7,17 @@ import {
   SettingsFieldRow,
   SettingsCheckboxRow,
   SETTINGS_CUSTOM_TRIGGER_CLASS,
+  SETTINGS_HELPER_CLASS,
   SETTINGS_SELECT_ROW_TRIGGER_CLASS,
 } from '@/components/sections/shared/SettingsSection';
 import { SessionWarmingCheckbox } from './SessionWarmingCheckbox';
+import { SettingsInlineLink } from '@/components/sections/classification/JevAccessNote';
 import { SessionWarmingModeField } from './SessionWarmingModeField';
 import { PermissionDefaultModeField } from './PermissionDefaultModeField';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { loadDesktopSettings, updateDesktopSettings } from '@/lib/persistence';
 import { useConfigStore } from '@/stores/useConfigStore';
+import { useUIStore } from '@/stores/useUIStore';
 import { useSelectionStore } from '@/sync/selection-store';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useI18n } from '@/lib/i18n';
@@ -108,6 +111,7 @@ export const DefaultsSettings: React.FC = () => {
     agentIsPicked && currentSessionId && getSessionAgentSelection(currentSessionId),
   );
   const isVSCode = React.useMemo(() => isVSCodeRuntime(), []);
+  const requestSettingsJump = useUIStore((state) => state.requestSettingsJump);
   const providers = useConfigStore((state) => state.providers);
   const modelsMetadata = useConfigStore((state) => state.modelsMetadata);
 
@@ -378,7 +382,7 @@ export const DefaultsSettings: React.FC = () => {
         </div>
       </SettingsSection>
 
-      {/* Every model the app uses besides the one the user chats with. */}
+      {/* Models the app runs on its own: summaries, titles, the changes walkthrough. */}
       <SettingsSection title={t('settings.layout.sessions.helperModels.title')} contentClassName="space-y-2">
         <SettingsCheckboxRow
           settingsItem="sessions.small-model"
@@ -417,31 +421,42 @@ export const DefaultsSettings: React.FC = () => {
               className={SETTINGS_CUSTOM_TRIGGER_CLASS}
             />
           </SettingsFieldRow>
-          {/* The managed OpenCode plugin does the switch; VS Code runs its own OpenCode without it. */}
-          {isVSCode ? null : (
-            <SettingsFieldRow
-              settingsItem="sessions.fallback-model"
-              label={t('settings.openchamber.defaults.field.fallbackModel')}
-              info={t('settings.openchamber.defaults.field.fallbackModelInfo')}
-            >
-              <ModelSelector
-                providerId={parsedFallbackModel.providerId}
-                modelId={parsedFallbackModel.modelId}
-                onChange={handleFallbackModelChange}
-                allowedProviderIds={smallModelProviders}
-                placeholder={t('settings.openchamber.defaults.field.fallbackModelNone')}
-                className={SETTINGS_CUSTOM_TRIGGER_CLASS}
-              />
-              <ModelVariantSelect
-                variants={fallbackVariants}
-                value={fallbackVariant}
-                onChange={handleFallbackVariantChange}
-                ariaLabel={t('settings.openchamber.defaults.field.fallbackThinking')}
-              />
-            </SettingsFieldRow>
-          )}
         </div>
       </SettingsSection>
+
+      {/* The managed OpenCode plugin does both switches; VS Code runs its own OpenCode without it. */}
+      {isVSCode ? null : (
+        <SettingsSection title={t('settings.openchamber.defaults.usageLimitsTitle')} contentClassName="space-y-1">
+          <SettingsFieldRow
+            settingsItem="sessions.fallback-model"
+            label={t('settings.openchamber.defaults.field.fallbackModel')}
+            info={t('settings.openchamber.defaults.field.fallbackModelInfo')}
+          >
+            <ModelSelector
+              providerId={parsedFallbackModel.providerId}
+              modelId={parsedFallbackModel.modelId}
+              onChange={handleFallbackModelChange}
+              allowedProviderIds={smallModelProviders}
+              placeholder={t('settings.openchamber.defaults.field.fallbackModelNone')}
+              className={SETTINGS_CUSTOM_TRIGGER_CLASS}
+            />
+            <ModelVariantSelect
+              variants={fallbackVariants}
+              value={fallbackVariant}
+              onChange={handleFallbackVariantChange}
+              ariaLabel={t('settings.openchamber.defaults.field.fallbackThinking')}
+            />
+          </SettingsFieldRow>
+          {/* Account switching comes first and lives on each provider's page; without this line nobody finds it from here. */}
+          <p className={SETTINGS_HELPER_CLASS}>
+            {t('settings.openchamber.defaults.usageLimits.accountSwitching')}
+            {' '}
+            <SettingsInlineLink onClick={() => requestSettingsJump('providers')}>
+              {t('settings.openchamber.defaults.usageLimits.openProviders')}
+            </SettingsInlineLink>
+          </p>
+        </SettingsSection>
+      )}
 
       <SettingsSection title={t('settings.openchamber.defaults.promptCacheTitle')}>
         {/* VS Code has no OpenChamber server to warm chosen sessions: OpenCode's switch for all of them only. */}

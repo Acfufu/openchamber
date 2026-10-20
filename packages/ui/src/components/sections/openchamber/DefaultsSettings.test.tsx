@@ -125,6 +125,7 @@ mock.module('@/components/sections/shared/SettingsSection', () => ({
     <div>{label}{children}</div>
   ),
   SETTINGS_CUSTOM_TRIGGER_CLASS: '',
+  SETTINGS_HELPER_CLASS: '',
   SETTINGS_SELECT_ROW_TRIGGER_CLASS: '',
   SETTINGS_OPTION_STACK_CLASS: '',
   SettingsChipGroup: () => null,
