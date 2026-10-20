@@ -240,7 +240,7 @@ export const createLimitFailoverRuntime = ({
       }
     }
 
-    const fallback = parseModelSetting(settings?.fallbackModel);
+    const fallback = parseModelSetting(settings?.fallbackModel, settings?.fallbackVariant);
     if (fallback && !(fallback.providerID === report.providerID && fallback.id === report.modelID)) {
       const ticket = openTicket(at, {
         sessionID: report.sessionID,

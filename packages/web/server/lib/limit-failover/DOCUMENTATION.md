@@ -8,7 +8,9 @@ model. Two settings drive it, both off by default:
 
 - `accountSwitchProviders`: provider ids the user opted in on the provider's
   page in Settings → Providers (`ProviderAccountSwitchToggle.tsx`).
-- `fallbackModel`: `provider/model`, Settings → Sessions → Session defaults.
+- `fallbackModel`: `provider/model`, Settings → Sessions → Session defaults,
+  with its thinking level in `fallbackVariant` (the select beside the picker,
+  shown when the model has levels; cleared when the model changes).
 
 The module owns the managed OpenCode plugin that reports limit failures
 (`runtime.js`, `PLUGIN_SOURCE`), the decision (`decide`), and the

@@ -90,13 +90,18 @@ export const isLimitFailoverConfigured = (settings) => (
   || (Array.isArray(settings?.accountSwitchProviders) && settings.accountSwitchProviders.length > 0)
 );
 
-/** `provider/model` as the settings store it; the model id may itself contain slashes. */
-export const parseModelSetting = (value) => {
+/**
+ * `provider/model` as the settings store it, with its thinking level when one
+ * is set; the model id may itself contain slashes.
+ */
+export const parseModelSetting = (value, variantValue) => {
   const text = asNonEmptyString(value);
   if (!text) return null;
   const slash = text.indexOf('/');
   if (slash <= 0 || slash === text.length - 1) return null;
-  return { providerID: text.slice(0, slash), id: text.slice(slash + 1) };
+  const model = { providerID: text.slice(0, slash), id: text.slice(slash + 1) };
+  const variant = asNonEmptyString(variantValue);
+  return variant ? { ...model, variant } : model;
 };
 
 const credentialSchema = z

@@ -549,20 +549,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     id: 'sessions.default-model',
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.field.defaultModel',
-    keywords: ['model', 'provider', 'new sessions'],
-  },
-  {
-    id: 'sessions.default-thinking',
-    page: 'sessions',
-    titleKey: 'settings.openchamber.defaults.field.defaultThinking',
-    keywords: ['thinking', 'reasoning', 'variant'],
+    keywords: ['model', 'provider', 'new sessions', 'thinking', 'reasoning', 'variant'],
   },
   {
     id: 'sessions.fallback-model',
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.field.fallbackModel',
     descriptionKey: 'settings.openchamber.defaults.field.fallbackModelInfo',
-    keywords: ['fallback', 'backup', 'usage limit', 'quota', 'rate limit', 'model'],
+    keywords: ['fallback', 'backup', 'usage limit', 'quota', 'rate limit', 'model', 'thinking'],
     isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
@@ -582,15 +576,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.field.sessionWarming',
     descriptionKey: 'settings.openchamber.defaults.field.sessionWarmingInfo',
-    keywords: ['warming', 'warm', 'cache', 'prompt cache', 'keep-alive', 'idle', 'per session', 'keep warm'],
-  },
-  {
-    id: 'sessions.warming-duration',
-    page: 'sessions',
-    titleKey: 'settings.openchamber.defaults.sessionWarming.duration',
-    keywords: ['warming', 'warm', 'duration', 'how long', 'hour', 'cache'],
-    // VS Code shows only OpenCode's switch, without a duration.
-    isAvailable: (ctx) => !ctx.isVSCode,
+    keywords: ['warming', 'warm', 'cache', 'prompt cache', 'keep-alive', 'idle', 'per session', 'keep warm', 'duration', 'how long', 'hour'],
   },
   {
     id: 'sessions.permission-default',

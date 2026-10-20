@@ -72,6 +72,8 @@ describe('limit failure classification', () => {
 
   it('parses the stored fallback model, keeping slashes in the model id', () => {
     expect(parseModelSetting('openrouter/anthropic/claude-sonnet')).toEqual({ providerID: 'openrouter', id: 'anthropic/claude-sonnet' });
+    expect(parseModelSetting('openai/gpt-5.6', 'high')).toEqual({ providerID: 'openai', id: 'gpt-5.6', variant: 'high' });
+    expect(parseModelSetting('openai/gpt-5.6', '')).toEqual({ providerID: 'openai', id: 'gpt-5.6' });
     expect(parseModelSetting('nomodel')).toBeNull();
     expect(parseModelSetting('')).toBeNull();
   });
@@ -138,6 +140,12 @@ describe('limit failover decisions', () => {
       type: 'openchamber:limit-failover',
       properties: { kind: 'model', sessionId: 'ses_1', providerId: 'anthropic', modelId: 'claude-opus', toProviderId: 'openai', toModelId: 'gpt-5.6' },
     });
+  });
+
+  it('switches to the fallback model with its thinking level', async () => {
+    const { runtime } = createRuntime({ settings: { fallbackModel: 'openai/gpt-5.6', fallbackVariant: 'high' } });
+    await expect(runtime.decide(quotaReport()))
+      .resolves.toMatchObject({ action: 'switch-model', model: { providerID: 'openai', id: 'gpt-5.6', variant: 'high' } });
   });
 
   it('uses the fallback model without account switching, and stops on the fallback itself', async () => {

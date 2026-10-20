@@ -524,6 +524,7 @@ export const SETTINGS_REGISTRY = {
   walkthroughModelOverride: field({ scope: 'profile', parse: parseNonEmptyString }),
   // Read by the server when a provider's usage limit is hit (lib/limit-failover).
   fallbackModel: field({ scope: 'profile', parse: parseNonEmptyString }),
+  fallbackVariant: field({ scope: 'profile', parse: parseNonEmptyString }),
   accountSwitchProviders: field({ scope: 'profile', parse: parseStringSet }),
   zenModel: field({ scope: 'profile', parse: parseNonEmptyTrimmedString }),
   // The model-prefs auto-save owns these six with its own debounce.

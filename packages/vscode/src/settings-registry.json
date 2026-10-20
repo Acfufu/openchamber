@@ -575,6 +575,9 @@
     "fallbackModel": {
       "scope": "profile"
     },
+    "fallbackVariant": {
+      "scope": "profile"
+    },
     "accountSwitchProviders": {
       "scope": "profile"
     },

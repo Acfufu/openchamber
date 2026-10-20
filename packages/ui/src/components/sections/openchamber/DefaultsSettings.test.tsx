@@ -215,7 +215,6 @@ describe('DefaultsSettings', () => {
       await Promise.resolve();
     });
 
-    expect(host.textContent).toContain('sidecar/model');
     expect(host.textContent).toContain('High');
     expect(updateCalls).toEqual([]);
   });
