@@ -50,6 +50,9 @@ const MANAGED_PLUGIN_SETTINGS_KEYS = new Set([
   'agentNotifyToolEnabled',
   'agentRenderToolEnabled',
   'agentToolsCodeMode',
+  // The limit failover plugin loads only while one of these is set.
+  'fallbackModel',
+  'accountSwitchProviders',
 ]);
 
 export const createSettingsRuntime = (deps) => {

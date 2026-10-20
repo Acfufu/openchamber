@@ -558,6 +558,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['thinking', 'reasoning', 'variant'],
   },
   {
+    id: 'sessions.fallback-model',
+    page: 'sessions',
+    titleKey: 'settings.openchamber.defaults.field.fallbackModel',
+    descriptionKey: 'settings.openchamber.defaults.field.fallbackModelInfo',
+    keywords: ['fallback', 'backup', 'usage limit', 'quota', 'rate limit', 'model'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
     id: 'sessions.default-agent',
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.field.defaultAgent',

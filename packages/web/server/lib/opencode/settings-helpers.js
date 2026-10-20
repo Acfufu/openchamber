@@ -685,6 +685,13 @@ export const createSettingsHelpers = (dependencies) => {
       const trimmed = candidate.walkthroughModelOverride.trim();
       result.walkthroughModelOverride = trimmed.length > 0 ? trimmed : undefined;
     }
+    const fallbackModel = z.string().trim().safeParse(candidate.fallbackModel);
+    if (fallbackModel.success) {
+      result.fallbackModel = fallbackModel.data.length > 0 ? fallbackModel.data : undefined;
+    }
+    if (Array.isArray(candidate.accountSwitchProviders)) {
+      result.accountSwitchProviders = normalizeStringArray(candidate.accountSwitchProviders);
+    }
     if (typeof candidate.defaultGitIdentityId === 'string') {
       const trimmed = candidate.defaultGitIdentityId.trim();
       result.defaultGitIdentityId = trimmed.length > 0 ? trimmed : undefined;

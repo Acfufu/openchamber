@@ -84,6 +84,7 @@ export const DefaultsSettings: React.FC = () => {
   // Fail closed: never offer providers whose credentials were not verified.
   const smallModelProviders = useCallableModelProviders() ?? [];
   const [walkthroughModelOverride, setWalkthroughModelOverride] = React.useState<string | undefined>();
+  const [fallbackModel, setFallbackModel] = React.useState<string | undefined>();
   const [isLoading, setIsLoading] = React.useState(true);
 
   const parsedModel = React.useMemo(() => getDisplayModel(defaultModel), [defaultModel]);
@@ -108,6 +109,10 @@ export const DefaultsSettings: React.FC = () => {
           const walkthroughOverride = data.walkthroughModelOverride?.trim();
           if (walkthroughOverride) {
             setWalkthroughModelOverride(walkthroughOverride);
+          }
+          const fallback = data.fallbackModel?.trim();
+          if (fallback) {
+            setFallbackModel(fallback);
           }
         }
       } catch (error) {
@@ -235,6 +240,21 @@ export const DefaultsSettings: React.FC = () => {
     []
   );
 
+  // Read by the server when a provider's usage limit stops a session; nothing
+  // in the client changes until then.
+  const handleFallbackModelChange = React.useCallback(
+    async (providerId: string, modelId: string) => {
+      const newValue = providerId && modelId ? `${providerId}/${modelId}` : undefined;
+      setFallbackModel(newValue);
+      try {
+        await updateDesktopSettings({ fallbackModel: newValue ?? '' });
+      } catch (error) {
+        console.warn('Failed to save fallback model:', error);
+      }
+    },
+    []
+  );
+
   // The walkthrough cannot work at all without schema-shaped output, so models
   // the catalog says cannot do it are hidden rather than offered and then
   // refused. A missing capability is not a "no": roughly half the catalog omits
@@ -250,6 +270,7 @@ export const DefaultsSettings: React.FC = () => {
     () => getDisplayModel(walkthroughModelOverride),
     [walkthroughModelOverride]
   );
+  const parsedFallbackModel = React.useMemo(() => getDisplayModel(fallbackModel), [fallbackModel]);
   const availableVariants = React.useMemo(() => {
     if (!parsedModel.providerId || !parsedModel.modelId) return [];
     const provider = providers.find((p) => p.id === parsedModel.providerId);
@@ -323,6 +344,24 @@ export const DefaultsSettings: React.FC = () => {
               </SelectContent>
             </Select>
           </SettingsFieldRow>
+
+          {/* The managed OpenCode plugin does the switch; VS Code runs its own OpenCode without it. */}
+          {isVSCode ? null : (
+            <SettingsFieldRow
+              settingsItem="sessions.fallback-model"
+              label={t('settings.openchamber.defaults.field.fallbackModel')}
+              info={t('settings.openchamber.defaults.field.fallbackModelInfo')}
+            >
+              <ModelSelector
+                providerId={parsedFallbackModel.providerId}
+                modelId={parsedFallbackModel.modelId}
+                onChange={handleFallbackModelChange}
+                allowedProviderIds={smallModelProviders}
+                placeholder={t('settings.openchamber.defaults.field.fallbackModelNone')}
+                className={SETTINGS_CUSTOM_TRIGGER_CLASS}
+              />
+            </SettingsFieldRow>
+          )}
 
           <SettingsFieldRow
             settingsItem="sessions.default-agent"

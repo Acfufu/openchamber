@@ -75,6 +75,11 @@ describe('settings runtime', () => {
 
       await runtime.persistSettings({ agentWebToolEnabled: false });
       expect(onManagedPluginSettingsChanged).toHaveBeenCalledTimes(1);
+
+      // The limit failover plugin loads only while one of its options is set.
+      await runtime.persistSettings({ fallbackModel: 'openai/gpt-5.6' });
+      await runtime.persistSettings({ accountSwitchProviders: ['anthropic'] });
+      expect(onManagedPluginSettingsChanged).toHaveBeenCalledTimes(3);
     } finally {
       await cleanup();
     }

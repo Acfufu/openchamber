@@ -572,6 +572,12 @@
     "walkthroughModelOverride": {
       "scope": "profile"
     },
+    "fallbackModel": {
+      "scope": "profile"
+    },
+    "accountSwitchProviders": {
+      "scope": "profile"
+    },
     "zenModel": {
       "scope": "profile"
     },
