@@ -128,8 +128,14 @@ class KeyedStore<R> {
     }
 
     clear(): void {
-        const keys = [...this.records.keys()];
-        this.records.clear();
+        this.forget(() => true);
+    }
+
+    /** Drops the records whose key `picked` names; their readers ask again. */
+    forget(picked: (key: string) => boolean): void {
+        const keys = [...this.records.keys()].filter(picked);
+        if (keys.length === 0) return;
+        for (const key of keys) this.records.delete(key);
         this.version += 1;
         for (const key of keys) {
             for (const listener of this.listeners.get(key) ?? []) listener();
@@ -287,6 +293,8 @@ export type ValueCache<T> = {
     subscribe: (key: string, listener: Listener) => () => void;
     /** Changes on every write; a snapshot for readers of several keys at once. */
     version: () => number;
+    /** Drops the values whose key `picked` names, so their readers ask again. */
+    forget: (picked: (key: string) => boolean) => void;
     clear: () => void;
 };
 
@@ -359,6 +367,10 @@ export function createValueCache<T>(limit = 40, now: () => number = Date.now): V
         },
         subscribe: (key, listener) => store.subscribe(key, listener),
         version: () => store.version,
+        forget: (picked) => {
+            for (const key of inflight.keys()) if (picked(key)) inflight.delete(key);
+            store.forget(picked);
+        },
         clear: () => {
             inflight.clear();
             store.clear();

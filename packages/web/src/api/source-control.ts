@@ -1730,8 +1730,11 @@ export const createWebSourceControlAPI = (options: WebSourceControlAPIOptions = 
       });
       return parseMutationReceipt(result, payload, identity, parseEmptyMutationResult);
     },
-    refreshProviderReads: async (identity) => {
-      await request<ErrorResponse>(fetch, identity, '/read-cache/refresh', { method: 'POST' });
+    refreshProviderReads: async (identity, scope) => {
+      const query = 'item' in scope
+        ? new URLSearchParams({ scope: 'item', owner: scope.item.owner, repo: scope.item.repo, number: String(scope.item.number) })
+        : new URLSearchParams({ scope: 'lists' });
+      await request<ErrorResponse>(fetch, identity, '/read-cache/refresh', { method: 'POST' }, query);
     },
     referenceLabels: async (context, project) => parseLabelChoices(await readRepositoryChoices(fetch, context, project, '/references/labels')),
     referenceReviewers: async (context, project) => parseReviewerChoices(await readRepositoryChoices(fetch, context, project, '/references/reviewers')),

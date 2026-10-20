@@ -3,7 +3,7 @@ import * as React from 'react';
 import { ReferencePreview } from '@/components/references/ReferencePreview';
 import { DEFAULT_REPOSITORY_FILTER, type ReferencePickerItem } from '@/components/references/referencePickerItems';
 import {
-    forgetGitHubPullStatuses,
+    forgetGitHubPullStatus,
     useGitHubPullStatuses,
     useGitHubReadContext,
     useGitHubReferenceDetail,
@@ -155,10 +155,14 @@ const RepositoryTrackerItem: React.FC<TrackerItemViewProps & { kind: GitHubRefer
     const showTrackerItem = useShowTrackerItem();
     const stack = detail.status === 'ready' ? detail.value.pull?.stack ?? null : null;
     // For a change made on the host's own site, which the server's
-    // short-lived answers would otherwise hide for up to half a minute.
+    // short-lived answers would otherwise hide for up to half a minute: this
+    // tab's item alone, its state and checks included.
     const refreshFromHost = async () => {
-        if (context) await sourceControl.refreshProviderReads(context).catch(() => undefined);
-        forgetGitHubPullStatuses();
+        if (context && reference) {
+            const item = { owner: reference.sourceRepo.owner, repo: reference.sourceRepo.repo, number: reference.number };
+            await sourceControl.refreshProviderReads(context, { item }).catch(() => undefined);
+            forgetGitHubPullStatus(item);
+        }
         await refreshItem();
     };
 

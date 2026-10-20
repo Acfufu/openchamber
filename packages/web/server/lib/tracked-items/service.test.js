@@ -144,6 +144,18 @@ describe('tracked items service', () => {
     expect(calls.linear).toHaveLength(1);
   });
 
+  it('reads only the one item a user refreshed, whatever account follows it', async () => {
+    const { service, calls } = setup();
+    service.setInterest('c1', itemsOf(githubPull(1), githubPull(2)));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls.github).toHaveLength(1);
+
+    service.refreshItem('github', { owner: 'Acme', repo: 'App', number: 2 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls.github).toHaveLength(2);
+    expect(calls.github[1]).toMatchObject({ pulls: [{ owner: 'acme', repo: 'app', number: 2 }] });
+  });
+
   it('refuses interest from a connection that is not open and forgets closed ones', async () => {
     const { service, sent, open } = setup();
     expect(() => service.setInterest('gone', itemsOf(githubPull(1)))).toThrow(expect.objectContaining({ code: 'unknown-connection' }));

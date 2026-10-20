@@ -469,6 +469,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
     let trackedItemsService = null;
     const providerReadCache = createProviderReadCache({
       onChange: (provider) => trackedItemsService?.refreshProvider(provider),
+      onItemRefresh: (provider, item) => trackedItemsService?.refreshItem(provider, item),
     });
     app.use(providerReadCache.middleware);
     walkthroughBindingService = registerSourceControlRoutes(app, {

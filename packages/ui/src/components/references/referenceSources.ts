@@ -14,6 +14,7 @@ import * as React from 'react';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type {
     SourceControlBindingRead,
+    GitHubPullRequestRef,
     GitHubPullStatus,
     GitHubReference,
     GitHubReferenceDetail,
@@ -408,8 +409,14 @@ const githubPullStatuses = createValueCache<GitHubPullStatus | null>(200);
 const PULL_STATUS_BATCH = 10;
 const IDLE: CachedValue<GitHubPullStatus | null> = { status: 'idle' };
 
-/** Forgets every PR's checks and mergeability, so the lists showing them ask again: the board's refresh. */
+/** Forgets every PR's checks and mergeability, so the lists showing them ask again: the board's list refresh. */
 export const forgetGitHubPullStatuses = (): void => githubPullStatuses.clear();
+
+/** Forgets one PR's checks and mergeability, at any head commit: the preview's refresh. */
+export const forgetGitHubPullStatus = (pull: GitHubPullRequestRef): void => {
+    const marker = `|${pull.owner}/${pull.repo}#${pull.number}@`.toLowerCase();
+    githubPullStatuses.forget((key) => key.toLowerCase().includes(marker));
+};
 
 const pullStatusScope = (group: PullStatusGroup): string => (
     JSON.stringify([getRuntimeKey(), readContextCacheKey(group.context), group.directory])

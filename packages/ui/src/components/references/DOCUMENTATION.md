@@ -274,13 +274,20 @@ preview's footer holds actions instead of what the agent gets.
   and resolved or reopened, as far as the host says this account may. GitLab
   merge requests can also start a thread from the reply box; GitHub threads
   start only from a line in a review, so GitHub has no such button.
-- The board's issue or PR preview has a refresh button beside the host link
-  (`onRefresh`). It asks the server to forget that host's short-lived answers
-  (`sourceControl.refreshProviderReads`, `POST <provider>/read-cache/refresh`),
-  which also makes the server read that host's followed items now, and then
-  reads the item's detail and the list again, so a change made on the host's
-  own site shows without waiting out the cache. VS Code has no board and
-  answers the call as unsupported.
+- The issue or PR preview, on the board and in a Tracker tab, has a refresh
+  button beside the host link (`onRefresh`). It reads the shown item alone
+  again: the server forgets its short-lived answers about that item
+  (`sourceControl.refreshProviderReads(context, { item })`,
+  `POST <provider>/read-cache/refresh?scope=item`) and reads that item's
+  followed state now; the app forgets that PR's listed checks; then the
+  item's detail is read again. Other items, lists and followed state are left
+  alone, so a change made on the host's own site shows without waiting out
+  the cache and without a read of everything else.
+- The board's list has a refresh button of its own after the filter. It reads
+  what is listed again (`{ lists: true }`, `scope=lists`; Linear's
+  `linear.refreshListReads`), with the checks of the listed PRs, so an item
+  just opened on the host appears. VS Code has no board and answers the call
+  as unsupported.
 - The side panel and its rail stay beside the board. A board under 960 px
   wide shows the kinds by icon and drops the list column: a trigger left of the search names the previewed
   item (`#12`, `!12`, `ENG-7`) and opens the list as a dropdown over the

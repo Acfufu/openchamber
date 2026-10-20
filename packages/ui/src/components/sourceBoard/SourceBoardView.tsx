@@ -27,7 +27,7 @@ import { IDLE_PULL_STATUS, useReferenceBrowser } from '@/components/references/u
 import { ReferencePreview } from '@/components/references/ReferencePreview';
 import { DEFAULT_REPOSITORY_FILTER, referenceNumberLabel, referencePickerItemKey, type ReferencePickerItem, type ReferencePickerSelection } from '@/components/references/referencePickerItems';
 import { itemDirectory } from '@/components/references/acrossRepositories';
-import { forgetGitHubPullStatuses, useGitHubAcrossReferenceList, useGitHubReadContext, useGitHubReferenceList, useLinearIssueDetail, useRepositoryHostProvider } from '@/components/references/referenceSources';
+import { forgetGitHubPullStatus, forgetGitHubPullStatuses, useGitHubAcrossReferenceList, useGitHubReadContext, useGitHubReferenceList, useLinearIssueDetail, useRepositoryHostProvider } from '@/components/references/referenceSources';
 import { openExternalUrl } from '@/lib/url';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
@@ -329,7 +329,7 @@ const SourceBoardBody: React.FC<{
 }> = ({ tab, project, directory, allRepositories, linearTeamId, mapping, projects, scopePicker, kinds, initialRepositoryKind, onSelectKind, layout, onScreen, onLeave, onClose }) => {
     const isMobile = layout === 'mobile';
     const { t } = useI18n();
-    const { sourceControl } = useRuntimeAPIs();
+    const { sourceControl, linear } = useRuntimeAPIs();
     const source = tab === 'linear' ? 'linear' : 'github';
     // An item another surface asked to show: an issue or PR by its link, a
     // Linear issue by its identifier. It is read on its own, not typed into the
@@ -523,14 +523,53 @@ const SourceBoardBody: React.FC<{
         [refreshGithubDetail, retryList],
     );
     const threadActions = useThreadActions(previewItem?.source === 'github' ? previewItem.reference : null, context, refreshRepositoryItem);
-    // The refresh button: for a change made on the host's own site, which the
-    // server's short-lived answers would otherwise hide for up to half a minute.
+    // The preview's refresh button, for a change made on the host's own site,
+    // which the server's short-lived answers would otherwise hide for up to
+    // half a minute: the shown item alone, its state and checks included.
     const refreshFromHost = async () => {
-        if (context) await sourceControl.refreshProviderReads(context).catch(() => undefined);
-        forgetGitHubPullStatuses();
-        // The button spins until the item and the list are read again.
-        await refreshRepositoryItem();
+        if (context && previewItem?.source === 'github') {
+            const { sourceRepo, number } = previewItem.reference;
+            const item = { owner: sourceRepo.owner, repo: sourceRepo.repo, number };
+            await sourceControl.refreshProviderReads(context, { item }).catch(() => undefined);
+            forgetGitHubPullStatus(item);
+        }
+        await refreshGithubDetail();
     };
+
+    // The list's refresh button: what is listed, and the checks of its PRs, read
+    // again, such as a PR just opened on the host's own site.
+    const listContextValue = useGitHubReadContext(tab === 'linear' ? null : allRepositories?.[0] ?? directory);
+    const listContext = listContextValue && listContextValue !== 'missing' ? listContextValue : null;
+    const [listRefreshing, setListRefreshing] = React.useState(false);
+    const refreshList = async () => {
+        if (listRefreshing) return;
+        setListRefreshing(true);
+        try {
+            if (tab === 'linear') {
+                await linear?.refreshListReads().catch(() => undefined);
+            } else {
+                if (listContext) await sourceControl.refreshProviderReads(listContext, { lists: true }).catch(() => undefined);
+                forgetGitHubPullStatuses();
+            }
+            await retryList();
+        } finally {
+            setListRefreshing(false);
+        }
+    };
+    const listRefreshButton = (
+        <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn('shrink-0 px-0', isMobile ? 'size-8' : 'size-7')}
+            aria-label={t('sourceBoard.list.refresh')}
+            title={t('sourceBoard.list.refresh')}
+            disabled={listRefreshing}
+            onClick={() => void refreshList()}
+        >
+            <Icon name="refresh" className={cn('size-4', listRefreshing && 'animate-spin')} />
+        </Button>
+    );
 
     const preview = (
         <ReferencePreview
@@ -621,6 +660,7 @@ const SourceBoardBody: React.FC<{
     const search = (
         <ReferenceBrowserSearch
             browser={browser}
+            trailing={listRefreshButton}
             onKeyDown={(event) => {
                 if (narrow) {
                     // Typing or arrows show the results; Enter keeps the one picked.

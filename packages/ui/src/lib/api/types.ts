@@ -1658,17 +1658,20 @@ export type GitHubPullRequestStatus = {
 
 export type GitHubPullRequestRef = GitHubRepoSelector & { number: number };
 
+/** What a refresh of the server's short-lived provider answers covers. */
+export type ProviderReadsRefreshScope = { item: GitHubPullRequestRef } | { lists: true };
+
 /** Live fields of a known PR, refreshed in batches for list surfaces. */
 export type GitHubPullRequestLiveSummary = GitHubPullRequestRef & {
   state: GitHubPullRequest['state'];
   draft: boolean;
   title: string;
   headSha?: string;
+  /** The branch it targets, so a PR retargeted on the host is followed too. */
+  base?: string;
   mergeable: boolean | null;
   mergeableState: string | null;
   /** Null for closed/merged PRs, whose checks are not actionable. */
-  /** The branch it targets, so a PR retargeted on the host is followed too. */
-  base?: string;
   checks: GitHubChecksSummary | null;
 };
 
@@ -1999,8 +2002,13 @@ export interface SourceControlAPI {
   changeRequestSetLabels(payload: SetLabelsInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
   issueSetLabels(payload: SetLabelsInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
   changeRequestSetReviewers(payload: SetReviewersInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
-  /** Forgets the server's short-lived answers from this host, so the next reads ask it again. */
-  refreshProviderReads(identity: SourceControlIdentity): Promise<void>;
+  /**
+   * Forgets the server's short-lived answers from this host, so the next
+   * reads ask it again: those about one item (a preview's refresh, which also
+   * reads that item's followed state again), or the lists (the board's list
+   * refresh).
+   */
+  refreshProviderReads(identity: SourceControlIdentity, scope: ProviderReadsRefreshScope): Promise<void>;
   /** One page of a project's labels, for the board's picker. */
   referenceLabels(context: SourceControlReadContext, project: GitHubRepoSelector): Promise<GitHubIssueLabel[]>;
   /** One page of the people who can be asked to review in a project. */
@@ -2361,6 +2369,8 @@ export interface LinearAPI {
   authDisconnect(): Promise<{ removed: boolean }>;
   authActivate(organizationId: string): Promise<LinearAuthStatus>;
   issuesList(options?: LinearIssuesListOptions): Promise<LinearIssuesListResult>;
+  /** Forgets the server's short-lived Linear lists, so the next list read asks Linear: the board's list refresh. */
+  refreshListReads(): Promise<void>;
   issueGet(id: string): Promise<LinearIssueGetResult>;
   issueStates(teamId: string): Promise<LinearIssueStatesResult>;
   issueUpdate(input: LinearIssueUpdateInput): Promise<LinearIssueUpdateResult>;
