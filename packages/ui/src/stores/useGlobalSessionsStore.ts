@@ -122,6 +122,9 @@ const getSessionSignature = (session: Session): string => {
     session.time?.created ?? 0,
     session.time?.updated ?? 0,
     session.time?.archived ?? 0,
+    // A view changes no `updated`; without these it would read as no change.
+    session.time?.idle ?? 0,
+    session.time?.viewed ?? 0,
     JSON.stringify(session.metadata ?? null),
     resolveGlobalSessionDirectory(session) ?? '',
   ].join(':');
@@ -134,6 +137,10 @@ const getSessionStructuralSignature = (session: Session): string => {
     session.parentID ?? '',
     session.time?.created ?? 0,
     session.time?.archived ?? 0,
+    // A finished turn and a view of it decide the unread mark, so they publish
+    // at once instead of waiting with the recency-only updates.
+    session.time?.idle ?? 0,
+    session.time?.viewed ?? 0,
     JSON.stringify(session.metadata ?? null),
     resolveGlobalSessionDirectory(session) ?? '',
   ].join(':');

@@ -6,7 +6,6 @@ import type { Session } from '@/lib/opencode/model';
 import { useTraySync } from './useTraySync';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
 import { useUIStore } from '@/stores/useUIStore';
-import { useNotificationStore } from '@/sync/notification-store';
 import {
   applyGlobalBlockingRequestEvents,
   applyWaitingPageEvent,
@@ -37,9 +36,13 @@ describe('Dock badge with the macOS menu bar disabled', () => {
   };
   const listen = async () => { listenerCount += 1; return () => {}; };
   const intervals = () => { intervalCount += 1; return 1; };
-  const append = (id: string) => useNotificationStore.getState().append({
-    type: 'turn-complete', session: id, time: Date.now(), viewed: false,
-  });
+  let clock = 1;
+  const patchSession = (id: string, patch: (time: Session['time']) => Session['time']) => useGlobalSessionsStore.setState((state) => ({
+    activeSessions: state.activeSessions.map((item) => (item.id === id ? { ...item, time: patch(item.time) } : item)),
+  }));
+  // A turn ends: OpenCode stamps `time.idle`, which leaves the session unread.
+  const finishTurn = (id: string) => patchSession(id, (time) => ({ ...time, idle: ++clock }));
+  const view = (id: string) => patchSession(id, (time) => ({ ...time, viewed: time.idle }));
   const flush = async () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 550)); });
   };
@@ -56,7 +59,6 @@ describe('Dock badge with the macOS menu bar disabled', () => {
       window: dom, document: dom.document, navigator: dom.navigator,
       IS_REACT_ACT_ENVIRONMENT: true,
     });
-    useNotificationStore.setState(useNotificationStore.getInitialState());
     useGlobalSessionsStore.setState({ activeSessions: [session('root'), session('child', 'root')] });
     useUIStore.setState({ dockBadgeEnabled: true, notifyOnSubtasks: false });
     counts.length = 0;
@@ -73,7 +75,7 @@ describe('Dock badge with the macOS menu bar disabled', () => {
   test('publishes unread chats, clears viewed chats, and respects the badge toggle without tray timers or listeners', async () => {
     await act(async () => root.render(<Harness />));
     expect(counts).toEqual([0]);
-    append('root');
+    finishTurn('root');
     await flush();
     expect(counts).toEqual([0, 1]);
     useUIStore.setState({ dockBadgeEnabled: false });
@@ -82,18 +84,19 @@ describe('Dock badge with the macOS menu bar disabled', () => {
     useUIStore.setState({ dockBadgeEnabled: true });
     await flush();
     expect(counts).toEqual([0, 1, 0, 1]);
-    useNotificationStore.getState().markSessionViewed('root');
+    view('root');
     await flush();
     expect(counts).toEqual([0, 1, 0, 1, 0]);
     expect(intervalCount).toBe(0);
     expect(listenerCount).toBe(0);
   });
 
-  test('rolls subtasks up only when enabled and reconciles global session membership', async () => {
-    append('child');
+  test('never counts a subtask and reconciles global session membership', async () => {
+    useUIStore.setState({ notifyOnSubtasks: true });
+    finishTurn('child');
     await act(async () => root.render(<Harness />));
     expect(counts).toEqual([0]);
-    useUIStore.setState({ notifyOnSubtasks: true });
+    finishTurn('root');
     await flush();
     expect(counts).toEqual([0, 1]);
     useGlobalSessionsStore.setState({ activeSessions: [] });
@@ -103,18 +106,18 @@ describe('Dock badge with the macOS menu bar disabled', () => {
 
   test('coalesces unread updates and cancels pending updates on unmount', async () => {
     await act(async () => root.render(<Harness />));
-    append('root');
-    append('root');
+    finishTurn('root');
+    finishTurn('root');
     await flush();
     expect(counts).toEqual([0, 1]);
-    append('root');
+    finishTurn('root');
     await flush();
     expect(counts).toEqual([0, 1]);
-    useNotificationStore.getState().markSessionViewed('root');
+    view('root');
     await act(async () => root.unmount());
     await flush();
     expect(counts).toEqual([0, 1]);
-    append('root');
+    finishTurn('root');
     await flush();
     expect(counts).toEqual([0, 1]);
   });
@@ -122,13 +125,13 @@ describe('Dock badge with the macOS menu bar disabled', () => {
   test('counts all unread chats at startup, beyond the tray menu limit', async () => {
     const sessions = Array.from({ length: 25 }, (_, index) => session(`root-${index}`));
     useGlobalSessionsStore.setState({ activeSessions: sessions });
-    for (const item of sessions) append(item.id);
+    for (const item of sessions) finishTurn(item.id);
     await act(async () => root.render(<Harness />));
     expect(counts).toEqual([25]);
   });
 
   test('starts with a cleared badge when both controls are disabled', async () => {
-    append('root');
+    finishTurn('root');
     useUIStore.setState({ dockBadgeEnabled: false });
     await act(async () => root.render(<Harness />));
     expect(counts).toEqual([0]);
@@ -139,7 +142,7 @@ describe('Dock badge with the macOS menu bar disabled', () => {
   test('does not publish desktop state outside Electron', async () => {
     Object.assign(dom, { __OPENCHAMBER_ELECTRON__: undefined });
     await act(async () => root.render(<Harness />));
-    append('root');
+    finishTurn('root');
     await flush();
     expect(counts).toEqual([]);
     expect(intervalCount).toBe(0);
@@ -179,7 +182,6 @@ describe('tray approvals carry whether a permission can be remembered', () => {
       IS_REACT_ACT_ENVIRONMENT: true,
     });
     resetGlobalBlockingRequests();
-    useNotificationStore.setState(useNotificationStore.getInitialState());
     useGlobalSessionsStore.setState({ activeSessions: [session('root')] });
     useUIStore.setState({ dockBadgeEnabled: true, notifyOnSubtasks: false });
     snapshots.length = 0;

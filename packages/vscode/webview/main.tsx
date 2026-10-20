@@ -482,7 +482,6 @@ const handleLocalApiRequest = async (input: RequestInfo | URL, url: URL, init: R
     return new Response(
       JSON.stringify({
         statusSessions: {},
-        attentionSessions: {},
         activitySessions: activity || {},
         serverTime: Date.now(),
       }),
@@ -493,7 +492,7 @@ const handleLocalApiRequest = async (input: RequestInfo | URL, url: URL, init: R
     );
   }
 
-  if (/^\/api\/sessions\/[^/]+\/(view|unview)$/.test(normalizedPathname) && method === 'POST') {
+  if (/^\/api\/sessions\/[^/]+\/view$/.test(normalizedPathname) && method === 'POST') {
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -574,38 +573,11 @@ const handleLocalApiRequest = async (input: RequestInfo | URL, url: URL, init: R
     );
   }
 
-  if (normalizedPathname === '/api/sessions/attention' && method === 'GET') {
-    return new Response(
-      JSON.stringify({
-        sessions: {},
-        serverTime: Date.now(),
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    );
-  }
-
   if (/^\/api\/sessions\/[^/]+\/status$/.test(normalizedPathname) && method === 'GET') {
     const sessionId = normalizedPathname.split('/')[3] || '';
     return new Response(
       JSON.stringify({
         error: 'Session not found or no state available',
-        sessionId,
-      }),
-      {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    );
-  }
-
-  if (/^\/api\/sessions\/[^/]+\/attention$/.test(normalizedPathname) && method === 'GET') {
-    const sessionId = normalizedPathname.split('/')[3] || '';
-    return new Response(
-      JSON.stringify({
-        error: 'Session not found or no attention state available',
         sessionId,
       }),
       {

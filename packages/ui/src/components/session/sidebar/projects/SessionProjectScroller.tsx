@@ -67,7 +67,7 @@ type SessionProjectScrollerState = Pick<SessionGroupSectionProps,
 type GroupProps = Pick<SessionGroupSectionProps,
   | 'hasSessionSearchQuery' | 'normalizedSessionSearchQuery' | 'groupSearchDataByGroup'
   | 'collapsedGroups' | 'hideDirectoryControls' | 'mobileVariant' | 'alwaysShowActions'
-  | 'activeProjectId' | 'notifyOnSubtasks' | 'expandedParents' | 'editTitle'
+  | 'activeProjectId' | 'expandedParents' | 'editTitle'
   | 'editingRowKey'
   | 'folderRename' | 'setFolderRenameDraft' | 'clearFolderRename'
   | 'setEditingId' | 'setEditingRowKey' | 'setEditTitle' | 'toggleParent' | 'allowReselect'
@@ -391,7 +391,6 @@ function SessionProjectScrollerComponent({ model, view, actions }: Props): React
       const renaming = model.groupProps.folderRename?.folderId === row.folder.id && model.groupProps.folderRename.scopeKey === row.scopeKey;
       return <DroppableFolderWrapper folderId={row.folder.id} scopeKey={row.scopeKey} ownerKey={row.ownerKey} disabled={!row.dropEnabled}>
         {(droppableRef, isDropTarget) => <SessionSidebarFolderItem
-          notifyOnSubtasks={model.groupProps.notifyOnSubtasks}
           activityNodes={row.activityNodes}
           folder={row.folder} displayName={row.displayName} sessions={row.nodes} depth={row.depth} canExpand={!row.empty}
           isCollapsed={row.collapsed} onToggle={row.forceExpanded ? () => undefined : () => toggleFolderCollapse(row.folder.id)}
@@ -453,7 +452,7 @@ function SessionProjectScrollerComponent({ model, view, actions }: Props): React
         run={row.run} depth={row.depth} laneNodes={row.laneNodes} blockingSessionIds={row.blockingSessionIds} renderContext={row.renderContext}
         projectId={row.projectId} projectLabel={row.projectLabel}
         expansionKey={row.expansionKey} expanded={row.expanded} forceExpanded={row.forceExpanded}
-        notifyOnSubtasks={model.groupProps.notifyOnSubtasks} toggleParent={model.groupProps.toggleParent}
+        toggleParent={model.groupProps.toggleParent}
       />;
     }
     // Show more and the archive's empty line align with the text of the rows

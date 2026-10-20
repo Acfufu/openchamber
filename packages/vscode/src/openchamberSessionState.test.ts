@@ -59,6 +59,28 @@ const createMemoryFs = (initial: Record<string, string> = {}) => {
 };
 
 describe('openchamber session state store', () => {
+  it('creates the unread baseline once and reads it back, sharing the web server file', async () => {
+    const memory = createMemoryFs();
+    const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises, now: () => 1000 });
+    assert.equal(await store.readUnreadBaseline(), 1000);
+    assert.equal(memory.files.get(dataFile('sessions-unread.json')), JSON.stringify({ since: 1000 }));
+    const later = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises, now: () => 9000 });
+    assert.equal(await later.readUnreadBaseline(), 1000);
+  });
+
+  it('leaves an unreadable unread baseline alone', async () => {
+    const memory = createMemoryFs({ [dataFile('sessions-unread.json')]: '{ broken' });
+    const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises, now: () => 9000 });
+    const warn = console.warn;
+    console.warn = () => undefined;
+    try {
+      assert.equal(await store.readUnreadBaseline(), null);
+    } finally {
+      console.warn = warn;
+    }
+    assert.equal(memory.files.get(dataFile('sessions-unread.json')), '{ broken');
+  });
+
   it('archives and unarchives a batch and reads the flags back from disk', async () => {
     const memory = createMemoryFs();
     const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises, now: () => 1000 });
@@ -173,6 +195,21 @@ describe('overlaySessionResponseBody', () => {
     });
     assert.deepEqual(overlaySessionResponseBody({ data: { id: 'ses_a', time: {} } }, archived, null), {
       data: { id: 'ses_a', time: { archived: 1234 } },
+    });
+  });
+
+  it('serves turns that ended before the unread baseline as seen', () => {
+    const list: JsonValue = {
+      data: [
+        { id: 'ses_old', time: { created: 1, idle: 100 } },
+        { id: 'ses_new', time: { created: 1, idle: 900, viewed: 50 } },
+      ],
+    };
+    assert.deepEqual(overlaySessionResponseBody(list, null, null, 500), {
+      data: [
+        { id: 'ses_old', time: { created: 1, idle: 100, viewed: 100 } },
+        { id: 'ses_new', time: { created: 1, idle: 900, viewed: 50 } },
+      ],
     });
   });
 

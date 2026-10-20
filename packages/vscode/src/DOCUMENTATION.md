@@ -381,6 +381,11 @@ archived from VS Code is archived in the desktop app on the same machine, and
 the other way round. Nothing is cached between calls because two processes can
 write the file; every write re-reads first and replaces the file atomically.
 
+The unread baseline (`sessions-unread.json`, `{ since }`) is shared the same
+way: whichever of the server and the extension reads it first creates it, and
+both serve turns that ended before it as seen (`time.viewed` up to
+`time.idle`). Once read, it is cached, because nothing rewrites it.
+
 Session metadata lives on the OpenCode record (`PATCH /api/session/{id}`,
 OpenCode 2.0.15+). OpenCode replaces the whole object, so a write reads the
 record, applies the JSON Merge Patch (RFC 7386) and writes the result, and

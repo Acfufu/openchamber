@@ -91,7 +91,8 @@ import { spaceIdOfDirectory } from "@/lib/spaces/space-route"
 import { isDirectoryOfKnownSpace, isSpaceDirectoryStopped, isSpaceStopped, knownSpaceIds, refreshSpacesJourney, spaceIdsGone, spacesRuntimeGeneration, useSpacesStore } from "@/lib/spaces/spaces-store"
 import { cleanupPersistedSessionState } from "./session-deletion-cleanup"
 import { toast } from "@/components/ui"
-import { appendNotification } from "./notification-store"
+import { appendErrorNotification, markSessionViewed } from "./notification-store"
+import { isSessionUnread } from "./session-unread"
 import { recordSessionError, responseBodyOf, summarizeOpenCodeError } from "./session-error-log"
 import {
   applyGlobalSessionStatusEvent,
@@ -679,6 +680,7 @@ const handleUiNotificationEvent = (notification: OpenchamberNotification, fallba
 }
 
 export function setActiveSession(directory: string, sessionId: string) {
+  ensureViewedSessionWatcher()
   const previousDirectory = _activeDirectory
   _activeDirectory = directory
   _activeSession = sessionId
@@ -695,6 +697,7 @@ export function setExternallyViewedSession(directory: string, sessionId: string,
     return
   }
   externallyViewedSessions.set(key, Date.now() + EXTERNAL_VIEW_TTL_MS)
+  ensureViewedSessionWatcher()
 }
 
 /** A side panel in this window shows a session of `directory`. */
@@ -725,6 +728,29 @@ function isViewedInCurrentSession(directory: string, sessionId?: string): boolea
   ) return true
   pruneExternallyViewedSessions()
   return externallyViewedSessions.has(viewedSessionKey(directory, sessionId))
+}
+
+// A turn that ends in a session the user is looking at is seen as it ends.
+// Only the sessions on screen are checked, and only when their record changed.
+// Installed when a session is first shown, not at module load: the global
+// store and this module import each other.
+let viewedSessionWatcherInstalled = false
+function ensureViewedSessionWatcher() {
+  if (viewedSessionWatcherInstalled) return
+  viewedSessionWatcherInstalled = true
+  useGlobalSessionsStore.subscribe((state, previous) => {
+    if (state.entityById === previous.entityById) return
+    const seeIfViewed = (directory: string, sessionId: string): void => {
+      const session = state.entityById.get(sessionId)
+      if (!session || session === previous.entityById.get(sessionId) || !isSessionUnread(session)) return
+      if (isViewedInCurrentSession(directory, sessionId)) markSessionViewed(sessionId)
+    }
+    if (_activeDirectory && _activeSession) seeIfViewed(_activeDirectory, _activeSession)
+    for (const key of externallyViewedSessions.keys()) {
+      const separator = key.indexOf("\n")
+      seeIfViewed(key.slice(0, separator), key.slice(separator + 1))
+    }
+  })
 }
 
 function isRecentBoot() {
@@ -1883,15 +1909,14 @@ const recordTurnOutcomeNotification = (
   if (errorSummary) {
     recordSessionError({ sessionId: sessionID, directory, ...errorSummary })
   }
-  if (isSubtaskSession(sessionID, directory, childStores, batch)) return
-  appendNotification({
+  // The unread mark itself is OpenCode's (`session-unread.ts`); only the error
+  // details the chat shows under a failed turn are kept here.
+  if (!errorSummary || isSubtaskSession(sessionID, directory, childStores, batch)) return
+  appendErrorNotification({
     directory,
     session: sessionID,
     time: Date.now(),
-    viewed: isViewedInCurrentSession(directory, sessionID),
-    ...(errorSummary
-      ? { type: "error" as const, error: { ...errorSummary, responseBody } }
-      : { type: "turn-complete" as const }),
+    error: { ...errorSummary, responseBody },
   })
 }
 

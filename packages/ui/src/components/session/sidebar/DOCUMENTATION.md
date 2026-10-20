@@ -628,8 +628,8 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   The TouchSensor owns movement only after activation; disabling touch panning on
   the whole row prevents quick swipes from scrolling even when no drag starts.
 - `folders/SessionSidebarFolderItem.tsx` owns activity subscriptions for mounted
-  collapsed folder headers. It includes descendant activity and respects the
-  unread-subtask preference without mounting those sessions. Expanded and archived
+  collapsed folder headers. It includes descendant activity without mounting
+  those sessions; a subtask is never unread on its own. Expanded and archived
   folders do not derive hidden activity.
 - Single-project flat mode reveals 20 root sessions initially and 20 per Show
   more; Show fewer resets to 20. Chats keeps its reveal of 3. Elsewhere a

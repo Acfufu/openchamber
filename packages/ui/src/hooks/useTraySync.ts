@@ -11,7 +11,7 @@ import {
   type BlockingPermissionRequest,
 } from '@/sync/global-blocking-requests';
 import { compareSessionsByLifecycleOrder, useSessionOrderingStore } from '@/sync/session-ordering';
-import { useNotificationStore } from '@/sync/notification-store';
+import { isSessionUnread, isSessionUnreadWithError } from '@/sync/session-unread';
 import { respondToPermission } from '@/sync/session-actions';
 import { canSavePermission } from '@/components/chat/permissionSummary';
 import {
@@ -299,8 +299,6 @@ const collectLiveData = (): LiveData => {
 //    upstream `/session/status?directory=` endpoint: that call creates an
 //    OpenCode instance per directory.
 const buildSnapshot = (instanceName: string, includeTray: boolean): TraySnapshot => {
-  const notif = useNotificationStore.getState().index.session;
-
   // The list source is the GLOBAL store — every project/worktree the backend
   // knows about, independent of which directories this client has opened. Live
   // status/unread/branch are merged in by id where we have them (the session's
@@ -313,18 +311,9 @@ const buildSnapshot = (instanceName: string, includeTray: boolean): TraySnapshot
 
   // Count the full root list, independently of the tray's visibility and limit.
   const ui = useUIStore.getState();
-  let dockBadgeCount = 0;
-  if (ui.dockBadgeEnabled) {
-    for (const session of allSessions) {
-      if (!session?.id || session.parentID) continue;
-      let familyUnseen = notif.unseenCount[session.id] ?? 0;
-      if (familyUnseen === 0 && ui.notifyOnSubtasks) {
-        familyUnseen = collectDescendants(session.id)
-          .reduce((sum, id) => sum + (notif.unseenCount[id] ?? 0), 0);
-      }
-      if (familyUnseen > 0) dockBadgeCount += 1;
-    }
-  }
+  // Only top-level sessions are ever unread (`isSessionUnread`); a subtask
+  // reports to its parent.
+  const dockBadgeCount = ui.dockBadgeEnabled ? allSessions.filter(isSessionUnread).length : 0;
   if (!includeTray) {
     return { sessions: [], approvals: [], instanceName, usage: { mode: 'usage', groups: [] }, dockBadgeCount };
   }
@@ -369,8 +358,8 @@ const buildSnapshot = (instanceName: string, includeTray: boolean): TraySnapshot
         title: session.title || 'Untitled session',
         status: rollupStatus(family),
         branch: directory ? (live.branchByDirectory.get(directory) ?? '') : '',
-        unseen: family.reduce((sum, id) => sum + (notif.unseenCount[id] ?? 0), 0),
-        hasError: family.some((id) => notif.unseenHasError[id] ?? false),
+        unseen: isSessionUnread(session) ? 1 : 0,
+        hasError: isSessionUnreadWithError(session),
         directory,
         subtitle: resolveSessionSubtitle(directory, session, projects, worktreesByProject, live.branchByDirectory),
       };
@@ -430,17 +419,15 @@ export const useTraySync = (): void => {
       }, FLUSH_DEBOUNCE_MS);
     };
 
-    const unsubscribeNotif = useNotificationStore.subscribe(() => scheduleFlush());
     const unsubscribeGlobal = useGlobalSessionsStore.subscribe(() => scheduleFlush());
     const unsubscribeUI = useUIStore.subscribe((state, previous) => {
-      if (state.dockBadgeEnabled !== previous.dockBadgeEnabled || state.notifyOnSubtasks !== previous.notifyOnSubtasks) {
+      if (state.dockBadgeEnabled !== previous.dockBadgeEnabled) {
         scheduleFlush();
       }
     });
     const stopBadgeSync = () => {
       disposed = true;
       if (flushTimer !== null) window.clearTimeout(flushTimer);
-      unsubscribeNotif();
       unsubscribeGlobal();
       unsubscribeUI();
     };

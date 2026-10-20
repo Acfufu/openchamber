@@ -1029,6 +1029,14 @@ class OpencodeService {
     await call("session.update", () => this.clientFor(directory).session.update({ sessionID: id, title }))
   }
 
+  /**
+   * Records that the turn which ended at `idle` was seen. OpenCode keeps the
+   * watermark monotone and leaves a turn that ended later unread.
+   */
+  async viewSession(id: string, idle: number, directory?: string | null): Promise<void> {
+    await call("session.view", () => this.clientFor(directory).session.view({ sessionID: id, idle }))
+  }
+
   async moveSession(id: string, toDirectory: string, options?: { delivery?: SessionInboxDelivery }): Promise<void> {
     const directory = this.normalizeCandidatePath(toDirectory) ?? toDirectory
     await call("session.move", () =>

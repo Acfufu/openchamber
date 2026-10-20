@@ -107,6 +107,13 @@ describe("translateWireEvent", () => {
     expect(done.map((e) => e.type)).toEqual(["session.patched", "session.idle"])
   })
 
+  test("a view moves the watermark to the turn the viewer saw, not to when it was recorded", () => {
+    const viewed = translateWireEvent({ ...base, type: "session.viewed", durable, data: { sessionID: "ses_1", idle: 400 } })
+    expect(viewed).toEqual([
+      { type: "session.patched", properties: { sessionID: "ses_1", patch: { time: { viewed: 400 } } } },
+    ])
+  })
+
   test("a user prompt entering the inbox becomes a user message with projected parts", () => {
     const events = translateWireEvent({
       ...base,

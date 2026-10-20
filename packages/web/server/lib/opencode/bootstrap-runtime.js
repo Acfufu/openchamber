@@ -150,12 +150,7 @@ export const createBootstrapRuntime = (dependencies) => {
       getSessionActivitySnapshot: sessionRuntime.getSessionActivitySnapshot,
       getSessionStateSnapshot: sessionRuntime.getSessionStateSnapshot,
       getPendingBlockingRequestsSnapshot: sessionRuntime.getPendingBlockingRequestsSnapshot,
-      getSessionAttentionSnapshot: sessionRuntime.getSessionAttentionSnapshot,
       getSessionState: sessionRuntime.getSessionState,
-      getSessionAttentionState: sessionRuntime.getSessionAttentionState,
-      markSessionViewed: sessionRuntime.markSessionViewed,
-      markSessionUnviewed: sessionRuntime.markSessionUnviewed,
-      markUserMessageSent: sessionRuntime.markUserMessageSent,
       setPushInitialized,
       setAutoAcceptSession,
     });

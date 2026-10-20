@@ -68,10 +68,9 @@ export const createNotificationTriggerRuntime = (deps) => {
   // (ready + question + permission are different tags), so counting sessionIds
   // both over- and under-counts the lock-screen stack; counting tags mirrors it.
   //
-  // We deliberately do NOT derive this from the live attention snapshot
-  // (needsAttention/isViewed): that machinery is for in-app indicators on
-  // connected clients — a backgrounded client stays "viewing", and needsAttention
-  // is set by a separate session.status event that races the push trigger. The
+  // We deliberately do NOT derive this from the in-app unread marks (OpenCode's
+  // `time.viewed`): a backgrounded client can still be on the session, and the
+  // mark changes on a separate event that races the push trigger. The
   // set is cleared when a UI client reports visible (`clearPendingPushBadge`),
   // the same moment the device zeroes its icon badge on becomeActive.
   const pendingPushTags = new Set();

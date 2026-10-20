@@ -14,6 +14,7 @@ import { recordStartupPerformance } from './startup-performance.js';
 import { getWorktreeBootstrapStatus, waitForWorktreeRemoval } from '../git/service.js';
 import { PART_SHELLS_HEADER, parsePartShellsHeader, shellMessagePage } from './message-shells.js';
 import { diagnosticApiRoute, diagnosticErrorMessage } from '../diagnostics/vocabulary.js';
+import { withUnreadBaseline } from '../openchamber-sessions/unread-baseline.js';
 
 const DEFAULT_SSE_HEARTBEAT_INTERVAL_MS = 20_000;
 
@@ -361,6 +362,9 @@ export const registerOpenCodeProxy = (app, deps) => {
     // migrated.
     getArchivedSessions = null,
     getStoredSessionMetadata = null,
+    // OpenCode's unread state predates OpenChamber reading it; turns that ended
+    // before the baseline are served as seen (`unread-baseline.js`).
+    getUnreadBaseline = null,
     // Isolated spaces, when the feature's switch is on: the merged session list, and the hub
     // whose space events the global SSE stream carries beside the host's. Both absent means
     // the host's own answers go out exactly as before spaces.
@@ -401,6 +405,18 @@ export const registerOpenCodeProxy = (app, deps) => {
     }
   };
 
+  /** The unread baseline in epoch ms, or `null` when unknown; unknown serves the records as they are. */
+  const readUnreadBaseline = async () => {
+    if (!getUnreadBaseline) return null;
+    try {
+      const since = await getUnreadBaseline();
+      return Number.isSafeInteger(since) ? since : null;
+    } catch (error) {
+      console.warn('[proxy] unread baseline unavailable:', error?.message ?? error);
+      return null;
+    }
+  };
+
   // A number archives, `null` is an explicit unarchive (drops the stamp OpenCode
   // still carries for a session migrated from v1), and a session the file does
   // not mention keeps whatever OpenCode says.
@@ -428,19 +444,31 @@ export const registerOpenCodeProxy = (app, deps) => {
     return { ...session, metadata: ours };
   };
 
-  const overlaySession = (session, archived, stored) => {
+  const overlaySession = (session, { archived, stored, unreadSince }) => {
     let result = session;
     if (archived) result = withArchivedAt(result, archived);
     if (stored) result = withStoredMetadata(result, stored);
+    if (unreadSince !== null) result = withUnreadBaseline(result, unreadSince);
     return result;
   };
+
+  const readOwnedState = async () => {
+    const [archived, stored, unreadSince] = await Promise.all([
+      readArchivedSessions(),
+      readStoredSessionMetadata(),
+      readUnreadBaseline(),
+    ]);
+    return { archived, stored, unreadSince };
+  };
+
+  const hasOwnedState = ({ archived, stored, unreadSince }) => Boolean(archived || stored || unreadSince !== null);
 
   const overlayOwnedStateOnList = async (payload) => {
     const records = sessionListRecords(payload);
     if (!records) return payload;
-    const [archived, stored] = await Promise.all([readArchivedSessions(), readStoredSessionMetadata()]);
-    if (!archived && !stored) return payload;
-    const overlaid = records.map((session) => overlaySession(session, archived, stored));
+    const owned = await readOwnedState();
+    if (!hasOwnedState(owned)) return payload;
+    const overlaid = records.map((session) => overlaySession(session, owned));
     return Array.isArray(payload) ? overlaid : { ...payload, data: overlaid };
   };
 
@@ -1025,7 +1053,11 @@ export const registerOpenCodeProxy = (app, deps) => {
   // One session: the same overlay, so a detail read agrees with the list it
   // came from. Everything else about the record is forwarded untouched.
   app.get('/api/session/:sessionID', async function forwardSessionGetRequest(req, res, next) {
-    if (typeof getArchivedSessions !== 'function' && typeof getStoredSessionMetadata !== 'function') return next();
+    if (
+      typeof getArchivedSessions !== 'function'
+      && typeof getStoredSessionMetadata !== 'function'
+      && !getUnreadBaseline
+    ) return next();
     try {
       const upstreamPath = await getRequestUpstreamPath(req);
       const result = await fetchSessionListPayload(upstreamPath, { req });
@@ -1043,13 +1075,13 @@ export const registerOpenCodeProxy = (app, deps) => {
         return;
       }
 
-      const [archived, stored] = await Promise.all([readArchivedSessions(), readStoredSessionMetadata()]);
-      if (!archived && !stored) {
+      const owned = await readOwnedState();
+      if (!hasOwnedState(owned)) {
         res.end(result.bodyText);
         return;
       }
 
-      const overlaid = overlaySession(session, archived, stored);
+      const overlaid = overlaySession(session, owned);
       res.json(record.data && typeof record.data === 'object' ? { ...record, data: overlaid } : overlaid);
     } catch (error) {
       if (isAbortError(error)) return;

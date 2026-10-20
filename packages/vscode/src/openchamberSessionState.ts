@@ -35,6 +35,8 @@ import * as path from 'path';
 
 const ARCHIVE_FILE_NAME = 'sessions-archive.json';
 const METADATA_FILE_NAME = 'sessions-metadata.json';
+/** Shared with the web server (`unread-baseline.js`): `{ since }`, written once. */
+const UNREAD_BASELINE_FILE_NAME = 'sessions-unread.json';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
 type JsonObject = { [key: string]: JsonValue };
@@ -154,7 +156,9 @@ export const createSessionStateStore = ({
 }: SessionStateStoreOptions) => {
   const archivePath = path.join(dataDir, ARCHIVE_FILE_NAME);
   const metadataPath = path.join(dataDir, METADATA_FILE_NAME);
+  const unreadBaselinePath = path.join(dataDir, UNREAD_BASELINE_FILE_NAME);
   let writeChain: Promise<unknown> = Promise.resolve();
+  let unreadBaseline: number | null = null;
 
   /**
    * Parses one state file. A missing file is the normal first run and reads
@@ -216,6 +220,38 @@ export const createSessionStateStore = ({
     return result;
   };
 
+  /**
+   * When unread marks start for this data dir (see `withUnreadBaseline`). The
+   * first read creates it; an unreadable file is left alone and reads as
+   * unknown, since a new baseline would mark every turn up to now as seen.
+   */
+  const readUnreadBaseline = async (): Promise<number | null> => {
+    if (unreadBaseline !== null) return unreadBaseline;
+    let raw: string;
+    try {
+      raw = await fsPromises.readFile(unreadBaselinePath, 'utf8');
+    } catch (error) {
+      if (!(error instanceof Error && isMissingFileError(error))) {
+        console.warn('[openchamber-sessions] could not read the unread baseline:', describeError(error));
+        return null;
+      }
+      const since = now();
+      unreadBaseline = since;
+      await writeJsonObjectFile(unreadBaselinePath, { since }).catch((writeError) => {
+        console.warn('[openchamber-sessions] could not save the unread baseline:', describeError(writeError));
+      });
+      return since;
+    }
+    const parsed = parseJson(raw);
+    const since = isJsonObject(parsed) ? asTimestamp(parsed.since) : null;
+    if (since === null) {
+      console.warn(`[openchamber-sessions] the unread baseline in ${unreadBaselinePath} is unreadable; it is left as is`);
+      return null;
+    }
+    unreadBaseline = since;
+    return since;
+  };
+
   /** Sets or clears the archive flag for a batch; `null` clears. */
   const applyArchive = async (ids: string[], archivedAt: number | null) => {
     const targets = asSessionIdList(ids);
@@ -240,6 +276,8 @@ export const createSessionStateStore = ({
     readArchived,
     /** `{ [sessionID]: metadata }`, or `null` when the file could not be read. */
     readMetadata,
+    /** The unread baseline in epoch ms, or `null` when it cannot be known. */
+    readUnreadBaseline,
     archive: async (ids: string[], archivedAt: number | null = null) => {
       const stamp = archivedAt ?? now();
       const { applied, failedIds } = await applyArchive(ids, stamp);
@@ -290,15 +328,31 @@ export const createSessionStateStore = ({
 export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 
 /**
+ * OpenCode's unread state (`time.idle` past `time.viewed`) predates OpenChamber
+ * reading it, so a turn that ended before the baseline and has no newer view
+ * is served as viewed when it ended. Mirrors the web server's `unread-baseline.js`.
+ */
+const withUnreadBaseline = (record: JsonObject, since: number) => {
+  const time = isJsonObject(record.time) ? record.time : null;
+  const idle = time ? asTimestamp(time.idle) : null;
+  if (!time || idle === null || idle > since) return record;
+  const viewed = asTimestamp(time.viewed);
+  if (viewed !== null && viewed >= idle) return record;
+  return { ...record, time: { ...time, viewed: idle } };
+};
+
+/**
  * Folds owned state onto one OpenCode session record: `time.archived` from the
- * archive file (dropped when the file says the session is not archived) and
- * legacy metadata not yet migrated merged over OpenCode's record. A value
- * that is not a session record passes through untouched.
+ * archive file (dropped when the file says the session is not archived),
+ * legacy metadata not yet migrated merged over OpenCode's record, and the
+ * unread baseline. A value that is not a session record passes through
+ * untouched.
  */
 const overlaySessionRecord = (
   value: JsonValue,
   archived: ArchivedSessions | null,
   stored: StoredSessionMetadata | null,
+  unreadSince: number | null,
 ): JsonValue => {
   if (!isJsonObject(value)) return value;
   const id = asSessionId(value.id);
@@ -322,6 +376,7 @@ const overlaySessionRecord = (
       result = { ...result, metadata: { ...theirs, ...ours } };
     }
   }
+  if (unreadSince !== null) result = withUnreadBaseline(result, unreadSince);
   return result;
 };
 
@@ -334,18 +389,20 @@ export const overlaySessionResponseBody = (
   body: JsonValue,
   archived: ArchivedSessions | null,
   stored: StoredSessionMetadata | null,
+  unreadSince: number | null = null,
 ): JsonValue => {
-  if (!archived && !stored) return body;
-  if (Array.isArray(body)) return body.map((entry) => overlaySessionRecord(entry, archived, stored));
+  if (!archived && !stored && unreadSince === null) return body;
+  const overlay = (entry: JsonValue) => overlaySessionRecord(entry, archived, stored, unreadSince);
+  if (Array.isArray(body)) return body.map(overlay);
   if (!isJsonObject(body)) return body;
   const data = body.data;
   if (Array.isArray(data)) {
-    return { ...body, data: data.map((entry) => overlaySessionRecord(entry, archived, stored)) };
+    return { ...body, data: data.map(overlay) };
   }
   if (isJsonObject(data)) {
-    return { ...body, data: overlaySessionRecord(data, archived, stored) };
+    return { ...body, data: overlay(data) };
   }
-  return overlaySessionRecord(body, archived, stored);
+  return overlay(body);
 };
 
 /** `GET /api/session` (list) and `GET /api/session/:id` (one record) carry session records to overlay. */

@@ -326,7 +326,9 @@ export function translateWireEvent(event: OpenCodeEvent): SyncEvent[] {
     case "session.permissions":
       return [sessionEvent(event.data.sessionID, { permissions: event.data.permissions })]
     case "session.viewed":
-      return [sessionEvent(event.data.sessionID, { time: { viewed: event.created } })]
+      // The watermark is the idle transition the viewer saw, not when the view
+      // was recorded: a turn that ended after it stays unread.
+      return [sessionEvent(event.data.sessionID, { time: { viewed: event.data.idle } })]
     case "session.revert.staged":
       return [sessionEvent(event.data.sessionID, { revert: event.data.revert })]
     case "session.revert.cleared":

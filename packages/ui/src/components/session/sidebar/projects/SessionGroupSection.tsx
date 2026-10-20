@@ -94,7 +94,6 @@ export type SessionGroupSectionProps = {
   openNewSessionDraft: (options?: { selectedProjectId?: string | null; directoryOverride?: string | null; preserveDirectoryOverride?: boolean; targetFolderId?: string; target?: 'chat' | 'project' }) => void;
   pinnedSessionIds: Set<string>;
   sessionOrderIndex: Map<string, number>;
-  notifyOnSubtasks: boolean;
   expandedParents: Set<string>;
   editingId: string | null;
   editingRowKey: string | null;
@@ -129,12 +128,8 @@ export type SessionGroupSectionProps = {
 
 const CollapsedFolderActivity: React.FC<{
   nodes: SessionNode[];
-  includeUnreadSubtasks: boolean;
   children: (state: ReturnType<typeof useCollapsedSessionActivityState>) => React.ReactNode;
-}> = ({ nodes, includeUnreadSubtasks, children }) => children(useCollapsedSessionActivityState({
-  nodes,
-  includeUnreadSubtasks,
-}));
+}> = ({ nodes, children }) => children(useCollapsedSessionActivityState({ nodes }));
 
 const groupContainsSessionId = (group: SessionGroup, sessionId: string | null): boolean => {
   if (!sessionId) return false;
@@ -252,7 +247,6 @@ const areGroupPropsEqual = (prev: SessionGroupSectionProps, next: SessionGroupSe
     && prev.onToggleCollapsedGroup === next.onToggleCollapsedGroup
     && prev.dragHandleProps === next.dragHandleProps
     && prev.renderBody === next.renderBody
-    && prev.notifyOnSubtasks === next.notifyOnSubtasks
     && prev.setEditingId === next.setEditingId
     && prev.setEditingRowKey === next.setEditingRowKey
     && prev.setEditTitle === next.setEditTitle
@@ -352,7 +346,6 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     openNewSessionDraft,
     pinnedSessionIds,
     sessionOrderIndex,
-    notifyOnSubtasks,
     onToggleCollapsedGroup,
     dragHandleProps,
     compactBodyPadding = false,
@@ -751,7 +744,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     ? { label: group.branch, color: null as string | null }
     : null;
   const groupActivityIndicator = isCollapsed
-    ? <CollapsedSessionActivityIndicator nodes={sourceGroupNodes} includeUnreadSubtasks={notifyOnSubtasks} />
+    ? <CollapsedSessionActivityIndicator nodes={sourceGroupNodes} />
     : null;
 
   type FolderEntry = (typeof allFoldersForGroup)[number];
@@ -837,7 +830,6 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
               expandedParents={expandedParents}
               hasSessionSearchQuery={hasSessionSearchQuery}
               normalizedSessionSearchQuery={normalizedSessionSearchQuery}
-              notifyOnSubtasks={notifyOnSubtasks}
               editingId={editingId}
               editingRowKey={editingRowKey}
                editTitle={editTitle}
@@ -871,7 +863,6 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     return <CollapsedFolderActivity
       key={folder.id}
       nodes={activityNodesByFolderId.get(folder.id) ?? nodes}
-      includeUnreadSubtasks={notifyOnSubtasks}
     >{item}</CollapsedFolderActivity>;
   };
 
@@ -1011,7 +1002,6 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     expandedParents={expandedParents}
     hasSessionSearchQuery={hasSessionSearchQuery}
     normalizedSessionSearchQuery={normalizedSessionSearchQuery}
-    notifyOnSubtasks={notifyOnSubtasks}
     editingId={editingId}
     editingRowKey={editingRowKey}
      editTitle={editTitle}
