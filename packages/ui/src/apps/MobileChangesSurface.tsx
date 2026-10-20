@@ -49,6 +49,7 @@ import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
 import { SpacePreparing } from '@/components/session/spaces/SpacePreparing';
 import { useNestedGitDirectory } from '@/hooks/useNestedGitDirectory';
 import { useBranchComparisonBase } from '@/hooks/useBranchComparisonBase';
+import { useBranchPullRequestRequest } from '@/hooks/useBranchPullRequestRequest';
 import { useCommitComparison } from '@/hooks/useCommitComparison';
 import { usePullRequestComparison } from '@/hooks/usePullRequestComparison';
 import { PullRequestComparisonSelector } from '@/components/views/git/PullRequestComparisonSelector';
@@ -316,6 +317,9 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
   const branchComparison = useBranchComparisonBase(currentDirectory || null, currentBranch, visible && isGitRepo === true, {
     branches, remoteNames, primaryRemote: binding.contexts[0]?.primaryRemote, readContext: binding.contexts[0] ?? null,
   });
+  // The base reads the branch's pull request; ask for it while shown.
+  const asksBranchPullRequest = visible && isGitRepo === true;
+  useBranchPullRequestRequest(asksBranchPullRequest ? currentDirectory || null : null, asksBranchPullRequest ? currentBranch : null, binding);
   const showBranchOption = isBranchScopeAvailable(currentBranch, branchComparison.base);
   const branchUnavailable = isGitRepo === false
     || isBranchScopeDefinitelyUnavailable(currentBranch, branchComparison.base, status !== null, branchComparison.resolved);

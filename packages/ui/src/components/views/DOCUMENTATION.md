@@ -50,7 +50,16 @@ one it was created from, or the default branch; never the branch itself), so a
 repository without a remote gets it from the reflog and the default branch
 does not get it at all. The default follows the branch until the person picks a scope,
 which is persisted on the tab; coercing a default Branch view back to the
-working tree is not persisted either. Entry points that name what they show keep
+working tree is not persisted either. Such a tab starts on Branch and shows
+the base being resolved until the base is known; it moves to the working tree
+only once the branch is known to have no base, so the view never switches
+under the person a moment after opening (it used to open on the working tree
+and jump to Branch when the base arrived). Changes, mobile Changes and
+Walkthrough each ask for the branch's pull request themselves
+(`hooks/useBranchPullRequestRequest.ts`) while shown: the base prefers its
+target, and without asking a stacked branch checked out in the same worktree
+compared against the default branch until the Git view or the sidebar happened
+to ask. Entry points that name what they show keep
 their scope: the work-status Changes row counts working-tree changes and opens
 `working`, and a file opened from the Git panel or a tool card opens its own
 working or staged diff.
