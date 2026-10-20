@@ -151,6 +151,8 @@ export function SidebarHeader(props: Props): React.ReactNode {
   const toggleSelectionMode = useSessionMultiSelectStore((state) => state.toggleMode);
 
   const isSourceBoardOpen = useUIStore((state) => state.isSourceBoardOpen);
+  const isOverviewOpen = useUIStore((state) => state.isOverviewOpen);
+  const overviewAvailable = useUIStore((state) => state.overviewFeatureAvailable);
   const isScheduledOpen = useUIStore((state) => state.isScheduledTasksDialogOpen);
   const isArchiveOpen = useUIStore((state) => state.isArchivePageOpen);
   const isIntegrationsCatalogOpen = useUIStore((state) => state.isIntegrationsCatalogOpen);
@@ -360,6 +362,17 @@ export function SidebarHeader(props: Props): React.ReactNode {
               titlebar controls. */}
           <div className="ms-[3px] flex min-w-0 items-center gap-1.5">
             <div ref={builtinPagesRef} className="flex items-center gap-1.5">
+              {showSourceBoard && overviewAvailable ? (
+                <SidebarPageButton
+                  label={t('overview.title')}
+                  pressed={isOverviewOpen}
+                  onClick={() => useUIStore.getState().setOverviewOpen(!isOverviewOpen)}
+                  className={headerActionButtonClass}
+                >
+                  <Icon name="compass-3" className={headerActionIconClass} />
+                </SidebarPageButton>
+              ) : null}
+
               {showSourceBoard ? (
                 <SidebarPageButton
                   label={t('sourceBoard.title')}

@@ -190,6 +190,10 @@
       "scope": "instance",
       "computed": true
     },
+    "overviewFeatureAvailable": {
+      "scope": "instance",
+      "computed": true
+    },
     "routingFeatureAvailable": {
       "scope": "instance",
       "computed": true

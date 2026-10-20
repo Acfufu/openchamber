@@ -1588,6 +1588,12 @@ const getCachedPrSummary = (
   return summary;
 };
 
+/** The badge of one entry's change request, by its status key; stable while nothing changes. */
+export const selectEntryVisualSummary = (entries: Record<string, PrStatusEntry>, key: string): PrVisualSummary | null => {
+  const entry = entries[key];
+  return getCachedPrSummary(`entry:${key}`, entry?.status, entry?.identity?.provider ?? null);
+};
+
 export const useFreshestSourceControlVisualSummaryForBranch = (
   directory: string | null,
   branch: string | null,

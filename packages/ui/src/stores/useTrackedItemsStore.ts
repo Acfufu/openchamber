@@ -84,39 +84,50 @@ export const useTrackedRecords = (items: ReadonlyArray<TrackedItem | null>): Arr
   ))));
 };
 
-/** Live state of each GitHub or GitLab issue, in order; null until known. */
-export const useTrackedIssueStates = (items: ReadonlyArray<TrackedThread<'issue'>>): Array<GitHubIssueLiveSummary | null> => {
-  const runtimeKey = getRuntimeKey();
-  return useTrackedItemsStore(useShallow((state) => items.map((item) => {
-    const record = state.records[storeKey(runtimeKey, trackedItemKey(item))];
-    return record?.type === 'issue' ? record.state : null;
-  })));
+type TrackedRecords = TrackedItemsStore['records'];
+
+/** Live state of a GitHub or GitLab issue; null until known. */
+export const readTrackedIssueState = (records: TrackedRecords, item: TrackedThread<'issue'>): GitHubIssueLiveSummary | null => {
+  const record = records[storeKey(getRuntimeKey(), trackedItemKey(item))];
+  return record?.type === 'issue' ? record.state : null;
 };
 
-/** Live state of each Linear issue, in order; null until known. */
-export const useTrackedLinearStates = (items: ReadonlyArray<TrackedLinearIssue>): Array<LinearIssueLiveSummary | null> => {
-  const runtimeKey = getRuntimeKey();
-  return useTrackedItemsStore(useShallow((state) => items.map((item) => {
-    const record = state.records[storeKey(runtimeKey, trackedItemKey(item))];
-    return record?.type === 'linear' ? record.state : null;
-  })));
+/** Live state of a Linear issue; null until known. */
+export const readTrackedLinearState = (records: TrackedRecords, item: TrackedLinearIssue): LinearIssueLiveSummary | null => {
+  const record = records[storeKey(getRuntimeKey(), trackedItemKey(item))];
+  return record?.type === 'linear' ? record.state : null;
 };
 
 /**
- * Badges of linked pull and merge requests, in order: the same colour and
- * status rule as a branch's PR. Null for one whose state is not known yet.
+ * The badge of a linked pull or merge request: the same colour and status
+ * rule as a branch's PR. Null while its state is not known.
  */
+export const readTrackedPullVisualSummary = (
+  records: TrackedRecords,
+  { item, url, title }: { item: TrackedThread<'pull'>; url: string; title: string },
+): PrVisualSummary | null => {
+  const id = storeKey(getRuntimeKey(), trackedItemKey(item));
+  const record = records[id];
+  if (record?.type !== 'pull' || !record.state) return null;
+  const identity = item.provider === 'gitlab'
+    ? { provider: 'gitlab' as const, instance: item.instance }
+    : { provider: 'github' as const, instance: 'github.com' };
+  return getLinkedChangeRequestVisualSummary(id, { owner: item.owner, repo: item.repo, number: item.number, url, title }, record.state, identity);
+};
+
+/** Live state of each GitHub or GitLab issue, in order; null until known. */
+export const useTrackedIssueStates = (items: ReadonlyArray<TrackedThread<'issue'>>): Array<GitHubIssueLiveSummary | null> => (
+  useTrackedItemsStore(useShallow((state) => items.map((item) => readTrackedIssueState(state.records, item))))
+);
+
+/** Live state of each Linear issue, in order; null until known. */
+export const useTrackedLinearStates = (items: ReadonlyArray<TrackedLinearIssue>): Array<LinearIssueLiveSummary | null> => (
+  useTrackedItemsStore(useShallow((state) => items.map((item) => readTrackedLinearState(state.records, item))))
+);
+
+/** Badges of linked pull and merge requests, in order; null for one whose state is not known yet. */
 export const useTrackedPullVisualSummaries = (
   links: ReadonlyArray<{ item: TrackedThread<'pull'>; url: string; title: string }>,
-): Array<PrVisualSummary | null> => {
-  const runtimeKey = getRuntimeKey();
-  return useTrackedItemsStore(useShallow((state) => links.map(({ item, url, title }) => {
-    const id = storeKey(runtimeKey, trackedItemKey(item));
-    const record = state.records[id];
-    if (record?.type !== 'pull' || !record.state) return null;
-    const identity = item.provider === 'gitlab'
-      ? { provider: 'gitlab' as const, instance: item.instance }
-      : { provider: 'github' as const, instance: 'github.com' };
-    return getLinkedChangeRequestVisualSummary(id, { owner: item.owner, repo: item.repo, number: item.number, url, title }, record.state, identity);
-  })));
-};
+): Array<PrVisualSummary | null> => (
+  useTrackedItemsStore(useShallow((state) => links.map((link) => readTrackedPullVisualSummary(state.records, link))))
+);

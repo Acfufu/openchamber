@@ -320,6 +320,13 @@ export const SETTINGS_REGISTRY = {
     parse: parseBoolean,
     ui: uiStore('agentMemoryFeatureAvailable', (v) => useUIStore.getState().setAgentMemoryFeatureAvailable(v), { autoSave: false }),
   }),
+  // Server-owned: whether the overview page exists in this process (`OPENCHAMBER_OVERVIEW_ENABLED`).
+  overviewFeatureAvailable: field({
+    scope: 'instance',
+    computed: true,
+    parse: parseBoolean,
+    ui: uiStore('overviewFeatureAvailable', (v) => useUIStore.getState().setOverviewFeatureAvailable(v), { autoSave: false }),
+  }),
   routingFeatureAvailable: field({
     scope: 'instance',
     computed: true,

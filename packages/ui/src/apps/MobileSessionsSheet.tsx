@@ -154,6 +154,8 @@ type MobileSessionsSheetProps = {
     onOpenScheduled: () => void;
     onOpenArchive: () => void;
     onOpenUsage: () => void;
+    /** The overview of what waits, runs and looks done; absent while the feature is not in this build. */
+    onOpenOverview?: () => void;
     /** The issues and PRs board. */
     onOpenSourceBoard: () => void;
     /** Present only while a server update is available (hosted web). */
@@ -2694,6 +2696,20 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
                 >
                   <Icon name="download" className="size-5" />
                   <span className="absolute inset-e-2 top-2 inline-flex size-2 rounded-full bg-primary" aria-hidden />
+                </Button>
+              ) : null}
+              {footer.onOpenOverview ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="lg"
+                  className="w-10 px-0"
+                  onClick={footer.onOpenOverview}
+                  aria-label={t('overview.title')}
+                  title={t('overview.title')}
+                  style={{ touchAction: 'manipulation' }}
+                >
+                  <Icon name="compass-3" className="size-5" />
                 </Button>
               ) : null}
               <Button

@@ -226,6 +226,7 @@ export const CommandPalette: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Commands
   // ---------------------------------------------------------------------------
+  const overviewAvailable = useUIStore((state) => state.overviewFeatureAvailable);
   const commands = React.useMemo<CommandEntry[]>(() => {
     const list: CommandEntry[] = [
       {
@@ -335,8 +336,16 @@ export const CommandPalette: React.FC = () => {
         onSelect: run(() => setSettingsDialogOpen(true)),
       },
     ];
-    // Reloading the window restarts only the interface: sessions and the
-    // agents running in them live in the server and continue.
+    if (!isVSCodeRuntime() && overviewAvailable) {
+      list.push({
+        id: 'open-overview',
+        secondary: true,
+        title: t('overview.title'),
+        icon: <Icon name="compass-3" className="me-2 h-4 w-4" />,
+        searchText: t('overview.title'),
+        onSelect: run(() => useUIStore.getState().setOverviewOpen(true)),
+      });
+    }
     if (!isVSCodeRuntime()) {
       list.push({
         id: 'open-source-board',
@@ -347,6 +356,8 @@ export const CommandPalette: React.FC = () => {
         searchText: t('sourceBoard.title'),
         onSelect: run(() => useUIStore.getState().setSourceBoardOpen(true)),
       });
+      // Reloading the window restarts only the interface: sessions and the
+      // agents running in them live in the server and continue.
       list.push({
         id: 'reload-ui',
         secondary: true,
@@ -532,6 +543,7 @@ export const CommandPalette: React.FC = () => {
     setArchivePageOpen,
     setProjectContextTab,
     projectActions,
+    overviewAvailable,
   ]);
 
   // ---------------------------------------------------------------------------
