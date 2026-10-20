@@ -2823,7 +2823,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
     const [openingEditorFilePath, setOpeningEditorFilePath] = React.useState<string | null>(null);
 
     const openFileInEditorAtChange = React.useCallback(async (filePath: string, cachedDiffData: DiffData | null) => {
-        if (!effectiveDirectory || !filePath) {
+        if (!rootDirectory || !effectiveDirectory || !filePath) {
             return;
         }
 
@@ -2877,8 +2877,11 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 return;
             }
 
+            // The editor tab belongs to the panel's root. Keyed by the nested
+            // repository being diffed, it would park under a key the panel
+            // never displays.
             openContextFileAtLine(
-                effectiveDirectory,
+                rootDirectory,
                 absolutePath,
                 resolvedTargetLine,
                 1,
@@ -2886,7 +2889,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
         } finally {
             setOpeningEditorFilePath((current) => (current === filePath ? null : current));
         }
-    }, [activeDiffStaged, effectiveDirectory, files, git, openContextFileAtLine, setDiff]);
+    }, [activeDiffStaged, effectiveDirectory, files, git, openContextFileAtLine, rootDirectory, setDiff]);
     const handleOpenInEditor = React.useCallback((filePath: string, diffData: DiffData | null) => {
         void openFileInEditorAtChange(filePath, diffData);
     }, [openFileInEditorAtChange]);

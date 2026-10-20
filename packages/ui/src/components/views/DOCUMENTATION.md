@@ -5,6 +5,11 @@ navigation, expanded sections and editor state. Its `visible` prop combines
 the panel's open state with the selected tab. Hiding via CSS alone does not
 pause React effects.
 
+Tabs belong to the panel's directory, the project root. A view showing a
+repository nested under a root that is not one (Git, Changes) still opens its
+diff and file tabs under that root: a tab keyed by the nested repository is
+stored where the panel never looks, and the click shows nothing.
+
 A panel's content fades in and out with the toggle, but turns inert and
 unclickable only when the closing animation ends, and an opening zone leaves
 `inert` only when its animation ends too (`useOpenWhenSettled`): those
