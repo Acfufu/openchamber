@@ -361,9 +361,10 @@ Why: only navigation tools use the compact static path; all other tools need obs
   passes `isOpenable`, so the composer, the queue and context blocks get no
   dead tab stops. A click that ends a text selection over a chip leaves it
   closed.
-  A known skill (`$name`, or `/name` in messages sent before skills moved to
-  `$`) renders as the same chip with the book icon and still opens the skill
-  file on click. The composer draws both chips too
+  A known skill (`$name`, `/name` in messages sent before skills moved to
+  `$`, or the yen and full-width spellings a CJK IME types for the same key)
+  renders as the same chip with the book icon and still opens the skill file
+  on click. The composer draws the same chips
   (`composer/editor/composerLanguage.ts`).
 - User-attached context (inline code comments, terminal selections, browser
   annotations, PR comments/checks): `UserContextPart.tsx`. `UserTextPart`
