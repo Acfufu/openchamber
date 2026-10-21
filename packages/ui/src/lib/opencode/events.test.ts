@@ -114,6 +114,17 @@ describe("translateWireEvent", () => {
     ])
   })
 
+  test("archive and unarchive stamp the archive time from the event and move the update time", () => {
+    const archived = translateWireEvent({ ...base, type: "session.archived", durable, data: { sessionID: "ses_1" } })
+    expect(archived).toEqual([
+      { type: "session.patched", properties: { sessionID: "ses_1", patch: { time: { archived: 1000, updated: 1000 } } } },
+    ])
+    const restored = translateWireEvent({ ...base, type: "session.unarchived", durable, data: { sessionID: "ses_1" } })
+    expect(restored).toEqual([
+      { type: "session.patched", properties: { sessionID: "ses_1", patch: { time: { archived: null, updated: 1000 } } } },
+    ])
+  })
+
   test("a user prompt entering the inbox becomes a user message with projected parts", () => {
     const events = translateWireEvent({
       ...base,

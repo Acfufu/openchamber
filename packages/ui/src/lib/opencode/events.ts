@@ -329,6 +329,11 @@ export function translateWireEvent(event: OpenCodeEvent): SyncEvent[] {
       // The watermark is the idle transition the viewer saw, not when the view
       // was recorded: a turn that ended after it stays unread.
       return [sessionEvent(event.data.sessionID, { time: { viewed: event.data.idle } })]
+    // OpenCode stamps the archive time and the update time with the event.
+    case "session.archived":
+      return [sessionEvent(event.data.sessionID, { time: { archived: event.created, updated: event.created } })]
+    case "session.unarchived":
+      return [sessionEvent(event.data.sessionID, { time: { archived: null, updated: event.created } })]
     case "session.revert.staged":
       return [sessionEvent(event.data.sessionID, { revert: event.data.revert })]
     case "session.revert.cleared":
