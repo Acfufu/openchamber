@@ -167,6 +167,18 @@ Provider authentication, capabilities, issues, change requests, contributor dest
 
 ## Shared webview message ordering
 
+The editor-panel host owns a singleton Settings tab separately from its session panels. `openchamber.showSettings` reveals that tab, including when the sidebar has never resolved or no folder is open. Settings receives theme, connection, settings-save and permission-policy broadcasts through the same panel bridge, but is excluded from chat attention, attachment routing and active-editor selection broadcasts. Closing or reloading its webview aborts only its own SSE streams.
+
+A settings-save broadcast invalidates the recipient's cached server document before its existing settings synchronization runs. Reusing the short-lived GET cache hid a peer's save from an already-open tab. Synchronization keeps its normal mutation reconciliation and preserves the webview's editor-derived theme. Pending bridge replies post only while their original panel owner remains current; disposal cleanup uses the webview reference captured while the panel was alive, because VS Code's panel getter throws after disposal.
+
+### Why Settings uses a separate panel and not the sidebar view
+
+Settings needs the editor area's width while the sidebar keeps its current chat or session list. Sharing the existing panel host preserves its bridge and lifecycle behavior without copying another provider. The Settings root loads configuration pages on demand and does not mount the session layout, global session poller or background queue/cleanup effects.
+
+Navigation waits for `openchamber.settingsReady`, sent by the mounted Settings root and handled only by its originating panel. A closed panel's readiness cannot release navigation in its replacement. `webview:ready` proves only that the bridge runs, before React owns navigation. The host keeps the newest pending target through that interval and consumes it once, so a reload does not replay an old page selection. `openchamber.closeSettings` disposes the specific Settings panel rather than whichever editor currently has focus. The parsed navigation contract lives in `packages/ui/src/lib/settings/vscodeNavigation.ts`.
+
+The default Ctrl+, / Cmd+, Settings shortcut belongs to VS Code while an OpenChamber webview has focus. Native keybindings reveal Settings from chat webviews and close it from the Settings webview; the shared shortcut handler yields that default key. VS Code forwards webview key events to its workbench even after the renderer handles them, so browser-only handling opened both Settings pages. `settingsShortcutFocus.ts` owns the keyboard target, distinct from chat attention: parsed document focus reports claim the sender's host-stamped kind, a late blur releases only that sender, and hiding, reloading or disposing a webview clears its claim. VS Code's ordinary `editorFocus`/`focusedView` keys do not identify focus inside its webview overlays. Custom OpenChamber shortcut overrides retain their shared handler, and other VS Code views retain the editor's own Settings binding.
+
 The bridge sends `webview:ready` once per document, before its first outbound
 message. Sidebar and session-editor hosts abort that panel's old
 SSE streams before accepting new requests and resend the current connection
@@ -205,11 +217,11 @@ Two webview hosts, both rendering `renderVSCodeApp` → `VSCodeApp`
 (`packages/ui/src/apps/VSCodeApp.tsx`):
 
 - `ChatViewProvider.ts` — sidebar view, `viewMode: 'sidebar'`.
-- `SessionEditorPanelProvider.ts` — editor tab, `viewMode: 'editor'`. A tab opened by `openchamber.openAgentManager` (titled "Run on Several Models"; the id predates multi-run and stays for existing keybindings) carries `initialComposer: 'parallel'`, so its new-session draft starts in parallel mode.
+- `SessionEditorPanelProvider.ts` — editor tabs, `viewMode: 'editor'`. Session tabs use `panelType: 'chat'`. The singleton Settings tab uses `panelType: 'settings'`. A tab opened by `openchamber.openAgentManager` (titled "Run on Several Models"; the id predates multi-run and stays for existing keybindings) carries `initialComposer: 'parallel'`, so its new-session draft starts in parallel mode.
 
 The old Agent Manager panel (its own provider, `AgentManagerView` and group store) is gone. It listed worktree sessions it never bootstrapped into sync, so its chats missed live events; runs now use the shared sidebar rows, run overview and composer.
 
-`VSCodeLayout` has exactly three views: `sessions`, `chat`, `settings`
+`VSCodeLayout` has two views: `sessions` and `chat`
 (`packages/ui/src/components/layout/VSCodeLayout.tsx:76`). There is no
 `MainLayout`, no `ContextPanel`, and no `ContextPanelRail` in this runtime, so
 every surface reached only through those is unreachable.
@@ -230,7 +242,7 @@ every surface reached only through those is unreachable.
 | MCP dropdown | MOUNTED | `VSCodeHeader` `showMcp` → `McpDropdown` |
 | Context usage / rate limits | MOUNTED | `VSCodeHeader` `showContextUsage` / `showRateLimits` → `ContextUsageDisplay`, `UsageProgressBar` |
 | Multi-run | MOUNTED | `SessionSidebar` run rows; `RunOverview` over the chat in every layout (sidebar, expanded, editor tab); composer parallel mode from the model picker and the `openchamber.openAgentManager` tab |
-| Settings | PARTIAL | `VSCodeLayout` → lazy `SettingsView`. `metadata.ts` `isAvailable: (ctx) => !ctx.isVSCode` hides `remote-instances`, `git`, `shortcuts`, `magic-prompts`, `voice`, `tunnel`, `about` |
+| Settings | PARTIAL | Settings editor tab → `VSCodeApp` → on-demand `SettingsView`. Page availability remains defined by `metadata.ts`; moving the host does not enable unsupported pages. |
 | Usage / quota page | MOUNTED | `SettingsView` → `UsagePage` (slug `usage`, no VS Code gate) |
 | Notifications settings | MOUNTED | `SettingsView` → slug `notifications` (no VS Code gate) |
 | MCP settings | MOUNTED | `SettingsView` → `McpSidebar` / `McpPage` |

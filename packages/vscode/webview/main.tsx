@@ -25,6 +25,8 @@ import type { AssistantMessage } from '@openchamber/ui/lib/opencode/model';
 import { syncEventSessionID, type SyncEvent } from '@openchamber/ui/lib/opencode/events';
 import { focusChatInput } from '@openchamber/ui/components/chat/composer/editor/dom';
 import { hostViewerStateSchema, reportHostViewerState } from '@openchamber/ui/lib/surfaceAttention';
+import { vscodeSettingsNavigationSchema } from '@openchamber/ui/lib/settings/vscodeNavigation';
+import { applyVSCodeSettingsNavigation } from '@openchamber/ui/apps/vscodeSettingsNavigation';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'error' | 'disconnected';
 
@@ -44,6 +46,7 @@ declare global {
       platform?: string;
       arch?: string;
       viewMode?: 'sidebar' | 'editor';
+      panelType?: 'chat' | 'settings';
       initialSessionId?: string | null;
       initialComposer?: 'parallel' | null;
     };
@@ -66,6 +69,14 @@ try {
 }
 
 window.__OPENCHAMBER_RUNTIME_APIS__ = createVSCodeAPIs();
+
+const reportSettingsShortcutFocus = () => {
+  postBridgeNotification('webview:settings-focus', { focused: document.hasFocus() });
+};
+window.addEventListener('focus', reportSettingsShortcutFocus);
+window.addEventListener('blur', reportSettingsShortcutFocus);
+document.addEventListener('focusin', reportSettingsShortcutFocus);
+reportSettingsShortcutFocus();
 
 const bootstrapLocale = readStoredLocaleForBootstrap();
 const bootstrapMessages = getBootstrapMessages(bootstrapLocale);
@@ -1788,10 +1799,9 @@ onCommand('newSession', (payload) => {
   window.dispatchEvent(new CustomEvent('openchamber:navigate', { detail: { view: 'chat' } }));
 });
 
-// Listen for showSettings command from extension title bar button
-onCommand('showSettings', () => {
-  // Dispatch event to navigate to settings view in VSCodeLayout
-  window.dispatchEvent(new CustomEvent('openchamber:navigate', { detail: { view: 'settings' } }));
+onCommand('showSettings', (payload) => {
+  const navigation = vscodeSettingsNavigationSchema.safeParse(payload);
+  if (navigation.success) applyVSCodeSettingsNavigation(navigation.data);
 });
 
 // Run the same full OpenCode reload flow the app uses after an update: shows the
@@ -2093,7 +2103,8 @@ window.addEventListener('openchamber:vscode-notification-event', (event) => {
 
 // Listen for settings sync command from extension (broadcast to all VS Code webviews)
 onCommand('settingsSynced', () => {
-  import('@openchamber/ui/lib/persistence').then(({ syncDesktopSettings }) => {
+  import('@openchamber/ui/lib/persistence').then(({ invalidateSettingsCache, syncDesktopSettings }) => {
+    invalidateSettingsCache();
     void syncDesktopSettings({ adoptTheme: false });
   });
 });
