@@ -1057,6 +1057,23 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
     </>
   );
 
+  // Both headers — the resolution-state one below and the working list's
+  // comparison chrome — expose the same nested repository picker: once a
+  // repository resolves there is no other way to switch, and every switch
+  // clears the pull-request selection bound to the previous repository.
+  const nestedRepoPicker = repositoryOptions ? (
+    <NestedRepoPicker
+      repositories={repositoryOptions}
+      selectedRepository={gitDirectory ?? null}
+      onSelectRepository={(repository) => {
+        if (!rootDirectory) return;
+        usePullRequestSelectionStore.getState().clearChangesRepository(rootDirectory);
+        selectNestedRepo(rootDirectory, repository);
+      }}
+      repositoryRoot={rootDirectory ?? undefined}
+    />
+  ) : null;
+
   const renderListState = (state: React.ReactNode) => (
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
       {networkDialogs}
@@ -1078,18 +1095,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
             {status?.current || currentDirectory || ''}
           </p>
         </div>
-        {repositoryOptions ? (
-          <NestedRepoPicker
-            repositories={repositoryOptions}
-            selectedRepository={gitDirectory ?? null}
-            onSelectRepository={(repository) => {
-              if (!rootDirectory) return;
-              usePullRequestSelectionStore.getState().clearChangesRepository(rootDirectory);
-              selectNestedRepo(rootDirectory, repository);
-            }}
-            repositoryRoot={rootDirectory ?? undefined}
-          />
-        ) : null}
+        {nestedRepoPicker}
       </header>
       <div className="min-h-0 flex-1">{state}</div>
     </div>
@@ -1274,6 +1280,7 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+        {nestedRepoPicker}
         {visible && mode === 'branch' && (
           <BranchComparisonSelector mobile key={JSON.stringify([ownerKey, currentBranch])}
             branches={branches?.all ?? []} currentBranch={currentBranch} base={branchComparison.base}
