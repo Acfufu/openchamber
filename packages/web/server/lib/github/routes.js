@@ -1060,13 +1060,9 @@ export function registerGitHubRoutes(app, options = {}) {
       const accountContext = await getOctokitForRequest(req, context.accountId);
       const octokit = accountContext.octokit;
       const actor = { provider: 'github', instance: context.instance, accountId: context.accountId };
-      // A `<host>#cli:<id>` request is satisfied by the host's stored credential
-      // when that instance's gh login is not active, so the resolved account may
-      // differ from the requested id; any other request must match exactly.
-      const requestedCli = /^([^#]+)#cli:\d+$/.exec(context.accountId ?? '');
-      const requestedCliForInstance = Boolean(requestedCli
-        && requestedCli[1].toLowerCase() === String(context.instance ?? '').toLowerCase());
-      if ((requestedCliForInstance ? false : accountContext.accountId !== context.accountId)
+      // The mutation runs as the account the project is bound to, or not at
+      // all: never as another account that happens to be stored for the host.
+      if (accountContext.accountId !== context.accountId
         || !Number.isSafeInteger(accountContext.credentialRevision) || accountContext.credentialRevision < 1
         || !isProviderString(accountContext.providerUserId)
         || !/^[^#]+#\d+$/.test(accountContext.providerUserId)) {
