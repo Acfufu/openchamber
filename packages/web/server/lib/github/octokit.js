@@ -105,6 +105,10 @@ export function createOctokit(token, accountId = '', host = '') {
   Object.defineProperty(octokit, 'openChamberCacheIdentity', {
     value: cacheIdentity,
   });
+  // The host it talks to, for checks of what it answers (routes.js).
+  Object.defineProperty(octokit, 'openChamberHost', {
+    value: normalizedHost || 'github.com',
+  });
   return octokit;
 }
 

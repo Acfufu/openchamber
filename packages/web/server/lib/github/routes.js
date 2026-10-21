@@ -170,7 +170,10 @@ function requireGitHubComment(value, message) {
   return value;
 }
 
-function matchesGitHubRepositoryUrl(value, owner, repo) {
+// `host`, when given, is the instance the answer came from: a web URL of
+// another host (a GitLab or another GitHub's repository of the same name) is
+// not this repository.
+function matchesGitHubRepositoryUrl(value, owner, repo, host = '') {
   if (!isProviderString(value) || !value.trim()) return false;
   const expectedPath = `${owner}/${repo}`.toLowerCase();
   const raw = value.trim();
@@ -185,6 +188,7 @@ function matchesGitHubRepositoryUrl(value, owner, repo) {
       || (url.protocol === 'ssh:' && url.username !== 'git')) {
       return false;
     }
+    if (host && url.protocol === 'https:' && url.hostname.toLowerCase() !== host) return false;
     const path = url.pathname.replace(/^\/+|\/+$/g, '').replace(/\.git$/i, '');
     return path.toLowerCase() === expectedPath;
   } catch {
@@ -519,7 +523,9 @@ export function registerGitHubRoutes(app, options = {}) {
   };
   const sameProject = (left, right) => left?.owner === right?.owner && left?.name === right?.name;
   const repoProject = (repo) => ({ owner: repo.owner, name: repo.repo });
-  const requireMutationPullRequest = (value, message) => {
+  // `octokit` is the client that answered: its host is where the base
+  // repository has to live.
+  const requireMutationPullRequest = (value, message, octokit) => {
     const pr = requireGitHubPullRequest(value, message);
     if (!isProviderString(pr.head?.sha) || !pr.head.sha.trim()
       || Object.prototype.toString.call(pr.draft) !== '[object Boolean]'
@@ -528,7 +534,7 @@ export function registerGitHubRoutes(app, options = {}) {
       || !isPlainObject(pr.base.repo.owner)
       || !isProviderString(pr.base.repo.owner.login) || !pr.base.repo.owner.login.trim()
       || !isProviderString(pr.base.repo.name) || !pr.base.repo.name.trim()
-      || !matchesGitHubRepositoryUrl(pr.base.repo.html_url, pr.base.repo.owner.login, pr.base.repo.name)) {
+      || !matchesGitHubRepositoryUrl(pr.base.repo.html_url, pr.base.repo.owner.login, pr.base.repo.name, octokit?.openChamberHost || '')) {
       throw invalidProviderPayload(message);
     }
     return pr;
@@ -567,7 +573,7 @@ export function registerGitHubRoutes(app, options = {}) {
       per_page: 100,
     });
     const candidates = requireProviderArray(response?.data, 'GitHub returned an invalid pull request list')
-      .map((pr) => requireMutationPullRequest(pr, 'GitHub returned an invalid pull request'))
+      .map((pr) => requireMutationPullRequest(pr, 'GitHub returned an invalid pull request', octokit))
       .filter((pr) => pr.head.ref === head && pr.base.ref === base)
       .filter((pr) => sameProject(pullTargetProject(pr), expectedProject))
       .filter((pr) => pr.head.repo
@@ -622,7 +628,7 @@ export function registerGitHubRoutes(app, options = {}) {
       repo: target.project.name,
       pull_number: target.number,
     });
-    const currentPr = requireMutationPullRequest(current?.data, 'GitHub returned an invalid pull request');
+    const currentPr = requireMutationPullRequest(current?.data, 'GitHub returned an invalid pull request', octokit);
     if (kind === 'merge') {
       if (currentPr.merged === true || isProviderString(currentPr.merged_at)) {
         return { state: 'succeeded', result: { merged: true } };
@@ -1149,7 +1155,7 @@ export function registerGitHubRoutes(app, options = {}) {
           if (body !== undefined) createInput.body = body;
           if (draft !== undefined) createInput.draft = draft;
           const response = await octokit.rest.pulls.create(createInput);
-          const created = requireMutationPullRequest(response?.data, 'GitHub returned an invalid created pull request');
+          const created = requireMutationPullRequest(response?.data, 'GitHub returned an invalid created pull request', octokit);
           const createdSource = created.head.repo
             ? { owner: created.head.repo.owner.login, name: created.head.repo.name }
             : null;
@@ -1201,7 +1207,7 @@ export function registerGitHubRoutes(app, options = {}) {
         const response = await octokit.rest.pulls.get({
           owner: expectedProject.owner, repo: expectedProject.name, pull_number: context.target.number,
         });
-        const pr = requireMutationPullRequest(response?.data, 'GitHub returned an invalid pull request');
+        const pr = requireMutationPullRequest(response?.data, 'GitHub returned an invalid pull request', octokit);
         if (!sameProject(pullTargetProject(pr), expectedProject) || !mutationTargetMatches(context.target, pr)) {
           throw canonicalMutationError('GitHub pull request no longer matches the mutation target', 'SOURCE_CONTROL_MUTATION_TARGET_CHANGED', 409);
         }
@@ -1213,7 +1219,7 @@ export function registerGitHubRoutes(app, options = {}) {
             const updateInput = { owner: expectedProject.owner, repo: expectedProject.name, pull_number: target.number, title };
             if (body !== undefined) updateInput.body = body;
             const updated = await octokit.rest.pulls.update(updateInput);
-            const updatedPr = requireMutationPullRequest(updated?.data, 'GitHub returned an invalid updated pull request');
+            const updatedPr = requireMutationPullRequest(updated?.data, 'GitHub returned an invalid updated pull request', octokit);
             if (!sameProject(pullTargetProject(updatedPr), expectedProject) || !mutationTargetMatches(target, updatedPr)) {
               throw invalidProviderPayload('GitHub returned an updated pull request with an unexpected target');
             }
