@@ -914,11 +914,29 @@ html:not(.dark) .chat-scroll {
   }
 }
 
-/* Pierre diff viewer styling */
-.pierre-diff-wrapper {
+/* Every Pierre instance (Changes view, tool cards, the tool dialog, the Files
+   view) renders into the shadow root of a `diffs-container`. Setting the font
+   and line height on that host resolves `--text-code` where the instance sits, so local
+   overrides such as the Files view's editor font size and the mobile code
+   size apply too. */
+diffs-container {
   --diffs-font-family: var(--font-mono, ui-monospace, monospace);
   --diffs-font-size: var(--text-code);
+  /* 24px at the default 12px code size. Tool cards and the tool dialog wrap
+     lines, so Pierre measures their rows and the height can scale. */
+  --diffs-line-height: calc(var(--text-code) * 2);
+}
+
+/* The Changes view and the walkthrough virtualize with fixed 24px rows
+   (`VIRTUAL_METRICS.lineHeight` in PierreDiffViewer.tsx). Without wrapping,
+   Pierre does not measure rows, so a taller row would make long diffs jump
+   while scrolling. */
+.pierre-diff-wrapper diffs-container {
   --diffs-line-height: 24px;
+}
+
+/* Pierre diff viewer styling */
+.pierre-diff-wrapper {
   --diffs-tab-size: 2;
   --diffs-header-font-family: var(--font-sans, system-ui, sans-serif);
   --diffs-min-number-column-width: 4ch;
