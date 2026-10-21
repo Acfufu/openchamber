@@ -233,6 +233,14 @@ themselves cannot list. Past four pills the rest wait behind one `+N` pill
 that reveals them in the row; the same pill then hides them again. The list is projected once the last assistant message
 finished with `stop`, so no tool patch is parsed while the turn streams.
 
+### Why empty reasoning does not separate the answer
+
+`MessageBody` omits reasoning containing only whitespace or default-ignorable
+characters before adding its React element. The final-answer divider counts
+preceding rendered elements, so adding a reasoning element whose child returns
+`null` would leave a divider above a direct answer. Visible reasoning and tool
+rows keep their divider.
+
 ### Message parts
 
 - Assistant markdown treats raw HTML as inert visible text. The final generated
