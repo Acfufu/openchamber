@@ -151,6 +151,10 @@ walkthrough behaves the same on every surface. The panel header never wraps:
 then the step arrows and Generate, then the scope label), with the CSS in
 `index.css`.
 
+The walkthrough's stream column has a zero minimum width so long diff lines
+cannot widen it beyond the panel. Explanations wrap within that column; code
+uses the shared diff wrap preference and scrolls horizontally when wrap is off.
+
 The Git panel header (`git/GitHeader.tsx`) collapses the same way. The
 repository picker truncates down to its icon and chevron first, then the
 branch picker; their names sit in a grid track with no minimum, so neither
