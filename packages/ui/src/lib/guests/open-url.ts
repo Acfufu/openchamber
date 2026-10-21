@@ -2,7 +2,7 @@ import { isDesktopShell } from '@/lib/desktop';
 import { isLoopbackHttpUrl, openExternalUrl } from '@/lib/url';
 import { useUIStore } from '@/stores/useUIStore';
 
-export type GuestUrlTarget = 'browser-panel' | 'system';
+type GuestUrlTarget = 'browser-panel' | 'system';
 
 type GuestUrlContext = {
   /** The desktop app's browser panel can be shown on this surface. */
