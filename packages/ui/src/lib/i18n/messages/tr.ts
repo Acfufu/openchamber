@@ -9,6 +9,7 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { fileContentSearchI18n } from './file-content-search.i18n';
+import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
@@ -84,6 +85,7 @@ export const dict = {
   ...surfacePanelI18n.tr,
   ...fileArtifactsI18n.tr,
   ...fileContentSearchI18n.tr,
+  ...fileEditorAidsI18n.tr,
   ...htmlRenderI18n.tr,
   ...sessionNoticesI18n.tr,
   ...usageStatsI18n.tr,
