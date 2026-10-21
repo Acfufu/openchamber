@@ -1433,7 +1433,7 @@ export function registerGitHubRoutes(app, options = {}) {
             // gone: gh logged out, disabled here, or its token rejected. A network
             // blip leaves this read without a user but keeps the choice.
             if (!user && (token === null || cliRejected)) {
-              setGhCliActiveForHost(host, false);
+              await setGhCliActiveForHost(host, false);
               return buildEnterpriseStatus(host);
             }
           }
@@ -1826,7 +1826,7 @@ export function registerGitHubRoutes(app, options = {}) {
         if (accountId !== `${enterpriseCliHost}#cli:${user.id}` && accountId !== `${enterpriseCliHost}#cli:0`) {
           return res.status(404).json({ error: 'GitHub CLI account not found' });
         }
-        setGhCliActiveForHost(enterpriseCliHost, true);
+        await setGhCliActiveForHost(enterpriseCliHost, true);
         const accounts = (await getGitHubAuthAccountsForHost(enterpriseCliHost))
           .map((account) => ({ ...account, current: false }))
           .concat(hostCliAccountView(enterpriseCliHost, user, true));
