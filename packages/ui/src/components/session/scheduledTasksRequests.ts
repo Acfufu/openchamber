@@ -6,7 +6,7 @@
  * A response for another project is answered by the selection instead: only
  * the scope on screen may write the list or end its spinner.
  */
-export type TaskRequestGate = {
+type TaskRequestGate = {
   /** Claims the next request number for a project. */
   begin: (projectID: string) => number;
   /** Whether this is still the newest request made for its project. */

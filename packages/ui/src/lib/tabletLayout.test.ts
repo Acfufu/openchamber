@@ -19,7 +19,7 @@ const setViewport = (width: number, height: number) => {
     // isIPadApp() reaches for the Capacitor markers; a plain web location
     // keeps it on its `false` path without mocking the module.
     location: { protocol: 'https:', search: '' },
-    ...(nativeShell ? { Capacitor: { isNativePlatform: () => true } } : {}),
+    Capacitor: { isNativePlatform: () => nativeShell },
   };
   // SAFETY: the test installs its own minimal DOM global; the shape is ours.
   (globalThis as { document?: unknown }).document = {
