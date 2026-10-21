@@ -1092,6 +1092,18 @@ function buildMetadataMergePatch(current: Metadata, next: Metadata): Metadata {
   return patch
 }
 
+/**
+ * The session's folder no longer exists, and OpenCode refuses any metadata
+ * write for it. Archive is OpenChamber's own record and still works, so the
+ * UI offers it.
+ */
+export class SessionDirectoryMissingError extends Error {
+  constructor(sessionId: string) {
+    super(`the folder of session ${sessionId} no longer exists`)
+    this.name = "SessionDirectoryMissingError"
+  }
+}
+
 export async function patchSessionMetadata(
   sessionId: string,
   directory: string | null | undefined,
@@ -1111,6 +1123,7 @@ export async function patchSessionMetadata(
   // reporting success would strand a review or btw link that the next load
   // silently drops.
   const result = await requestSessionMetadataUpdate(sessionId, buildMetadataMergePatch(currentMetadata, nextMetadata), targetDirectory)
+  if (result.outcome === "directory-missing") throw new SessionDirectoryMissingError(sessionId)
   if (result.outcome !== "updated") throw new Error(`session metadata update failed: ${result.reason}`)
   const updated: Session = { ...current, metadata: result.metadata }
   if (isStaleRuntime(expectedRuntimeKey)) throw new Error("runtime changed")

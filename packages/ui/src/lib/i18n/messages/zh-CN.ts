@@ -712,6 +712,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '标记为完成',
   'sessions.sidebar.session.work.doneSuggested': '看起来已完成',
   'sessions.sidebar.session.work.updateFailed': '无法更新会话',
+  'sessions.sidebar.session.work.folderDeleted': '此会话的文件夹已被删除',
   'sessions.sidebar.session.pin.pinFailed': '无法置顶会话',
   'sessions.sidebar.session.pin.unpinFailed': '无法取消置顶会话',
   'chat.work.doneHint.text': '这项工作看起来已完成。',

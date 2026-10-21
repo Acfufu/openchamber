@@ -713,6 +713,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Marcar como hecho",
   "sessions.sidebar.session.work.doneSuggested": "Parece terminado",
   "sessions.sidebar.session.work.updateFailed": "No se pudo actualizar la sesión",
+  "sessions.sidebar.session.work.folderDeleted": "Se eliminó la carpeta de esta sesión",
   "sessions.sidebar.session.pin.pinFailed": "No se pudo anclar la sesión",
   "sessions.sidebar.session.pin.unpinFailed": "No se pudo desanclar la sesión",
   "chat.work.doneHint.text": "Este trabajo parece terminado.",

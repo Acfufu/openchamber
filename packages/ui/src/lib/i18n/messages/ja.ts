@@ -712,6 +712,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '完了にする',
   'sessions.sidebar.session.work.doneSuggested': '完了したようです',
   'sessions.sidebar.session.work.updateFailed': 'セッションを更新できませんでした',
+  'sessions.sidebar.session.work.folderDeleted': 'このセッションのフォルダーは削除されました',
   'sessions.sidebar.session.pin.pinFailed': 'セッションをピン留めできませんでした',
   'sessions.sidebar.session.pin.unpinFailed': 'セッションのピン留めを解除できませんでした',
   'chat.work.doneHint.text': 'この作業は完了したようです。',

@@ -332,15 +332,27 @@ const unsupportedWebRouteResponse = (feature: string): Response => {
   return jsonResponse({ error: `${feature} is not supported in VS Code` }, 501);
 };
 
-/** Answers a local API route from a bridge call; validation failures come back as 400, the rest as 500. */
-const bridgeJsonRoute = async (bridgeType: string, payload: unknown): Promise<Response> => {
+/**
+ * Answers a local API route from a bridge call; validation failures come back
+ * as 400, the rest as 500. A host failure whose code is in `answeredCodes`
+ * comes back as 409 with that code, the way the web server's route answers it.
+ */
+const bridgeJsonRoute = async (bridgeType: string, payload: unknown, answeredCodes: readonly string[] = []): Promise<Response> => {
   try {
     return jsonResponse(await sendBridgeMessage(bridgeType, payload), 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Request failed';
+    if (error instanceof BridgeRequestError && error.code && answeredCodes.includes(error.code)) {
+      return jsonResponse({ error: message, code: error.code }, 409);
+    }
     return jsonResponse({ error: message }, /must be|is required|session id/.test(message) ? 400 : 500);
   }
 };
+
+// The host could not write metadata because the session's folder is gone; the
+// UI then offers archive. Mirrors `SESSION_DIRECTORY_MISSING_CODE` in
+// packages/vscode/src/bridge-system-runtime.ts.
+const SESSION_DIRECTORY_MISSING_CODE = 'SESSION_DIRECTORY_MISSING';
 
 const pluginConfigErrorStatus = (message: string): number => {
   const lower = message.toLowerCase();
@@ -444,7 +456,7 @@ const handleLocalApiRequest = async (input: RequestInfo | URL, url: URL, init: R
     if (method === 'GET') return bridgeJsonRoute('api:sessions/metadata:get', { sessionId });
     const body = await extractJsonBody(input, init, method);
     const patch = body && typeof body === 'object' && !Array.isArray(body) ? (body as { patch?: unknown }).patch : undefined;
-    return bridgeJsonRoute('api:sessions/metadata:set', { sessionId, patch });
+    return bridgeJsonRoute('api:sessions/metadata:set', { sessionId, patch }, [SESSION_DIRECTORY_MISSING_CODE]);
   }
 
   if (/^\/api\/projects\/[^/]+\/scheduled-tasks(?:\/[^/]+)?$/.test(normalizedPathname)) {

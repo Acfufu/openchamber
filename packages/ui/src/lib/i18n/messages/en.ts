@@ -711,6 +711,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Mark done',
   'sessions.sidebar.session.work.doneSuggested': 'Looks done',
   'sessions.sidebar.session.work.updateFailed': 'Couldn\'t update the session',
+  'sessions.sidebar.session.work.folderDeleted': 'This session\'s folder was deleted',
   'sessions.sidebar.session.pin.pinFailed': 'Couldn\'t pin the session',
   'sessions.sidebar.session.pin.unpinFailed': 'Couldn\'t unpin the session',
   'chat.work.doneHint.text': 'This work looks done.',

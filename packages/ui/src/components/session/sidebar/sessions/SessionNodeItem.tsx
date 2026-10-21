@@ -74,7 +74,8 @@ import { useShiftKeyHeld } from '@/hooks/useShiftKeyHeld';
 import { getSessionGoal } from '@/lib/sessionGoalMetadata';
 import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
 import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
-import { setSessionWorkState } from '@/sync/session-actions';
+import { SessionDirectoryMissingError, setSessionWorkState } from '@/sync/session-actions';
+import { toastSessionWorkFailure } from './sessionWorkFailure';
 import { useSessionWarmingStore, useSessionWarmUntil } from '@/stores/useSessionWarmingStore';
 import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { sessionGoalStatusColor, sessionGoalStatusLabelKey } from '@/lib/sessionGoalPresentation';
@@ -653,8 +654,12 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const toggleSessionWork = async () => {
     try {
       await setSessionWorkState(session.id, sessionDirectory, isInWork ? 'done' : 'open');
-    } catch {
-      toast.error(t('sessions.sidebar.session.work.updateFailed'));
+    } catch (error) {
+      toastSessionWorkFailure(
+        error instanceof SessionDirectoryMissingError,
+        () => handleDeleteSession(session, { skipConfirm: true }),
+        t,
+      );
     }
   };
   // Per-session warming is offered only while Settings chose it, for a root

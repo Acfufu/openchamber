@@ -732,6 +732,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '標記為完成',
   'sessions.sidebar.session.work.doneSuggested': '看起來已完成',
   'sessions.sidebar.session.work.updateFailed': '無法更新工作階段',
+  'sessions.sidebar.session.work.folderDeleted': '此工作階段的資料夾已被刪除',
   'sessions.sidebar.session.pin.pinFailed': '無法釘選工作階段',
   'sessions.sidebar.session.pin.unpinFailed': '無法取消釘選工作階段',
   'chat.work.doneHint.text': '這項工作看起來已完成。',

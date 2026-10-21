@@ -535,6 +535,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': 'Oznacz jako gotowe',
   'sessions.sidebar.session.work.doneSuggested': 'Wygląda na gotowe',
   'sessions.sidebar.session.work.updateFailed': 'Nie udało się zaktualizować sesji',
+  'sessions.sidebar.session.work.folderDeleted': 'Folder tej sesji został usunięty',
   'sessions.sidebar.session.pin.pinFailed': 'Nie udało się przypiąć sesji',
   'sessions.sidebar.session.pin.unpinFailed': 'Nie udało się odpiąć sesji',
   'chat.work.doneHint.text': 'Ta praca wygląda na skończoną.',

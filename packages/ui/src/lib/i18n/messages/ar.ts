@@ -677,6 +677,7 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'تعليم كمنجزة',
   'sessions.sidebar.session.work.doneSuggested': 'تبدو منجزة',
   'sessions.sidebar.session.work.updateFailed': 'تعذّر تحديث الجلسة',
+  'sessions.sidebar.session.work.folderDeleted': 'تم حذف مجلد هذه الجلسة',
   'sessions.sidebar.session.pin.pinFailed': 'تعذّر تثبيت الجلسة',
   'sessions.sidebar.session.pin.unpinFailed': 'تعذّر إلغاء تثبيت الجلسة',
   'chat.work.doneHint.text': 'يبدو أن هذا العمل قد أُنجز.',
