@@ -274,8 +274,8 @@ const fetchDirectoryPages = async (
         status: 'fulfilled' as const,
         value: {
           directory,
-          // One request per directory, split client-side: archive state is
-          // OpenChamber's own and the session list has no archived filter.
+          // One request per directory, split client-side: OpenCode's archived
+          // filter cannot see sessions the server's archive file marks.
           sessions: await withDirectorySessionRefreshSlot(() => (
             listGlobalSessionPages(listSessionPage, { directory, pageSize: PAGE_SIZE })
           )),

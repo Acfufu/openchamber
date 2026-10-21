@@ -355,9 +355,10 @@ export const registerOpenCodeProxy = (app, deps) => {
     WORKTREE_READY_TIMEOUT_MS = 5 * 60 * 1000,
     waitForWorktreeRemovalToSettle = waitForWorktreeRemoval,
     WORKTREE_REMOVAL_HOLD_MS = 60 * 1000,
-    // OpenCode 2.x has no archive route, so archive state is OpenChamber's own
-    // and the proxy folds it onto the sessions it serves (`time.archived`).
-    // Session metadata lives on OpenCode's record; the proxy lays over only
+    // OpenCode holds archive state since 2.1; the archive file keeps it for
+    // sessions OpenCode cannot archive (deleted directories) and for entries not
+    // migrated yet, and the proxy folds those onto the sessions it serves
+    // (`time.archived`). Session metadata lives on OpenCode's record; the proxy lays over only
     // the entries an older OpenChamber left in the legacy file until they are
     // migrated.
     getArchivedSessions = null,
@@ -418,8 +419,8 @@ export const registerOpenCodeProxy = (app, deps) => {
   };
 
   // A number archives, `null` is an explicit unarchive (drops the stamp OpenCode
-  // still carries for a session migrated from v1), and a session the file does
-  // not mention keeps whatever OpenCode says.
+  // carries), and a session the file does not mention keeps whatever OpenCode
+  // says.
   const withArchivedAt = (session, archived) => {
     if (!session || typeof session !== 'object' || typeof session.id !== 'string') return session;
     if (!Object.prototype.hasOwnProperty.call(archived, session.id)) return session;

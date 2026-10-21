@@ -859,22 +859,24 @@ action, so archived subsessions come back with the session, and reports
 failure separately from the accepted message, so a restore failure cannot
 cause a duplicate send.
 
-The OpenCode server cannot clear `time.archived` over HTTP: `session.update`
-only applies the field when the payload carries a finite number, so an omitted
-key is a no-op and `null` is silently ignored. Restore therefore writes
-`time.archived = 0` (`UNARCHIVED_TIMESTAMP` in `session-actions.ts`). Every
-client-side reader classifies archive state by truthiness of `time.archived`,
-so `0` reads as active in the UI, the event reducer, and the OpenCode app/TUI.
+OpenCode holds archive state since 2.1: archive and restore go through
+OpenChamber's batch routes (`session-archive-batch.ts`), which set it on
+OpenCode's record, and OpenCode announces `session.archived` /
+`session.unarchived` to every client, so a session archived in the TUI moves
+here too. A session whose directory was deleted cannot be changed on OpenCode
+where it is, so the server moves it to its project's main folder first
+(OpenCode announces `session.moved`); when archiving, its archive file marks
+the session archived before the move, so the sidebar never shows it as active
+under the project. The server folds that file onto the records it serves and
+announces its changes as `openchamber:session-archived`. Restore clears
+`time.archived`; every reader classifies archive state by its truthiness.
 
-The server's `time_archived IS NULL` list filter still excludes such rows, so
-any query that wants a truthful active list must fetch inclusively
-(`archived: true`) and split client-side (`splitGlobalSessionsByArchived`).
-The global sessions store does this for its full and per-directory loads;
-directory bootstrap keeps using the server filter because live child stores
-must not hold archived sessions. A restored session re-enters its live
-directory store through the authoritative `session.updated` event the server
-publishes for the update; until then it remains fully visible through the
-global store (sidebar, switcher) and addressable by ID (message loading).
+OpenCode's `archived` list filter cannot see the sessions only that file
+marks, so the global sessions store loads every session of a scope and splits
+active from archived client-side (`splitGlobalSessionsByArchived`). A restored
+session re-enters its live directory store through the event; until then it
+remains fully visible through the global store (sidebar, switcher) and
+addressable by ID (message loading).
 
 The full-app collection retains active records whose directory is absent from
 the current topology. Display grouping first resolves exact configured

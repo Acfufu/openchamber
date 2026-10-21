@@ -401,14 +401,17 @@ describe('OpenChamber control service', () => {
     expect(client.session.active).toHaveBeenCalledTimes(2);
   });
 
-  it('filters sessions archived in OpenChamber state and adds global statuses', async () => {
+  it('filters archived sessions, with the archive file over OpenCode, and adds global statuses', async () => {
+    const entries = { ses_archived: 100, ses_restored: null };
     const { service, client } = createService({
       // Async like the real store (`openchamber-sessions/archive-store.js`).
-      archiveStore: { archivedAt: async (id) => (id === 'ses_archived' ? 100 : null) },
+      archiveStore: { entry: async (id) => entries[id] },
     });
     client.session.list.mockResolvedValue({ data: [
       { id: 'ses_active', location: { directory: '/repo' }, time: {} },
       { id: 'ses_archived', location: { directory: '/repo' }, time: {} },
+      { id: 'ses_upstream', location: { directory: '/repo' }, time: { archived: 50 } },
+      { id: 'ses_restored', location: { directory: '/repo' }, time: { archived: 70 } },
       { id: 'ses_other', location: { directory: '/other' }, time: {} },
     ] });
     client.session.active.mockResolvedValue({ ses_active: { type: 'running' } });
@@ -416,6 +419,7 @@ describe('OpenChamber control service', () => {
     await expect(service.execute('session.list', { limit: 10, withStatus: true })).resolves.toEqual({
       sessions: [
         { id: 'ses_active', location: { directory: '/repo' }, time: {}, status: { type: 'busy' } },
+        { id: 'ses_restored', location: { directory: '/repo' }, time: {}, status: { type: 'idle' } },
         { id: 'ses_other', location: { directory: '/other' }, time: {}, status: { type: 'idle' } },
       ],
       limit: 10,

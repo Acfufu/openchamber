@@ -984,7 +984,7 @@ const sessionAssistRuntime = createSessionAssistRuntime({
   persistSessionAssist: (sessionID, directory, assist) =>
     persistSessionMetadataPatch(sessionID, { openchamber: { assist } }, { directory }),
   // Declared further down; only ever called after startup.
-  isSessionArchived: (sessionID) => openChamberSessionService.archiveStore.isArchived(sessionID),
+  isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
   // Declared further down; only ever called after startup.
   evaluateTurn: (input) => sessionWorkRuntime.evaluateTurnEnd(input),
   lineage: sessionLineage,
@@ -1127,7 +1127,7 @@ const sessionWorkRuntime = createSessionWorkRuntime({
   jev: createJevClient(),
   readMetadata: (sessionID, directory) => sessionMetadataStore.get(sessionID, { directory }),
   updateMetadata: updateSessionMetadataWith,
-  isSessionArchived: (sessionID) => openChamberSessionService.archiveStore.isArchived(sessionID),
+  isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
   chatRoots: [path.join(OPENCHAMBER_USER_CONFIG_ROOT, 'chats'), OPENCHAMBER_CHATS_DIR],
   lineage: sessionLineage,
 });
@@ -1182,7 +1182,7 @@ const dispatchResultsRuntime = createDispatchResultsRuntime({
   getOpenCodeAuthHeaders,
   dataDir: OPENCHAMBER_DATA_DIR,
   // Declared further down; only ever called after startup.
-  isSessionArchived: (sessionID) => openChamberSessionService.archiveStore.isArchived(sessionID),
+  isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
 });
 dispatchResultsRuntime.start();
 
@@ -1634,7 +1634,7 @@ const scheduledTasksRuntime = createScheduledTasksRuntime({
   chatsScope: scheduledChatsScope,
   messageQueueRuntime,
   resolvePrimaryWorktreeRoot,
-  isSessionArchived: (sessionID) => openChamberSessionService.archiveStore.isArchived(sessionID),
+  isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
   readSessionDefaults: async (projectID) => {
     const settings = await readSettingsFromDiskMigrated();
     const project = sanitizeProjects(settings?.projects || []).find((entry) => entry.id === projectID) ?? null;
@@ -1744,9 +1744,9 @@ const openChamberSessionService = createOpenChamberSessionService({
   worktreeBootstrapStore,
   hydrateWorktreeCheckout: featureRoutesRuntime.hydrateBoundCheckout,
   createChangeRequestWorktree: featureRoutesRuntime.createChangeRequestWorktree,
-  // OpenCode 2.x has no archive route, so the state is OpenChamber's own and
-  // lives beside the instance it describes.
+  // Holds the archive file (`session-archive.js`) beside the instance it describes.
   dataDir: OPENCHAMBER_DATA_DIR,
+  getDefaultOpenCodeDirectory: () => openCodeLifecycleRuntime.getDefaultOpenCodeDirectory(),
   sessionMetadataStore,
   persistSessionMetadata: persistSessionMetadataPatch,
   updateSessionMetadata: updateSessionMetadataWith,
@@ -1953,6 +1953,11 @@ const bootstrapOpenCodeAtStartup = async (...args) => {
   void waitForOpenCodeReady()
     .then(() => sessionMetadataStore.migrateLegacy())
     .catch((error) => console.warn('[openchamber-sessions] session metadata migration failed:', error?.message ?? error));
+  // Archive state written before OpenCode 2.1 held it moves to OpenCode in one
+  // pass that unloads the projects it had to start (`session-archive.js`).
+  void waitForOpenCodeReady()
+    .then(() => openChamberSessionService.sessionArchive.migrateLegacy())
+    .catch((error) => console.warn('[openchamber-sessions] session archive migration failed:', error?.message ?? error));
 };
 const killProcessOnPort = (...args) => openCodeLifecycleRuntime.killProcessOnPort(...args);
 const waitForPortRelease = (...args) => openCodeLifecycleRuntime.waitForPortRelease(...args);

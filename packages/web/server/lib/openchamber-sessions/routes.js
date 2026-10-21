@@ -22,6 +22,7 @@ import { buildGoalIntroText, createSessionGoal } from '../session-goal/create.js
 import { OpenChamberControlError, asControlError } from '../openchamber-control/error.js';
 import { readObjective, writeObjective } from '../session-goal/objectives.js';
 import { createArchiveStore } from './archive-store.js';
+import { createOpenCodeSessionArchive, createSessionArchive } from './session-archive.js';
 import { applyForkInheritance } from './fork-inheritance.js';
 import { createOpenCodeClient as defaultCreateOpenCodeClient } from './opencode-client.js';
 import { createSessionMetadataStore, createOpenCodeSessionMetadata } from './session-metadata-store.js';
@@ -450,6 +451,10 @@ export const createOpenChamberSessionService = (dependencies) => {
     createChangeRequestWorktree = null,
     dataDir = null,
     archiveStore: injectedArchiveStore = null,
+    // Archive state on OpenCode; module tests pass a fake.
+    openCodeArchive: injectedOpenCodeArchive = null,
+    // A directory OpenCode already runs, for reads that have none of their own.
+    getDefaultOpenCodeDirectory = () => null,
     sessionMetadataStore: injectedSessionMetadataStore = null,
     // Injected by the server so every metadata write takes the same path:
     // store, broadcast, and tell the goal loop. Falls back to store+broadcast
@@ -502,6 +507,18 @@ export const createOpenChamberSessionService = (dependencies) => {
     baseUrl: openCodeBaseUrl(),
     headers: getOpenCodeAuthHeaders(),
     directory,
+  });
+
+  const broadcastArchived = (sessionID, archivedAt) => {
+    broadcastGlobalUiEvent?.({
+      type: 'openchamber:session-archived',
+      properties: { sessionID, archivedAt },
+    });
+  };
+  const sessionArchive = createSessionArchive({
+    store: archiveStore,
+    openCode: injectedOpenCodeArchive || createOpenCodeSessionArchive({ clientFor, getDefaultDirectory: getDefaultOpenCodeDirectory }),
+    announce: broadcastArchived,
   });
 
   const resolveStartDirectory = createStartDirectoryResolver({ resolveWorktreeTopLevel, validateWorktreeDirectory });
@@ -898,34 +915,19 @@ export const createOpenChamberSessionService = (dependencies) => {
     return { metadata };
   };
 
-  const broadcastArchived = (sessionID, archivedAt) => {
-    broadcastGlobalUiEvent?.({
-      type: 'openchamber:session-archived',
-      properties: { sessionID, archivedAt },
-    });
-  };
-
   /**
-   * Archive a batch of sessions in one request.
-   *
-   * OpenCode 2.x has no route that sets `time.archived`, so the state is
-   * OpenChamber's own: a JSON file beside the OpenCode instance, folded back
-   * onto the session records the proxy serves. Batching matters for the same
-   * reason it did before — the UI archives every session linked to a worktree
-   * before removing it, and doing that one request at a time is what made
-   * removing a busy worktree take tens of seconds.
-   *
-   * No directory is needed: archive state is keyed by session id per data dir.
+   * Archive a batch of sessions in one request. OpenCode holds the state
+   * (`session-archive.js`); a session whose directory is gone keeps it in the
+   * archive file. Batching matters because the UI archives every session
+   * linked to a worktree before removing it, and one request per session is
+   * what made removing a busy worktree take tens of seconds.
    */
   const archive = async (payload = {}) => {
     const parsed = parseArchiveRequest(payload);
     if (!parsed.ok) {
       throw new OpenChamberControlError(parsed.error, 400);
     }
-
-    const { archived, failedIds } = await archiveStore.archive(parsed.ids, parsed.archivedAt);
-    for (const entry of archived) broadcastArchived(entry.id, entry.archivedAt);
-    return { archived, failedIds };
+    return sessionArchive.archive(parsed.ids, parsed.archivedAt);
   };
 
   /** Clears the archive flag for a batch. Mirrors `archive`. */
@@ -934,10 +936,7 @@ export const createOpenChamberSessionService = (dependencies) => {
     if (!parsed.ok) {
       throw new OpenChamberControlError(parsed.error, 400);
     }
-
-    const { restored, failedIds } = await archiveStore.unarchive(parsed.ids);
-    for (const entry of restored) broadcastArchived(entry.id, null);
-    return { restored, failedIds };
+    return sessionArchive.unarchive(parsed.ids);
   };
 
   const create = async (payload = {}) => {
@@ -1293,6 +1292,7 @@ export const createOpenChamberSessionService = (dependencies) => {
     archive,
     unarchive,
     archiveStore,
+    sessionArchive,
     sessionMetadataStore,
     setMetadata,
     getMetadata,
