@@ -278,7 +278,6 @@ describe('Tray sessions follow the configured projects', () => {
       IS_REACT_ACT_ENVIRONMENT: true,
     });
     resetGlobalBlockingRequests();
-    useNotificationStore.setState(useNotificationStore.getInitialState());
     useProjectsStore.setState({ projects: [{ id: 'project', path: '/project' }] });
     useGlobalSessionsStore.setState({
       activeSessions: [
@@ -300,8 +299,10 @@ describe('Tray sessions follow the configured projects', () => {
   });
 
   test('lists a project session but not one from an unconfigured directory', async () => {
-    useNotificationStore.getState().append({ type: 'turn-complete', session: 'in-project', time: Date.now(), viewed: false });
-    useNotificationStore.getState().append({ type: 'turn-complete', session: 'elsewhere', time: Date.now(), viewed: false });
+    // Both finished a turn nobody has viewed yet, so both count on the dock.
+    useGlobalSessionsStore.setState((state) => ({
+      activeSessions: state.activeSessions.map((item) => ({ ...item, time: { ...item.time, idle: 2 } })),
+    }));
     await act(async () => root.render(<Harness />));
     await flush();
     expect(lastSnapshot()?.sessions?.map((entry) => entry.id)).toEqual(['in-project']);
