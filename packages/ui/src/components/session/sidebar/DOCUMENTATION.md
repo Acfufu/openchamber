@@ -94,7 +94,10 @@ their shared managed root for folders and never expose worktree actions. Project
 display can be all projects or one selected project. The mobile sessions sheet
 (`apps/MobileSessionsSheet.tsx`) partitions the same way through
 `partitionSidebarSessions` and lists Chats as a collapsible section above the
-project tree. Its header has no title: close, Add project, the display menu
+project tree — only while the per-surface show-chats sidebar setting is on,
+which Settings owns; the phone's display menu has no Chats toggle, so a hidden
+section here is the setting at work, not a missing section (#5354). Its header
+has no title: close, Add project, the display menu
 (a dropdown with the view, the project sort, the section toggles and Reorder
 projects, which swaps the menu's button for Done while it runs) and New chat;
 Chats has no "+" of its own, as New chat starts the same chat. Its footer

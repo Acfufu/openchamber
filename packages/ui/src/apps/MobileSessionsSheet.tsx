@@ -848,6 +848,9 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   const storedProjectSortOrder = useSessionDisplayStore((state) => state.projectSortOrder);
   const setProjectSortOrder = useSessionDisplayStore((state) => state.setProjectSortOrder);
   const sidebarViewMode = useSessionDisplayStore((state) => state.sidebarViewMode);
+  // The settings toggle that hides the chats section in the desktop sidebar
+  // hides it here too; the drawer simply never renders the header (#5354).
+  const showChatsSection = useSessionDisplayStore((state) => state.showChatsSection);
   // The timeline keeps projects in the user's own order, as on desktop;
   // reordering is its only sort.
   const projectSortOrder = sidebarViewMode === 'timeline' ? 'manual' : storedProjectSortOrder;
@@ -2451,6 +2454,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
           ) : (
             <div className="flex flex-col">
               {(() => {
+                if (!showChatsSection) return null;
                 const chatsExpanded = projectExpandedMap[CHAT_DRAFT_PROJECT_ID] ?? true;
                 const chatsLabel = t('mobile.sessions.section.chats');
                 return (
