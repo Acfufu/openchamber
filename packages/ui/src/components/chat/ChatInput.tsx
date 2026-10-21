@@ -665,6 +665,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const hasHardwareKeyboard = useHardwareKeyboard();
     const enterToSend = useUIStore((state) => state.enterToSend);
     const enterToSendConfigured = useUIStore((state) => state.enterToSendConfigured);
+    const mobileReturnKeySends = useUIStore((state) => state.mobileReturnKeySends);
     const { enabled: isTabletLayout } = useTabletLayout();
     const setImagePreviewOpen = useUIStore((state) => state.setImagePreviewOpen);
     const inputBarOffset = useUIStore((state) => state.inputBarOffset);
@@ -2550,6 +2551,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             isDesktopExpanded,
             enterToSend,
             enterToSendConfigured,
+            returnKeySends: mobileReturnKeySends,
             shiftKey: e.shiftKey,
             ctrlKey: e.ctrlKey,
             metaKey: e.metaKey,
@@ -4516,7 +4518,15 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                                 editable={Boolean(currentSessionId || newSessionDraftOpen)}
                                 autoCorrect={composerAutoCorrect({ isMobile })}
                                 autoCapitalize={isMobile ? 'sentences' : 'none'}
-                                preserveDeferredEnterShift={!enterToSendConfigured || !isMobile}
+                                // Return-key send trusts the deferred Shift only from a
+                                // hardware keyboard: iOS autocapitalization arms a phantom
+                                // Shift at sentence starts that must send, not newline.
+                                preserveDeferredEnterShift={
+                                    isMobile && mobileReturnKeySends
+                                        ? hasHardwareKeyboard
+                                        : !enterToSendConfigured || !isMobile
+                                }
+                                returnKeySends={isMobile && mobileReturnKeySends}
                                 spellCheck={isMobile || inputSpellcheckEnabled}
                                 fillContainer={isComposerExpanded}
                                 maxLines={isMobile ? MAX_MOBILE_COMPOSER_LINES : MAX_VISIBLE_COMPOSER_LINES}
