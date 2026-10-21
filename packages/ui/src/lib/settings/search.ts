@@ -1572,6 +1572,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => !ctx.isVSCode && !ctx.isMobile,
   },
   {
+    id: 'extensions.browse',
+    page: 'extensions',
+    titleKey: 'settings.extensions.browse.label',
+    descriptionKey: 'settings.extensions.browse.hint',
+    keywords: ['community', 'catalog', 'marketplace', 'store', 'gallery', 'website', 'discover', 'find', 'extension'],
+    isAvailable: (ctx) => !ctx.isVSCode && !ctx.isMobile && !ctx.enterpriseMode,
+  },
+  {
     id: 'extensions.gitIdentity',
     page: 'extensions',
     titleKey: 'settings.extensions.identity.title',
