@@ -718,6 +718,43 @@ describe('GET /api/source-control/github/pr/status with remotes on two hosts', (
     expect(fetch.mock.calls.every(([url]) => String(url).startsWith('https://github.example.com/'))).toBe(true);
   });
 
+  it('follows the bound context, as the client sends it, to the enterprise host', async () => {
+    // The real client names no `remote`: the binding's primaryRemote and its
+    // enterprise PAT account decide, and origin's same-named github.com repo
+    // must never be asked.
+    const { setGitHubAuthForHost, removeGitHubAuthAccountForHost } = await import('./auth.js');
+    const credential = await setGitHubAuthForHost('github.example.com', {
+      accessToken: 'ghe-pat', user: { id: 42, login: 'ghe-user' }, source: 'pat',
+    });
+    const fetch = vi.fn(async (url) => {
+      const endpoint = new URL(url);
+      if (endpoint.pathname === '/api/v3/repos/example/project') return response({ full_name: 'example/project', fork: false });
+      if (endpoint.pathname.startsWith('/api/v3/repos/example/project/pulls')) return response([]);
+      return response({});
+    });
+    vi.stubGlobal('fetch', fetch);
+    try {
+      const res = await request(app).get('/api/source-control/github/pr/status')
+        .query({
+          ...readContext(project),
+          instance: 'github.example.com',
+          accountId: credential.credentialId,
+          primaryRemote: 'upstream',
+          branch: 'feature',
+          force: 'true',
+        })
+        .expect(200);
+      expect(res.body).toMatchObject({ connected: true });
+      expect(res.body.repo).toMatchObject({ host: 'github.example.com', owner: 'example', repo: 'project' });
+      expect(fetch).toHaveBeenCalled();
+      expect(fetch.mock.calls.every(([url]) => String(url).startsWith('https://github.example.com/'))).toBe(true);
+      // It ran as the bound PAT account, not the host's gh login.
+      expect(fetch.mock.calls.every(([, init]) => new Headers(init?.headers).get('authorization') === 'token ghe-pat')).toBe(true);
+    } finally {
+      await removeGitHubAuthAccountForHost('github.example.com', credential.credentialId);
+    }
+  });
+
   it('keeps github.com scope for an origin remote on the same checkout', async () => {
     const fetch = vi.fn(async () => response({ data: { repository: { issueOrPullRequest: null } } }));
     vi.stubGlobal('fetch', fetch);
