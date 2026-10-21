@@ -13,6 +13,8 @@ let fileLinkTestDirectory: string | null = null;
 let existingTestFiles = new Set<string>();
 let fileLinksInsideWorkspace = false;
 const statRequests: string[] = [];
+const openedTestFiles: string[] = [];
+let mobileSurfaceForTest = false;
 
 type OperationCounts = {
   innerHTMLWrites: number;
@@ -202,7 +204,7 @@ const initializePerformanceDom = async (): Promise<void> => {
   installGlobal('document', windowInstance.document);
   installGlobal('navigator', windowInstance.navigator);
   installGlobal('customElements', windowInstance.customElements);
-  for (const name of ['Document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Text', 'NodeFilter', 'MutationObserver', 'DOMParser', 'XMLSerializer', 'HTMLAnchorElement', 'HTMLButtonElement']) {
+  for (const name of ['Document', 'Element', 'HTMLElement', 'SVGElement', 'Node', 'Text', 'NodeFilter', 'MutationObserver', 'DOMParser', 'XMLSerializer', 'HTMLAnchorElement', 'HTMLButtonElement', 'MouseEvent']) {
     // SAFETY: these names are the DOM constructors installed by this happy-dom Window.
     const globalValue = windowInstance[name as keyof Window];
     if (globalValue === undefined) throw new Error(`happy-dom global is unavailable: ${name}`);
@@ -305,6 +307,7 @@ const initializePerformanceDom = async (): Promise<void> => {
 
   const fakeState = {
     openContextPreview: () => undefined,
+    openContextFile: (_directory: string, path: string) => { openedTestFiles.push(path); },
     codeBlockLineWrap: false,
     tableCellWrap: false,
     mermaidRenderingMode: 'svg',
@@ -328,7 +331,7 @@ const initializePerformanceDom = async (): Promise<void> => {
   mock.module('@/lib/url', () => ({ getUrlScheme: readUrlScheme, isAppLinkUrl: classifyAppLinkUrl, isExternalHttpUrl: () => false, openConfirmedAppLinkUrl: async () => false, openExternalUrl: async () => undefined, getExternalFaviconUrl: () => null, isLoopbackHttpUrl: () => false }));
   mock.module('@/lib/desktop', () => ({ isDesktopLocalOriginActive: () => false, isDesktopShell: () => false, isVSCodeRuntime: () => false, openDesktopPath: async () => false }));
   mock.module('./useOpenChatLink', () => ({ useOpenChatLink: () => () => undefined }));
-  mock.module('@/lib/runtimeSurface', () => ({ isMobileSurfaceRuntime: () => false }));
+  mock.module('@/lib/runtimeSurface', () => ({ isMobileSurfaceRuntime: () => mobileSurfaceForTest }));
   mock.module('@/lib/router/openSessionFromRoute', () => ({ openSessionLink: async () => undefined }));
   mock.module('@/lib/path-utils', () => ({ getDirectoryForFilePath: () => '', isFilePathWithinDirectory: () => fileLinksInsideWorkspace || fileLinkTestDirectory === null, toAbsoluteFilePath: (_base: string, value: string) => `/outside/${value}`, normalizeFilePath: (value: string) => value, isAbsoluteFilePath: (value: string) => value.startsWith('/') }));
   mock.module('@/lib/clipboard', () => ({ copyTextToClipboard: async () => undefined }));
@@ -360,6 +363,149 @@ afterAll(() => {
 });
 
 describe('MarkdownRenderer DOM mount performance contract', () => {
+  test('skips email and numeric suffix probes while preserving file references', async () => {
+    const rejected = [
+      'user@gmail.com', '@someone.ts', '@scope/package.json', 'src/user@host.ts',
+      'gpt-5.4', '93.00', '3.49s', 'v1.2.3', '3.1.4', 'ls.1',
+      'https://example.com/file.ts',
+    ];
+    const accepted = [
+      '.env', '.config.json', './src/entry.ts', '../src/parent.ts', '/repo/absolute.ts',
+      'path with spaces/file name.ts', 'file.test.ts', 'my-file.tar.gz', 'a-b.c',
+      'shader.frag2', 'component.d-ts', 'README',
+      // These remain ambiguous with filenames that have letter-leading extensions.
+      '150.ms', 'accounts.google.com', 'client.messages.create', 'datetime.utcnow',
+      'log.transports.file.level',
+    ];
+    fileLinkTestDirectory = '/detector-test';
+    fileLinksInsideWorkspace = true;
+    const resolvedPath = (value: string) => value.startsWith('/') ? value : `/outside/${value}`;
+    existingTestFiles = new Set([...accepted, ...rejected, 'block/entry.ts'].map(resolvedPath));
+    statRequests.length = 0;
+    const host = document.createElement('div');
+    document.body.replaceChildren(host);
+    const root = createRoot(host);
+    const content = [
+      ...[...rejected, ...accepted].map((value) => `\`${value}\``),
+      '```\ngpt-5.4\nuser@gmail.com\nblock/entry.ts:7\n```',
+    ].join('\n\n');
+    try {
+      await act(async () => {
+        root.render(<MarkdownRenderer
+          content={content}
+          messageId="file-path-detector"
+          isAnimated={false}
+          isStreaming={false}
+          enableFileReferences
+        />);
+      });
+      const deadline = Date.now() + 3000;
+      while (!host.querySelector('[data-openchamber-file-link]') && Date.now() < deadline) {
+        await act(async () => { await new Promise<void>((resolve) => setImmediate(resolve)); });
+        await flushAnimationFrame();
+      }
+      expect([...statRequests].sort()).toEqual([...accepted, 'block/entry.ts'].map(resolvedPath).sort());
+      const links = host.querySelectorAll('[data-openchamber-file-link]');
+      expect(Array.from(links).map((link) => link.textContent)).toEqual([...accepted, 'block/entry.ts:7']);
+      expect(host.textContent).toContain('gpt-5.4');
+    } finally {
+      await act(async () => root.unmount());
+      fileLinkTestDirectory = null;
+      fileLinksInsideWorkspace = false;
+      existingTestFiles = new Set();
+    }
+  });
+
+  test('does not treat digit-leading extensions such as backup.7z, clip.3gp, and data.001 as file references', async () => {
+    const filenames = ['backup.7z', 'clip.3gp', 'data.001'];
+    const control = 'digit-extension/control.ts';
+    fileLinkTestDirectory = '/digit-extension-test';
+    fileLinksInsideWorkspace = true;
+    existingTestFiles = new Set([...filenames, control].map((value) => `/outside/${value}`));
+    statRequests.length = 0;
+    const host = document.createElement('div');
+    document.body.replaceChildren(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => {
+        root.render(<MarkdownRenderer
+          content={[...filenames, control].map((value) => `\`${value}\``).join('\n\n')}
+          messageId="digit-leading-extension-rejection"
+          isAnimated={false}
+          isStreaming={false}
+          enableFileReferences
+        />);
+      });
+      const deadline = Date.now() + 3000;
+      while (!host.querySelector('[data-openchamber-file-link]') && Date.now() < deadline) {
+        await act(async () => { await new Promise<void>((resolve) => setImmediate(resolve)); });
+        await flushAnimationFrame();
+      }
+      // The existing control file proves annotation ran; the other existing files are deliberately skipped.
+      expect(statRequests).toEqual([`/outside/${control}`]);
+      expect(Array.from(host.querySelectorAll('[data-openchamber-file-link]')).map((link) => link.textContent)).toEqual([control]);
+      expect(Array.from(host.querySelectorAll('[data-markdown="inline-code"]')).map((code) => code.textContent)).toEqual([...filenames, control]);
+    } finally {
+      await act(async () => root.unmount());
+      fileLinkTestDirectory = null;
+      fileLinksInsideWorkspace = false;
+      existingTestFiles = new Set();
+    }
+  });
+
+  for (const mobile of [false, true]) {
+    test(`keeps the probe-free click guard for backup.7z and icon@2x.png while skipping email probes, mobile=${mobile}`, async () => {
+      fileLinkTestDirectory = '/click-guard-test';
+      fileLinksInsideWorkspace = true;
+      mobileSurfaceForTest = mobile;
+      const hrefs = ['backup.7z', 'icon@2x.png', 'file:///repo/data.001'];
+      const control = 'click-guard/control.ts';
+      existingTestFiles = new Set(['user@gmail.com', ...hrefs, control].map((value) => `/outside/${value}`));
+      statRequests.length = 0;
+      openedTestFiles.length = 0;
+      const host = document.createElement('div');
+      document.body.replaceChildren(host);
+      const root = createRoot(host);
+      try {
+        await act(async () => {
+          root.render(<MarkdownRenderer
+            content={['`user@gmail.com`', ...hrefs.map((href) => `[download](${href})`), `\`${control}\``].join('\n\n')}
+            messageId={`legacy-click-guard-${mobile}`}
+            isAnimated={false}
+            isStreaming={false}
+            enableFileReferences
+          />);
+        });
+        if (!mobile) {
+          const deadline = Date.now() + 3000;
+          while (!host.querySelector('[data-openchamber-file-link]') && Date.now() < deadline) {
+            await act(async () => { await new Promise<void>((resolve) => setImmediate(resolve)); });
+            await flushAnimationFrame();
+          }
+        }
+        expect(statRequests).toEqual(mobile ? [] : [`/outside/${control}`]);
+        const anchors = Array.from(host.querySelectorAll('a')).filter((anchor) => hrefs.includes(anchor.getAttribute('href') ?? ''));
+        expect(anchors).toHaveLength(hrefs.length);
+        for (const anchor of anchors) {
+          expect(anchor.hasAttribute('data-openchamber-file-link')).toBe(false);
+          expect(anchor.getAttribute('target')).toBe('_blank');
+          const click = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+          await act(async () => { anchor.dispatchEvent(click); });
+          expect(click.defaultPrevented).toBe(true);
+        }
+        expect(openedTestFiles).toEqual(['/outside/backup.7z', '/outside/icon@2x.png', '/repo/data.001']);
+        expect(statRequests).toEqual(mobile ? [] : [`/outside/${control}`]);
+      } finally {
+        await act(async () => root.unmount());
+        fileLinkTestDirectory = null;
+        fileLinksInsideWorkspace = false;
+        mobileSurfaceForTest = false;
+        existingTestFiles = new Set();
+        openedTestFiles.length = 0;
+      }
+    });
+  }
+
   test('does not annotate app links with file-looking labels as internal file links', async () => {
     fileLinkTestDirectory = '/repo';
     const host = document.createElement('div');
