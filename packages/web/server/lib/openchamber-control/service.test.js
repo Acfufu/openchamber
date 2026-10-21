@@ -679,6 +679,44 @@ describe('render.page', () => {
     expect(result.note).toContain("Don't announce");
   });
 
+  it('tells the agent which local images will not show and why', async () => {
+    const { service } = createService();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openchamber-render-images-'));
+    try {
+      const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+      const file = (name) => path.join(root, name);
+      // 9 MiB each: two fit the 25 MiB page budget, the third and everything after it do not.
+      for (const name of ['a.png', 'b.png', 'c.png']) {
+        await fs.writeFile(file(name), png);
+        await fs.truncate(file(name), 9 * 1024 * 1024);
+      }
+      await fs.writeFile(file('d.png'), png);
+      await fs.writeFile(file('notes.png'), 'not an image');
+      const html = ['a.png', 'gone.png', 'notes.png', 'b.png', 'c.png', 'd.png'].map((name) => `<img src="${file(name)}">`).join('');
+
+      const result = await service.execute('render.page', { html, title: 'Photos' }, root);
+
+      expect(result).toMatchObject({ shown: true, title: 'Photos' });
+      expect(result.images).toEqual({
+        shown: 2,
+        notShown: [
+          { src: file('gone.png'), reason: 'file not found' },
+          { src: file('notes.png'), reason: 'not a readable PNG, JPEG, GIF or WebP of at most 10 MB' },
+          { src: file('c.png'), reason: 'past the page budget' },
+          { src: file('d.png'), reason: 'past the page budget' },
+        ],
+        weightMB: 27,
+        budgetMB: 25,
+      });
+      expect(result.note).toContain('split the page or use smaller images');
+
+      const fits = await service.execute('render.page', { html: `<img src="${file('a.png')}"><img src="${file('d.png')}">`, title: 'Two' }, root);
+      expect(fits).toEqual({ shown: true, title: 'Two', note: expect.not.stringContaining('do not show') });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('names a page sent without a title after its own title or first heading', async () => {
     const { service } = createService();
     const named = (html) => service.execute('render.page', { html }, '/repo').then((result) => result.title);

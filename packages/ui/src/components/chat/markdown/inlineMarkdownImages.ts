@@ -22,7 +22,8 @@ const LABEL_SELECTOR = '[data-openchamber-markdown-image-source]';
 const INLINE_IMAGE_ATTR = 'data-openchamber-markdown-inline-image';
 const INLINE_IMAGE_SELECTOR = `[${INLINE_IMAGE_ATTR}]`;
 const MESSAGE_SELECTOR = '[data-message-id]';
-// The grant route prepares at most this many images per request.
+// The most images one text part draws. The grant route no longer limits the
+// count; this is the chat's own limit for images in text.
 const MAX_MARKDOWN_IMAGE_COUNT = 12;
 
 const READY_LABEL_CLASS = 'inline-block max-w-[min(100%,30rem)] align-top my-1 me-1';
