@@ -1967,6 +1967,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'מודל זול למשימות עזר מהירות, כמו סיכומים ותקצירים קצרים.',
   'settings.openchamber.defaults.smallModel.useDefault': 'השתמש במודל הקטן המוגדר כברירת מחדל',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'השתמש במודל הקטן המוגדר כברירת מחדל',
+  'settings.openchamber.defaults.smallModel.thinking': 'חשיבה',
   'settings.openchamber.defaults.walkthroughModel.title': 'מודל לסיור מודרך בשינויים',
   'settings.openchamber.defaults.walkthroughModel.description': 'סקירת ה-AI של השינויים צריכה פלט מובנה ומקום להבדלים שלמים, ומודל קטן וזול לרוב לא מסוגל לכך. מודלים שהקטלוג מדווח שאינם מפיקים פלט מובנה מוסתרים מהבורר הזה. אם לא מוגדר, נעשה שימוש במודל הקטן.',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'מודל קטן',

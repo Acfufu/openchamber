@@ -1969,6 +1969,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'A cheap model for quick utility tasks like short recaps and summaries.',
   'settings.openchamber.defaults.smallModel.useDefault': 'Use default small model',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'Use default small model',
+  'settings.openchamber.defaults.smallModel.thinking': 'Thinking',
   'settings.openchamber.defaults.walkthroughModel.title': 'Changes walkthrough model',
   'settings.openchamber.defaults.walkthroughModel.description': 'The AI review of your changes needs structured output and room for a whole diff, which a cheap small model often cannot give. Models the catalog reports as unable to produce structured output are hidden from this picker. Leave it unset and the small model is used.',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'Small model',

@@ -1945,6 +1945,7 @@ export const settingsDict = {
   "settings.openchamber.defaults.smallModel.description": "Дешева модель для швидких службових задач — коротких підсумків і резюме.",
   "settings.openchamber.defaults.smallModel.useDefault": "Використовувати типову малу модель",
   "settings.openchamber.defaults.smallModel.useDefaultAria": "Використовувати типову малу модель",
+  "settings.openchamber.defaults.smallModel.thinking": "Мислення",
   "settings.openchamber.defaults.walkthroughModel.title": "Модель для розбору змін",
   "settings.openchamber.defaults.walkthroughModel.description": "AI-розбір ваших змін потребує structured output і місця під увесь diff, чого дешева small model часто дати не може. Моделі, які за каталогом не вміють structured output, у цьому списку приховані. Якщо нічого не обрано, використовується small model.",
   "settings.openchamber.defaults.walkthroughModel.usesSmallModel": "Small model",

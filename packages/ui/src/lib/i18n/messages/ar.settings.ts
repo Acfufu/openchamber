@@ -1967,6 +1967,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'نموذج منخفض التكلفة للمهام المساعدة السريعة مثل الملخصات القصيرة.',
   'settings.openchamber.defaults.smallModel.useDefault': 'استخدام النموذج الصغير الافتراضي',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'استخدام النموذج الصغير الافتراضي',
+  'settings.openchamber.defaults.smallModel.thinking': 'التفكير',
   'settings.openchamber.defaults.walkthroughModel.title': 'نموذج جولة شرح التغييرات',
   'settings.openchamber.defaults.walkthroughModel.description': 'تحتاج مراجعة الذكاء الاصطناعي لتغييراتك إلى مخرجات منظمة ومساحة تتسع لكامل الفروقات، وهو ما لا يوفره غالبًا نموذج صغير منخفض التكلفة. تُخفى من هذه القائمة النماذج التي يذكر الكتالوج أنها لا تستطيع إنتاج مخرجات منظمة. إذا تركته دون تعيين، فسيُستخدم النموذج الصغير.',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'النموذج الصغير',

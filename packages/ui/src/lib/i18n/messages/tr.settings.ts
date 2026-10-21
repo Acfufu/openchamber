@@ -1868,6 +1868,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'Kısa özet ve hatırlatmalar gibi hızlı yardımcı görevler için ucuz bir model.',
   'settings.openchamber.defaults.smallModel.useDefault': 'Varsayılan küçük modeli kullan',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'Varsayılan küçük modeli kullan',
+  'settings.openchamber.defaults.smallModel.thinking': 'Düşünme',
   'settings.openchamber.defaults.walkthroughModel.title': 'Değişiklikler İnceleme Turu Modeli',
   'settings.openchamber.defaults.walkthroughModel.description': 'Değişikliklerinizin yapay zekâ incelemesi, yapılandırılmış çıktı ve bir diff\'in tamamına yetecek alan ister; bunları ucuz bir küçük model çoğu zaman sağlayamaz. Katalogda yapılandırılmış çıktı üretemez olarak görünen modeller bu seçicide gizlenir. Boş bırakılırsa küçük model kullanılır.',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'Küçük model',

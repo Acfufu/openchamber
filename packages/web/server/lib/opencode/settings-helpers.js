@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { isAgentMemoryFeatureAvailable } from '../agent-memory/feature-flag.js';
 import { isOverviewFeatureAvailable } from '../overview/feature-flag.js';
 import { isPermissionMode } from '../permission-auto-accept/modes.js';
+import { asNonEmptyString } from '../shared/guards.js';
 import { idleStopSchema } from '../spaces/idle-stop.js';
 import { sshHostSchema } from '../spaces/places/ssh-host.js';
 
@@ -681,6 +682,9 @@ export const createSettingsHelpers = (dependencies) => {
     if (typeof candidate.smallModelOverride === 'string') {
       const trimmed = candidate.smallModelOverride.trim();
       result.smallModelOverride = trimmed.length > 0 ? trimmed : undefined;
+    }
+    if (candidate.smallModelVariant !== undefined) {
+      result.smallModelVariant = asNonEmptyString(candidate.smallModelVariant) ?? undefined;
     }
     if (typeof candidate.walkthroughModelOverride === 'string') {
       const trimmed = candidate.walkthroughModelOverride.trim();

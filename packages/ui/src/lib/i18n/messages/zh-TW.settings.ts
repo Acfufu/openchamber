@@ -1832,6 +1832,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '用於快速實用任務（如簡短回顧與摘要）的廉價模型。',
   'settings.openchamber.defaults.smallModel.useDefault': '使用預設小模型',
   'settings.openchamber.defaults.smallModel.useDefaultAria': '使用預設小模型',
+  'settings.openchamber.defaults.smallModel.thinking': '思考',
   'settings.openchamber.defaults.walkthroughModel.title': '變更導讀模型',
   'settings.openchamber.defaults.walkthroughModel.description': 'AI 審閱變更需要結構化輸出與容納整份差異的空間，便宜的小模型常常做不到。目錄標示為不支援結構化輸出的模型不會出現在這份清單中。 未選擇時將使用小模型。',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': '小模型',

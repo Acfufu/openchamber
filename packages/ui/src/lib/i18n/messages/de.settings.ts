@@ -1911,6 +1911,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': 'Ein günstiges Modell für schnelle Dienstaufgaben wie kurze Zusammenfassungen und Faziten.',
   'settings.openchamber.defaults.smallModel.useDefault': 'Standardmodell verwenden',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'Standardmodell verwenden',
+  'settings.openchamber.defaults.smallModel.thinking': 'Denken',
   'settings.openchamber.defaults.field.openFilesPreviewAria': 'Vorschau-fähige Dateien im Vorschaumodus öffnen',
   'settings.openchamber.defaults.field.openFilesPreview': 'Vorschau-fähige Dateien im Vorschaumodus öffnen',
   'settings.openchamber.defaults.option.default': 'Standard',

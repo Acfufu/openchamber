@@ -1945,6 +1945,7 @@ export const settingsDict = {
   "settings.openchamber.defaults.smallModel.description": "Um modelo barato para tarefas utilitárias rápidas, como recapitulações e resumos curtos.",
   "settings.openchamber.defaults.smallModel.useDefault": "Usar o modelo pequeno padrão",
   "settings.openchamber.defaults.smallModel.useDefaultAria": "Usar o modelo pequeno padrão",
+  "settings.openchamber.defaults.smallModel.thinking": "Pensamento",
   "settings.openchamber.defaults.walkthroughModel.title": "Modelo do percurso de mudanças",
   "settings.openchamber.defaults.walkthroughModel.description": "A revisão das suas mudanças por IA precisa de saída estruturada e espaço para um diff inteiro, o que um modelo pequeno e barato muitas vezes não oferece. Modelos que o catálogo indica como incapazes de saída estruturada ficam ocultos aqui. Sem escolha, o modelo pequeno é usado.",
   "settings.openchamber.defaults.walkthroughModel.usesSmallModel": "Modelo pequeno",

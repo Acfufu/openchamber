@@ -528,6 +528,7 @@ export const SETTINGS_REGISTRY = {
   defaultAgent: field({ scope: 'profile', parse: parseNonEmptyString }),
   smallModelUseDefault: field({ scope: 'profile', parse: parseBoolean }),
   smallModelOverride: field({ scope: 'profile', parse: parseNonEmptyString }),
+  smallModelVariant: field({ scope: 'profile', parse: parseNonEmptyString }),
   walkthroughModelOverride: field({ scope: 'profile', parse: parseNonEmptyString }),
   // Read by the server when a provider's usage limit is hit (lib/limit-failover).
   fallbackModel: field({ scope: 'profile', parse: parseNonEmptyString }),

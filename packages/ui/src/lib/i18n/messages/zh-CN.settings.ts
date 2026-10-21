@@ -1945,6 +1945,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '用于快速实用任务（如简短回顾和摘要）的廉价模型。',
   'settings.openchamber.defaults.smallModel.useDefault': '使用默认小模型',
   'settings.openchamber.defaults.smallModel.useDefaultAria': '使用默认小模型',
+  'settings.openchamber.defaults.smallModel.thinking': '思考',
   'settings.openchamber.defaults.walkthroughModel.title': '改动导读模型',
   'settings.openchamber.defaults.walkthroughModel.description': 'AI 评审改动需要结构化输出和容纳整份差异的空间，廉价的小模型往往做不到。目录中标注为不支持结构化输出的模型不会出现在此列表里。 未选择时将使用小模型。',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': '小模型',

@@ -120,6 +120,7 @@ export const DefaultsSettings: React.FC = () => {
   const [defaultAgent, setDefaultAgent] = React.useState<string | undefined>();
   const [smallModelUseDefault, setSmallModelUseDefault] = React.useState(true);
   const [smallModelOverride, setSmallModelOverride] = React.useState<string | undefined>();
+  const [smallModelVariant, setSmallModelVariant] = React.useState<string | undefined>();
   // Fail closed: never offer providers whose credentials were not verified.
   const smallModelProviders = useCallableModelProviders() ?? [];
   const [walkthroughModelOverride, setWalkthroughModelOverride] = React.useState<string | undefined>();
@@ -145,6 +146,10 @@ export const DefaultsSettings: React.FC = () => {
           const smallOverride = data.smallModelOverride?.trim();
           if (smallOverride) {
             setSmallModelOverride(smallOverride);
+          }
+          const smallVariant = data.smallModelVariant?.trim();
+          if (smallVariant) {
+            setSmallModelVariant(smallVariant);
           }
           const walkthroughOverride = data.walkthroughModelOverride?.trim();
           if (walkthroughOverride) {
@@ -250,10 +255,27 @@ export const DefaultsSettings: React.FC = () => {
     async (providerId: string, modelId: string) => {
       const newValue = providerId && modelId ? `${providerId}/${modelId}` : undefined;
       setSmallModelOverride(newValue);
+      // The effort belongs to the model it was picked for.
+      setSmallModelVariant(undefined);
       try {
-        await updateDesktopSettings({ smallModelOverride: newValue ?? '' });
+        await updateDesktopSettings({
+          smallModelOverride: newValue ?? '',
+          smallModelVariant: '',
+        });
       } catch (error) {
         console.warn('Failed to save small model override:', error);
+      }
+    },
+    []
+  );
+
+  const handleSmallModelVariantChange = React.useCallback(
+    async (variant: string | undefined) => {
+      setSmallModelVariant(variant);
+      try {
+        await updateDesktopSettings({ smallModelVariant: variant ?? '' });
+      } catch (error) {
+        console.warn('Failed to save small model variant:', error);
       }
     },
     []
@@ -335,6 +357,10 @@ export const DefaultsSettings: React.FC = () => {
     () => variantsOf(parsedFallbackModel.providerId, parsedFallbackModel.modelId),
     [parsedFallbackModel.modelId, parsedFallbackModel.providerId, variantsOf]
   );
+  const smallModelVariants = React.useMemo(
+    () => variantsOf(parsedSmallModel.providerId, parsedSmallModel.modelId),
+    [parsedSmallModel.modelId, parsedSmallModel.providerId, variantsOf]
+  );
 
   if (isLoading) {
     return null;
@@ -396,15 +422,23 @@ export const DefaultsSettings: React.FC = () => {
         />
         <div>
           {!smallModelUseDefault ? (
-            <SettingsFieldRow label={t('settings.openchamber.defaults.smallModel.title')}>
-              <ModelSelector
-                providerId={parsedSmallModel.providerId}
-                modelId={parsedSmallModel.modelId}
-                onChange={handleSmallModelOverrideChange}
-                allowedProviderIds={smallModelProviders}
-                className={SETTINGS_CUSTOM_TRIGGER_CLASS}
-              />
-            </SettingsFieldRow>
+            <>
+              <SettingsFieldRow label={t('settings.openchamber.defaults.smallModel.title')}>
+                <ModelSelector
+                  providerId={parsedSmallModel.providerId}
+                  modelId={parsedSmallModel.modelId}
+                  onChange={handleSmallModelOverrideChange}
+                  allowedProviderIds={smallModelProviders}
+                  className={SETTINGS_CUSTOM_TRIGGER_CLASS}
+                />
+                <ModelVariantSelect
+                  variants={smallModelVariants}
+                  value={smallModelVariant}
+                  onChange={handleSmallModelVariantChange}
+                  ariaLabel={t('settings.openchamber.defaults.smallModel.thinking')}
+                />
+              </SettingsFieldRow>
+            </>
           ) : null}
           <SettingsFieldRow
             settingsItem="sessions.walkthrough-model"

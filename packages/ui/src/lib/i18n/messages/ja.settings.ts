@@ -1978,6 +1978,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.smallModel.description': '短い要約やまとめなどの軽いユーティリティタスク用の低コストモデルです。',
   'settings.openchamber.defaults.smallModel.useDefault': 'デフォルトの小型モデルを使用',
   'settings.openchamber.defaults.smallModel.useDefaultAria': 'デフォルトの小型モデルを使用',
+  'settings.openchamber.defaults.smallModel.thinking': '思考',
   'settings.openchamber.defaults.walkthroughModel.title': '変更ウォークスルーのモデル',
   'settings.openchamber.defaults.walkthroughModel.description': '変更の AI レビューには構造化出力と差分全体が収まる余裕が必要で、安価なスモールモデルでは足りないことがあります。カタログが構造化出力に非対応と示すモデルは、この一覧から除外されます。 未選択のままならスモールモデルが使われます。',
   'settings.openchamber.defaults.walkthroughModel.usesSmallModel': 'スモールモデル',

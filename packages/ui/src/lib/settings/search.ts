@@ -612,7 +612,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.smallModel.title',
     descriptionKey: 'settings.openchamber.defaults.smallModel.description',
-    keywords: ['small model', 'utility', 'summary', 'recap', 'cheap', 'override'],
+    keywords: ['small model', 'utility', 'summary', 'recap', 'cheap', 'override', 'thinking', 'reasoning', 'effort', 'variant'],
   },
   {
     id: 'sessions.walkthrough-model',
