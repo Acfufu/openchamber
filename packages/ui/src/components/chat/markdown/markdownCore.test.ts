@@ -617,6 +617,38 @@ describe('Dollar math rendering', () => {
     expect(html).not.toContain('katex-error');
   });
 
+  test('renders inline math whose LaTeX holds emphasis characters', () => {
+    // Regression: a subscript after `}` (`\beta}_B`) or a product `*` was
+    // parsed as Markdown emphasis before the dollar pass ran, so the pair was
+    // split across tags and the formula stayed literal source.
+    const example = '- **Example**: a two-factor random-effects ANOVA as an LMM ($\\boldsymbol{b}=(\\boldsymbol{\\alpha},\\boldsymbol{\\beta}_B,\\boldsymbol{\\gamma}_{AB})^\\top$,$G$ block-diagonal)';
+    const html = renderMarkdownSync(example);
+    expect(html).toContain('katex');
+    expect(html).not.toContain('<em>');
+    expect(html).not.toContain('$\\boldsymbol');
+    expect(html).not.toContain('$G$');
+
+    const estimate = 'variance component estimates $\\hat{\\sigma}_\\beta$ -> $\\hat{\\sigma}^2_\\beta$';
+    const estimateHtml = renderMarkdownSync(estimate);
+    expect(estimateHtml).toContain('katex');
+    expect(estimateHtml).not.toContain('<em>');
+    expect(estimateHtml).not.toContain('$\\hat');
+
+    // The mask must not hide emphasis around a formula, and `<` inside math
+    // stays math rather than ending the span.
+    const emphasized = renderMarkdownSync('**$x_i$** and $a_i < b_i$');
+    expect(emphasized).toContain('<strong>');
+    expect(emphasized).toContain('katex');
+    expect(emphasized).not.toContain('<em>');
+    expect(emphasized).not.toContain('$a_i');
+
+    // The mask's display branch must cover `$$...$$` too.
+    const display = renderMarkdownSync('$$\\boldsymbol{b}=(\\boldsymbol{\\alpha},\\boldsymbol{\\beta}_B,\\boldsymbol{\\gamma}_{AB})^\\top$$');
+    expect(display).toContain('katex-display');
+    expect(display).not.toContain('<em>');
+    expect(display).not.toContain('$$');
+  });
+
   test('renders display math containing apostrophes and ampersands', () => {
     // Regression: marked escapes rendered text (`'` → `&#39;`, `&` → `&amp;`)
     // before this pass runs, so a transpose or alignment ampersand used to

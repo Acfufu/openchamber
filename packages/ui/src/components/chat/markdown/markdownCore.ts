@@ -725,6 +725,18 @@ const createParser = (imageMode: MarkdownImageMode, rawHtml: MarkdownRawHtmlMode
     {
       gfm: true,
       breaks: false,
+      hooks: {
+        // Dollar math is rendered after Marked has parsed the HTML (see
+        // renderMathExpressions), so Marked reads its LaTeX as prose first. A
+        // subscript `_` after `}`, or a `*` product, then opens emphasis and
+        // splits the `$...$` pair across tags; the post-parse pass no longer
+        // sees a pair and the formula shows as literal source. Mask only the
+        // emphasis/del characters inside math spans: this copy feeds delimiter
+        // matching alone, and keeping its length keeps marked's indices aligned.
+        emStrongMask(src: string) {
+          return src.replace(DOLLAR_MATH_MASK_RE, (math) => math.replace(/[_*~]/g, ' '));
+        },
+      },
       extensions: [createInlineMathExtension(renderMath), createBlockMathExtension(renderMath), detailsExtension],
       renderer: {
         // Assistant output is untrusted. Markdown constructs still render as
@@ -833,6 +845,14 @@ const unescapeHtml = (value: string): string =>
 // backslash by the time this pass runs.
 const MATH_DOLLAR_RE =
   /\$\$([\s\S]*?)\$\$|\$(?![\s$])([^\s$<>"](?:[^$<>"]*?[^\s$<>"])?)\$(?!\d)/g;
+
+// The same spans read from raw Markdown for emphasis masking, before Marked
+// escapes `<` and `>` into entities. Those characters are ordinary LaTeX
+// (`$a_i < b_i$`), so the mask accepts them; the post-parse pass sees their
+// entities and accepts them too. Quotes stay excluded: they separate prose
+// dollars (`"$"`) from formulas.
+const DOLLAR_MATH_MASK_RE =
+  /\$\$([\s\S]*?)\$\$|\$(?![\s$])([^\s$"](?:[^$"]*?[^\s$"])?)\$(?!\d)/g;
 
 const DOLLAR_AMOUNT_RE = /^[\d.,\s]+$/;
 
