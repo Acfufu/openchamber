@@ -1397,6 +1397,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['tts', 'read aloud', 'voice', 'provider', 'speech rate', 'speech pitch', 'speech volume', 'tts input mode', 'markdown'],
   },
   {
+    id: 'voice.auto-read-aloud',
+    page: 'voice',
+    titleKey: 'settings.voice.page.field.autoReadAloud',
+    descriptionKey: 'settings.voice.page.tooltip.autoReadAloud',
+    keywords: ['tts', 'read aloud', 'automatic', 'auto', 'speech', 'finished', 'reply'],
+  },
+  {
     id: 'voice.speech-recognition',
     page: 'voice',
     titleKey: 'settings.voice.page.section.speechRecognition',

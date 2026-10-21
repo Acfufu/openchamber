@@ -19,6 +19,7 @@ import {
 import { MobileCommentComposerContext, useMobileCommentComposerOwner } from './composer/comment/MobileCommentComposerContext';
 import { DraftPresetChips } from './DraftPresetChips';
 import { useInputStore } from '@/sync/input-store';
+import { useConfigStore } from '@/stores/useConfigStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { Skeleton } from '@/components/ui/skeleton';
 import ChatEmptyState from './ChatEmptyState';
@@ -70,6 +71,9 @@ import { useChatTurnNavigation } from './hooks/useChatTurnNavigation';
 import { ChatQuoteHighlightContext, useChatQuoteHighlightStore } from './hooks/chatQuoteHighlightStore';
 import { ChatQuoteHighlightLayer } from './message/ChatQuoteHighlightLayer';
 import { useChatSurfaceMode } from './useChatSurfaceMode';
+import { useMessageTTS } from '@/hooks/useMessageTTS';
+import { useAutoReadAloud } from '@/hooks/useAutoReadAloud';
+import { findLatestCompletedReply } from '@/lib/messages/latestReply';
 import { useDeviceInfo } from '@/lib/device';
 import { Button } from '@/components/ui/button';
 import { StopIcon } from '@/components/icons/StopIcon';
@@ -997,6 +1001,30 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         // turn is still running only per the last conversation message.
         return isIncompleteAssistantTurn(getLastConversationRecord(sessionMessages)?.info);
     }, [currentSessionId, sessionMessages, sessionPermissions.length, sessionForms.length, sessionStatusForCurrent.type]);
+
+    const latestCompletedReply = React.useMemo(
+        () => findLatestCompletedReply(sessionMessages),
+        [sessionMessages],
+    );
+    const autoReadAloudEnabled = useConfigStore((state) => state.autoReadAloudEnabled);
+    // Use the reply's own message id as the reading key so the message
+    // button shows the auto-started reading as playing and can stop it.
+    const { play: playAutoReadAloud } = useMessageTTS(latestCompletedReply?.messageId);
+    // Permission prompts pause `sessionIsWorking` while the turn is still
+    // running, so status also marks the session as active for the auto-read
+    // baseline.
+    const sessionIsActive = sessionIsWorking
+        || sessionStatusForCurrent.type === 'busy'
+        || sessionStatusForCurrent.type === 'retry';
+    useAutoReadAloud({
+        sessionKey: currentSessionKey ?? '',
+        ready: hasRenderableSessionSnapshot && sessionMessageLoadState.status === 'ready',
+        sessionIsActive,
+        reply: latestCompletedReply,
+        enabled: autoReadAloudEnabled && !pinned,
+        play: playAutoReadAloud,
+    });
+
     const activeRetryStatus = React.useMemo(() => {
         if (!currentSessionId || sessionStatusForCurrent.type !== 'retry') {
             return null;
