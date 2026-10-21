@@ -364,7 +364,9 @@ button,
   color: color-mix(in srgb, var(--syntax-comment) 85%, var(--syntax-foreground) 15%);
 }
 
-:root.vscode-runtime [data-chat-input="true"] .cm-placeholder {
+/* The composer draws its placeholder as a pseudo-element of the empty line
+   (editor/theme.ts); in VS Code it takes the editor's placeholder colour. */
+:root.vscode-runtime [data-chat-input="true"] .cm-content.cm-composer-empty .cm-line::before {
   color: var(--vscode-input-placeholderForeground, var(--muted-foreground));
 }
 
