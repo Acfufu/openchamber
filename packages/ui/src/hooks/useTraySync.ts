@@ -26,6 +26,8 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useGitStore } from '@/stores/useGitStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { resolveProjectForSessionDirectory, normalizeProjectPath } from '@/lib/projectResolution';
+import { CHAT_DRAFT_PROJECT_ID, isChatDirectoryPath } from '@/lib/chatDirectories';
+import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { findWorktreeHoldingDirectory } from '@/lib/worktrees/worktreePaths';
 import type { ProjectEntry } from '@/lib/api/types';
 import type { WorktreeMetadata } from '@/types/worktree';
@@ -345,8 +347,25 @@ const buildSnapshot = (instanceName: string, includeTray: boolean): TraySnapshot
   const projects = useProjectsStore.getState().projects;
   const worktreesByProject = useSessionUIStore.getState().availableWorktreesByProject;
 
+  // The tray is a short recent-work list, not a dump of everything the store
+  // keeps: a session belongs here only when the sidebar can place it — a
+  // configured project or worktree, a managed chat, or an isolated space.
+  // Sessions from unconfigured directories (an eval run in /tmp, a deleted
+  // scratch folder) have no sidebar row, cannot be opened or removed from
+  // there, and would otherwise take the tray's limited slots from sessions the
+  // user can reach. Pending approvals stay listed below regardless.
+  const isPlacedBySidebar = (session: Session): boolean => {
+    const directory = resolveGlobalSessionDirectory(session);
+    // A managed chat keeps its identity when its directory no longer sits under
+    // the chats root, so the project id admits it too.
+    if (isChatDirectoryPath(directory) || session.projectID === CHAT_DRAFT_PROJECT_ID) return true;
+    if (isSpaceDirectory(directory)) return true;
+    return resolveProjectForSessionDirectory(projects, worktreesByProject, directory) !== null;
+  };
+
   const sessions: TraySession[] = allSessions
     .filter((s) => s?.id && !s.parentID) // root rows; sub-session work rolls up
+    .filter(isPlacedBySidebar)
     .slice()
     .sort(compareSessionOrder)
     .slice(0, MAX_SESSIONS)

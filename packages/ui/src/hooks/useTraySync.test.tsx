@@ -3,8 +3,11 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Window } from 'happy-dom';
 import type { Session } from '@/lib/opencode/model';
+import { CHAT_DRAFT_PROJECT_ID } from '@/lib/chatDirectories';
 import { useTraySync } from './useTraySync';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
+import { useProjectsStore } from '@/stores/useProjectsStore';
+import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useUIStore } from '@/stores/useUIStore';
 import {
   applyGlobalBlockingRequestEvents,
@@ -13,8 +16,8 @@ import {
   resetGlobalBlockingRequests,
 } from '@/sync/global-blocking-requests';
 
-const session = (id: string, parentID?: string): Session => ({
-  id, parentID, projectID: 'project', directory: '/project', title: id, cost: 0,
+const session = (id: string, parentID?: string, directory = '/project', projectID = 'project'): Session => ({
+  id, parentID, projectID, directory, title: id, cost: 0,
   tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: 1, updated: 1 },
 });
 
@@ -236,5 +239,114 @@ describe('tray approvals carry whether a permission can be remembered', () => {
     await readHostBlockingRequestsSnapshot(async () => ({ sessions: {}, pending: {}, serverTime: Date.now() }), () => '/repo');
     await flush();
     expect(canSaveById()).toEqual({});
+  });
+});
+
+type TraySnapshotForTest = {
+  sessions?: Array<{ id: string }>;
+  approvals?: Array<{ id: string }>;
+  dockBadgeCount?: number;
+};
+
+// The tray is a short recent-work list, so it names the sessions the sidebar
+// can show. A session whose directory belongs to no configured project (an
+// eval run in /tmp, say) has no row there; it must not take a tray slot, while
+// it still counts toward the dock badge.
+describe('Tray sessions follow the configured projects', () => {
+  let dom: Window;
+  let root: Root;
+  const snapshots: TraySnapshotForTest[] = [];
+  const invoke = async (command: string, args?: TraySnapshotForTest) => {
+    if (command === 'desktop_tray_update') snapshots.push(args ?? {});
+    return null;
+  };
+  const listen = async () => () => {};
+  const flush = async () => {
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 550)); });
+  };
+  const lastSnapshot = () => snapshots.at(-1);
+
+  beforeEach(() => {
+    dom = new Window({ url: 'http://localhost/' });
+    Object.assign(dom, {
+      __OPENCHAMBER_PLATFORM__: 'darwin',
+      __OPENCHAMBER_ELECTRON__: { runtime: 'electron', trayEnabled: true },
+      __OPENCHAMBER_DESKTOP__: { invoke, listen },
+    });
+    Object.assign(globalThis, {
+      window: dom, document: dom.document, navigator: dom.navigator,
+      IS_REACT_ACT_ENVIRONMENT: true,
+    });
+    resetGlobalBlockingRequests();
+    useNotificationStore.setState(useNotificationStore.getInitialState());
+    useProjectsStore.setState({ projects: [{ id: 'project', path: '/project' }] });
+    useGlobalSessionsStore.setState({
+      activeSessions: [
+        session('in-project'),
+        session('elsewhere', undefined, '/tmp/eval-run'),
+      ],
+    });
+    useUIStore.setState({ dockBadgeEnabled: true, notifyOnSubtasks: false });
+    snapshots.length = 0;
+    root = createRoot(document.createElement('div'));
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    resetGlobalBlockingRequests();
+    useProjectsStore.setState({ projects: [] });
+    useSessionUIStore.setState({ availableWorktreesByProject: new Map() });
+    await dom.happyDOM.close();
+  });
+
+  test('lists a project session but not one from an unconfigured directory', async () => {
+    useNotificationStore.getState().append({ type: 'turn-complete', session: 'in-project', time: Date.now(), viewed: false });
+    useNotificationStore.getState().append({ type: 'turn-complete', session: 'elsewhere', time: Date.now(), viewed: false });
+    await act(async () => root.render(<Harness />));
+    await flush();
+    expect(lastSnapshot()?.sessions?.map((entry) => entry.id)).toEqual(['in-project']);
+    expect(lastSnapshot()?.dockBadgeCount).toBe(2);
+  });
+
+  test('keeps a managed chat and an isolated space session', async () => {
+    useGlobalSessionsStore.setState({
+      activeSessions: [
+        session('chat', undefined, '/tmp/chats', CHAT_DRAFT_PROJECT_ID),
+        session('space', undefined, '/spaces/a1b2c3d4e5f6/app'),
+        session('elsewhere', undefined, '/tmp/eval-run'),
+      ],
+    });
+    await act(async () => root.render(<Harness />));
+    await flush();
+    expect(lastSnapshot()?.sessions?.map((entry) => entry.id).sort()).toEqual(['chat', 'space']);
+  });
+
+  test('keeps a session inside a configured project worktree', async () => {
+    // Managed worktrees live outside the project root, so only the worktree
+    // map can resolve this directory; a path under /project would pass on the
+    // project-prefix rule alone and pin nothing.
+    useSessionUIStore.setState({
+      availableWorktreesByProject: new Map([
+        ['/project', [{ path: '/opencode-worktrees/run-1', projectDirectory: '/project', branch: 'run-1', label: 'run-1' }]],
+      ]),
+    });
+    useGlobalSessionsStore.setState({
+      activeSessions: [
+        session('in-worktree', undefined, '/opencode-worktrees/run-1'),
+        session('elsewhere', undefined, '/tmp/eval-run'),
+      ],
+    });
+    await act(async () => root.render(<Harness />));
+    await flush();
+    expect(lastSnapshot()?.sessions?.map((entry) => entry.id)).toEqual(['in-worktree']);
+  });
+
+  test('still lists a pending approval from a session it hides', async () => {
+    await act(async () => root.render(<Harness />));
+    applyGlobalBlockingRequestEvents('/tmp/eval-run', [
+      { type: 'permission.asked', properties: { id: 'orphan-ask', sessionID: 'elsewhere', action: 'bash', resources: ['rm -rf tmp'] } },
+    ]);
+    await flush();
+    expect(lastSnapshot()?.approvals?.map((entry) => entry.id)).toEqual(['orphan-ask']);
   });
 });

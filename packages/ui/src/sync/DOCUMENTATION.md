@@ -375,9 +375,15 @@ Live events keep the list current meanwhile; only sessions another OpenCode
 process created wait for the window to be seen. On desktop that includes a
 window closed to the tray.
 The sidebar and tray consume the same store and must not start their own
-full-list timers. Surface-specific refreshes, such as opening the mobile session
-sheet or returning from suspension, may still request freshness at their
-explicit lifecycle edge; the store coalesces an overlapping in-flight load.
+full-list timers. The tray renders only the sessions the sidebar can place — a
+configured project or worktree, a managed chat, or an isolated space — because
+its twenty rows are the recent-work shortcut, and a session from an
+unconfigured or deleted directory has no row in the sidebar's project or chat
+lists (Pinned and In work can still list one). Pending approvals from a hidden
+session still appear. Surface-specific refreshes, such
+as opening the mobile session sheet or returning from suspension, may still
+request freshness at their explicit lifecycle edge; the store coalesces an
+overlapping in-flight load.
 Until a load has succeeded, OpenCode's first `server.connected` in the runtime
 runs the refresh at once instead of waiting for the next startup retry or the
 45-second interval; when it arrives during a load that then fails, one more
