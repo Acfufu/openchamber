@@ -1,4 +1,5 @@
 import { digestMutationInput, mutationReceipt } from '../source-control/mutation-executor.js';
+import { normalizeSourceControlProviderInstance } from '../source-control/provider-instance.js';
 import { dedupeCheckRuns, summarizeCheckRuns, summarizeCombinedStatuses } from './checks-summary.js';
 
 const PR_STATUS_CACHE_TTL_MS = 90_000;
@@ -1756,8 +1757,17 @@ export function registerGitHubRoutes(app, options = {}) {
 
   app.post(githubAuthRoutePaths('/auth/token'), async (req, res) => {
     try {
-      const requestedInstance = String(req.query?.instance ?? '').trim().toLowerCase().replace(/\.$/, '');
-      const host = requestedInstance && requestedInstance !== 'github.com' ? requestedInstance : 'github.com';
+      const requestedInstance = String(req.query?.instance ?? '').trim();
+      let host = 'github.com';
+      if (requestedInstance) {
+        // A token goes to https://<host> next, so a value that is no plain host
+        // (`user@host`, `host/path`, a port) stops here, before any request.
+        try {
+          host = normalizeSourceControlProviderInstance('github', requestedInstance);
+        } catch (error) {
+          return res.status(400).json({ error: error.message });
+        }
+      }
       if (host === 'github.com') {
         // PATs are the GitHub Enterprise credential; github.com's own token
         // entry is its device flow.

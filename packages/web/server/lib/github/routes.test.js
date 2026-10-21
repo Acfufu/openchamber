@@ -1051,6 +1051,19 @@ describe('POST /api/source-control/github/auth/token (GitHub Enterprise PAT)', (
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('refuses an instance that is no plain host before sending the token anywhere', async () => {
+    const fetch = vi.fn(async () => response({ id: 42, login: 'ghe-user' }));
+    vi.stubGlobal('fetch', fetch);
+
+    for (const instance of ['attacker@github.example.com', 'github.example.com/path', 'github.example.com:8443']) {
+      await request(app).post('/api/source-control/github/auth/token')
+        .query({ instance })
+        .send({ token: 'ghe-pat' })
+        .expect(400);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('answers a rejected PAT with GitHub\'s reason under INVALID_TOKEN', async () => {
     const fetch = vi.fn(async () => response({ message: 'Bad credentials' }, 401));
     vi.stubGlobal('fetch', fetch);
