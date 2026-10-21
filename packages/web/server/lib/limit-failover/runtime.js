@@ -25,7 +25,7 @@ const PLUGIN_PACKAGE_JSON = `${JSON.stringify({
 // No imports: OpenCode loads the entry from its own directory, where nothing
 // is installed. It reaches the server through the callback address and token
 // the agent tool runtime puts into the managed child's environment.
-const PLUGIN_SOURCE = `const LIMIT_ERROR_TYPES = new Set(["provider.quota", "provider.rate-limit"])
+const PLUGIN_SOURCE = `const LIMIT_ERROR_TYPES = new Set(["provider.quota", "provider.free-limit", "provider.rate-limit"])
 const ROUTE = ${JSON.stringify(ROUTE)}
 
 const callback = () => {
@@ -64,7 +64,12 @@ export default {
             sessionID: event.sessionID,
             providerID: event.model.providerID,
             modelID: event.model.id,
-            error: { type: event.error.type, message: event.error.message, body: event.error.response?.body },
+            error: {
+              type: event.error.type,
+              message: event.error.message,
+              body: event.error.response?.body,
+              retryAfterMs: event.error.retryAfterMs,
+            },
             proposed: event.decision,
             ...(await accounts(ctx, event.model.providerID)),
           }),

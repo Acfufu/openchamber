@@ -25,7 +25,9 @@ same token.
 
 1. OpenCode calls the plugin's `session.retry` hook on every failed attempt,
    including failures it would not retry (`provider.quota`).
-2. For `provider.quota` and `provider.rate-limit` the plugin posts the error,
+2. For `provider.quota`, `provider.free-limit` (OpenCode's own free tier, a
+   separate type since OpenCode 2.1.2) and `provider.rate-limit` the plugin
+   posts the error with OpenCode's `retryAfterMs`,
    OpenCode's proposed decision, the provider's stored accounts and the active
    one to `POST /api/openchamber/limit-failover`.
 3. `decide` answers `activate-credential`, `switch-model`, `retry` or `none`.
@@ -51,10 +53,12 @@ accounts first, then moved to the fallback.
   `accountSwitchProviders` keeps its account, and an empty `fallbackModel`
   never moves a session.
 - A rate limit counts only when the wait is at least `LONG_WAIT_MS`, from
-  OpenCode's proposed delay or the reset hint in the body. Short throttles stay
+  OpenCode's proposed delay, the error's `retryAfterMs` or the reset hint in
+  the body. Short throttles stay
   OpenCode's backoff.
-- An account that hit its limit is skipped until the reset the body names,
-  else for the wait OpenCode took from the provider's retry-after, else for
+- An account that hit its limit is skipped until the error's `retryAfterMs`
+  runs out, else until the reset the body names, else for the wait OpenCode
+  proposed, else for
   `DEFAULT_EXHAUSTION_MS`. The marks live in memory, so a server restart
   forgets them and the next failure marks the account again.
 - Clients hear about a switch only after the plugin made it.

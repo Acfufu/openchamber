@@ -62,6 +62,22 @@ describe('limit failure classification', () => {
     expect(classifyLimitFailure(quotaReport(), NOW)).toEqual({ resetAt: NOW + DEFAULT_EXHAUSTION_MS });
   });
 
+  it('counts OpenCode free-tier exhaustion as a quota error', () => {
+    const freeLimit = quotaReport({ providerID: 'opencode', error: { type: 'provider.free-limit', message: '', body: null } });
+    expect(classifyLimitFailure(freeLimit, NOW)).toEqual({ resetAt: NOW + DEFAULT_EXHAUSTION_MS });
+  });
+
+  it('takes the reset from retryAfterMs before the body, and ignores a zero wait', () => {
+    const error = (retryAfterMs) => ({ type: 'provider.quota', message: '', body: JSON.stringify({ resets_in_seconds: 7200 }), retryAfterMs });
+    expect(parseLimitResetAt(error(5 * 60_000), NOW)).toBe(NOW + 300_000);
+    expect(parseLimitResetAt(error(0), NOW)).toBe(NOW + 7_200_000);
+    const longRateLimit = quotaReport({
+      error: { type: 'provider.rate-limit', message: '', body: null, retryAfterMs: 10 * 60_000 },
+      proposed: { retry: true, delay: 10_000 },
+    });
+    expect(classifyLimitFailure(longRateLimit, NOW)).toEqual({ resetAt: NOW + 600_000 });
+  });
+
   it('treats a short rate limit as a throttle even when the body names a near reset', () => {
     const report = quotaReport({
       error: { type: 'provider.rate-limit', message: '', body: JSON.stringify({ retry_after: 20 }) },
@@ -297,7 +313,7 @@ describe('limit failover plugin', () => {
     sessionID: 'ses_1',
     agent: 'build',
     model: { providerID: 'anthropic', id: 'claude-opus' },
-    error: { type, message: 'usage limit', response: { body: '{}' } },
+    error: { type, message: 'usage limit', response: { body: '{}' }, retryAfterMs: 90_000 },
     attempt: 2,
     decision: { retry: false },
   });
@@ -334,7 +350,7 @@ describe('limit failover plugin', () => {
         sessionID: 'ses_1',
         providerID: 'anthropic',
         modelID: 'claude-opus',
-        error: { type: 'provider.quota', body: '{}' },
+        error: { type: 'provider.quota', body: '{}', retryAfterMs: 90_000 },
         proposed: { retry: false },
         credentials: [ACCOUNT_A, ACCOUNT_B],
         activeCredentialID: ACCOUNT_A.id,
@@ -385,6 +401,9 @@ describe('limit failover plugin', () => {
       const other = retryEvent('provider.internal');
       await hooks.retry(other);
       expect(fetchMock).not.toHaveBeenCalled();
+
+      await hooks.retry(retryEvent('provider.free-limit'));
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).error.type).toBe('provider.free-limit');
 
       const none = retryEvent();
       await hooks.retry(none);

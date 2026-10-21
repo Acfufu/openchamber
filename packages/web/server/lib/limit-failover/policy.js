@@ -12,7 +12,9 @@ const LONG_WAIT_MS = 60_000;
 /** How long an account stays skipped when its limit error says nothing about the reset. */
 export const DEFAULT_EXHAUSTION_MS = 60 * 60_000;
 
-const LIMIT_ERROR_TYPES = new Set(['provider.quota', 'provider.rate-limit']);
+// `provider.free-limit` is OpenCode's own free tier running out (2.1.2+); it
+// was `provider.quota` before and behaves the same.
+const LIMIT_ERROR_TYPES = new Set(['provider.quota', 'provider.free-limit', 'provider.rate-limit']);
 
 // The moment a window opens: epoch seconds (until the year 2286) or
 // milliseconds, a numeric string of either, or ISO text.
@@ -56,10 +58,12 @@ const resetFromHints = (hints, now) => {
 };
 
 /**
- * When the provider says the limit lifts, from the error body. Null when the
- * body carries no hint or only one already in the past.
+ * When the provider says the limit lifts: OpenCode's `retryAfterMs` (the
+ * provider's retry-after, counted from the failure), else a hint in the error
+ * body. Null when there is neither or the body's hint is already past.
  */
 export const parseLimitResetAt = (error, now) => {
+  if (error?.retryAfterMs > 0) return now + error.retryAfterMs;
   const body = limitBodySchema.safeParse(error?.body);
   if (!body.success) return null;
   return resetFromHints(body.data, now) ?? (body.data.error ? resetFromHints(body.data.error, now) : null);
@@ -116,6 +120,7 @@ const reportSchema = z.object({
     type: z.string().min(1),
     message: z.string().catch(''),
     body: z.string().nullable().catch(null).default(null),
+    retryAfterMs: z.number().finite().nonnegative().optional().catch(undefined),
   }),
   proposed: z
     .union([
