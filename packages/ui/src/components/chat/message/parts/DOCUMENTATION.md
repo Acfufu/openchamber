@@ -233,11 +233,15 @@ rendering keeps its direct-child rules. This CSS alternative still needs its
 own browser performance comparison; the explicit-metadata experiment does not
 establish its invalidation cost.
 
-Markdown code highlighting uses the application's Shiki/Oniguruma WASM plugin
-in `streamdown-code.worker.ts`, with the same grammar sanitization as the
-existing Shiki worker. One CSS-variable theme is tokenized once. Complete-line
-grammar state stays in eight bounded worker lineages; edits restart from a
-matching prefix or a full pass. The client preserves the pre-migration cache
+Markdown code in languages with a `@pierre/highlights` lexer (about 80, every
+common one) is tokenized on the main thread, synchronously, in one pass over
+the whole block with `MARKDOWN_HIGHLIGHTS_THEME`, so the block paints
+highlighted on its first commit. The rest run in `streamdown-code.worker.ts`
+on Shiki/Oniguruma with the same grammar sanitization as the shared code
+worker and `MARKDOWN_SHIKI_THEME`. Until the Highlights import settles, the
+first blocks wait for it and then take the same split. Both themes resolve to the same `--md-*` variables.
+For Shiki languages, complete-line grammar state stays in eight bounded worker
+lineages; edits restart from a matching prefix or a full pass. The client preserves the pre-migration cache
 policy: four recent streaming results, four complete-line snapshots, and a
 2000-entry, 24 MiB estimated completed-result LRU. Language and the existing
 dual-hash content fingerprint key pure highlighting. A single oversized entry
@@ -253,9 +257,10 @@ decoration boundaries. `MarkdownCode` owns the React token rows and line numbers
 using Streamdown's public container and header. A warm lookup renders tokens on
 the first commit; unchanged row arrays skip row rendering. Async results carry
 their input and append lineage, so abandoned contexts and shorter late results
-cannot replace newer displays. There is no
-main-thread highlighter fallback: unsupported workers, oversized input and
-failed requests leave readable code. Each dispatched request has a five-second
+cannot replace newer displays. Shiki never runs on the main thread:
+unsupported workers, oversized input and failed requests leave readable code.
+Main-thread Highlights results go through the same caches; streaming rows that
+match the previous result of the same block keep their identity. Each dispatched request has a five-second
 deadline. A timeout terminates the worker, caches only the offending failure in
 the same LRU, and replays other pending requests with fresh deadlines. A crash
 or message error ends all pending requests without caching their failure;
@@ -288,17 +293,36 @@ later returns to an old prefix. Exact cached and policy-driven plain results tak
 precedence. Worker failure publishes the requested plain text through the existing
 plugin fallback. This is one mounted component's display state, not a shared cache.
 
-The separate Shiki worker remains shared by non-Markdown code views and
-CodeMirror. Its existing whole-block HTML, per-line HTML and themed token APIs,
+The separate code worker (`markdown-shiki.worker.ts`) remains shared by
+non-Markdown code views for Shiki languages. Their client renders Highlights
+languages on the main thread, and `getCachedHighlightedCode` /
+`getCachedHighlightedLines` answer them synchronously for a highlighted first
+paint.
+CodeMirror (`lib/codemirror/codeHighlight.ts`) runs Highlights' `LiveTokenizer`
+on the main thread, so an edit re-tokenizes only the lines it changed and
+colors land with the keystroke; it uses this worker only for languages without
+a Highlights lexer. Its whole-block HTML, per-line HTML and themed token APIs,
 cache and timeout/replay rules are unchanged. Markdown does not call that
-worker's HTML interfaces.
+worker's HTML interfaces. Its `init` message warms Highlights only; Shiki and
+its WebAssembly start on the first language Highlights has no lexer for.
+
+#### Why Highlights languages run on the main thread without lineages
+
+Highlights tokenizes without regular expressions, about a millisecond per
+100 KB, which is less than a worker round trip; the line budgets cap a block
+well below that. Running it on the main thread removes the plain first frame,
+and re-tokenizing a streamed fence from its first line costs less than keeping
+and matching lineage state. Its lexers are written per
+language and cannot backtrack, so the `template-call` hang behind the
+sanitization does not apply to them. A runtime whose WebAssembly lacks SIMD
+fails the Highlights import, and every language falls back to Shiki.
 
 #### Why the code plugin uses the application's WASM worker
 
 The official code plugin tokenizes both configured themes even when they are
 identical. This application uses one CSS-variable theme, so its worker runs one
-Oniguruma pass and reuses the existing grammar sanitization and complete-line
-state rules. Transferring suffix ranges keeps repeated token strings and
+pass and, for Shiki languages, reuses the existing grammar sanitization and
+complete-line state rules. Transferring suffix ranges keeps repeated token strings and
 unchanged rows out of worker replies while preserving native Streamdown tokens.
 Cache eviction, request coalescing, timeout replay and grammar-lineage retention
 follow the pre-migration worker. The payload and its byte estimate change from
@@ -501,8 +525,8 @@ the same owner.
 - The managed `openchamber` plugin tool uses the expandable path and hides its broad protocol input. The plugin supplies the selected action's human description as the native tool title; the UI renders that metadata without owning an action map. The full versioned result envelope renders through the same neutral JSON summary/tree/raw views as other tools, without a tool-specific output card.
 - Selecting a JSON summary, tree, or raw view saves that mode in the persisted UI settings. New and refreshed JSON tool outputs read the saved mode across sessions; missing or invalid preferences use Summary. A summary section's chevron turns on that section's own `<details>` state (`JsonSummarySection`), never on an enclosing one, so a nested row that is still collapsed keeps pointing right while its parent is open.
 - `ToolPart` defers expanded content after a user toggle, preventing large tool input/output payloads from mounting during the initial chat render.
-- The rich tool diff preview lives in `ToolPartDiffPreview.tsx` and is lazy-loaded from `ToolPart`. It is the only tool-card piece that imports the `@pierre/diffs` + Shiki rendering stack, keeping that stack out of the eager chat startup graph. While its chunk loads (first rendered diff only) the plain-text patch from `PlainDiffFallback.tsx` renders as the Suspense fallback, mirroring the preview's error fallback. Patches over 256 KiB or 2,000 lines skip rich parsing and use a bounded plain-text preview; navigation keeps the original patch. `ToolPart` itself must not statically import `@pierre/diffs` runtime modules or `@/lib/shiki/appThemeRegistry`.
-- The `@pierre/diffs` stack is knowingly unprotected against the JS/TS `template-call` backtracking that OOM'd the renderer in openchamber/openchamber#2587. Both application Shiki workers sanitize every grammar they load through `@/lib/shiki/sanitizeTemplateCallGrammar`. The diff worker pool runs `preferredHighlighter: 'shiki-wasm'` in `DiffWorkerProvider.tsx` and resolves language ids through `@pierre/diffs`' own registry. Its `langs` accepts `SupportedLanguages` strings only, leaving no place to supply a sanitized `LanguageRegistration`. A pathological template literal in a diff can still hang that pool's Oniguruma engine. An upstream grammar-object overload or switching that pool's regex engine would address it; neither is done.
+- The rich tool diff preview lives in `ToolPartDiffPreview.tsx` and is lazy-loaded from `ToolPart`. It is the only tool-card piece that imports the `@pierre/diffs` highlighting stack, keeping that stack out of the eager chat startup graph. While its chunk loads (first rendered diff only) the plain-text patch from `PlainDiffFallback.tsx` renders as the Suspense fallback, mirroring the preview's error fallback. Patches over 256 KiB or 2,000 lines skip rich parsing and use a bounded plain-text preview; navigation keeps the original patch. `ToolPart` itself must not statically import `@pierre/diffs` runtime modules or `@/lib/shiki/appThemeRegistry`.
+- `@pierre/diffs` highlights with `DIFFS_HIGHLIGHTER` from `@/lib/shiki/diffsHighlighter`: `highlights` wherever WebAssembly with SIMD runs, `shiki-js` otherwise. The library allows one highlighter type per thread and throws on a second, so the worker pool in `DiffWorkerProvider.tsx` and every main-thread `File`, `PatchDiff` and `FileDiff` pass that same value. Highlights has no lexer for some languages, and the per-thread rule leaves no Shiki fallback in files and diffs, so `diffsHighlighter.ts` maps the readable ones to a close relative (templates to HTML, ini-style files to TOML, `.env` to bash); the rest render as plain text. Highlights lexers cannot backtrack, so the JS/TS `template-call` hang from openchamber/openchamber#2587 does not reach diffs. On the `shiki-js` fallback the stack is still unprotected: its `langs` accepts `SupportedLanguages` strings only, leaving no place for a sanitized `LanguageRegistration`.
 - OpenCode 2 Code Mode arrives as one tool, `execute`, whose input is a short
   JS script (`input.code`) calling the MCP and integration tools as functions.
   The row is named **Script** (`toolHelpers.ts`), uses the `braces` icon, and is
