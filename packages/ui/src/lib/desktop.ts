@@ -509,15 +509,23 @@ export const focusDesktopWindow = async (): Promise<boolean> => {
 };
 
 /**
- * Opens a session owned by another instance ('local' or 'host:<id>') in a
- * window for that instance. Valid from any app window, including one that
- * currently shows a remote instance — the main process gates the command
- * by sender. Returns false when the desktop bridge is not available, so the
- * caller can fall back to opening it on the current one.
+ * A notification click or a session link can name the instance that owns the
+ * session ('local' or 'host:<id>'). When this window shows another instance,
+ * opens the session, and the message when one is named, in a window for the
+ * owning one. Valid from any app window, including one that currently shows
+ * a remote instance; the main process gates the command by sender. Returns
+ * false when the session belongs here or the desktop bridge is not available,
+ * so the caller opens it in this window.
  */
-export const openHostSession = (runtimeKey: string, sessionId: string): boolean => {
+export const openSessionInOwningHostWindow = (
+  sessionId: string,
+  runtimeKey: string | null,
+  messageId: string | null = null,
+): boolean => {
+  if (!runtimeKey || runtimeKey === getRuntimeKey()) return false;
   if (!canUseElectronDesktopIPC()) return false;
-  void invokeDesktop<{ opened: boolean }>('desktop_open_host_session', { runtimeKey, sessionId })
+  const args = messageId ? { runtimeKey, sessionId, messageId } : { runtimeKey, sessionId };
+  void invokeDesktop<{ opened: boolean }>('desktop_open_host_session', args)
     .catch((error) => {
       console.warn('[desktop] failed to open host session', error);
     });

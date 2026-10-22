@@ -31,7 +31,7 @@ import { usePwaInstallPrompt } from '@/hooks/usePwaInstallPrompt';
 import { useWindowTitle } from '@/hooks/useWindowTitle';
 import { useRootScrollLock } from '@/hooks/useRootScrollLock';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { isDesktopLocalOriginActive, isDesktopShell, restartDesktopApp, invokeDesktop, getMiniChatRuntimeArgs, openHostSession, takePendingDesktopSessionLinks } from '@/lib/desktop';
+import { isDesktopLocalOriginActive, isDesktopShell, restartDesktopApp, invokeDesktop, getMiniChatRuntimeArgs, openSessionInOwningHostWindow, takePendingDesktopSessionLinks } from '@/lib/desktop';
 import { isDesktopSafeStart } from '@/lib/desktopSafeStart';
 import { runPendingDesktopHostActions } from '@/lib/desktopHostActions';
 import {
@@ -518,14 +518,6 @@ function App({ apis }: AppProps) {
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // A notification click or a session link can name the runtime that owns
-    // the session. When this window is on another instance, the desktop shell
-    // opens the session in a window for the owning one.
-    const opensInOwningHostWindow = (sessionId: string, runtimeKey: string | null): boolean => {
-      if (!runtimeKey || runtimeKey === getRuntimeKey()) return false;
-      return openHostSession(runtimeKey, sessionId);
-    };
-
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ sessionId?: string; directory?: string; messageId?: string; runtimeKey?: string }>).detail;
       const sessionId = typeof detail?.sessionId === 'string' ? detail.sessionId.trim() : '';
@@ -533,12 +525,13 @@ function App({ apis }: AppProps) {
       const directory = typeof detail?.directory === 'string' && detail.directory.trim().length > 0
         ? detail.directory.trim()
         : null;
-      if (opensInOwningHostWindow(sessionId, String(detail?.runtimeKey ?? '').trim())) return;
+      const messageId = typeof detail?.messageId === 'string' ? detail.messageId.trim() || null : null;
+      if (openSessionInOwningHostWindow(sessionId, String(detail?.runtimeKey ?? '').trim(), messageId)) return;
       // A link (a desktop deep link, a link to this window's instance) carries
       // no directory; the route opener resolves it from the global session
       // list, as for a web link.
       if (!directory) {
-        void openSessionLink(sessionId, typeof detail?.messageId === 'string' ? detail.messageId.trim() : null);
+        void openSessionLink(sessionId, messageId);
         return;
       }
       void useSessionUIStore.getState().setCurrentSession(sessionId, directory);
@@ -550,7 +543,7 @@ function App({ apis }: AppProps) {
     // cleanup must not drop links already taken (Strict Mode re-runs this).
     void takePendingDesktopSessionLinks().then((links) => {
       for (const link of links) {
-        if (opensInOwningHostWindow(link.sessionId, link.runtimeKey)) continue;
+        if (openSessionInOwningHostWindow(link.sessionId, link.runtimeKey, link.messageId)) continue;
         void openSessionLink(link.sessionId, link.messageId);
       }
     });

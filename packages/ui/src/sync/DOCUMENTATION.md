@@ -1237,7 +1237,9 @@ link can name the saved instance that owns the session (`?host=<id>`, `local`
 for the app's own server). Main passes it on as the runtime key a
 notification click carries, and the receiving window routes both the same
 way: a window on that instance opens the session in place, any other hands
-it to `openHostWindow` through `desktop_open_host_session`. The renderer
+it to `openHostWindow` through `desktop_open_host_session`, together with
+the `?message=` it names. A mini-chat routes them the same way, since with
+the main window closed it is the window that receives them. The renderer
 decides because main cannot: the main window carries no host tag and can
 switch instance in place, so only its runtime key says what it shows. A main
 window switched in place to a direct instance holds a `url:` key, so a link
