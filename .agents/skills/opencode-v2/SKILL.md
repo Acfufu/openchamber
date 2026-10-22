@@ -95,7 +95,10 @@ Open asks upstream (OpenCode Slack): archiving a session whose directory is
 gone without building its location, so it need not move; declaring 500 bodies on session
 mutations; `provider.list` and `agent.list` waiting for plugin activation the
 way `model.list` does since 2.0.27, which would retire the cold-catalog
-recovery in `useConfigStore`. Dropped: an import route for missing 1.x
+recovery in `useConfigStore`; built-in provider plugins setting
+attribution headers only when the client has not set its own, so a client can
+name itself to a provider (today some plugins overwrite provider-level
+headers). Dropped: an import route for missing 1.x
 sessions (the top-up workaround is enough). Check the newest tag before re-asking.
 
 ## Behaviour to expect
