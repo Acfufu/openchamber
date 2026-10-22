@@ -1484,7 +1484,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         void navigation.scrollToTurnId(turnId, { behavior: 'auto' });
     }, [navigation]);
     const canLoadEarlierPrompts = timelineController.historySignals.canLoadEarlier;
+    // The mini chat window is too narrow to give the rail its gutter.
     const promptRailEnabled = !isMobile
+        && chatSurfaceMode !== 'mini-chat'
         && !isDesktopExpandedInput
         && promptNavigatorEnabled;
     const showPromptNavigator = promptRailEnabled
