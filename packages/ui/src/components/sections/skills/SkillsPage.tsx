@@ -21,7 +21,6 @@ import {
   SettingsSection,
   SettingsFieldRow,
   SettingsStackedField,
-  SettingsCheckboxRow,
   SETTINGS_FIELD_LABEL_CLASS,
 } from '@/components/sections/shared/SettingsSection';
 import { SettingsInfoHint } from '@/components/sections/shared/SettingsInfoHint';
@@ -43,6 +42,7 @@ import { Icon } from "@/components/icon/Icon";
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { PreviewToggleButton } from '@/components/views/PreviewToggleButton';
 import { SkillsCatalogPage } from './catalog/SkillsCatalogPage';
+import { SkillUseField } from './SkillUseField';
 import {
   SKILL_LOCATION_OPTIONS,
   locationPartsFrom,
@@ -686,13 +686,12 @@ const SkillsInstalledPage: React.FC = () => {
               />
             </SettingsStackedField>
 
-            <SettingsCheckboxRow
-              checked={disableModelInvocation}
-              onChange={handleDisableModelInvocationChange}
-              label={t('settings.skills.page.field.disableModelInvocation')}
-              info={t('settings.skills.page.field.disableModelInvocationHint')}
-              disabled={isReadOnlySkill}
-              className="pt-2"
+            <SkillUseField
+              skill={isNewSkill ? null : selectedSkill ?? null}
+              directory={settingsDirectory}
+              manual={disableModelInvocation}
+              onManualChange={handleDisableModelInvocationChange}
+              manualLocked={isReadOnlySkill}
             />
 
         </SettingsSection>

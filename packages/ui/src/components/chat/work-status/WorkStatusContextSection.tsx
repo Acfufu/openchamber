@@ -2,7 +2,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { useI18n } from '@/lib/i18n';
 import { Icon } from '@/components/icon/Icon';
-import { useSkillsStore } from '@/stores/useSkillsStore';
+import { selectAvailableSkillsForDirectory, useSkillsStore } from '@/stores/useSkillsStore';
 import { useMcpStore } from '@/stores/useMcpStore';
 import { useSession } from '@/sync/sync-context';
 import { getDistinctLinkedIssues, getLinkedSidebarChanges, getLinkedSidebarIssues, getRepositoryThreadRef, isLinkedChange, type LinkedIssue, type RepositoryThreadRef } from '@/lib/linkedIssues';
@@ -59,7 +59,7 @@ export const WorkStatusContextSection: React.FC<Props> = ({ sessionId, directory
   const availableWorktreesByProject = useSessionUIStore((state) => state.availableWorktreesByProject);
   const projects = useProjectsStore((state) => state.projects);
   const isDraft = sessionId === null && newSessionDraft.open;
-  const skills = useSkillsStore((state) => state.skills);
+  const skills = useSkillsStore((state) => selectAvailableSkillsForDirectory(state));
   const mcpStatus = useMcpStore(
     React.useCallback((state) => state.getStatusForDirectory(directory), [directory]),
   );

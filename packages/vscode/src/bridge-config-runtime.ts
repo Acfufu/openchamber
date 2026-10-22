@@ -57,10 +57,11 @@ import {
   expandSnippets,
   setWebSearchSelection,
   setWarmingEnabled,
+  setSkillEnabled,
   getWebSearchSource,
   type SnippetScope,
 } from './opencodeConfig';
-import { parseWebSearchSelection } from './opencode-config-v2';
+import { parseWebSearchSelection, skillSwitchRequestSchema } from './opencode-config-v2';
 import {
   getSkillsCatalog,
   scanSkillsRepository as scanSkillsRepositoryFromGit,
@@ -407,6 +408,20 @@ export async function handleConfigBridgeMessage(
       }
       const result = setWarmingEnabled(enabled);
       return { id, type, success: true, data: { success: true, changed: result.changed } };
+    }
+
+    // PUT /api/config/skill-switch — see the web route in
+    // packages/web/server/lib/opencode/skill-routes.js.
+    case 'api:config/skill-switch': {
+      const parsed = skillSwitchRequestSchema.extend({ directory: z.string().optional() }).safeParse(payload);
+      if (!parsed.success) {
+        return { id, type, success: false, error: 'id must be a skill id, enabled a boolean and scope user or project' };
+      }
+      const workingDirectory = resolveWorkingDirectory(ctx, parsed.data.directory);
+      if (parsed.data.scope === 'project' && !workingDirectory) {
+        return { id, type, success: false, error: 'A project skill needs a directory' };
+      }
+      return { id, type, success: true, data: setSkillEnabled({ ...parsed.data, directory: workingDirectory }) };
     }
 
     case 'api:config/mcp': {

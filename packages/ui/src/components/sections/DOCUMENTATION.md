@@ -200,11 +200,36 @@ OpenCode drops an MCP server or skill an `integration.use` deny names
 MCP and Skills pages list what the config files and the disk hold.
 `shared/useIntegrationPolicyBlock.ts` reads the statements from
 `/api/config` (`readIntegrationPolicies`, decided like OpenCode: documents
-reversed, last match wins) and the pages mark such a row "Blocked by policy";
-the MCP page also disables Connect and Test. A skill's id is its `SKILL.md`
-folder name, not its display name. Statements from a connected OpenCode
+reversed, last match wins) and the MCP page marks such a row "Blocked by
+policy" and disables Connect and Test. Statements from a connected OpenCode
 Console workspace are not in `/api/config`, so a server blocked only there is
 not marked.
+
+The Skills page reads the same statements from the skills store. One choice,
+"Agents use it" (`skills/SkillUseField.tsx`), answers when agents get a skill:
+Automatically, When called (the skill file's `disable-model-invocation` flag)
+or Off. A skill's id is its `SKILL.md` folder name, not its display name. Off
+writes an exact `skill:<id>` deny where the skill lives (project config for a
+project skill, global config otherwise) and leaves the file's flag alone;
+leaving Off removes the exact deny from every config file OpenCode reads for
+the directory, hand-written ones included. A skill an exact deny turns off
+reads "Off" in the sidebar. A wildcard deny is someone else's rule: the choice
+is locked, the row reads "Blocked", and the page names the rule and its file.
+An allow that decides the skill is named the same way.
+
+### Why one choice and not a switch beside the checkbox
+
+"Run only when called" and "off" answer the same question, when an agent may
+take the skill, so two controls let a user set a combination that reads as
+nonsense (off, but only when called). One three-way choice keeps them apart
+in storage and together on screen.
+
+### Why Off writes where the skill lives and not into a chosen scope
+
+A scope picker would make every user learn how OpenCode orders global and
+project policies (global wins) before turning a skill off. Writing where the
+skill lives covers the common case with one control, and turning it back on
+clears the skill's exact deny wherever it is, so no file keeps a stale rule.
 
 ## Integrations: provider cards
 

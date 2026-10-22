@@ -721,6 +721,34 @@ the chat, the session list and the file tree.
 Failure is still not empty: a failed load restores that directory's previous
 list rather than clearing it.
 
+### Switched-off skills
+
+`skillsByDirectory` is the installed inventory and keeps a skill a policy
+switches off; Settings lists it with an "Off" mark. Everything the chat offers,
+attaches or resolves (`/` and `$` pickers, the send path, `/name` routing in
+`session-ui-store`, draft starters, the session context count) reads
+`selectAvailableSkillsForDirectory`, which drops the skills whose deciding
+`integration.use` statement is a deny (`skillSwitch.ts`). The statements come
+from OpenCode's `/api/config`, read beside each skills load into
+`policiesByDirectory`. A failed read keeps the last ones, so an outage never
+turns a switched-off skill back on; a directory whose statements were never
+read has no entry (unknown, which Settings shows as such) and its next load
+reads again instead of caching the list as fresh.
+
+`setSkillEnabled` changes nothing until the server has written the file, and
+fails when the server wrote nothing although the outcome should change (the
+rule sits in a file it cannot parse, or in config with no file). It then
+shows the write at once and reads OpenCode's statements again until its file
+watcher has applied it. A user skill's rule is in the global config, so the
+write is shown in every loaded directory, which reads again on its next load.
+A load or recheck started before a newer write is not committed
+(`skillSwitchWrites`), so the switch never snaps back to an old read.
+
+A skill's id is its folder, so a rename changes it: `renameSkill` carries a
+switched-off skill's rule to the new id, and deleting every copy of a skill
+removes its rule. Otherwise the renamed skill would come back on, and the
+old rule would keep a row (`keepSwitchedOffSkills`) for a skill that is gone.
+
 ## Selector Rules
 
 Use leaf selectors.

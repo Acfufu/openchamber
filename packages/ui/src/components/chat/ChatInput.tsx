@@ -120,7 +120,7 @@ import { opencodeClient, type SkillMentions } from '@/lib/opencode/client';
 import { buildSkillMentionInstruction } from '@/lib/skillMentionInstruction';
 import { useGitStore } from '@/stores/useGitStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
-import { selectSkillsForDirectory, useSkillsStore } from '@/stores/useSkillsStore';
+import { selectAvailableSkillsForDirectory, useSkillsStore } from '@/stores/useSkillsStore';
 import { selectCommandsForDirectory, useCommandsStore } from '@/stores/useCommandsStore';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
@@ -833,7 +833,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // highlight matching tokens in the composer, the same way confirmed
     // @files are.
     const availableCommands = useCommandsStore((s) => selectCommandsForDirectory(s, currentDirectory));
-    const availableSkills = useSkillsStore((s) => selectSkillsForDirectory(s, currentDirectory));
+    const availableSkills = useSkillsStore((s) => selectAvailableSkillsForDirectory(s, currentDirectory));
     const knownSlashNames = React.useMemo(() => {
         const names = new Set<string>([
             'init', 'review', 'undo', 'redo', 'timeline', 'compact', 'fork', 'btw', 'summary', 'workspace-review', 'plan-feature', 'craft-goal', 'schedule-task', 'catch-up', 'debug', 'weigh', 'explore',
@@ -1381,7 +1381,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             opencodeClient,
         );
         const availableSkillNames = new Set(
-            selectSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
+            selectAvailableSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
         );
         const skillInstruction = buildSkillMentionInstruction(collectInlineSkillMentions(sanitizedText, availableSkillNames));
         // The server and the VS Code auto-send deliver `text` as is, so its
@@ -1981,7 +1981,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         };
 
         const availableSkillNames = new Set(
-            selectSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
+            selectAvailableSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
         );
 
         // Comments become synthetic context, which the send-time expansion
