@@ -186,13 +186,31 @@ then started the directory again within a second of every release. The pending
 permissions and forms OpenCode rejected on the way out and the turns it
 interrupted arrive as their own events.
 
-Every managed chat and every worktree has its own directory, so each one
+The selected directory is bootstrapped at once only while the window is visible
+and focused. With the window hidden or unfocused it goes into
+`dormantLocations` instead: no bootstrap and no MCP status re-read until the
+window is focused again, which bootstraps it and refreshes its held status. If
+the user moved to another directory meanwhile, its status is forgotten like a
+background directory's.
+
+### Why the selected directory waits for the user and not for nothing
+
+Bootstrapping on every shutdown kept an app left open overnight in an hourly
+loop: OpenCode evicted the idle location, the bootstrap read it within
+milliseconds, and the location started again with every MCP server, each remote
+one going through OAuth with an expired token. Waiting for the window to be
+focused costs only a few seconds of MCP startup when the user returns. A
+hidden-only check was rejected because a desktop window behind other windows
+stays visible all night.
+
+Every managed chat, worktree and project has its own directory, so each one
 opened would keep its own set of MCP servers for that hour.
-`location-release.ts` releases such a directory's location
+`location-release.ts` releases a directory's location
 (`DELETE /api/debug/location`, the route the worktree removal paths already
 use) after the selected directory moves away from it: 30 s for a chat, 5 min
-for a worktree, which the user comes back to through the day and where a
-return after a release waits for the MCP servers to start again. A worktree is
+for a worktree and 15 min for anything else, a project above all. The user
+comes back to worktrees through the day and to projects most, and a return
+after a release waits for the MCP servers to start again. A worktree is
 a path listed in `availableWorktreesByProject` that is not a project root. It
 checks again at that moment and keeps the location while the directory is
 selected again, shown in a side panel, has a busy or retrying session, a
@@ -206,13 +224,14 @@ server announces both ends of that wait (`openchamber.session-assist`,
 or dropped by a new turn; the end re-checks the waiting directory at once. A
 wait whose end this client never hears stops holding the directory after five
 minutes. With the recap and the suggestion off nothing waits. A directory
-without a store is left to OpenCode's own sweep. Project roots are never
-released this way: the user returns to them most, and the server's default
-scope reads the last-used one. Another client still showing the directory gets
+without a store is left to OpenCode's own sweep. The directory the user is in
+is never released, and the server's reads without a directory of their own go
+to that same directory (`noteCurrentDirectory` in the server lifecycle), so a
+left project is not started again by them. Another client still showing the directory gets
 `location.shutdown` and bootstraps it again, which restarts its MCP servers. A
 failed release is ignored: OpenCode's own sweep still applies. The rule is the
-same on every surface; VS Code has no managed chats, so only worktrees it
-lists qualify there.
+same on every surface; VS Code has no managed chats, so only its worktrees and
+projects qualify there.
 
 ## Committing a revert
 
