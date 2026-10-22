@@ -144,16 +144,18 @@ describe('plan links over HTTP', () => {
     expect(todoOf(unlinked, 'b')).toEqual({ id: 'b', text: 'B2', completed: false, createdAt: expect.any(Number) });
   }));
 
-  it('answers 409 for a referenced todo or a linked plan and writes nothing', () => withRuntime(async ({ runtime, app }) => {
+  it('deletes a referenced todo or a linked plan by unlinking what pointed at it', () => withRuntime(async ({ runtime, app }) => {
     const { plan } = await runtime.createPlan(PROJECT_ID, { title: 'Plan', body: '' });
     await request(app).post(`${BASE}/todos`).send({ id: 'a', text: 'A', planId: plan.id }).expect(201);
     await request(app).post(`${BASE}/todos`).send({ id: 'b', text: 'B', planId: plan.id, dependsOn: ['a'] }).expect(201);
-    const stored = await fsPromises.readFile(runtime.contextPathFor(PROJECT_ID), 'utf8');
+    await request(app).post(`${BASE}/todos`).send({ id: 'c', text: 'C', planId: plan.id, dependsOn: ['b'] }).expect(201);
 
-    expect((await request(app).delete(`${BASE}/todos/a`).expect(409)).body.error).toContain('remove that dependency first');
-    await request(app).put(`${BASE}/todos`).send({ todos: [] }).expect(409);
-    await request(app).delete(`${BASE}/plans/${plan.id}`).expect(409);
-    expect(await fsPromises.readFile(runtime.contextPathFor(PROJECT_ID), 'utf8')).toBe(stored);
+    const deleted = await request(app).delete(`${BASE}/todos/a`).expect(200);
+    expect(deleted.body.todos.find((todo) => todo.id === 'b').dependsOn).toBeUndefined();
+    const saved = await request(app).put(`${BASE}/todos`).send({ todos: [{ id: 'c', text: 'C' }] }).expect(200);
+    expect(saved.body.todos).toEqual([{ id: 'c', text: 'C', completed: false, createdAt: expect.any(Number), planId: plan.id }]);
+    await request(app).delete(`${BASE}/plans/${plan.id}`).expect(200);
+    expect((await runtime.readContext(PROJECT_ID)).todos).toEqual([{ id: 'c', text: 'C', completed: false, createdAt: expect.any(Number) }]);
   }));
 
   it('links a note to a plan, keeps the link through a pin and unlinks it with null', () => withRuntime(async ({ runtime, app }) => {

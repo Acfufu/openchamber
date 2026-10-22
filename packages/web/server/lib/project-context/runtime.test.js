@@ -1103,10 +1103,9 @@ describe('plan links and todo dependencies', () => {
       { id: 'b', text: 'B', completed: false, createdAt: expect.any(Number), planId, dependsOn: ['a'] },
       { id: 'a', text: 'A', completed: false, createdAt: expect.any(Number), planId },
     ]);
-    // Removing the target, even together with the todo that depends on it, needs an unlink first.
-    await expectRefused(() => linked.saveTodos(PROJECT_ID, [{ id: 'c', text: 'C' }, { id: 'b', text: 'B' }]), 409);
-    await expectRefused(() => linked.saveTodos(PROJECT_ID, [{ id: 'c', text: 'C' }]), 409);
-    await expectRefused(() => linked.saveTodos(PROJECT_ID, [{ id: 'b', text: 'B', dependsOn: [] }, { id: 'c', text: 'C' }]), 409);
+    // Removing a todo, as Clear completed does, drops it from the todos that depended on it.
+    const cleared = await linked.saveTodos(PROJECT_ID, [{ id: 'c', text: 'C' }, { id: 'b', text: 'B' }]);
+    expect(cleared.todos[1]).toEqual({ id: 'b', text: 'B', completed: false, createdAt: expect.any(Number), planId });
     await expectRefused(() => linked.saveTodos(PROJECT_ID, [{ id: 'a', text: 'A', dependsOn: ['b'] }, { id: 'b', text: 'B' }, { id: 'c', text: 'C' }]), 400);
     await expectRefused(() => linked.saveTodos(PROJECT_ID, [{ id: 'a', text: 'A', planId: 7 }]), 400);
     // A batch may move a connected group to another plan together.
@@ -1146,21 +1145,26 @@ describe('plan links and todo dependencies', () => {
     expect(todos.filter((todo) => todo.dependsOn)).toHaveLength(1);
   });
 
-  test('a referenced todo is deleted only after its dependency is removed', async () => {
+  test('deleting a referenced todo drops it from the todos that depended on it', async () => {
     await linked.createTodo(PROJECT_ID, { id: 'a', text: 'A', planId });
     await linked.createTodo(PROJECT_ID, { id: 'b', text: 'B', planId, dependsOn: ['a'] });
-    await expectRefused(() => linked.deleteTodo(PROJECT_ID, 'a'), 409);
-    await linked.updateTodo(PROJECT_ID, 'b', { dependsOn: [] });
-    expect((await linked.deleteTodo(PROJECT_ID, 'a')).todos.map((todo) => todo.id)).toEqual(['b']);
+    const { todos } = await linked.deleteTodo(PROJECT_ID, 'a');
+    expect(todos).toEqual([{ id: 'b', text: 'B', completed: false, createdAt: expect.any(Number), planId }]);
   });
 
-  test('a linked plan is deleted only after its notes and todos are unlinked, and its file stays until then', async () => {
+  test('deleting a linked plan unlinks its notes and todos', async () => {
     const { note } = await linked.createNote(PROJECT_ID, { body: 'context', planId });
-    const file = (await readJson(contextPath())).plans.find((entry) => entry.id === planId).file;
-    await expectRefused(() => linked.deletePlan(PROJECT_ID, planId), 409);
-    expect(await fsPromises.readFile(path.join(plansDir(), file), 'utf8')).toBe('# Ship\n\nx');
-    await linked.updateNote(PROJECT_ID, note.id, { planId: null });
+    await linked.createTodo(PROJECT_ID, { id: 'a', text: 'A', planId });
+    await linked.createTodo(PROJECT_ID, { id: 'b', text: 'B', planId, dependsOn: ['a'] });
+    await linked.createTodo(PROJECT_ID, { id: 'other', text: 'Other', planId: otherPlanId });
     expect((await linked.deletePlan(PROJECT_ID, planId)).deleted).toBe(true);
+    const context = await linked.readContext(PROJECT_ID);
+    expect(context.notes.find((entry) => entry.id === note.id).planId).toBeUndefined();
+    expect(context.todos.map(({ id, planId: link, dependsOn }) => ({ id, link, dependsOn }))).toEqual([
+      { id: 'a', link: undefined, dependsOn: undefined },
+      { id: 'b', link: undefined, dependsOn: undefined },
+      { id: 'other', link: otherPlanId, dependsOn: undefined },
+    ]);
   });
 
   test('stored links to a vanished plan or todos stay in full through unrelated writes', async () => {
@@ -1188,7 +1192,7 @@ describe('plan links and todo dependencies', () => {
     expect(todos[0]).toEqual({ id: 'b', text: 'B', completed: false, createdAt: 1, planId: otherPlanId });
   });
 
-  test('a shared plan keeps its links when it becomes personal and refuses deletion while linked', async () => {
+  test('a shared plan keeps its links when it becomes personal and unlinks them when deleted', async () => {
     const sharedDir = path.join(projectsDirPath, 'repo', 'plans');
     const shared = createProjectContextRuntime({
       fsPromises, path, projectsDirPath, createId: () => `id-${++idCounter}`, resolveSharedPlansDir: async () => sharedDir,
@@ -1200,13 +1204,15 @@ describe('plan links and todo dependencies', () => {
     await shared.createTodo(PROJECT_ID, { id: 'a', text: 'A', planId: sharedId });
     await shared.createTodo(PROJECT_ID, { id: 'b', text: 'B', planId: sharedId, dependsOn: ['a'] });
 
-    await expect(shared.deletePlan(PROJECT_ID, sharedId)).rejects.toMatchObject({ status: 409 });
-    expect(await fsPromises.readFile(path.join(sharedDir, 'team.md'), 'utf8')).toBe('# Team\n');
-
     const { plan, context } = await shared.unsharePlan(PROJECT_ID, sharedId);
     expect(context.notes[0].planId).toBe(plan.id);
     expect(context.todos.map((todo) => todo.planId)).toEqual([plan.id, plan.id]);
     expect(context.todos[1].dependsOn).toEqual(['a']);
+
+    await fsPromises.writeFile(path.join(sharedDir, 'later.md'), '# Later\n');
+    await shared.createTodo(PROJECT_ID, { id: 'c', text: 'C', planId: 'shared:later.md' });
+    expect((await shared.deletePlan(PROJECT_ID, 'shared:later.md')).deleted).toBe(true);
+    expect((await shared.readContext(PROJECT_ID)).todos.find((todo) => todo.id === 'c').planId).toBeUndefined();
   });
 
   test('a plan session is cleared only by an explicit null', async () => {

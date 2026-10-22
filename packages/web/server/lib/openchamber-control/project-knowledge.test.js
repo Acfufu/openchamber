@@ -307,7 +307,7 @@ describe('project knowledge control actions', () => {
     await expect(service.execute('knowledge.save', { kind: 'plan', id: 'plan-1', body: '# P', expected: '' }, '/repo')).rejects.toMatchObject({ statusCode: 409 });
     runtime.updateNote.mockRejectedValue(Object.assign(new Error('Note changed'), { status: 409 }));
     await expect(service.execute('knowledge.save', { kind: 'note', id: 'note-1', body: 'New', expected: 'Note' }, '/repo')).rejects.toMatchObject({ statusCode: 409 });
-    runtime.deleteTodo.mockRejectedValue(Object.assign(new Error('Another todo depends on this todo'), { status: 409 }));
+    runtime.deleteTodo.mockRejectedValue(Object.assign(new Error('Dependencies cannot form a cycle'), { status: 409 }));
     await expect(service.execute('knowledge.delete', { kind: 'todo', id: 'todo-1' }, '/repo')).rejects.toMatchObject({ statusCode: 409 });
     runtime.readContext.mockRejectedValue(new Error('Stored project context is malformed'));
     await expect(service.execute('knowledge.list', {}, '/repo')).rejects.toMatchObject({ statusCode: 500, message: 'Stored project context is malformed' });

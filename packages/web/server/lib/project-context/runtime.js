@@ -269,21 +269,43 @@ const withLinks = (record, { planId, dependsOn }) => {
 };
 
 /**
- * Refuses a todo list that deletes a todo another one depended on before the
- * write, or that holds a new dependency on a missing todo, a dependency across
- * plans or outside any plan, or a cycle. A dependency already stored on a todo
- * that is gone stays while its todo keeps its plan: only new references must
- * exist.
+ * Drops the todos a write removes from the dependencies of the todos it keeps.
+ * Deleting a todo, alone or with Clear completed, never waits on the todos
+ * that depend on it, and a dependency removed this way no longer holds its
+ * todo back.
+ */
+const withoutRemovedDependencies = (previous, next) => {
+  const kept = new Set(next.map((todo) => todo.id));
+  const removed = new Set(previous.map((todo) => todo.id).filter((id) => !kept.has(id)));
+  if (removed.size === 0) return next;
+  return next.map((todo) => (todo.dependsOn?.some((id) => removed.has(id))
+    ? withLinks(todo, { dependsOn: todo.dependsOn.filter((id) => !removed.has(id)) })
+    : todo));
+};
+
+/**
+ * Leaves no note or todo linked to a plan that is being deleted. A todo loses
+ * its dependencies too: they could only name todos of that plan.
+ */
+const withPlanUnlinked = (context, planId) => {
+  const linked = (entry) => entry.planId === planId;
+  if (![...context.notes, ...context.todos].some(linked)) return context;
+  return {
+    ...context,
+    notes: context.notes.map((note) => (linked(note) ? withLinks(note, { planId: null }) : note)),
+    todos: context.todos.map((todo) => (linked(todo) ? withLinks(todo, { planId: null, dependsOn: [] }) : todo)),
+  };
+};
+
+/**
+ * Refuses a todo list that holds a new dependency on a missing todo, a
+ * dependency across plans or outside any plan, or a cycle. A dependency
+ * already stored on a todo that is gone stays while its todo keeps its plan:
+ * only new references must exist.
  */
 const assertTodoGraph = (previous, next) => {
   const nextById = new Map(next.map((todo) => [todo.id, todo]));
   const previousById = new Map(previous.map((todo) => [todo.id, todo]));
-  for (const todo of previous) {
-    if (nextById.has(todo.id)) continue;
-    if (previous.some((other) => other.id !== todo.id && other.dependsOn?.includes(todo.id))) {
-      throw mutationError('Another todo depends on this todo; remove that dependency first', 409);
-    }
-  }
   for (const todo of next) {
     for (const dependencyId of todo.dependsOn ?? []) {
       if (dependencyId === todo.id) throw mutationError('A todo cannot depend on itself', 400);
@@ -310,12 +332,6 @@ const assertTodoGraph = (previous, next) => {
     visited.set(id, 'done');
   };
   for (const todo of next) visit(todo.id);
-};
-
-const assertPlanUnlinked = (context, planId) => {
-  if ([...context.notes, ...context.todos].some((entry) => entry.planId === planId)) {
-    throw mutationError('Notes or todos link to this plan; unlink them first', 409);
-  }
 };
 
 export const createProjectContextRuntime = (deps) => {
@@ -684,7 +700,7 @@ export const createProjectContextRuntime = (deps) => {
           dependsOn: entry.dependsOn === undefined ? existing.dependsOn : entry.dependsOn,
         };
       });
-      const next = { ...current, todos: sanitizeTodos(merged, now) };
+      const next = { ...current, todos: withoutRemovedDependencies(current.todos, sanitizeTodos(merged, now)) };
       await assertTodosWrite(projectId, current, next.todos);
       await writeContext(projectId, next);
       return next;
@@ -756,8 +772,7 @@ export const createProjectContextRuntime = (deps) => {
     return withWriteLock(projectId, async () => {
       const current = await readStoredContext(projectId);
       if (!current.todos.some((todo) => todo.id === id)) throw mutationError('Todo not found', 404);
-      const next = { ...current, todos: current.todos.filter((todo) => todo.id !== id) };
-      assertTodoGraph(current.todos, next.todos);
+      const next = { ...current, todos: withoutRemovedDependencies(current.todos, current.todos.filter((todo) => todo.id !== id)) };
       await writeContext(projectId, next);
       return next;
     });
@@ -1081,10 +1096,10 @@ export const createProjectContextRuntime = (deps) => {
         const exists = filePath ? await fsPromises.access(filePath).then(() => true, () => false) : false;
         if (!exists) return { deleted: false, context: await readContext(projectId) };
         const current = await readStoredContext(projectId);
-        assertPlanUnlinked(current, id);
         await fsPromises.rm(filePath, { force: true });
-        if (current.planSessions[id]) {
-          await writeContext(projectId, { ...current, planSessions: withoutKey(current.planSessions, id) });
+        const next = withPlanUnlinked(current, id);
+        if (current.planSessions[id] || next !== current) {
+          await writeContext(projectId, { ...next, planSessions: withoutKey(current.planSessions, id) });
         } else {
           onChanged?.(sanitizeProjectId(projectId));
         }
@@ -1098,10 +1113,8 @@ export const createProjectContextRuntime = (deps) => {
       if (!link) {
         return { deleted: false, context: await readContext(projectId) };
       }
-      assertPlanUnlinked(current, id);
-
       const next = {
-        ...current,
+        ...withPlanUnlinked(current, id),
         plans: current.plans.filter((entry) => entry.id !== id),
         planSessions: withoutKey(current.planSessions, id),
       };

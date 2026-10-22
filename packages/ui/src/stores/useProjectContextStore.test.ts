@@ -336,11 +336,11 @@ describe('saveTodos', () => {
     const done = { id: 'done', text: 'done', completed: true, createdAt: 1, planId: 'p1' };
     const next = { id: 'next', text: 'next', completed: false, createdAt: 2, planId: 'p1', dependsOn: ['done'] };
     await store().saveTodos(PROJECT, [next, done]);
-    handlers.saveTodos = failWith('Another todo depends on this todo; remove that dependency first');
+    handlers.saveTodos = failWith('A dependency must link two todos of the same plan');
 
     expect(await store().saveTodos(PROJECT, [next])).toBe(false);
     expect(entry().todos).toEqual([next, done]);
-    expect(entry().error).toBe('Another todo depends on this todo; remove that dependency first');
+    expect(entry().error).toBe('A dependency must link two todos of the same plan');
   });
 
   test('serializes concurrent writes in call order', async () => {
@@ -422,11 +422,11 @@ describe('saveTodos', () => {
     const mine = { id: 'mine', text: 'mine', completed: false, createdAt: 1, planId: 'p1' };
     const later = { id: 'later', text: 'later', completed: false, createdAt: 2, planId: 'p1', dependsOn: ['mine'] };
     await store().saveTodos(PROJECT, [mine, later]);
-    handlers.writeTodo = failWith('Another todo depends on this todo; remove that dependency first');
+    handlers.writeTodo = failWith('A dependency must link two todos of the same plan');
 
     expect(await store().saveTodos(PROJECT, [later], { kind: 'delete', id: 'mine' })).toBe(false);
     expect(entry().todos).toEqual([mine, later]);
-    expect(entry().error).toBe('Another todo depends on this todo; remove that dependency first');
+    expect(entry().error).toBe('A dependency must link two todos of the same plan');
   });
 
   test('ignores a project without a resolvable path', async () => {

@@ -184,7 +184,7 @@ const KNOWLEDGE_PARAMETER_PROPERTIES = {
   body: { type: 'string', description: 'Note at most 3000 characters, todo 1000, plan (whole markdown) 200000' },
   completed: { type: 'boolean', description: 'Todo state; false reopens it' },
   planId: { type: ['string', 'null'], description: 'The plan a note or todo belongs to; null unlinks, omission keeps it. On list: only that plan and its notes and todos' },
-  dependsOn: { type: 'array', items: { type: 'string' }, description: 'Todo ids of the same plan to complete first; [] clears, omission keeps them. Remove a dependency before deleting its todo' },
+  dependsOn: { type: 'array', items: { type: 'string' }, description: 'Todo ids of the same plan to complete first; [] clears, omission keeps them. Deleting a todo drops it from the todos that depended on it' },
   ready: { type: 'boolean', description: 'On list: only unfinished todos whose dependencies are all completed' },
   sessionId: { type: ['string', 'null'], description: 'Existing plan, saved without body: the session linked to it; null clears. Links only, starts nothing' },
   expected: { type: 'string', description: "The text as you last read it; the save fails if it changed since. Then refresh (knowledge.list for a note's body, your file tools for a plan) and retry with the same id and the fresh text" },

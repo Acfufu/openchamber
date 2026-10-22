@@ -116,18 +116,23 @@ Every todo write validates the full candidate list under the project lock:
   vanished outside the API stays as it is; nothing repairs it. A todo that
   keeps a dependency on a vanished todo also keeps its plan until that
   dependency is removed.
-- A todo that another todo depends on before the write cannot be deleted
-  (`409`), by the item route or the whole-list write, even when the same
-  request removes the dependent todo or its edge. The caller removes the
-  dependency first. The check reads the graph stored before the write, so a
-  stale whole list from a client that never saw the dependency cannot delete
-  its target.
+- Deleting a todo, by the item route or the whole-list write, drops its id
+  from the todos that depended on it in the same write. Only ids the write
+  removes are dropped; a stored reference to a todo that vanished outside the
+  API stays.
 
-A plan that a note or todo links to cannot be deleted (`409`); the check runs
-before the manifest or the markdown changes. When `unsharePlan` gives a
-`shared:` plan a manifest id, linked notes and todos move to that id in the
-same write as its session entry. Refused writes change no file and announce
-nothing.
+Deleting a plan unlinks its notes and todos in the same write, and its todos
+lose their dependencies, which could only name todos of that plan. When
+`unsharePlan` gives a `shared:` plan a manifest id, linked notes and todos
+move to that id in the same write as its session entry. Refused writes change
+no file and announce nothing.
+
+### Why deleting unlinks and not refuses
+
+The panel has no control for links: a refusal left a user who deleted a plan
+or a todo with a generic error and no way to clear what blocked it, and Clear
+completed failed for every finished plan whose steps depended on each other.
+A deleted dependency counts as met, the same as a completed one.
 
 ## Shared plans
 

@@ -252,10 +252,11 @@ describe('managed agent tool runtime', () => {
       expect(await fs.readFile(createdPlan.path, 'utf8')).toBe(raw);
       expect((await call('save', { kind: 'plan', id: planId, sessionId: null })).data.plan).not.toHaveProperty('session');
 
-      expect(await call('delete', { kind: 'todo', id: one.id })).toMatchObject({ ok: false, error: { message: expect.stringContaining('remove that dependency first') } });
-      expect((await call('save', { kind: 'todo', id: two.id, dependsOn: [] })).data.todo).not.toHaveProperty('dependsOn');
       expect((await call('save', { kind: 'note', id: noteId, planId: null })).data.note).not.toHaveProperty('planId');
-      for (const id of [one.id, two.id]) expect((await call('delete', { kind: 'todo', id })).ok).toBe(true);
+      // Deleting the first step drops it from the second's dependencies.
+      expect((await call('delete', { kind: 'todo', id: one.id })).ok).toBe(true);
+      expect((await call('list', { planId })).data.todos).toEqual([expect.not.objectContaining({ dependsOn: expect.anything() })]);
+      expect((await call('delete', { kind: 'todo', id: two.id })).ok).toBe(true);
 
       await fs.mkdir(path.join(dataDir, 'shared-plans'));
       await fs.writeFile(path.join(dataDir, 'shared-plans', 'team.md'), '# Team\n');
