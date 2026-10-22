@@ -1711,8 +1711,6 @@ export const settingsDict = {
   "settings.providers.page.auth.oauth.error.codeRequired": "Este provedor precisa do código de autorização do seu navegador.",
   "settings.providers.page.auth.oauth.error.declined": "A autorização foi recusada ou não foi concluída.",
   "settings.providers.page.auth.oauth.error.invalidInput": "Os dados informados foram recusados.",
-  "settings.providers.page.auth.incomplete": "Credenciais ausentes",
-  "settings.providers.page.auth.incompleteHint": "· Adicione uma chave de API ou {env:VAR} antes de usar este provedor no chat",
 
 
   "settings.providers.page.connectionDetails.source.userConfig": "configurações do usuário",

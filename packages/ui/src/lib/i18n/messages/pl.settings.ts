@@ -1655,8 +1655,6 @@ export const settingsDict = {
   'settings.providers.page.auth.apiKeyLabel': 'API Key',
   'settings.providers.page.auth.apiKeyPlaceholder': 'sk-...',
   'settings.providers.page.auth.apiKeyTooltip': 'Klucze są wysyłane bezpośrednio do OpenCode i nigdy nie są przechowywane przez OpenChamber.',
-  'settings.providers.page.auth.incomplete': 'Brak poświadczeń',
-  'settings.providers.page.auth.incompleteHint': '· Dodaj klucz API lub {env:VAR} przed użyciem tego dostawcy w czacie',
 
 
   'settings.providers.page.auth.loadingMethods': 'Ładowanie metod uwierzytelniania...',

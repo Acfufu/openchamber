@@ -1733,8 +1733,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': '이 제공자에는 브라우저의 인증 코드가 필요합니다.',
   'settings.providers.page.auth.oauth.error.declined': '인증이 거부되었거나 완료되지 않았습니다.',
   'settings.providers.page.auth.oauth.error.invalidInput': '입력한 정보가 거부되었습니다.',
-  'settings.providers.page.auth.incomplete': '자격 증명 없음',
-  'settings.providers.page.auth.incompleteHint': '· 채팅에서 이 공급자를 사용하기 전에 API 키 또는 {env:VAR}을(를) 추가하세요',
 
 
   'settings.providers.page.connectionDetails.source.userConfig': '사용자 설정',

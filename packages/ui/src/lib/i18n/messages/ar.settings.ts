@@ -1757,8 +1757,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'يحتاج هذا الموفر إلى رمز التفويض من المتصفح.',
   'settings.providers.page.auth.oauth.error.declined': 'رُفض التفويض أو لم يكتمل.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'رُفضت البيانات التي أدخلتها.',
-  'settings.providers.page.auth.incomplete': 'بيانات الاعتماد مفقودة',
-  'settings.providers.page.auth.incompleteHint': '· أضف مفتاح API أو {env:VAR} قبل استخدام هذا الموفر في المحادثة',
   'settings.providers.page.connectionDetails.source.userConfig': 'إعدادات المستخدم',
   'settings.providers.page.connectionDetails.source.projectConfig': 'إعدادات المشروع',
   'settings.providers.page.connectionDetails.source.customConfig': 'إعدادات مخصصة',

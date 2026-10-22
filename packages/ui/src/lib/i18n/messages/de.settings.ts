@@ -1701,8 +1701,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'Dieser Anbieter benötigt den Autorisierungscode aus Ihrem Browser.',
   'settings.providers.page.auth.oauth.error.declined': 'Die Autorisierung wurde abgelehnt oder nicht abgeschlossen.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'Die eingegebenen Angaben wurden abgelehnt.',
-  'settings.providers.page.auth.incomplete': 'Anmeldedaten fehlen',
-  'settings.providers.page.auth.incompleteHint': '· Fügen Sie einen API-Schlüssel oder {env:VAR} hinzu, bevor Sie diesen Anbieter im Chat verwenden',
   'settings.providers.page.connectionDetails.source.userConfig': 'Benutzerkonfiguration',
   'settings.providers.page.connectionDetails.source.projectConfig': 'Projektkonfiguration',
   'settings.providers.page.connectionDetails.source.customConfig': 'Benutzerkonfiguration',

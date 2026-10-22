@@ -1658,8 +1658,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'Bu provider için tarayıcınızdaki yetkilendirme kodu gerekir.',
   'settings.providers.page.auth.oauth.error.declined': 'Yetkilendirme reddedildi veya tamamlanmadı.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'Girdiğiniz bilgiler reddedildi.',
-  'settings.providers.page.auth.incomplete': 'Kimlik bilgileri eksik',
-  'settings.providers.page.auth.incompleteHint': '· Sohbette bu provider\'ı kullanmadan önce bir API anahtarı veya {env:VAR} ekleyin',
   'settings.providers.page.connectionDetails.source.userConfig': 'kullanıcı yapılandırması',
   'settings.providers.page.connectionDetails.source.projectConfig': 'proje yapılandırması',
   'settings.providers.page.connectionDetails.source.customConfig': 'özel yapılandırma',

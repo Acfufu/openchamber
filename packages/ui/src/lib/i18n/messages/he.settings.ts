@@ -1757,8 +1757,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'ספק זה צריך את קוד ההרשאה מהדפדפן.',
   'settings.providers.page.auth.oauth.error.declined': 'ההרשאה נדחתה או לא הושלמה.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'הפרטים שהוזנו נדחו.',
-  'settings.providers.page.auth.incomplete': 'חסרים פרטי התחברות',
-  'settings.providers.page.auth.incompleteHint': '· יש להוסיף מפתח API או {env:VAR} לפני השימוש בספק זה בצ\'אט',
   'settings.providers.page.connectionDetails.source.userConfig': 'תצורת משתמש',
   'settings.providers.page.connectionDetails.source.projectConfig': 'תצורת פרויקט',
   'settings.providers.page.connectionDetails.source.customConfig': 'תצורה מותאמת אישית',

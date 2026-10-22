@@ -1766,8 +1766,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'このプロバイダーにはブラウザーの認証コードが必要です。',
   'settings.providers.page.auth.oauth.error.declined': '認証が拒否されたか、完了しませんでした。',
   'settings.providers.page.auth.oauth.error.invalidInput': '入力された内容は拒否されました。',
-  'settings.providers.page.auth.incomplete': '認証情報が不足しています',
-  'settings.providers.page.auth.incompleteHint': '· チャットでこのプロバイダーを使う前に API キーまたは {env:VAR} を追加してください',
 
 
   'settings.providers.page.connectionDetails.source.userConfig': 'ユーザー設定',

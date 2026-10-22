@@ -1711,8 +1711,6 @@ export const settingsDict = {
   "settings.providers.page.auth.oauth.error.codeRequired": "Цьому провайдеру потрібен код авторизації з браузера.",
   "settings.providers.page.auth.oauth.error.declined": "Авторизацію відхилено або не завершено.",
   "settings.providers.page.auth.oauth.error.invalidInput": "Введені дані відхилено.",
-  "settings.providers.page.auth.incomplete": "Облікові дані відсутні",
-  "settings.providers.page.auth.incompleteHint": "· Додайте API-ключ або {env:VAR} перед використанням цього провайдера в чаті",
 
 
   "settings.providers.page.connectionDetails.source.userConfig": "конфігурація користувача",

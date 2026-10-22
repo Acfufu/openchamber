@@ -1760,8 +1760,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'Deze provider heeft de autorisatiecode uit uw browser nodig.',
   'settings.providers.page.auth.oauth.error.declined': 'De autorisatie is geweigerd of niet voltooid.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'De ingevoerde gegevens zijn geweigerd.',
-  'settings.providers.page.auth.incomplete': 'Toegangsgegevens ontbreken',
-  'settings.providers.page.auth.incompleteHint': '· Voeg een API-sleutel of {env:VAR} toe voordat u deze provider in de chat gebruikt',
   'settings.providers.page.connectionDetails.source.userConfig': 'gebruikersconfiguratie',
   'settings.providers.page.connectionDetails.source.projectConfig': 'projectconfiguratie',
   'settings.providers.page.connectionDetails.source.customConfig': 'aangepaste configuratie',

@@ -1733,8 +1733,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': '此提供方需要浏览器中的授权码。',
   'settings.providers.page.auth.oauth.error.declined': '授权被拒绝或未完成。',
   'settings.providers.page.auth.oauth.error.invalidInput': '输入的信息被拒绝。',
-  'settings.providers.page.auth.incomplete': '缺少凭据',
-  'settings.providers.page.auth.incompleteHint': '· 在聊天中使用此提供商之前，请添加 API 密钥或 {env:VAR}',
 
 
   'settings.providers.page.connectionDetails.source.userConfig': '用户配置',

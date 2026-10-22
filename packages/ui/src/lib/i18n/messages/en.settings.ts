@@ -1759,8 +1759,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'This provider needs the authorization code from your browser.',
   'settings.providers.page.auth.oauth.error.declined': 'Authorization was declined or did not complete.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'The details you entered were rejected.',
-  'settings.providers.page.auth.incomplete': 'Credentials missing',
-  'settings.providers.page.auth.incompleteHint': '· Add an API key or {env:VAR} before using this provider in chat',
   'settings.providers.page.connectionDetails.source.userConfig': 'user config',
   'settings.providers.page.connectionDetails.source.projectConfig': 'project config',
   'settings.providers.page.connectionDetails.source.customConfig': 'custom config',

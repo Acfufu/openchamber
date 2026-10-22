@@ -1620,8 +1620,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': '此提供者需要瀏覽器中的授權碼。',
   'settings.providers.page.auth.oauth.error.declined': '授權遭拒或未完成。',
   'settings.providers.page.auth.oauth.error.invalidInput': '輸入的資訊遭拒。',
-  'settings.providers.page.auth.incomplete': '缺少憑證',
-  'settings.providers.page.auth.incompleteHint': '· 在聊天中使用此提供者之前，請新增 API 金鑰或 {env:VAR}',
 
 
   'settings.providers.page.connectionDetails.source.userConfig': '使用者設定',

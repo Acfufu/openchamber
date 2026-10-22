@@ -1639,8 +1639,6 @@ export const settingsDict = {
   'settings.providers.page.auth.oauth.error.codeRequired': 'Ce fournisseur a besoin du code d’autorisation de votre navigateur.',
   'settings.providers.page.auth.oauth.error.declined': 'L’autorisation a été refusée ou n’a pas abouti.',
   'settings.providers.page.auth.oauth.error.invalidInput': 'Les informations saisies ont été refusées.',
-  'settings.providers.page.auth.incomplete': 'Identifiants manquants',
-  'settings.providers.page.auth.incompleteHint': '· Ajoutez une clé API ou {env:VAR} avant d’utiliser ce fournisseur dans le chat',
 
 
   'settings.providers.page.connectionDetails.source.userConfig': 'configuration utilisateur',
