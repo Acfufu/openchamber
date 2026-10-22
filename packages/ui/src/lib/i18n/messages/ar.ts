@@ -2401,6 +2401,7 @@ export const dict = {
   'chat.queuedMessage.send': 'إرسال',
   'chat.queuedMessage.removeAria': 'إزالة من قائمة الانتظار',
   'chat.queuedMessage.goal': 'يبدأ هدفًا عند إرساله',
+  'chat.queuedMessage.sendsAsAgent': 'يُرسَل بواسطة {agent}.',
   'chat.queuedMessage.reorderAria': 'اسحب لإعادة الترتيب',
   'chat.queuedMessage.toast.queueFailed': 'تعذّر إضافة الرسالة إلى قائمة الانتظار. أُعيدت إلى حقل الكتابة.',
   'chat.queuedMessage.toast.takeFailed': 'تعذّر تحميل الرسالة من قائمة الانتظار. حاول مرة أخرى.',

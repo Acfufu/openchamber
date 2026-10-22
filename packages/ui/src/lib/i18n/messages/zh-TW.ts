@@ -2434,6 +2434,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.queuedMessage.send': 'send',
   'chat.queuedMessage.removeAria': '從佇列移除',
   'chat.queuedMessage.goal': '傳送時啟動目標',
+  'chat.queuedMessage.sendsAsAgent': '將以 {agent} 傳送。',
   'chat.queuedMessage.reorderAria': '拖曳以重新排序',
   'chat.queuedMessage.toast.queueFailed': '無法將訊息加入佇列，已放回輸入框。',
   'chat.queuedMessage.toast.takeFailed': '無法載入佇列中的訊息，請再試一次。',

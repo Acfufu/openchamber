@@ -113,7 +113,11 @@ state is one persisted preference in `useUIStore` (`messageQueueExpanded`,
 collapsed by default), shared by every session and surviving session switches
 and reloads. It receives the composer's main-session queue target instead of
 resolving the global selection, so a chat pinned in the side panel addresses
-its own queue. It stays visible under the form and permission docks.
+its own queue. It stays visible under the form and permission docks. A row
+whose captured agent differs from the agent the composer would send as now
+shows that agent before edit, because the item still sends as captured; the
+strip compares against the composer's `currentAgentName`, the same value
+queueing captures.
 
 `selectComposerQueue` in the submission builder excludes server-scheduled items
 before the composer counts manual content or reads captured send configuration.

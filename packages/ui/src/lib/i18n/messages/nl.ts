@@ -2459,6 +2459,7 @@ export const dict = {
   'chat.queuedMessage.send': 'verzenden',
   'chat.queuedMessage.removeAria': 'Uit de wachtrij verwijderen',
   'chat.queuedMessage.goal': 'Start een goal bij verzenden',
+  'chat.queuedMessage.sendsAsAgent': 'Wordt verzonden als {agent}.',
   'chat.queuedMessage.reorderAria': 'Sleep om te herschikken',
   'chat.queuedMessage.toast.queueFailed': 'Kan het bericht niet in de wachtrij plaatsen. Het staat weer in het invoerveld.',
   'chat.queuedMessage.toast.takeFailed': 'Kan het bericht uit de wachtrij niet laden. Probeer het opnieuw.',

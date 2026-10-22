@@ -2195,6 +2195,7 @@ export const dict = {
   'chat.queuedMessage.send': 'senden',
   'chat.queuedMessage.removeAria': 'Aus der Warteschlange entfernen',
   'chat.queuedMessage.goal': 'Startet beim Senden ein Ziel',
+  'chat.queuedMessage.sendsAsAgent': 'Wird als {agent} gesendet.',
   'chat.queuedMessage.reorderAria': 'Ziehen, um neu anzuordnen',
   'chat.queuedMessage.toast.queueFailed': 'Die Nachricht konnte nicht in die Warteschlange gestellt werden. Sie ist wieder im Eingabefeld.',
   'chat.queuedMessage.toast.takeFailed': 'Die Nachricht aus der Warteschlange konnte nicht geladen werden. Bitte erneut versuchen.',
