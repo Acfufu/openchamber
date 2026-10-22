@@ -8,7 +8,7 @@
     "dev": "tsc -b --watch",
     "build": "tsc -b",
     "build:ghostty-wasm": "bash scripts/build-libghostty-wasm.sh",
-    "type-check": "tsc -b",
+    "type-check": "bun check -b",
     "lint": "oxlint -c ../../oxlint.config.ts --report-unused-disable-directives src",
     "test": "node ../../scripts/run-isolated-tests.mjs src"
   },

@@ -171,8 +171,8 @@ tag and the newest tag is classified.
 ## Bumping the pinned OpenCode
 
 Move every pin to the same tag and check out that tag in the reference
-checkout (`git checkout vX.Y.Z` in `~/projects/opencode`), `bun install`, then `tsc` in `packages/ui`,
-`packages/web`, `packages/vscode`; the isolated ui suites; web vitest; vscode
+checkout (`git checkout vX.Y.Z` in `~/projects/opencode`), `bun install`, then `bun run type-check`
+(it covers `packages/ui`, `packages/web` and `packages/vscode`); the isolated ui suites; web vitest; vscode
 tests. A new message `type` or event needs a case in `model.ts` and
 `events.ts` before it renders. Verify `@opencode/cli@<tag>` exists on npm:
 the desktop packaging and the Docker image install it.
