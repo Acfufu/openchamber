@@ -1051,6 +1051,28 @@ describe('client auth routes', () => {
     expect(dependencies.uiAuthController.handlePasskeyStatus).toHaveBeenCalledTimes(1);
   });
 
+  it('does not trust a local Host header that a tunnel forwarded for a remote client', () => {
+    const tunnelAuthController = createTunnelAuth();
+    tunnelAuthController.setActiveTunnel({ tunnelId: 'tunnel-1', publicUrl: 'https://box.tail1234.ts.net' });
+    // Tailscale routes by SNI, keeps the client's Host and connects from loopback.
+    const throughTailscale = (host, forwardedFor) => tunnelAuthController.classifyRequestScope({
+      headers: { host, 'x-forwarded-for': forwardedFor },
+      socket: { remoteAddress: '127.0.0.1' },
+    });
+
+    expect(throughTailscale('localhost', '203.0.113.10')).toBe('unknown-public');
+    expect(throughTailscale('192.168.1.5', 'fd7a:115c:a1e0::1234')).toBe('unknown-public');
+    expect(throughTailscale('box.tail1234.ts.net', '203.0.113.10')).toBe('tunnel');
+    expect(throughTailscale('localhost', '127.0.0.1')).toBe('local');
+  });
+
+  it('keeps a forwarded local request local while no tunnel is active', () => {
+    expect(createTunnelAuth().classifyRequestScope({
+      headers: { host: 'localhost', 'x-forwarded-for': '203.0.113.10' },
+      socket: { remoteAddress: '127.0.0.1' },
+    })).toBe('local');
+  });
+
   it('does not trust a private Host header from a public socket peer', () => {
     const tunnelAuthController = createTunnelAuth();
     tunnelAuthController.setActiveTunnel({ tunnelId: 'tunnel-1', publicUrl: 'https://tunnel.example.com' });
