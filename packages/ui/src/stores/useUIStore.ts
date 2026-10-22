@@ -1745,9 +1745,11 @@ export const useUIStore = create<UIStore>()(
             return;
           }
 
-          // The file surface's entry point is its file tree: reopening it
-          // always lands on the tree even when it was last left toggled off.
-          if (mode === 'file' && !state.contextEditorTreeVisible) {
+          // A hidden tree stays hidden while a file is open, so the editor
+          // shows alone. With no file open the tree is all the surface has,
+          // and it comes back.
+          if (mode === 'file' && !state.contextEditorTreeVisible
+            && !tabs.some((tab) => tab.mode === 'file' && tab.targetPath)) {
             set({ contextEditorTreeVisible: true });
           }
 
