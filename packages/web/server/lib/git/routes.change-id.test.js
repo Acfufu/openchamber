@@ -10,7 +10,6 @@ import { registerGitRoutes } from './routes.js';
 let directory;
 const git = (...args) => execFileSync('git', args, {
   cwd: directory, encoding: 'utf8',
-  env: { ...process.env, GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@example.com' },
 }).trim();
 afterEach(() => fs.rmSync(directory, { recursive: true, force: true }));
 
@@ -18,6 +17,10 @@ describe('POST /api/git/change-id', () => {
   it('adds a Change-Id to HEAD and answers the new commit, refusing a stale head', async () => {
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'change-id-route-'));
     git('init', '-q', '-b', 'main');
+    // The route runs its own git, so the identity lives in the repo: CI
+    // runners have no global one.
+    git('config', 'user.name', 'T');
+    git('config', 'user.email', 't@example.com');
     git('commit', '--allow-empty', '-q', '-m', 'Base');
     const head = git('rev-parse', 'HEAD');
     const app = express();

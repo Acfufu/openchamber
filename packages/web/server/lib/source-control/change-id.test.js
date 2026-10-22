@@ -13,7 +13,6 @@ let directory;
 const git = (...args) => execFileSync('git', args, {
   cwd: directory,
   encoding: 'utf8',
-  env: { ...process.env, GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@example.com' },
 }).trim();
 const commit = (message) => {
   git('commit', '--allow-empty', '--cleanup=verbatim', '-q', '-m', message);
@@ -23,6 +22,10 @@ const commit = (message) => {
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), 'change-id-'));
   git('init', '-q', '-b', 'main');
+  // The code under test runs its own git, so the identity lives in the repo,
+  // not in this helper's env: CI runners have no global one.
+  git('config', 'user.name', 'T');
+  git('config', 'user.email', 't@example.com');
   commit('Base');
   git('switch', '-q', '-c', 'feature');
 });
