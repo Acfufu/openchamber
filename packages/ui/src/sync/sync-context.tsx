@@ -77,7 +77,7 @@ import { useMessageQueueStore } from "@/stores/messageQueueStore"
 import { subscribeMessageQueueSync } from "./message-queue-sync"
 import { subscribeSessionWarmingSync } from "./session-warming-sync"
 import { subscribeSessionFoldersSync } from "./session-folders-sync"
-import { subscribeSpacePermissionModes } from "./permission-mode-sync"
+import { subscribePermissionPolicySync, subscribeSpacePermissionModes } from "./permission-mode-sync"
 import { spaceFoldersOfProject, subscribeSpaceCatalogs } from "./space-catalog-sync"
 import {
   processVSCodePermissionAutoAccept,
@@ -3078,6 +3078,10 @@ export function SyncProvider(props: {
     const unsubscribeSessionWarming = subscribeSessionWarmingSync(runtimeKey)
     const unsubscribeFolderEvents = subscribeSessionFoldersSync(runtimeKey)
     const unsubscribeSpaceModes = subscribeSpacePermissionModes(runtimeKey)
+    const unsubscribePermissionPolicy = subscribePermissionPolicySync(
+      runtimeKey,
+      (event) => handleEvent("global", event, childStores, routingIndex, runtimeKey),
+    )
     const unsubscribeSpaceCatalogs = subscribeSpaceCatalogs(runtimeKey)
     const resyncAfterStreamGap = (reason: SessionMaterializationReason) => {
       // Cached transcripts may have missed events too; each revalidates its
@@ -3216,6 +3220,7 @@ export function SyncProvider(props: {
       unsubscribeSessionWarming()
       unsubscribeFolderEvents()
       unsubscribeSpaceModes()
+      unsubscribePermissionPolicy()
       unsubscribeSpaceCatalogs()
     }
   }, [props.sdk, childStores, messageLoader, routingIndex, messageStreamTransport, runtimeKey, triggerDirectoryResync])
