@@ -28,6 +28,7 @@ import {
   toPublicGuest,
 } from './catalog.js';
 import { runGuestFileOperation } from './files.js';
+import { createGuestFrameGrants } from './frame-grants.js';
 import { injectGuestAssetTokens, parseGuestUrlToken } from './html-tokens.js';
 import { injectGuestDocumentStyles } from './html-styles.js';
 import { installGuest, installGuestFromZipBuffer, parseInstallRequest, uninstallGuest } from './install.js';
@@ -217,6 +218,7 @@ export const registerGuestRoutes = (app, {
 }) => {
   const persistPath = extensionsPersistPath(openchamberDataDir);
   const authPath = guestAuthPersistPath(openchamberDataDir);
+  const frameGrants = createGuestFrameGrants();
   const versionOptions = { openchamberVersion };
   const installOptions = () => ({ openchamberVersion, gitBinary: resolveGitBinaryForSpawn() });
 
@@ -826,66 +828,114 @@ export const registerGuestRoutes = (app, {
     }
   });
 
-  app.get('/api/guests/:id/{*filePath}', async (req, res) => {
+  // One extension file, as a frame loads it. `token` is the legacy query
+  // credential copied onto the page's relative URLs; `connectSource` is the
+  // one path the page may fetch from.
+  const sendGuestFile = async (res, guest, rawPath, { token = '', connectSource }) => {
+    let relativePath;
     try {
-      const id = req.params.id;
-      if (!isGuestPanelId(id)) {
-        return res.status(404).end();
+      relativePath = decodeURIComponent(Array.isArray(rawPath) ? rawPath.join('/') : (rawPath || ''));
+    } catch {
+      return res.status(404).end();
+    }
+    const served = await resolveGuestServedFile(guest.packageRoot, relativePath, {
+      hasRuntime: hasGuestFrame(guest),
+    });
+    if (!served) {
+      return res.status(404).end();
+    }
+    const { filePath, contentType } = served;
+    let raw;
+    try {
+      raw = await fs.readFile(filePath);
+    } catch {
+      return res.status(404).end();
+    }
+    const body = contentType.startsWith('text/html')
+      ? injectGuestDocumentStyles(injectGuestAssetTokens(raw.toString('utf8'), token))
+      : raw;
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    // Guest files are third-party code served from the OpenChamber origin.
+    // The rail embeds them in a sandboxed iframe; `sandbox` makes the
+    // document sandboxed even when opened directly, so a guest page can
+    // never run with the user's session on the app origin. The rest keeps
+    // it off the network (`guestFramePolicy`).
+    // Origins the user approved for this exact list (`effectiveGrants`) open too.
+    const origins = guest.capabilityGrants?.includes('origins') && Array.isArray(guest.origins) ? guest.origins : [];
+    res.setHeader('Content-Security-Policy', `sandbox allow-scripts; ${guestFramePolicy(connectSource, origins)}`);
+    // The sandboxed frame's origin is `null`, and fonts (always) and fetch
+    // are CORS requests: without this its own package fonts and files are
+    // refused. `null`, not `*`: only opaque-origin documents may read them.
+    // The app UI's own origin, already allowed by the server's CORS layer,
+    // keeps its answer: the rail draws a package icon as a CSS mask, which is
+    // a CORS fetch from openchamber-ui:// or the dev origin.
+    if (!res.getHeader('Access-Control-Allow-Origin')) {
+      res.setHeader('Access-Control-Allow-Origin', 'null');
+    }
+    return res.send(body);
+  };
+
+  // A sandboxed document has no origin of its own to say `'self'` with, so
+  // its connections are named by the host the browser used.
+  const connectSourceFor = (req, packagePath) => {
+    const hostHeader = guestHostSchema.safeParse(req.headers.host);
+    return hostHeader.success ? `${hostHeader.data}${packagePath}` : null;
+  };
+
+  // A frame's own credential for `/api/guest-files/` (`frame-grants.js`).
+  // Minted under normal API auth, by the page that mounts the frame.
+  app.post('/api/guests/:id/frame-grant', async (req, res) => {
+    try {
+      const guest = await loadGuest(req.params.id);
+      if (!guest || !hasGuestFrame(guest)) {
+        return res.status(404).json({ error: 'not-found' });
       }
-      const guest = await findInstalledGuest(id, persistPath);
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(frameGrants.mint(guest.id));
+    } catch (error) {
+      console.error('Failed to grant extension frame:', error);
+      res.status(500).json({ error: 'Failed to grant extension frame' });
+    }
+  });
+
+  // The path extension frames load from. The grant in the path is its only
+  // credential (`core-routes.js` lets these reads past API auth), and it
+  // opens nothing but that extension's own package files, so a sign-in
+  // proxy can leave this prefix alone without exposing any API.
+  app.get('/api/guest-files/:grant/{*filePath}', async (req, res) => {
+    try {
+      const guestId = frameGrants.use(req.params.grant);
+      if (!guestId) {
+        return res.status(403).end();
+      }
+      const guest = await loadGuest(guestId);
       if (!guest) {
         return res.status(404).end();
       }
-      const rawPath = req.params.filePath;
-      let relativePath;
-      try {
-        relativePath = decodeURIComponent(Array.isArray(rawPath) ? rawPath.join('/') : (rawPath || ''));
-      } catch {
-        return res.status(404).end();
-      }
-      const served = await resolveGuestServedFile(guest.packageRoot, relativePath, {
-        hasRuntime: hasGuestFrame(guest),
+      return await sendGuestFile(res, guest, req.params.filePath, {
+        connectSource: connectSourceFor(req, `/api/guest-files/${req.params.grant}/`),
       });
-      if (!served) {
+    } catch (error) {
+      console.error('Failed to serve guest asset:', error);
+      res.status(500).end();
+    }
+  });
+
+  // The query-token path frames used before grants. A newer server keeps it
+  // for older clients connecting as a remote host; relay frames read through
+  // it with the runtime's own credential.
+  app.get('/api/guests/:id/{*filePath}', async (req, res) => {
+    try {
+      const guest = await loadGuest(req.params.id);
+      if (!guest) {
         return res.status(404).end();
       }
-      const { filePath, contentType } = served;
-      let raw;
-      try {
-        raw = await fs.readFile(filePath);
-      } catch {
-        return res.status(404).end();
-      }
-      const token = parseGuestUrlToken(req.query.oc_url_token);
-      const body = contentType.startsWith('text/html')
-        ? injectGuestDocumentStyles(injectGuestAssetTokens(raw.toString('utf8'), token))
-        : raw;
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Cache-Control', 'no-store');
-      // Guest files are third-party code served from the OpenChamber origin.
-      // The rail embeds them in a sandboxed iframe; `sandbox` makes the
-      // document sandboxed even when opened directly, so a guest page can
-      // never run with the user's session on the app origin. The rest keeps
-      // it off the network (`guestFramePolicy`): its connections may reach
-      // only its own package path, named by the host the browser used, since
-      // a sandboxed document has no origin of its own to say `'self'` with.
-      const hostHeader = guestHostSchema.safeParse(req.headers.host);
-      const host = hostHeader.success ? hostHeader.data : null;
-      const connectSource = host ? `${host}/api/guests/${id}/` : null;
-      // Origins the user approved for this exact list (`effectiveGrants`) open too.
-      const origins = guest.capabilityGrants?.includes('origins') && Array.isArray(guest.origins) ? guest.origins : [];
-      res.setHeader('Content-Security-Policy', `sandbox allow-scripts; ${guestFramePolicy(connectSource, origins)}`);
-      // The sandboxed frame's origin is `null`, and fonts (always) and fetch
-      // are CORS requests: without this its own package fonts and files are
-      // refused. `null`, not `*`: only opaque-origin documents may read them.
-      // The app UI's own origin, already allowed by the server's CORS layer,
-      // keeps its answer: the rail draws a package icon as a CSS mask, which is
-      // a CORS fetch from openchamber-ui:// or the dev origin.
-      if (!res.getHeader('Access-Control-Allow-Origin')) {
-        res.setHeader('Access-Control-Allow-Origin', 'null');
-      }
-      res.send(body);
+      return await sendGuestFile(res, guest, req.params.filePath, {
+        token: parseGuestUrlToken(req.query.oc_url_token),
+        connectSource: connectSourceFor(req, `/api/guests/${guest.id}/`),
+      });
     } catch (error) {
       console.error('Failed to serve guest asset:', error);
       res.status(500).json({ error: 'Failed to serve guest asset' });

@@ -344,7 +344,7 @@ describe('core-routes', () => {
     }
   });
 
-  it('lets only GET html-preview file reads past API auth; the grant in the path is checked by the fs route', async () => {
+  it('lets only GET html-preview and extension-frame file reads past API auth; the grant in the path is checked by the owning route', async () => {
     const app = express();
     const requireAuth = vi.fn((_req, res) => res.status(401).json({ error: 'Unauthorized' }));
     registerAuthAndAccessRoutes(app, {
@@ -375,12 +375,20 @@ describe('core-routes', () => {
     app.get(/^\/api\/fs\/preview\/.+$/, (_req, res) => res.json({ reached: true }));
     app.post('/api/fs/preview', (_req, res) => res.json({ reached: true }));
     app.get('/api/fs/read', (_req, res) => res.json({ reached: true }));
+    app.get(/^\/api\/guest-files\/.+$/, (_req, res) => res.json({ reached: true }));
+    app.post(/^\/api\/guest-files\/.+$/, (_req, res) => res.json({ reached: true }));
+    app.post('/api/guests/panel/frame-grant', (_req, res) => res.json({ reached: true }));
 
     await request(app).get('/api/fs/preview/grant-1/repo/index.html').expect(200, { reached: true });
     await request(app).post('/api/fs/preview').send({ path: '/repo/index.html' }).expect(401);
     await request(app).get('/api/fs/preview/grant-1').expect(401);
     await request(app).get('/api/fs/read?path=/repo/index.html').expect(401);
-    expect(requireAuth).toHaveBeenCalledTimes(3);
+    // An extension frame reads its package by the grant in its path, and nothing more.
+    await request(app).get('/api/guest-files/grant-1/index.html').expect(200, { reached: true });
+    await request(app).get('/api/guest-files/grant-1').expect(401);
+    await request(app).post('/api/guest-files/grant-1/index.html').expect(401);
+    await request(app).post('/api/guests/panel/frame-grant').expect(401);
+    expect(requireAuth).toHaveBeenCalledTimes(6);
   });
 
   it('should probe loopback preview URLs and return ok: true for status codes 200-599', async () => {
