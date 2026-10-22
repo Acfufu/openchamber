@@ -21,8 +21,22 @@ type RowSize = { width: number; height: number };
 type RowContext = { report: (id: string, size: RowSize | null) => void; ready: boolean };
 const ImageRowContext = React.createContext<RowContext | null>(null);
 
-function useNearMedia(enabled: boolean) {
-  const ref = React.useRef<HTMLSpanElement>(null);
+// A document preview scrolls inside its own panel, and that panel clips a
+// margin set on the viewport, so its media are measured against the panel.
+// Only an ancestor whose content is taller than itself counts: a table that
+// scrolls sideways also computes `overflow-y: auto`, and as the root it would
+// put every image in it near.
+const scrollParent = (element: HTMLElement): HTMLElement | null => {
+  const view = element.ownerDocument.defaultView;
+  for (let node = element.parentElement; node && view; node = node.parentElement) {
+    if (node.scrollHeight > node.clientHeight && /auto|scroll/.test(view.getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
+};
+
+function useNearMedia(enabled: boolean, inScroller = false) {
+  const ref = React.useRef<HTMLElement | null>(null);
+  const setRef = React.useCallback((node: HTMLElement | null) => { ref.current = node; }, []);
   const [near, setNear] = React.useState(false);
   React.useEffect(() => {
     if (!enabled || !ref.current) return;
@@ -30,12 +44,31 @@ function useNearMedia(enabled: boolean) {
     if (!Observer) { setNear(true); return; }
     const observer = new Observer((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) { setNear(true); observer.disconnect(); }
-    }, { rootMargin: '200px' });
+    }, inScroller ? { root: scrollParent(ref.current), rootMargin: '100% 0px' } : { rootMargin: '200px' });
     observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [enabled]);
-  return { ref, near: !enabled || near };
+  }, [enabled, inScroller]);
+  return { ref, setRef, near: !enabled || near };
 }
+
+/** Whether a `<source media>` query holds now; follows changes such as a resize. */
+function useMediaMatches(query: string | undefined): boolean {
+  const subscribe = React.useCallback((onChange: () => void) => {
+    if (!query) return () => {};
+    const list = window.matchMedia(query);
+    list.addEventListener('change', onChange);
+    return () => list.removeEventListener('change', onChange);
+  }, [query]);
+  return React.useSyncExternalStore(
+    subscribe,
+    () => !query || window.matchMedia(query).matches,
+    () => true,
+  );
+}
+
+// Whether a document `<picture>` is near the visible part of the preview; its
+// sources have no box of their own, so the picture is watched for them.
+const PictureNearContext = React.createContext<boolean | null>(null);
 
 function MediaLabel({ source, name, title, linked }: { source: string; name: string; title?: string; linked: boolean }) {
   const presentation = React.useContext(MarkdownPresentationContext);
@@ -126,13 +159,18 @@ function OwnedImage({
   const id = React.useId();
   const name = filename(source, alt);
   const assistant = context?.mode === 'assistant';
-  const { ref, near } = useNearMedia(assistant);
+  const documentMode = context?.mode === 'document';
+  // A document image is read once it comes near the visible part of the
+  // preview; inside a `<picture>` the picture is watched instead.
+  const pictureNear = React.useContext(PictureNearContext);
+  const { ref, setRef, near: ownNear } = useNearMedia(assistant || documentMode && pictureNear === null, documentMode);
+  const near = pictureNear ?? ownNear;
   const owner = context?.owner;
   // Only assistant parts open the message gallery; tool output, reasoning and
   // user text draw a plain picture, as before.
   const gallery = assistant && Boolean(context?.onShowPopup) && !linked;
   React.useEffect(() => owner?.register(source), [owner, source]);
-  const active = Boolean(context && (!assistant || context.settled && near));
+  const active = Boolean(context && near && (!assistant || context.settled));
   const { url, fail } = useMediaSource(source, active);
   const resolvedSet = useResolvedSrcset(srcSet, active);
   const [dimensions, setDimensions] = React.useState<{ url: string; size: RowSize } | null>(null);
@@ -148,10 +186,10 @@ function OwnedImage({
     return owner.addGallery({ source, filename: name, element, resolve: () => owner.resolve(source, false, true) });
   }, [owner, drawn, source, name, ref, gallery]);
 
-  const documentMode = context?.mode === 'document';
   const image = url || documentMode ? (
     <img
       {...props}
+      ref={documentMode ? setRef : undefined}
       src={url}
       srcSet={resolvedSet}
       alt={alt || name}
@@ -188,7 +226,7 @@ function OwnedImage({
   if (documentMode) return image;
   return (
     <span
-      ref={ref}
+      ref={setRef}
       className={drawn ? 'inline-block max-w-[min(100%,30rem)] align-top my-1 me-1' : undefined}
       style={rowStyle}
       data-oc-media-source={copySource(source)}
@@ -236,15 +274,21 @@ function useResolvedSrcset(srcSet: string | undefined, active: boolean): string 
 }
 
 export function MarkdownPicture({ node: _node, children, ...props }: React.ComponentProps<'picture'> & NodeProps) {
-  return <picture {...props}>{children}</picture>;
+  const documentMode = useMarkdownMedia()?.mode === 'document';
+  const { setRef, near } = useNearMedia(documentMode, true);
+  return <picture {...props} ref={setRef}><PictureNearContext.Provider value={documentMode ? near : null}>{children}</PictureNearContext.Provider></picture>;
 }
 
 export function MarkdownSource({ node: _node, srcSet, media, ...props }: React.ComponentProps<'source'> & NodeProps) {
   const context = useMarkdownMedia();
-  const resolved = useResolvedSrcset(srcSet, context?.mode === 'document');
-  if (context?.mode !== 'document') return null;
-  const scheme = context.documentAssets?.colorScheme;
+  const pictureNear = React.useContext(PictureNearContext);
+  const scheme = context?.documentAssets?.colorScheme;
   const themed = scheme ? media?.replace(/\(\s*prefers-color-scheme\s*:\s*(light|dark)\s*\)/gi, (_feature, value: string) => value.toLowerCase() === scheme ? '(min-width: 0px)' : '(max-width: -1px)') : media;
+  // The browser never shows a source whose media does not hold, the other
+  // theme's for one, so its files are read only once it does.
+  const matches = useMediaMatches(context?.mode === 'document' ? themed : undefined);
+  const resolved = useResolvedSrcset(srcSet, context?.mode === 'document' && pictureNear !== false && matches);
+  if (context?.mode !== 'document') return null;
   return <source {...props} srcSet={resolved} media={themed} data-oc-media-srcset={srcSet} data-oc-media-query={media} />;
 }
 
@@ -254,7 +298,7 @@ export function MarkdownVideo(props: VideoProps) {
   const owner = context?.owner;
   const linked = React.useContext(MarkdownMediaLinkContext);
   const remote = remoteSource(source);
-  const { ref, near } = useNearMedia(context?.mode === 'assistant' && !remote);
+  const { setRef, near } = useNearMedia(context?.mode === 'assistant' && !remote);
   React.useEffect(() => !remote ? owner?.register(source) : undefined, [owner, source, remote]);
   const { url, fail, retry } = useMediaSource(source, Boolean(context && !remote && !linked && (context.mode !== 'assistant' || context.settled && near)), true);
   const [recovery, setRecovery] = React.useState<{ owner: typeof owner; source: string; url?: string; failed?: boolean; ready?: string } | null>(null);
@@ -272,7 +316,7 @@ export function MarkdownVideo(props: VideoProps) {
   const showPlayer = Boolean(src && (remote || context?.mode !== 'assistant' || currentRecovery?.ready === src));
   if (!source || incomplete(source)) return null;
   if (linked) return <MediaLabel source={source} name={name} linked />;
-  return <span ref={ref} className="inline-block max-w-full align-top" data-oc-media-source={copySource(source)}>
+  return <span ref={setRef} className="inline-block max-w-full align-top" data-oc-media-source={copySource(source)}>
     {!showPlayer && <MediaLabel source={source} name={name} linked={false} />}
     {src && <video ref={videoRef} src={src} title={name} controls playsInline hidden={!showPlayer} preload={remote && context?.mode !== 'document' ? 'none' : 'metadata'} className={props.className} data-oc-media-source={copySource(source)}
       onLoadedMetadata={(event) => {

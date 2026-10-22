@@ -154,6 +154,51 @@ describe('React-owned Markdown media', () => {
       expect(batches).toEqual([['near.png']]);
     } finally { Object.defineProperty(window, 'IntersectionObserver', { configurable: true, value: previous }); }
   });
+  test('a document reads an image or a picture only once it comes near the visible part of its scroller', async () => {
+    const observers: Array<{ options?: IntersectionObserverInit; targets: Element[]; enter: () => void }> = [];
+    const previous = window.IntersectionObserver;
+    class Observer implements IntersectionObserver {
+      root = null;
+      rootMargin = '';
+      readonly scrollMargin = '0px';
+      thresholds = [0];
+      private readonly record: { options?: IntersectionObserverInit; targets: Element[]; enter: () => void };
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        this.record = { options, targets: [], enter: () => callback(this.record.targets.map((target) => ({ isIntersecting: true, intersectionRatio: 1, target, time: 0, boundingClientRect: host.getBoundingClientRect(), intersectionRect: host.getBoundingClientRect(), rootBounds: null })), this) };
+        observers.push(this.record);
+      }
+      observe(target: Element) { this.record.targets.push(target); }
+      unobserve() {} disconnect() {} takeRecords() { return []; }
+    }
+    Object.defineProperty(window, 'IntersectionObserver', { configurable: true, value: Observer });
+    host.style.overflowY = 'auto';
+    Object.defineProperties(host, { scrollHeight: { configurable: true, value: 5000 }, clientHeight: { configurable: true, value: 800 } });
+    try {
+      // A table scrolls sideways and computes `overflow-y: auto` too, but it is not the root.
+      await act(async () => root.render(<Document scheme="light"><div style={{ overflowX: 'auto', overflowY: 'auto' }}><MarkdownImage src="./far.png" /></div><MarkdownPicture><MarkdownSource srcSet="./wide.png" /><MarkdownImage src="./fallback.png" /></MarkdownPicture></Document>));
+      await flush();
+      expect(requests).toEqual([]);
+      expect(observers.map((observer) => [observer.options?.root, observer.options?.rootMargin])).toEqual([[host, '100% 0px'], [host, '100% 0px']]);
+      expect(observers.map((observer) => observer.targets[0]?.tagName)).toEqual(['IMG', 'PICTURE']);
+
+      await act(async () => observers[1]?.enter()); await flush(); await flush();
+      const reads = () => requests.filter((url) => url.includes('/api/fs/raw')).map((url) => new URL(url).searchParams.get('path'));
+      expect(reads()).toEqual(['/repo/docs/wide.png', '/repo/docs/fallback.png']);
+
+      await act(async () => observers[0]?.enter()); await flush(); await flush();
+      expect(reads()).toEqual(['/repo/docs/wide.png', '/repo/docs/fallback.png', '/repo/docs/far.png']);
+    } finally { Object.defineProperty(window, 'IntersectionObserver', { configurable: true, value: previous }); }
+  });
+  test('a picture source of the other theme is read only once the theme switches to it', async () => {
+    const picture = (scheme: 'light' | 'dark') => <Document scheme={scheme}><MarkdownPicture><MarkdownSource media="(prefers-color-scheme: dark)" srcSet="./dark.png" /><MarkdownImage src="./light.png" /></MarkdownPicture></Document>;
+    const reads = () => requests.filter((url) => url.includes('/api/fs/raw')).map((url) => new URL(url).searchParams.get('path'));
+    await act(async () => root.render(picture('light'))); await flush(); await flush();
+    expect(reads()).toEqual(['/repo/docs/light.png']);
+    expect(host.querySelector('source')?.hasAttribute('srcset')).toBe(false);
+    await act(async () => root.render(picture('dark'))); await flush(); await flush();
+    expect(reads()).toEqual(['/repo/docs/light.png', '/repo/docs/dark.png']);
+    expect(host.querySelector('source')?.getAttribute('srcset')).toBe('blob:document-image');
+  });
   test('local mode keeps relative sources and document images remain valid children of picture', async () => {
     await act(async () => root.render(<MarkdownMediaProvider content="local" mode="local" directory="/repo" settled><MarkdownImage src="./local.png" /></MarkdownMediaProvider>));
     await flush(); expect(host.querySelector('img')?.getAttribute('src')).toBe('./local.png'); expect(requests).toEqual([]);
