@@ -170,6 +170,7 @@ import { createSessionLinker } from './lib/openchamber-sessions/session-link.js'
 import { createFileOpenRequester } from './lib/openchamber-control/file-open.js';
 import { applyConnectAttemptTimeout } from './lib/network-defaults.js';
 import { applyOutboundProxyFromEnv } from './lib/outbound-proxy.js';
+import { readOpenCodeLoad } from './lib/diagnostics/opencode-load.js';
 
 // Background CLI launches enter here in a fresh process, without CLI defaults.
 applyConnectAttemptTimeout();
@@ -2394,6 +2395,7 @@ async function main(options = {}) {
     runtimeName: process.env.OPENCHAMBER_RUNTIME || 'web',
     serverStartedAt,
     gracefulShutdown,
+    readOpenCodeLoad: () => readOpenCodeLoad({ buildOpenCodeUrl, getOpenCodeAuthHeaders }),
     getHealthSnapshot: () => {
       const launchSpec = resolvedOpencodeBinary && !useWslForOpencode
         ? resolveManagedOpenCodeLaunchSpec(resolvedOpencodeBinary)

@@ -71,6 +71,23 @@ describe('core-routes', () => {
     await request(app).get('/api/diagnostics/local-files').set('x-openchamber-relay-connection', 'conn-1').expect(403);
     expect(requireAuth).not.toHaveBeenCalled();
   });
+
+  it('serves the OpenCode load under the same local-only gate', async () => {
+    const app = express();
+    const readOpenCodeLoad = vi.fn(async () => ({ locations: 2, processes: null }));
+    registerServerStatusRoutes(app, {
+      express,
+      getHealthSnapshot: () => ({}),
+      gracefulShutdown: vi.fn(),
+      tunnelAuthController: { classifyRequestScope: () => 'local' },
+      uiAuthController: { requireAuth: (_req, _res, next) => next() },
+      readOpenCodeLoad,
+    });
+    await request(app).get('/api/diagnostics/opencode-load').set('x-openchamber-relay-connection', 'conn-1').expect(403);
+    expect(readOpenCodeLoad).not.toHaveBeenCalled();
+    const response = await request(app).get('/api/diagnostics/opencode-load').expect(200);
+    expect(response.body).toEqual({ locations: 2, processes: null });
+  });
   afterEach(() => {
     vi.useRealTimers();
   });

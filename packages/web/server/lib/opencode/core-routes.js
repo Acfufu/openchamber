@@ -73,6 +73,9 @@ export const registerServerStatusRoutes = (app, dependencies) => {
     getServerId = async () => null,
     tunnelAuthController = null,
     uiAuthController = null,
+    // Loaded OpenCode directories and process counts for the diagnostic
+    // export (`../diagnostics/opencode-load.js`); older wiring omits it.
+    readOpenCodeLoad = null,
   } = dependencies;
 
   // The identity is immutable for the process lifetime; resolve once, and never
@@ -250,7 +253,7 @@ export const registerServerStatusRoutes = (app, dependencies) => {
   // This is a local support export, not an API for connected remote clients.
   // Check the socket address rather than proxy-provided forwarding headers.
   // The private relay also dials loopback, and stamps every request it forwards.
-  app.get('/api/diagnostics/local-files', (req, res, next) => {
+  const requireLocalDiagnostics = (req, res, next) => {
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress)
       || req.headers['x-openchamber-relay-connection']
       || (tunnelAuthController?.classifyRequestScope && tunnelAuthController.classifyRequestScope(req) !== 'local')) {
@@ -259,9 +262,23 @@ export const registerServerStatusRoutes = (app, dependencies) => {
     }
     if (uiAuthController?.requireAuth) return uiAuthController.requireAuth(req, res, next);
     next();
-  }, async (_req, res) => {
+  };
+
+  app.get('/api/diagnostics/local-files', requireLocalDiagnostics, async (_req, res) => {
     try {
       res.json(await collectLocalFileDiagnostics({ webPort: getServerPort() }));
+    } catch {
+      res.status(500).json({ error: 'Diagnostics unavailable' });
+    }
+  });
+
+  app.get('/api/diagnostics/opencode-load', requireLocalDiagnostics, async (_req, res) => {
+    if (!readOpenCodeLoad) {
+      res.status(404).json({ error: 'Diagnostics unavailable' });
+      return;
+    }
+    try {
+      res.json(await readOpenCodeLoad());
     } catch {
       res.status(500).json({ error: 'Diagnostics unavailable' });
     }
