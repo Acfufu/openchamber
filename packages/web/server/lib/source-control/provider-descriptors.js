@@ -2,6 +2,7 @@ import { githubDescriptor } from '../github/descriptor.js';
 import { gitlabDescriptor } from '../gitlab/descriptor.js';
 import { giteaDescriptor } from '../gitea/descriptor.js';
 import { gerritDescriptor } from '../gerrit/descriptor.js';
+import { forgejoDescriptor } from '../forgejo/descriptor.js';
 import {
   EXTENSION_PROVIDER_PREFIX, isExtensionProviderId, isProviderId, isReservedProviderId,
 } from './provider-id.js';
@@ -15,10 +16,11 @@ import {
  */
 // Appended in order of arrival, so the web adapter's fallback for an older
 // server (GitHub and GitLab) stays the list's leading entries.
-const BUILT_IN_DESCRIPTORS = Object.freeze([githubDescriptor, gitlabDescriptor, giteaDescriptor, gerritDescriptor]);
+const BUILT_IN_DESCRIPTORS = Object.freeze([githubDescriptor, gitlabDescriptor, giteaDescriptor, gerritDescriptor, forgejoDescriptor]);
 
 /**
- * The hosts the built-ins serve by default (github.com, gitlab.com). Their
+ * The hosts the built-ins serve by default (github.com, gitlab.com,
+ * codeberg.org). Their
  * credentials are keyed by these hosts, so no extension may serve one.
  */
 export const builtInDefaultHosts = Object.freeze(new Set(BUILT_IN_DESCRIPTORS.flatMap((descriptor) => (

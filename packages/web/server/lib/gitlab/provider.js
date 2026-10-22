@@ -751,7 +751,9 @@ export function createProvider({
         const endpoint = headProject.cloneUrl;
         const origin = new URL(context.instance);
         const parsed = new URL(endpoint);
-        if (parsed.protocol !== 'https:' || parsed.origin !== origin.origin
+        // The instance's own origin decides the scheme: HTTPS, or HTTP for an
+        // instance on a loopback host, which Git transport also allows.
+        if (parsed.origin !== origin.origin
           || decodeURIComponent(parsed.pathname).replace(/^\//, '').replace(/\.git$/, '') !== `${headProject.owner}/${headProject.name}`) {
           throw Object.assign(new Error('GitLab returned an invalid head project endpoint'), { code: 'MALFORMED_PROVIDER_RESPONSE' });
         }

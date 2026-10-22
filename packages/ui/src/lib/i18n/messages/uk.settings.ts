@@ -2549,6 +2549,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'Використовувати облікові дані {cli}, коли немає активного збереженого облікового запису.',
   'settings.sourceControl.instance.label': 'Екземпляр {provider}',
   'settings.sourceControl.instance.infoLoopback': 'Використовуйте HTTPS-адресу. HTTP дозволено лише для локальних адрес.',
+  'settings.sourceControl.instance.otherProvider': 'Цей сервер належить до {provider}. Додавайте облікові записи для нього там.',
   'settings.sourceControl.status.checking': 'Перевірка з’єднання…',
   'settings.sourceControl.provider.status.connected': 'Підключено',
   'settings.sourceControl.actions.connect': 'Підключити {provider}',

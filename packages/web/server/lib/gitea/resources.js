@@ -28,9 +28,6 @@ const SUBMITTED_REVIEW_STATES = new Set(['APPROVED', 'REQUEST_CHANGES', 'COMMENT
 const statusOf = (error) => error?.status ?? error?.response?.status;
 const notFound = (message) => Object.assign(new Error(message), { status: 404 });
 const malformed = (message) => new Error(message);
-const mismatch = (key) => Object.assign(new Error(`Gitea pull request ${key} changed`), {
-  code: 'SOURCE_CONTROL_MUTATION_TARGET_MISMATCH', status: 409,
-});
 const seg = (value) => encodeURIComponent(value);
 const repoPath = (repo) => `/repos/${seg(repo.owner)}/${seg(repo.name)}`;
 
@@ -56,15 +53,22 @@ async function mapLimited(items, limit, task) {
 /**
  * Gitea reads and writes for one session, as neutral DTOs. Every read is
  * bound to the repository network of the directory's remote on this
- * instance: the remote's repository and its fork parent.
+ * instance: the remote's repository and its fork parent. Forgejo speaks the
+ * same API: `provider` is the id the DTOs carry and `providerLabel` names the server
+ * in the errors a person reads.
  */
-export function createGiteaResourceService({ origin, client, resolveRepos = resolveGiteaReposFromDirectory }) {
-  const identity = { provider: 'gitea', instance: origin };
+export function createGiteaResourceService({
+  origin, client, resolveRepos = resolveGiteaReposFromDirectory, provider = 'gitea', providerLabel = 'Gitea',
+}) {
+  const identity = { provider, instance: origin };
+  const mismatch = (key) => Object.assign(new Error(`${providerLabel} pull request ${key} changed`), {
+    code: 'SOURCE_CONTROL_MUTATION_TARGET_MISMATCH', status: 409,
+  });
   const sameName = (a, b) => a.owner.toLowerCase() === b.owner.toLowerCase() && a.name.toLowerCase() === b.name.toLowerCase();
 
   const showRepo = async (selector, remoteName) => {
     const raw = Number.isInteger(selector) ? await client.get(`/repositories/${selector}`) : await client.get(repoPath(selector));
-    return { raw, project: requireMapped(mapGiteaRepo(raw, identity, remoteName), 'Gitea returned an invalid repository') };
+    return { raw, project: requireMapped(mapGiteaRepo(raw, identity, remoteName), `${providerLabel} returned an invalid repository`) };
   };
 
   const resolveDirectoryRepos = async (directory, remote) => {
@@ -74,7 +78,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const item = await showRepo({ owner: candidate.owner, name: candidate.name }, candidate.remoteName);
       if (!repos.some((known) => known.project.id === item.project.id)) repos.push(item);
     }
-    if (!repos.length) throw malformed('No Gitea repository found for the repository remotes');
+    if (!repos.length) throw malformed(`No ${providerLabel} repository found for the repository remotes`);
     return repos;
   };
 
@@ -99,23 +103,23 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
     const targets = await withParents([primary], { requireComplete: requireComplete || Boolean(selector) });
     if (!selector) return { primary, target: targets[0], targets };
     const target = targets.find((candidate) => sameName(candidate.project, selector));
-    if (!target) throw notFound('Gitea repository is outside the bound repository network');
+    if (!target) throw notFound(`${providerLabel} repository is outside the bound repository network`);
     return { primary, target, targets };
   };
 
   let currentLogin = null;
   const readCurrentLogin = () => {
     currentLogin ??= client.get('/user').then((user) => {
-      if (!isPlainObject(user) || !isString(user.login) || !user.login) throw malformed('Gitea returned an invalid current user');
+      if (!isPlainObject(user) || !isString(user.login) || !user.login) throw malformed(`${providerLabel} returned an invalid current user`);
       return user.login;
     });
     return currentLogin;
   };
 
-  const requirePull = (raw, project) => requireMapped(mapGiteaPull(raw, identity, project), 'Gitea returned an invalid pull request');
+  const requirePull = (raw, project) => requireMapped(mapGiteaPull(raw, identity, project), `${providerLabel} returned an invalid pull request`);
   const requireIssue = (raw, project) => {
-    if (isPlainObject(raw) && raw.pull_request != null) throw notFound(`Gitea issue #${raw.number} is a pull request`);
-    return requireMapped(mapGiteaIssue(raw, identity, project), 'Gitea returned an invalid issue');
+    if (isPlainObject(raw) && raw.pull_request != null) throw notFound(`${providerLabel} issue #${raw.number} is a pull request`);
+    return requireMapped(mapGiteaIssue(raw, identity, project), `${providerLabel} returned an invalid issue`);
   };
 
   const readCI = async (repo, sha) => {
@@ -145,11 +149,11 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
         throw error;
       }
       if (changeRequestNetworkTarget(net.targets, branchRepoId(raw?.base), (candidate, id) => candidate.raw.id === id) !== target) {
-        throw malformed('Gitea returned a pull request of another repository');
+        throw malformed(`${providerLabel} returned a pull request of another repository`);
       }
       return { target, raw, request: requirePull(raw, target.project), net };
     }
-    throw notFound(`Gitea pull request #${number} was not found`);
+    throw notFound(`${providerLabel} pull request #${number} was not found`);
   };
 
   /** The fork a pull request's head lives in, when it is not the target repository. */
@@ -202,7 +206,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const history = closed.reduce((newest, candidate) => (!newest || candidate.number > newest.number ? candidate : newest), null);
       return { raw: null, history };
     }
-    throw malformed('Gitea repository has more open pull requests than OpenChamber scans for a branch');
+    throw malformed(`${providerLabel} repository has more open pull requests than OpenChamber scans for a branch`);
   };
 
   const compactProject = (project) => ({ id: project.id, owner: project.owner, name: project.name });
@@ -226,7 +230,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
   const targetRepo = (providerTarget) => ({ owner: providerTarget.owner, name: providerTarget.name });
   const readTargetPull = async (providerTarget) => {
     const raw = await client.get(`${repoPath(targetRepo(providerTarget))}/pulls/${providerTarget.number}`);
-    if (branchRepoId(raw?.base) !== Number(providerTarget.repoId)) throw malformed('Gitea returned a pull request outside the resolved mutation target');
+    if (branchRepoId(raw?.base) !== Number(providerTarget.repoId)) throw malformed(`${providerLabel} returned a pull request outside the resolved mutation target`);
     return raw;
   };
   const projectOfTarget = (providerTarget) => ({
@@ -239,7 +243,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
     const labels = await client.collection(`${repoPath(targetRepo(providerTarget))}/labels`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS });
     return names.map((name) => {
       const label = labels.find((candidate) => isPlainObject(candidate) && candidate.name === name && Number.isInteger(candidate.id));
-      if (!label) throw Object.assign(new Error(`Gitea label "${name}" does not exist in this repository`), { status: 422 });
+      if (!label) throw Object.assign(new Error(`${providerLabel} label "${name}" does not exist in this repository`), { status: 422 });
       return label.id;
     });
   };
@@ -274,7 +278,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
    */
   const readIssueComments = async (repo, number) => {
     const comments = await client.get(`${repoPath(repo)}/issues/${number}/comments`);
-    if (!Array.isArray(comments)) throw malformed('Gitea returned an invalid comment list');
+    if (!Array.isArray(comments)) throw malformed(`${providerLabel} returned an invalid comment list`);
     return comments;
   };
 
@@ -352,10 +356,10 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const repo = repoPath(target.project);
       const [comments, reviews, diffText, changedFiles, ci, headProject, commits] = await Promise.all([
         readIssueComments(target.project, number),
-        client.collection(`${repo}/pulls/${number}/reviews`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: 'Gitea pull request has more reviews than OpenChamber reads' }),
+        client.collection(`${repo}/pulls/${number}/reviews`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: `${providerLabel} pull request has more reviews than OpenChamber reads` }),
         options.includeDiff ? client.text(`${repo}/pulls/${number}.diff`) : Promise.resolve(''),
         options.includeDiff
-          ? client.collection(`${repo}/pulls/${number}/files`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: 'Gitea pull request has more changed files than OpenChamber reads' })
+          ? client.collection(`${repo}/pulls/${number}/files`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: `${providerLabel} pull request has more changed files than OpenChamber reads` })
           : Promise.resolve([]),
         readCI(target.project, request.headSha),
         headProjectOf(raw, target, net.targets),
@@ -371,7 +375,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const issueComments = [
         ...comments.flatMap((comment) => {
           const mapped = mapGiteaComment(comment, identity, request.url);
-          if (!mapped) throw malformed('Gitea returned an invalid pull request comment');
+          if (!mapped) throw malformed(`${providerLabel} returned an invalid pull request comment`);
           return [mapped];
         }),
         ...reviews.flatMap((review) => {
@@ -381,7 +385,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       ].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')));
       const patches = splitUnifiedDiff(diffText);
       const files = changedFiles.map((file) => {
-        const mapped = requireMapped(mapGiteaChangedFile(file), 'Gitea returned an invalid changed file');
+        const mapped = requireMapped(mapGiteaChangedFile(file), `${providerLabel} returned an invalid changed file`);
         const patch = patches.get(mapped.path);
         if (patch) mapped.patch = patch;
         return mapped;
@@ -433,7 +437,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const { target } = await network(directory, selector, remote);
       const issue = requireIssue(await client.get(`${repoPath(target.project)}/issues/${number}`), target.project);
       const comments = await readIssueComments(target.project, number);
-      return comments.map((comment) => requireMapped(mapGiteaComment(comment, identity, issue.url), 'Gitea returned an invalid issue comment'));
+      return comments.map((comment) => requireMapped(mapGiteaComment(comment, identity, issue.url), `${providerLabel} returned an invalid issue comment`));
     },
 
     async projectUpstream(directory, remote) {
@@ -447,10 +451,10 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
     async projectBranches(directory, selector, remote) {
       const { target } = await network(directory, selector, remote, { requireComplete: true });
       const branches = await client.collection(`${repoPath(target.project)}/branches`, {}, {
-        limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: 'Gitea repository has more branches than OpenChamber reads',
+        limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: `${providerLabel} repository has more branches than OpenChamber reads`,
       });
       return branches.map((branch) => {
-        if (!isString(branch?.name) || !branch.name) throw malformed('Gitea returned an invalid branch');
+        if (!isString(branch?.name) || !branch.name) throw malformed(`${providerLabel} returned an invalid branch`);
         return branch.name;
       });
     },
@@ -478,7 +482,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
     async changeRequestPatch(directory, number, { project, remote } = {}) {
       const { target } = await findPull(directory, number, project, { remote });
       const patch = await client.text(`${repoPath(target.project)}/pulls/${number}.diff`);
-      if (!isString(patch)) throw malformed('Gitea returned an invalid pull request diff');
+      if (!isString(patch)) throw malformed(`${providerLabel} returned an invalid pull request diff`);
       return { patch, meta: { owner: target.project.owner, repo: target.project.name, number } };
     },
 
@@ -491,10 +495,10 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const { target, raw } = await findPull(directory, number, project, { remote });
       const baseSha = raw?.merge_base;
       const headSha = raw?.head?.sha;
-      if (!COMMIT_SHA.test(String(baseSha)) || !COMMIT_SHA.test(String(headSha))) throw malformed('Gitea returned invalid pull request refs');
+      if (!COMMIT_SHA.test(String(baseSha)) || !COMMIT_SHA.test(String(headSha))) throw malformed(`${providerLabel} returned invalid pull request refs`);
       const readFile = async (filePath, ref) => {
         const content = await client.text(`${repoPath(target.project)}/raw/${filePath.split('/').map(seg).join('/')}`, { ref });
-        if (!isString(content)) throw malformed('Gitea returned invalid file contents');
+        if (!isString(content)) throw malformed(`${providerLabel} returned invalid file contents`);
         if (Buffer.byteLength(content) > MAX_FULL_FILE_BYTES) {
           throw Object.assign(new Error('This file is too large to show in full'), { status: 413, code: 'file-too-large' });
         }
@@ -543,7 +547,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
 
     async resolveCreateMutation(context, expected, options = {}) {
       if (options.remote !== undefined && options.remote !== context.primaryRemote) {
-        throw Object.assign(new Error('Gitea mutation remote does not match the bound primary remote'), { code: 'SOURCE_CONTROL_MUTATION_REMOTE_MISMATCH', status: 409 });
+        throw Object.assign(new Error(`${providerLabel} mutation remote does not match the bound primary remote`), { code: 'SOURCE_CONTROL_MUTATION_REMOTE_MISMATCH', status: 409 });
       }
       const headRemote = options.headRemote ?? context.primaryRemote;
       const net = await network(context.directory, expected.project, context.primaryRemote, { requireComplete: true });
@@ -551,7 +555,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       if (headRemote !== context.primaryRemote) {
         [source] = await resolveDirectoryRepos(context.directory, headRemote);
         if (!net.targets.some((candidate) => candidate.project.id === source.project.id)) {
-          throw Object.assign(new Error('Gitea mutation head remote is outside the bound repository network'), { code: 'SOURCE_CONTROL_MUTATION_REMOTE_MISMATCH', status: 409 });
+          throw Object.assign(new Error(`${providerLabel} mutation head remote is outside the bound repository network`), { code: 'SOURCE_CONTROL_MUTATION_REMOTE_MISMATCH', status: 409 });
         }
       }
       return {
@@ -574,7 +578,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
 
     async resolveIssueMutation(context, expected) {
       if (expected.head !== undefined || expected.base !== undefined || expected.headSha !== undefined) {
-        throw Object.assign(new Error('Gitea issue target is invalid'), { code: 'INVALID_SOURCE_CONTROL_MUTATION_CONTEXT', status: 400 });
+        throw Object.assign(new Error(`${providerLabel} issue target is invalid`), { code: 'INVALID_SOURCE_CONTROL_MUTATION_CONTEXT', status: 400 });
       }
       const { target } = await network(context.directory, expected.project, context.primaryRemote);
       const issue = requireIssue(await client.get(`${repoPath(target.project)}/issues/${expected.number}`), target.project);
@@ -591,7 +595,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       if (body !== undefined) payload.body = body;
       const raw = await client.post(`${repoPath(targetRepo(providerTarget))}/pulls`, payload);
       if (branchRepoId(raw?.base) !== providerTarget.repoId || branchRepoId(raw?.head) !== providerTarget.sourceRepoId) {
-        throw malformed('Gitea returned a pull request outside the resolved mutation target');
+        throw malformed(`${providerLabel} returned a pull request outside the resolved mutation target`);
       }
       const request = requirePull(raw, projectOfTarget(providerTarget));
       requireExpected({ head: expectedTarget.head, base: expectedTarget.base }, request);
@@ -615,7 +619,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       const payload = { title };
       if (body !== undefined) payload.body = body;
       const raw = await client.patch(`${repoPath(targetRepo(providerTarget))}/pulls/${providerTarget.number}`, payload);
-      if (branchRepoId(raw?.base) !== providerTarget.repoId) throw malformed('Gitea returned a pull request outside the resolved mutation target');
+      if (branchRepoId(raw?.base) !== providerTarget.repoId) throw malformed(`${providerLabel} returned a pull request outside the resolved mutation target`);
       requireExpected({ number: expectedTarget.number }, requirePull(raw, projectOfTarget(providerTarget)));
       return {};
     },
@@ -656,7 +660,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
     async setState({ providerTarget, state, kind }) {
       const raw = await client.patch(`${repoPath(targetRepo(providerTarget))}/issues/${providerTarget.number}`, { state });
       if (!isPlainObject(raw) || raw.number !== providerTarget.number || raw.state !== state) {
-        throw malformed(`Gitea returned an unexpected ${kind.startsWith('issue') ? 'issue' : 'pull request'} state`);
+        throw malformed(`${providerLabel} returned an unexpected ${kind.startsWith('issue') ? 'issue' : 'pull request'} state`);
       }
       return { state };
     },
@@ -690,7 +694,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
     async setLabels({ providerTarget, labels }) {
       const ids = await labelIds(providerTarget, labels);
       const raw = await client.put(`${repoPath(targetRepo(providerTarget))}/issues/${providerTarget.number}/labels`, { labels: ids });
-      if (!Array.isArray(raw)) throw malformed('Gitea returned an invalid label list');
+      if (!Array.isArray(raw)) throw malformed(`${providerLabel} returned an invalid label list`);
       return {};
     },
 
@@ -708,7 +712,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
         .map((user) => [String(user.id), user.login]));
       const wanted = reviewers.map((id) => {
         const login = known.get(id);
-        if (!login) throw Object.assign(new Error(`Gitea user ${id} cannot review in this repository`), { status: 422 });
+        if (!login) throw Object.assign(new Error(`${providerLabel} user ${id} cannot review in this repository`), { status: 422 });
         return login;
       });
       const currentLogins = current.map((user) => user.login);
@@ -717,11 +721,11 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       if (remove.length) {
         // Gitea answers 204 to removing someone who already reviewed and keeps
         // them, so that removal is refused before anything is sent.
-        const reviews = await client.collection(`${repoPath(repo)}/pulls/${providerTarget.number}/reviews`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: 'Gitea pull request has more reviews than OpenChamber reads' });
+        const reviews = await client.collection(`${repoPath(repo)}/pulls/${providerTarget.number}/reviews`, {}, { limit: PAGE_LIMIT, maxItems: COLLECTION_MAX_ITEMS, message: `${providerLabel} pull request has more reviews than OpenChamber reads` });
         const reviewed = remove.filter((login) => reviews.some((review) => isPlainObject(review) && review.user?.login === login
           && SUBMITTED_REVIEW_STATES.has(review.state) && review.dismissed !== true));
         if (reviewed.length) {
-          throw Object.assign(new Error(`${reviewed.join(', ')} already reviewed this pull request; Gitea keeps reviewers who reviewed`), {
+          throw Object.assign(new Error(`${reviewed.join(', ')} already reviewed this pull request; ${providerLabel} keeps reviewers who reviewed`), {
             status: 400, code: 'GITEA_REVIEWER_HAS_REVIEWED',
           });
         }
@@ -749,7 +753,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
 
     async comment({ providerTarget, body }) {
       const raw = await client.post(`${repoPath(targetRepo(providerTarget))}/issues/${providerTarget.number}/comments`, { body });
-      if (!isPlainObject(raw) || !Number.isInteger(raw.id)) throw malformed('Gitea returned an invalid comment');
+      if (!isPlainObject(raw) || !Number.isInteger(raw.id)) throw malformed(`${providerLabel} returned an invalid comment`);
       return {};
     },
 
@@ -762,7 +766,7 @@ export function createGiteaResourceService({ origin, client, resolveRepos = reso
       if (current.head?.sha !== expectedTarget.headSha) throw mismatch('headSha');
       const payload = { event: verdict === 'approve' ? 'APPROVED' : 'REQUEST_CHANGES', commit_id: expectedTarget.headSha, body: body ?? '' };
       const raw = await client.post(`${repoPath(targetRepo(providerTarget))}/pulls/${providerTarget.number}/reviews`, payload);
-      if (!isPlainObject(raw) || !Number.isInteger(raw.id)) throw malformed('Gitea returned an invalid review');
+      if (!isPlainObject(raw) || !Number.isInteger(raw.id)) throw malformed(`${providerLabel} returned an invalid review`);
       return { commented: body !== undefined };
     },
   };

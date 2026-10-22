@@ -2549,6 +2549,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': '沒有使用中的已儲存帳戶時，使用 {cli} 認證。',
   'settings.sourceControl.instance.label': '{provider} 執行個體',
   'settings.sourceControl.instance.infoLoopback': '請使用 HTTPS 來源。只有本機位址可使用 HTTP。',
+  'settings.sourceControl.instance.otherProvider': '這部伺服器屬於 {provider}。請在那裡為它新增帳號。',
   'settings.sourceControl.status.checking': '正在檢查連線…',
   'settings.sourceControl.provider.status.connected': '已連線',
   'settings.sourceControl.actions.connect': '連線 {provider}',

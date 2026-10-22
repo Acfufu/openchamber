@@ -267,6 +267,9 @@ Invariants:
 - A token field is a password input that starts empty, is cleared once the
   server accepts the token, and is never logged; a rejected token
   (`INVALID_TOKEN`) stays in the field with the rejection under the address.
+  An instance the server says belongs on another provider's card
+  (`SourceControlInstanceOtherProviderError`) keeps the token too, and the
+  line under the address names that provider by its descriptor's label.
 - An instance's async work is dropped when the runtime switches mid-flight
   (`captureRuntime`), so a late answer never writes into the next server's state.
 - The github.com device flow (`openchamber/GitHubComAccountSection.tsx`) shows

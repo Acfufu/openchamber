@@ -1,11 +1,11 @@
 ---
 title: "Hosty Git: issues i pull requesty"
-description: Połącz GitHub, GitLab, Gitea albo Gerrit i pracuj z issues i pull requestami w OpenChamber.
+description: Połącz GitHub, GitLab, Gitea, Forgejo albo Gerrit i pracuj z issues i pull requestami w OpenChamber.
 ---
 
 # Hosty Git: issues i pull requesty
 
-Połącz konto na hoście, na którym jest Twój projekt, a OpenChamber może wyświetlać jego issues i pull requesty, rozpocząć sesję od jednego z nich oraz otwierać, recenzować i scalać za Ciebie pull requesty. Wbudowane są cztery hosty: GitHub, w tym GitHub Enterprise; GitLab, w tym self-managed GitLab; Gitea; oraz Gerrit. [Rozszerzenie](/pl/extensions/#rozszerzenie-jako-host-git) może dodać kolejny.
+Połącz konto na hoście, na którym jest Twój projekt, a OpenChamber może wyświetlać jego issues i pull requesty, rozpocząć sesję od jednego z nich oraz otwierać, recenzować i scalać za Ciebie pull requesty. Wbudowanych jest pięć hostów: GitHub, w tym GitHub Enterprise; GitLab, w tym self-managed GitLab; Gitea; Forgejo, w tym Codeberg; oraz Gerrit. [Rozszerzenie](/pl/extensions/#rozszerzenie-jako-host-git) może dodać kolejny.
 
 To remote projektu decyduje, z którym hostem rozmawia OpenChamber. Projekt, którego `origin` jest na gitlab.com, używa Twojego konta GitLab dla tablicy, znacznika pull requesta na swoich gałęziach i panelu Git. Remote na aliasie hosta z `~/.ssh/config`, takim jak `github.com-work`, nie jest dopasowywany do żadnego hosta.
 
@@ -18,9 +18,10 @@ Słownictwo zależy od hosta. GitLab mówi merge request, a Gerrit mówi change 
    - **GitHub**: wybierz **Połącz z GitHub**, otwórz pokazany link, wpisz krótki kod i zatwierdź. Dla GitHub Enterprise wybierz **Dodaj instancję** w sekcji **Inne instancje**, wpisz adres swojego serwera i wklej personal access token.
    - **GitLab**: na gitlab.com zaloguj się krótkim kodem, personal access tokenem albo logowaniem `glab`. Dla self-managed GitLab dodaj jego adres i wklej personal access token.
    - **Gitea**: dodaj adres swojego serwera i wklej personal access token.
+   - **Forgejo**: dla Codeberg wklej personal access token; dla innego serwera najpierw dodaj jego adres.
    - **Gerrit**: dodaj adres swojego serwera, a potem swoją nazwę użytkownika Gerrit i hasło HTTP.
 
-Po połączeniu Twoje konto pojawia się na karcie. Na jednym hoście możesz połączyć więcej niż jedno konto i przełączać się między nimi albo rozłączyć w dowolnym momencie. Jeśli CLI `gh` jest zalogowane na tej samej maszynie, OpenChamber może go użyć także dla GitHub. Zakresy potrzebne każdemu tokenowi i wersje wymagane przez każdy host opisują [Integracje](/pl/integrations/#gitlab-gitea-i-gerrit).
+Po połączeniu Twoje konto pojawia się na karcie. Na jednym hoście możesz połączyć więcej niż jedno konto i przełączać się między nimi albo rozłączyć w dowolnym momencie. Jeśli CLI `gh` jest zalogowane na tej samej maszynie, OpenChamber może go użyć także dla GitHub. Zakresy potrzebne każdemu tokenowi i wersje wymagane przez każdy host opisują [Integracje](/pl/integrations/#gitlab-gitea-forgejo-i-gerrit).
 
 Połączone konto może też być [tożsamością Git](/pl/git-identities/) projektu, więc commity mają jego nazwę, a wypychanie przez HTTPS używa jego tokena.
 
@@ -41,7 +42,7 @@ Tablica [Issues i PR-y](/pl/issues-and-prs/) pokazuje te same elementy z filtram
 Z zakładki **PR** w [panelu Git](/pl/git/) możesz utworzyć pull request, zaktualizować go, oznaczyć szkic jako gotowy lub scalić go. OpenChamber może napisać tytuł i opis na podstawie Twoich zmian.
 
 - **GitLab**: ta sama zakładka otwiera merge requesty. Scalanie oferuje merge i squash.
-- **Gitea**: tak samo jak na GitHub.
+- **Gitea** i **Forgejo**: tak samo jak na GitHub.
 - **Gerrit**: zmianę tworzysz, wypychając do recenzji, a każde kolejne wypchnięcie przesyła nowy zestaw poprawek. Zobacz [Wypychanie do recenzji w Gerrit](/pl/git/#wypychanie-do-recenzji-w-gerrit). Scalanie to **Wprowadź** i czeka, aż zmiana spełni swoje wymagania (submit requirements). Recenzje to głosy na etykietach projektu, takich jak Code-Review i Verified.
 
 ## Dołącz issue lub pull request do wiadomości

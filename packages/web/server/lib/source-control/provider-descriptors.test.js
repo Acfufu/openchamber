@@ -14,9 +14,9 @@ const gitea = sourceControlProviderDescriptors.get('gitea');
 
 describe('source control provider descriptors', () => {
   it('lists the built-in providers in priority order', () => {
-    expect(sourceControlProviderDescriptors.list().map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit']);
+    expect(sourceControlProviderDescriptors.list().map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'forgejo']);
     expect(sourceControlProviderDescriptors.has('gitlab')).toBe(true);
-    expect(sourceControlProviderDescriptors.get('forgejo')).toBeNull();
+    expect(sourceControlProviderDescriptors.get('sourcehut')).toBeNull();
   });
 
   it.each([
@@ -105,7 +105,7 @@ describe('source control provider descriptors', () => {
     expect(publicProviderDescriptor(gitlab, 1).auth).toMatchObject({ methods: ['device', 'pat', 'cli'], cliName: 'glab' });
     // The noun English model-facing text uses for the automation on a change request.
     expect(sourceControlProviderDescriptors.list().map((descriptor) => [descriptor.id, publicProviderDescriptor(descriptor, 0).terminology.ci]))
-      .toEqual([['github', 'checks'], ['gitlab', 'pipeline'], ['gitea', 'checks'], ['gerrit', 'checks']]);
+      .toEqual([['github', 'checks'], ['gitlab', 'pipeline'], ['gitea', 'checks'], ['gerrit', 'checks'], ['forgejo', 'checks']]);
     // A host without the diff read publishes it off; every built-in reads it.
     expect(publicProviderDescriptor({ ...gitea, capabilities: { ...gitea.capabilities, changeRequestPatch: false } }, 2).features.changeRequestPatch).toBe(false);
     expect(sourceControlProviderDescriptors.list().every((descriptor) => publicProviderDescriptor(descriptor, 0).features.changeRequestPatch)).toBe(true);
@@ -141,9 +141,9 @@ describe('extension provider descriptors', () => {
     sourceControlProviderDescriptors.attachExtension(extension('ext-alpha'));
 
     const listed = sourceControlProviderDescriptors.list();
-    expect(listed.map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'ext-alpha', 'ext-zeta']);
+    expect(listed.map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'forgejo', 'ext-alpha', 'ext-zeta']);
     expect(Object.isFrozen(listed)).toBe(true);
-    expect(before.map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit']);
+    expect(before.map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'forgejo']);
     expect(sourceControlProviderDescriptors.has('ext-alpha')).toBe(true);
     expect(sourceControlProviderDescriptors.get('ext-zeta').id).toBe('ext-zeta');
   });

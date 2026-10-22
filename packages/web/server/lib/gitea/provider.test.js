@@ -61,12 +61,18 @@ describe('Gitea provider authentication', () => {
     expect(await store.listInstances()).toEqual([]);
   });
 
-  it('accepts Forgejo by the Gitea version it reports', async () => {
-    const { impl } = await setup(forkNetworkRoutes({ 'GET /version': { version: '9.0.3+gitea-1.22.0' } }));
+  it('sends a Forgejo server to the Forgejo card', async () => {
+    const forgejo = forkNetworkRoutes({ 'GET /version': { version: '9.0.3+gitea-1.22.0' } });
+    const { impl, store } = await setup(forgejo);
     await expect(impl.auth.capabilities({ instance: ORIGIN })).resolves.toMatchObject({
       authentication: true,
       authenticationMethods: { pat: { available: true }, device: { available: false, reason: 'unsupported' }, cli: { available: false, reason: 'unsupported' } },
     });
+
+    await expect(impl.auth.connectToken({ instance: ORIGIN, token: 'pat-1' })).rejects.toMatchObject({
+      sourceControlResponse: { status: 409, body: { code: 'SOURCE_CONTROL_INSTANCE_OTHER_PROVIDER', provider: 'forgejo' } },
+    });
+    expect(await store.listInstances()).toEqual([]);
   });
 
   it('writes an account off when Gitea refuses its token', async () => {
@@ -186,7 +192,7 @@ describe('Gitea in the registry (smoke)', () => {
 
     const providers = await request(app).get('/api/source-control/providers');
     expect(providers.status).toBe(200);
-    expect(providers.body.providers.map((provider) => [provider.id, provider.order])).toEqual([['github', 0], ['gitlab', 1], ['gitea', 2], ['gerrit', 3]]);
+    expect(providers.body.providers.map((provider) => [provider.id, provider.order])).toEqual([['github', 0], ['gitlab', 1], ['gitea', 2], ['gerrit', 3], ['forgejo', 4]]);
 
     const status = await request(app).get('/api/source-control/gitea/auth/status').query({ instance: 'https://gitea.example.com' });
     expect(status.status).toBe(200);
@@ -194,5 +200,20 @@ describe('Gitea in the registry (smoke)', () => {
 
     const instances = await request(app).get('/api/source-control/instances');
     expect(instances.body.instances.filter((entry) => entry.provider === 'gitea')).toEqual([]);
+  });
+});
+
+describe('Gitea contributor source', () => {
+  // Git transport reaches a loopback HTTP instance, so its fork is a source too.
+  it('takes the fork clone URL of a loopback HTTP instance', async () => {
+    const local = 'http://127.0.0.1:3000';
+    const { impl } = await setup(JSON.parse(JSON.stringify(forkNetworkRoutes()).replaceAll(ORIGIN, local)));
+    await impl.auth.connectToken({ instance: local, token: 'pat-1' });
+    const session = await impl.auth.resolveAccount({ instance: local });
+
+    await expect(impl.resources.resolveChangeRequestSource({
+      session, context: { directory: '/repo', primaryRemote: 'origin', instance: local },
+      project: { id: '1', owner: 'alice', name: 'app' }, number: 1, expectedHeadSha: HEAD, requestedRemoteName: 'pr-bob',
+    })).resolves.toMatchObject({ classification: 'contributor-fork', endpoint: `${local}/bob/app.git`, headRef: 'refs/heads/feature' });
   });
 });

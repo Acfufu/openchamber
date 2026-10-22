@@ -2530,6 +2530,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'שימוש בפרטי ההתחברות של {cli} כשאין חשבון שמור פעיל.',
   'settings.sourceControl.instance.label': 'מופע {provider}',
   'settings.sourceControl.instance.infoLoopback': 'יש להשתמש בכתובת HTTPS. HTTP מותר רק לכתובות loopback.',
+  'settings.sourceControl.instance.otherProvider': 'השרת הזה שייך ל-{provider}. יש להוסיף לו חשבונות שם.',
   'settings.sourceControl.status.checking': 'בודק את החיבור…',
   'settings.sourceControl.provider.status.connected': 'מחובר',
   'settings.sourceControl.actions.connect': 'חבר את {provider}',

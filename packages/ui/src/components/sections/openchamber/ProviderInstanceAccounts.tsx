@@ -11,6 +11,8 @@ import type {
   SourceControlDeviceFlowStart,
   SourceControlIdentity,
 } from '@/lib/api/types';
+import { SourceControlInstanceOtherProviderError } from '@/lib/api/types';
+import { useSourceControlProvider } from '@/lib/source-control/providers/registry';
 import {
   SETTINGS_CONTROL_CLUSTER_CLASS,
   SETTINGS_FIELDS_STACK_CLASS,
@@ -72,6 +74,9 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
   const [busy, setBusy] = React.useState(false);
   const [operationFailed, setOperationFailed] = React.useState(false);
   const [tokenRejected, setTokenRejected] = React.useState(false);
+  // The provider whose card the server said this instance belongs on.
+  const [ownerProviderId, setOwnerProviderId] = React.useState<string | null>(null);
+  const ownerProvider = useSourceControlProvider(ownerProviderId);
   const flowRuntimeKeyRef = React.useRef('');
   const runtimeGenerationRef = React.useRef(0);
   const captureRuntime = React.useCallback(() => {
@@ -163,6 +168,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     setBusy(true);
     setOperationFailed(false);
     setTokenRejected(false);
+    setOwnerProviderId(null);
     try {
       const nextFlow = await sourceControl.authStart(identity);
       if (!isCurrentRuntime()) return;
@@ -184,6 +190,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     setBusy(true);
     setOperationFailed(false);
     setTokenRejected(false);
+    setOwnerProviderId(null);
     try {
       const nextStatus = needsUsername
         ? await sourceControl.authSetToken(identity, token.trim(), { username: username.trim() })
@@ -203,6 +210,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
       // The server says whether the token itself was refused; anything else is
       // a failure the person cannot fix by editing what they pasted.
       if (error instanceof Error && 'code' in error && error.code === 'INVALID_TOKEN') setTokenRejected(true);
+      else if (error instanceof SourceControlInstanceOtherProviderError) setOwnerProviderId(error.provider);
       else setOperationFailed(true);
     } finally {
       if (isCurrentRuntime()) setBusy(false);
@@ -214,6 +222,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     setBusy(true);
     setOperationFailed(false);
     setTokenRejected(false);
+    setOwnerProviderId(null);
     try {
       await sourceControl.authDisconnect(identity, accountId);
       if (!isCurrentRuntime()) return;
@@ -232,6 +241,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     setBusy(true);
     setOperationFailed(false);
     setTokenRejected(false);
+    setOwnerProviderId(null);
     try {
       const nextStatus = await sourceControl.authActivate(identity, accountId);
       if (!isCurrentRuntime()) return;
@@ -254,6 +264,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     setBusy(true);
     setOperationFailed(false);
     setTokenRejected(false);
+    setOwnerProviderId(null);
     try {
       await sourceControl.authSetCliDisabled(identity, !cli.disabled);
       if (!isCurrentRuntime()) return;
@@ -274,6 +285,7 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     setUsername('');
     setOperationFailed(false);
     setTokenRejected(false);
+    setOwnerProviderId(null);
   };
 
   // Offered where the descriptor names the method and this instance reports it available.
@@ -297,6 +309,8 @@ export const ProviderInstanceAccounts: React.FC<ProviderInstanceAccountsProps> =
     statusMessage = t('settings.sourceControl.status.checking');
   } else if (tokenRejected) {
     statusMessage = t(copy.tokenRejected, { provider });
+  } else if (ownerProviderId) {
+    statusMessage = t('settings.sourceControl.instance.otherProvider', { provider: ownerProvider.label });
   } else if (operationFailed || capabilitiesFailed || status?.status === 'unreachable') {
     statusMessage = t(copy.operationFailed);
   } else if (accounts.length > 0) {

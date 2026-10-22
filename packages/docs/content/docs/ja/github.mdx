@@ -1,11 +1,11 @@
 ---
 title: "Git ホスト: Issue とプルリクエスト"
-description: GitHub、GitLab、Gitea、Gerrit を接続し、OpenChamber から Issue とプルリクエストを扱います。
+description: GitHub、GitLab、Gitea、Forgejo、Gerrit を接続し、OpenChamber から Issue とプルリクエストを扱います。
 ---
 
 # Git ホスト: Issue とプルリクエスト
 
-プロジェクトがあるホストのアカウントを接続すると、OpenChamber はその Issue とプルリクエストを一覧し、そこからセッションを開始し、プルリクエストの作成、レビュー、マージを代わりに行えます。組み込みのホストは 4 つです。GitHub（GitHub Enterprise を含む）、GitLab（セルフマネージドの GitLab を含む）、Gitea、Gerrit です。[拡張機能](/ja/extensions/#git-ホストとしての拡張機能) で別のホストを追加することもできます。
+プロジェクトがあるホストのアカウントを接続すると、OpenChamber はその Issue とプルリクエストを一覧し、そこからセッションを開始し、プルリクエストの作成、レビュー、マージを代わりに行えます。組み込みのホストは 5 つです。GitHub（GitHub Enterprise を含む）、GitLab（セルフマネージドの GitLab を含む）、Gitea、Forgejo（Codeberg を含む）、Gerrit です。[拡張機能](/ja/extensions/#git-ホストとしての拡張機能) で別のホストを追加することもできます。
 
 OpenChamber がどのホストと通信するかは、プロジェクトのリモートで決まります。`origin` が gitlab.com にあるプロジェクトでは、ボード、ブランチのプルリクエストバッジ、Git パネルに GitLab アカウントが使われます。`github.com-work` のような `~/.ssh/config` のホストエイリアスにあるリモートは、どのホストにも対応付けられません。
 
@@ -18,9 +18,10 @@ OpenChamber がどのホストと通信するかは、プロジェクトのリ�
    - **GitHub**: **Connect GitHub** を選び、表示されたリンクを開いて短いコードを入力し、承認します。GitHub Enterprise では、**その他のインスタンス** の下にある **インスタンスを追加** を選び、サーバーのアドレスを入力して Personal Access Token を貼り付けます。
    - **GitLab**: gitlab.com では、短いコード、Personal Access Token、または `glab` のログインでサインインします。セルフマネージドの GitLab では、そのアドレスを追加して Personal Access Token を貼り付けます。
    - **Gitea**: サーバーのアドレスを追加し、Personal Access Token を貼り付けます。
+   - **Forgejo**: Codeberg では Personal Access Token を貼り付けます。別のサーバーでは、先にそのアドレスを追加します。
    - **Gerrit**: サーバーのアドレスを追加し、Gerrit のユーザー名と HTTP パスワードを入力します。
 
-接続されると、カードにアカウントが表示されます。1 つのホストに複数のアカウントを接続して切り替えたり、いつでも切断したりできます。同じマシンで `gh` CLI にサインイン済みなら、OpenChamber は GitHub にもそれを使えます。各トークンに必要なスコープと、各ホストに必要なバージョンは [統合機能](/ja/integrations/#gitlabgiteagerrit) にあります。
+接続されると、カードにアカウントが表示されます。1 つのホストに複数のアカウントを接続して切り替えたり、いつでも切断したりできます。同じマシンで `gh` CLI にサインイン済みなら、OpenChamber は GitHub にもそれを使えます。各トークンに必要なスコープと、各ホストに必要なバージョンは [統合機能](/ja/integrations/#gitlabgiteaforgejogerrit) にあります。
 
 接続したアカウントはプロジェクトの [Git ID](/ja/git-identities/) にもできます。その場合、コミットにはそのアカウントの名前が入り、HTTPS での push にはそのトークンが使われます。
 
@@ -41,7 +42,7 @@ OpenChamber がどのホストと通信するかは、プロジェクトのリ�
 [Git パネル](/ja/git/) の **PR** タブから、プルリクエストの作成、更新、draft から ready への変更、マージができます。OpenChamber は変更内容からタイトルと説明を書けます。
 
 - **GitLab**: 同じタブでマージリクエストを開きます。マージでは merge と squash を選べます。
-- **Gitea**: GitHub と同じです。
+- **Gitea** と **Forgejo**: GitHub と同じです。
 - **Gerrit**: レビューへプッシュすると変更が作られ、その後のプッシュごとに新しいパッチセットがアップロードされます。[Gerrit でレビューへプッシュする](/ja/git/#gerrit-でレビューへプッシュする) を参照してください。マージは **サブミット** で、変更がサブミット要件を満たすまで待ちます。レビューは、Code-Review や Verified といったプロジェクトのラベルへの投票です。
 
 ## Issue やプルリクエストをメッセージに添付する

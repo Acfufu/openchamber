@@ -44,7 +44,7 @@ describe('change request reads', () => {
   it('offers walkthroughs for the providers whose descriptor serves change request patches only', () => {
     expect(supportsChangeRequestPatch('github')).toBe(true);
     expect(supportsChangeRequestPatch('gitlab')).toBe(true);
-    expect(supportsChangeRequestPatch('forgejo')).toBe(false);
+    expect(supportsChangeRequestPatch('sourcehut')).toBe(false);
     expect(supportsChangeRequestPatch(undefined)).toBe(false);
   });
 });

@@ -11,6 +11,7 @@ import type {
   SourceControlReadContext,
   UpdateChangeRequestInput,
 } from '@openchamber/ui/lib/api/types';
+import { SourceControlInstanceOtherProviderError } from '@openchamber/ui/lib/api/types';
 import { configureWebTransportBinding, createWebSourceControlAPI, removeWebTransportBinding } from './source-control';
 
 const runtimeFetchMock = vi.fn(async (): Promise<Response> => Response.json({}));
@@ -1402,6 +1403,18 @@ describe('GitHub Enterprise (GHE) auth flows', () => {
 
     await expect(createWebSourceControlAPI({ fetch: runtimeFetchMock }).authSetToken(gheIdentity, 'bad-token'))
       .rejects.toMatchObject({ code: 'INVALID_TOKEN' });
+  });
+
+  it('names the provider whose card a refused instance belongs on', async () => {
+    const forgejo = { provider: 'forgejo', instance: 'https://codeberg.org' };
+    runtimeFetchMock.mockResolvedValueOnce(Response.json({
+      error: 'https://codeberg.org belongs on the Gitea card', code: 'SOURCE_CONTROL_INSTANCE_OTHER_PROVIDER', provider: 'gitea',
+    }, { status: 409 }));
+
+    const refusal = await createWebSourceControlAPI({ fetch: runtimeFetchMock }).authSetToken(forgejo, 'pat').catch((error) => error);
+
+    expect(refusal).toBeInstanceOf(SourceControlInstanceOtherProviderError);
+    expect(refusal).toMatchObject({ provider: 'gitea', message: 'https://codeberg.org belongs on the Gitea card' });
   });
 
   it('reads a disconnected GHE auth status with its cli account and activates it', async () => {

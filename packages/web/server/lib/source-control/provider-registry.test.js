@@ -10,9 +10,9 @@ describe('source control provider registry', () => {
   it('lists the descriptors in priority order without loading any implementation', () => {
     const loaders = { github: vi.fn(), gitlab: vi.fn() };
     const providers = createSourceControlProviders({ loaders });
-    expect(providers.list().map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit']);
+    expect(providers.list().map((descriptor) => descriptor.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'forgejo']);
     expect(providers.describe('gitlab')).toBe(gitlabDescriptor);
-    expect(providers.has('forgejo')).toBe(false);
+    expect(providers.has('sourcehut')).toBe(false);
     expect(loaders.github).not.toHaveBeenCalled();
     expect(loaders.gitlab).not.toHaveBeenCalled();
   });
@@ -32,9 +32,9 @@ describe('source control provider registry', () => {
 
   it('answers null for an unknown id or a provider without a loader', async () => {
     const providers = createSourceControlProviders({ loaders: {} });
-    await expect(providers.implementation('forgejo')).resolves.toBeNull();
+    await expect(providers.implementation('sourcehut')).resolves.toBeNull();
     await expect(providers.implementation('gitlab')).resolves.toBeNull();
-    await expect(providers.readTransportCredential({ provider: 'forgejo', instance: 'x', credentialId: 'y' })).resolves.toBeNull();
+    await expect(providers.readTransportCredential({ provider: 'sourcehut', instance: 'x', credentialId: 'y' })).resolves.toBeNull();
   });
 
   it('tries a failed load again on the next request', async () => {

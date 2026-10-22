@@ -10,6 +10,7 @@ const BUILT_IN_LOADERS = Object.freeze({
   gitlab: () => import('../gitlab/provider.js'),
   gitea: () => import('../gitea/provider.js'),
   gerrit: () => import('../gerrit/provider.js'),
+  forgejo: () => import('../forgejo/provider.js'),
 });
 
 /**

@@ -2546,6 +2546,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'Gebruik de inloggegevens van {cli} wanneer er geen opgeslagen account actief is.',
   'settings.sourceControl.instance.label': '{provider}-instantie',
   'settings.sourceControl.instance.infoLoopback': 'Gebruik een HTTPS-adres. HTTP is alleen toegestaan voor loopback-adressen.',
+  'settings.sourceControl.instance.otherProvider': 'Deze server hoort bij {provider}. Voeg er daar accounts voor toe.',
   'settings.sourceControl.status.checking': 'Verbinding controleren…',
   'settings.sourceControl.provider.status.connected': 'Verbonden',
   'settings.sourceControl.actions.connect': '{provider} verbinden',

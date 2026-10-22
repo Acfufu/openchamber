@@ -112,9 +112,9 @@ describe('source-control provider descriptors', () => {
   });
 
   test('falls back to a stable generic descriptor with every feature off', () => {
-    const fallback = unknownProviderDescriptor('forgejo');
-    expect(unknownProviderDescriptor('forgejo')).toBe(fallback);
-    expect(fallback.label).toBe('forgejo');
+    const fallback = unknownProviderDescriptor('sourcehut');
+    expect(unknownProviderDescriptor('sourcehut')).toBe(fallback);
+    expect(fallback.label).toBe('sourcehut');
     expect(fallback.terminology).toMatchObject({ changeRequest: 'pullRequest', changeRequestPrefix: '#', issuePrefix: '#' });
     expect(fallback.icon.sprite).toBe('git-branch');
     expect(fallback.auth.methods).toEqual([]);

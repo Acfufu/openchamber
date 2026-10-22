@@ -1,11 +1,11 @@
 ---
 title: "Git 托管服务：Issue 与拉取请求"
-description: 连接 GitHub、GitLab、Gitea 或 Gerrit，在 OpenChamber 中处理 issue 和拉取请求。
+description: 连接 GitHub、GitLab、Gitea、Forgejo 或 Gerrit，在 OpenChamber 中处理 issue 和拉取请求。
 ---
 
 # Git 托管服务：Issue 与拉取请求
 
-连接项目所在托管服务上的账号，OpenChamber 就可以列出它的 issue 和拉取请求、从其中一个开始会话，并为你创建、评审和合并拉取请求。内置四个托管服务：GitHub（包括 GitHub Enterprise）、GitLab（包括自托管 GitLab）、Gitea 和 Gerrit。[扩展](/zh-cn/extensions/#作为-git-托管服务的扩展) 还可以再添加一个。
+连接项目所在托管服务上的账号，OpenChamber 就可以列出它的 issue 和拉取请求、从其中一个开始会话，并为你创建、评审和合并拉取请求。内置五个托管服务：GitHub（包括 GitHub Enterprise）、GitLab（包括自托管 GitLab）、Gitea、Forgejo（包括 Codeberg）和 Gerrit。[扩展](/zh-cn/extensions/#作为-git-托管服务的扩展) 还可以再添加一个。
 
 OpenChamber 与哪个托管服务通信，由项目的远程仓库决定。`origin` 在 gitlab.com 上的项目，看板、分支上的拉取请求徽标和 Git 面板都会使用你的 GitLab 账号。位于 `~/.ssh/config` 主机别名（例如 `github.com-work`）上的远程仓库不会匹配任何托管服务。
 
@@ -18,9 +18,10 @@ OpenChamber 与哪个托管服务通信，由项目的远程仓库决定。`orig
    - **GitHub**：选择 **Connect GitHub**，打开它显示的链接，输入短码并批准。对于 GitHub Enterprise，在 **其他实例** 下选择 **添加实例**，输入服务器地址并粘贴个人访问令牌。
    - **GitLab**：在 gitlab.com 上，用短码、个人访问令牌或 `glab` 登录。对于自托管 GitLab，添加它的地址并粘贴个人访问令牌。
    - **Gitea**：添加服务器地址并粘贴个人访问令牌。
+   - **Forgejo**：Codeberg 只需粘贴个人访问令牌；其他服务器要先添加地址。
    - **Gerrit**：添加服务器地址，然后填写你的 Gerrit 用户名和 HTTP 密码。
 
-连接后，你的账号会显示在卡片上。你可以在一个托管服务上连接多个账号并在它们之间切换，或随时断开连接。如果同一台机器上已登录 `gh` CLI，OpenChamber 也可以把它用于 GitHub。每种令牌需要的权限范围和每个托管服务需要的版本见 [集成](/zh-cn/integrations/#gitlabgitea-和-gerrit)。
+连接后，你的账号会显示在卡片上。你可以在一个托管服务上连接多个账号并在它们之间切换，或随时断开连接。如果同一台机器上已登录 `gh` CLI，OpenChamber 也可以把它用于 GitHub。每种令牌需要的权限范围和每个托管服务需要的版本见 [集成](/zh-cn/integrations/#gitlabgiteaforgejo-和-gerrit)。
 
 已连接的账号也可以作为项目的 [Git 身份](/zh-cn/git-identities/)，这样提交会带上它的名字，通过 HTTPS 推送时使用它的令牌。
 
@@ -41,7 +42,7 @@ OpenChamber 与哪个托管服务通信，由项目的远程仓库决定。`orig
 在 [Git 面板](/zh-cn/git/) 的 **PR** 标签页中，你可以创建拉取请求、更新它、将草稿标记为就绪或合并它。OpenChamber 可以根据你的变更撰写标题和描述。
 
 - **GitLab**：同一个标签页用来打开合并请求。合并时可以选择 merge 或 squash。
-- **Gitea**：与 GitHub 相同。
+- **Gitea** 和 **Forgejo**：与 GitHub 相同。
 - **Gerrit**：推送评审会创建一个变更，之后每次推送都会上传一个新的补丁集。参阅 [在 Gerrit 上推送评审](/zh-cn/git/#在-gerrit-上推送评审)。合并即 **合入**，要等变更满足它的合入要求。评审就是在项目的标签上投票，例如 Code-Review 和 Verified。
 
 ## 将 issue 或拉取请求关联到消息

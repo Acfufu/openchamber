@@ -228,10 +228,10 @@ describe('source-control auth storage', () => {
       providers: {
         gitlab: { instances: {} },
         github: { instances: {} },
-        forgejo: { instances: { [forgeOrigin]: {
-          activeCredentialId: 'occred:v1:forgejo:one:r1',
+        sourcehut: { instances: { [forgeOrigin]: {
+          activeCredentialId: 'occred:v1:sourcehut:one:r1',
           credentials: [{
-            credentialId: 'occred:v1:forgejo:one:r1', revision: 1, providerUserId: `${forgeOrigin}#3`, token: 'forge-pat',
+            credentialId: 'occred:v1:sourcehut:one:r1', revision: 1, providerUserId: `${forgeOrigin}#3`, token: 'forge-pat',
             user: { id: 3, login: 'three' }, source: 'pat', scope: '', status: 'valid',
           }],
           cliDisabled: false,
@@ -244,7 +244,7 @@ describe('source-control auth storage', () => {
     const gitlab = await store.setAccount('https://gitlab.example.com', { token: 'glpat', user: { id: 1, login: 'one' }, source: 'pat' });
     const written = JSON.parse(await fs.readFile(filePath, 'utf8'));
     expect(written.version).toBe(4);
-    expect(written.providers.forgejo).toEqual(unknown.providers.forgejo);
+    expect(written.providers.sourcehut).toEqual(unknown.providers.sourcehut);
     await store.removeAccount('https://gitlab.example.com', gitlab.id);
     expect(JSON.parse(await fs.readFile(filePath, 'utf8'))).toEqual(unknown);
   });

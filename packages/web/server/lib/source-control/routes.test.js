@@ -229,6 +229,7 @@ describe('source-control provider registry', () => {
       { provider: 'github', instance: 'github.com' },
       { provider: 'gitlab', instance: 'https://gitlab.com' },
       { provider: 'gitlab', instance: 'https://gitlab.example.com' },
+      { provider: 'forgejo', instance: 'https://codeberg.org' },
     ] });
     } finally {
       if (previousConfigDir === undefined) delete process.env.GH_CONFIG_DIR;
@@ -257,7 +258,7 @@ describe('source-control provider registry', () => {
       await handlers.get('/api/source-control/instances')({}, { json });
 
       expect(json).toHaveBeenCalledWith({
-        instances: [{ provider: 'github', instance: 'github.com' }],
+        instances: [{ provider: 'github', instance: 'github.com' }, { provider: 'forgejo', instance: 'https://codeberg.org' }],
         unavailableProviders: ['gitlab'],
       });
     } finally {

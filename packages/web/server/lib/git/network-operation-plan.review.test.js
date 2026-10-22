@@ -73,7 +73,7 @@ describe('review refs on a change host', () => {
   it.each([
     ['a remote that is no change host\'s primary remote', { ...authority, primaryOf: undefined }],
     ['the primary remote of a host that creates by API', { ...authority, primaryOf: ['gitea'] }],
-    ['a provider this build does not know', { ...authority, primaryOf: ['forgejo'] }],
+    ['a provider this build does not know', { ...authority, primaryOf: ['sourcehut'] }],
   ])('refuses review refs on %s', async (_name, current) => {
     const planner = makePlanner({ validateGitTransportContext: vi.fn(async () => current) });
     await expect(planner.planNetworkOperation(reviewInput())).rejects.toMatchObject({ code: 'INVALID_REQUEST' });

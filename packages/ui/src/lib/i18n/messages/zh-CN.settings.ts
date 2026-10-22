@@ -2552,6 +2552,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': '没有活动的已保存账户时使用 {cli} 凭据。',
   'settings.sourceControl.instance.label': '{provider} 实例',
   'settings.sourceControl.instance.infoLoopback': '请使用 HTTPS 源地址。仅本地地址允许使用 HTTP。',
+  'settings.sourceControl.instance.otherProvider': '此服务器属于 {provider}。请在那里为它添加账户。',
   'settings.sourceControl.status.checking': '正在检查连接…',
   'settings.sourceControl.provider.status.connected': '已连接',
   'settings.sourceControl.actions.connect': '连接 {provider}',

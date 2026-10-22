@@ -1774,6 +1774,21 @@ export type RepositoryReferencesAcrossResult = {
   >;
 };
 
+/**
+ * Connecting refused an instance that belongs on another provider's card:
+ * the card it is already connected on, or the provider its server is (two
+ * providers can share one API). `provider` is that card's provider id.
+ */
+export class SourceControlInstanceOtherProviderError extends Error {
+  readonly provider: string;
+
+  constructor(message: string, provider: string) {
+    super(message);
+    this.name = 'SourceControlInstanceOtherProviderError';
+    this.provider = provider;
+  }
+}
+
 export interface SourceControlAPI {
   /**
    * The providers the connected server serves, ordered. An authoritative
@@ -1789,7 +1804,11 @@ export interface SourceControlAPI {
   authStatus(identity: SourceControlIdentity): Promise<SourceControlAuthStatus>;
   authStart(identity: SourceControlIdentity): Promise<SourceControlDeviceFlowStart>;
   authComplete(identity: SourceControlIdentity, flowId: string): Promise<SourceControlDeviceFlowComplete>;
-  /** `username` goes with the token where the provider's settings name a username field (HTTP Basic hosts). */
+  /**
+   * `username` goes with the token where the provider's settings name a
+   * username field (HTTP Basic hosts). Throws `SourceControlInstanceOtherProviderError`
+   * when the instance belongs on another provider's card.
+   */
   authSetToken(identity: SourceControlIdentity, token: string, options?: { username?: string }): Promise<SourceControlAuthStatus>;
   authDisconnect(identity: SourceControlIdentity, accountId: string): Promise<{ removed: boolean }>;
   authActivate(identity: SourceControlIdentity, accountId: string): Promise<SourceControlAuthStatus>;

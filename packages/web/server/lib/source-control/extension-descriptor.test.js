@@ -255,6 +255,6 @@ describe('extension source-control descriptors', () => {
     const descriptor = build();
     sourceControlProviderDescriptors.attachExtension(descriptor);
     expect(sourceControlProviderDescriptors.get('ext-forge')).toBe(descriptor);
-    expect(sourceControlProviderDescriptors.list().map((entry) => entry.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'ext-forge']);
+    expect(sourceControlProviderDescriptors.list().map((entry) => entry.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'forgejo', 'ext-forge']);
   });
 });

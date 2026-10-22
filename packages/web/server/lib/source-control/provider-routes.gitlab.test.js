@@ -1384,4 +1384,28 @@ describe('merge request head for a worktree made by number', () => {
     await expect(gitlab.readChangeRequestHead({ context, number: 7 }))
       .rejects.toMatchObject({ code: 'MALFORMED_PROVIDER_RESPONSE' });
   });
+
+  // Git transport reaches a loopback HTTP instance, so its fork's clone URL is
+  // a valid source; on an HTTPS instance an HTTP clone URL is not.
+  it('takes the fork clone URL on the instance origin, HTTP only for a loopback instance', async () => {
+    const forkRequest = (instance) => ({
+      number: 7, head: 'feature/fix', headSha: 'c'.repeat(40),
+      project: { id: '11', owner: 'team', name: 'repo' },
+      headProject: { id: '22', owner: 'alice', name: 'repo', cloneUrl: `${instance.replace('https:', 'http:')}/alice/repo.git` },
+    });
+    const sourceRequest = (instance, accountId) => ({
+      context: { ...context, instance, accountId }, project: { id: '11', owner: 'team', name: 'repo' },
+      number: 7, expectedHeadSha: 'c'.repeat(40), requestedRemoteName: 'pr-alice',
+    });
+    const local = 'http://127.0.0.1:8929';
+    const localAccount = { ...account, id: `${local}#2` };
+    const { gitlab: onLoopback } = register(forkRequest(local), makeStore(localAccount));
+    await expect(onLoopback.resolveChangeRequestSource(sourceRequest(local, localAccount.id))).resolves.toMatchObject({
+      classification: 'contributor-fork', endpoint: `${local}/alice/repo.git`,
+    });
+
+    const { gitlab: onHttps } = register(forkRequest(origin));
+    await expect(onHttps.resolveChangeRequestSource(sourceRequest(origin, account.id)))
+      .rejects.toMatchObject({ code: 'MALFORMED_PROVIDER_RESPONSE' });
+  });
 });

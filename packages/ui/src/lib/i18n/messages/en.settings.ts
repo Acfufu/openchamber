@@ -2546,6 +2546,7 @@ export const settingsDict = {
   'settings.openchamber.visual.option.followUpBehavior.queue.label': 'Queue',
   'settings.sourceControl.instance.label': '{provider} instance',
   'settings.sourceControl.instance.infoLoopback': 'Use an HTTPS origin. HTTP is allowed only for loopback addresses.',
+  'settings.sourceControl.instance.otherProvider': 'This server belongs under {provider}. Add accounts for it there.',
   'settings.sourceControl.status.checking': 'Checking connection…',
   'settings.sourceControl.provider.status.connected': 'Connected',
   'settings.sourceControl.actions.connect': 'Connect {provider}',

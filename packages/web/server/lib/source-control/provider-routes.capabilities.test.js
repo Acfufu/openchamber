@@ -100,11 +100,11 @@ describe('provider route capabilities', () => {
 
   it('answers 404 for an unknown provider or path instead of reaching the proxy', async () => {
     const { app, proxy } = appWith();
-    for (const path of ['/api/source-control/forgejo/pr/status', '/api/source-control/acme/not-a-route', '/api/source-control/github/auth/status']) {
+    for (const path of ['/api/source-control/sourcehut/pr/status', '/api/source-control/acme/not-a-route', '/api/source-control/github/auth/status']) {
       const response = await request(app).get(path).expect(404);
       expect(response.body.code).toBe('SOURCE_CONTROL_PROVIDER_UNAVAILABLE');
     }
-    await request(app).post('/api/source-control/forgejo/pr/create').send({}).expect(404);
+    await request(app).post('/api/source-control/sourcehut/pr/create').send({}).expect(404);
     expect(proxy).not.toHaveBeenCalled();
   });
 
@@ -120,7 +120,7 @@ describe('provider route capabilities', () => {
   it('refuses a source resolution for a provider the registry does not hold', async () => {
     const providers = createSourceControlProviders({ descriptors: createProviderDescriptors([acme]), loaders: {} });
     const shell = registerProviderRoutes({ get: vi.fn(), post: vi.fn(), delete: vi.fn() }, { providers });
-    await expect(shell.resolveChangeRequestSource({ context: { provider: 'forgejo' } }))
+    await expect(shell.resolveChangeRequestSource({ context: { provider: 'sourcehut' } }))
       .rejects.toMatchObject({ code: 'INVALID_SOURCE_CONTROL_READ_CONTEXT', status: 400 });
   });
 });

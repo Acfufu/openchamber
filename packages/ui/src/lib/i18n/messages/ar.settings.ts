@@ -2530,6 +2530,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'استخدام بيانات اعتماد {cli} عندما لا يكون هناك حساب محفوظ نشط.',
   'settings.sourceControl.instance.label': 'نسخة {provider}',
   'settings.sourceControl.instance.infoLoopback': 'استخدم أصل HTTPS. يُسمح بـ HTTP لعناوين loopback فقط.',
+  'settings.sourceControl.instance.otherProvider': 'هذا الخادم يتبع {provider}. أضف حساباته هناك.',
   'settings.sourceControl.status.checking': 'جارٍ التحقق من الاتصال…',
   'settings.sourceControl.provider.status.connected': 'متصل',
   'settings.sourceControl.actions.connect': 'ربط {provider}',

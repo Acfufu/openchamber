@@ -8,7 +8,7 @@ import { parseBindingResponse } from './binding-contract.js';
 
 /**
  * Provider ids are open in every persisted store: a record a provider this
- * build does not know wrote (here `forgejo`) parses, stays byte for byte, and
+ * build does not know wrote (here `sourcehut`) parses, stays byte for byte, and
  * never takes a sibling provider down with it. Availability is decided when
  * it is read, not when the file is parsed.
  */
@@ -39,7 +39,7 @@ const storedBinding = {
   configRevision: 'config_one',
   providers: [
     {
-      provider: 'forgejo', instance: 'https://forge.example.com', accountId: 'occred:v1:forgejo:one:r1',
+      provider: 'sourcehut', instance: 'https://forge.example.com', accountId: 'occred:v1:sourcehut:one:r1',
       primaryRemote: 'forge', readiness: 'ready', endpoint: endpoint('https://forge.example.com/team/repo.git', 'forge-fetch'),
       repository: { owner: 'team', name: 'repo' },
     },
@@ -76,7 +76,7 @@ const readContext = (overrides = {}) => ({
 describe('open provider ids in repository bindings', () => {
   it('parses a binding of an unknown provider and keeps the file untouched', async () => {
     const { filePath, encoded, store } = await setup();
-    await expect(store.read('repo_one')).resolves.toMatchObject({ revision: 2, binding: { providers: [{ provider: 'forgejo' }, { provider: 'github' }] } });
+    await expect(store.read('repo_one')).resolves.toMatchObject({ revision: 2, binding: { providers: [{ provider: 'sourcehut' }, { provider: 'github' }] } });
     // Reconciling another provider's account rewrites nothing of this one.
     await store.reconcileAccount({ provider: 'gitlab', instance: 'https://gitlab.com', accountId: 'nobody' });
     expect(await fs.readFile(filePath, 'utf8')).toBe(encoded);
@@ -86,7 +86,7 @@ describe('open provider ids in repository bindings', () => {
     const { service } = await setup();
     await expect(service.validateReadContext(readContext())).resolves.toMatchObject({ provider: 'github', primaryRemote: 'origin' });
     await expect(service.validateReadContext(readContext({
-      provider: 'forgejo', instance: 'https://forge.example.com', accountId: 'occred:v1:forgejo:one:r1', primaryRemote: 'forge',
+      provider: 'sourcehut', instance: 'https://forge.example.com', accountId: 'occred:v1:sourcehut:one:r1', primaryRemote: 'forge',
     }))).rejects.toMatchObject({ code: 'SOURCE_CONTROL_PROVIDER_UNAVAILABLE', status: 422 });
     await expect(service.validateReadContext(readContext({ provider: 'Not An Id' })))
       .rejects.toMatchObject({ code: 'INVALID_SOURCE_CONTROL_READ_CONTEXT' });
@@ -96,14 +96,14 @@ describe('open provider ids in repository bindings', () => {
     const { service } = await setup();
     const read = await service.get('/repo');
     expect(() => parseBindingResponse(read.binding)).not.toThrow();
-    expect(read.binding.providers.map((entry) => entry.provider)).toEqual(['forgejo', 'github']);
+    expect(read.binding.providers.map((entry) => entry.provider)).toEqual(['sourcehut', 'github']);
   });
 
   it('lets the user remove an association of a provider this build does not know, leaving the sibling', async () => {
     const { service, store } = await setup();
     await service.mutateProvider({
       directory: '/repo', expectedRepositoryId: 'repo_one', expectedRevision: 2, operation: 'remove',
-      target: { provider: 'forgejo', instance: 'https://forge.example.com', accountId: 'occred:v1:forgejo:one:r1', primaryRemote: 'forge' },
+      target: { provider: 'sourcehut', instance: 'https://forge.example.com', accountId: 'occred:v1:sourcehut:one:r1', primaryRemote: 'forge' },
     });
     const after = await store.read('repo_one');
     expect(after.binding.providers.map((entry) => entry.provider)).toEqual(['github']);
@@ -111,10 +111,10 @@ describe('open provider ids in repository bindings', () => {
 
   it('adopts and reconciles nothing for an unknown provider, without failing', async () => {
     const { service, filePath, encoded } = await setup();
-    await expect(service.accountUnavailable({ provider: 'forgejo', instance: 'https://forge.example.com', accountId: 'occred:v1:forgejo:one:r1' }))
+    await expect(service.accountUnavailable({ provider: 'sourcehut', instance: 'https://forge.example.com', accountId: 'occred:v1:sourcehut:one:r1' }))
       .resolves.toEqual([]);
     await expect(service.accountConnected({
-      provider: 'forgejo', instance: 'https://forge.example.com', accountId: 'two', credentialRevision: 1, providerUserId: 'https://forge.example.com#3',
+      provider: 'sourcehut', instance: 'https://forge.example.com', accountId: 'two', credentialRevision: 1, providerUserId: 'https://forge.example.com#3',
     })).resolves.toEqual([]);
     expect(await fs.readFile(filePath, 'utf8')).toBe(encoded);
   });

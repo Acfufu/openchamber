@@ -5,7 +5,7 @@ description: Переглядайте issues і pull requests проєкту а�
 
 # Issues і PR
 
-Дошка **Issues and PRs** — це окрема сторінка зі списком issues і pull requests проєкту з GitHub, GitLab, Gitea чи Gerrit (на GitLab це merge requests, на Gerrit зміни, і issues там немає) або ваших issues з Linear. Виберіть елемент, і його попередній перегляд відкриється поруч зі списком. Якщо ви дивитеся тут інший проєкт, решта застосунку лишається на своєму.
+Дошка **Issues and PRs** — це окрема сторінка зі списком issues і pull requests проєкту з GitHub, GitLab, Gitea, Forgejo чи Gerrit (на GitLab це merge requests, на Gerrit зміни, і issues там немає) або ваших issues з Linear. Виберіть елемент, і його попередній перегляд відкриється поруч зі списком. Якщо ви дивитеся тут інший проєкт, решта застосунку лишається на своєму.
 
 ## Відкрити дошку
 
@@ -19,13 +19,13 @@ description: Переглядайте issues і pull requests проєкту а�
 
 ## Пошук
 
-Усе вміщено в один рядок панелі інструментів. Ліворуч вибір проєкту з іконками проєктів і пошуком. Поруч перемикач **Issues**, **Pull requests** і **Linear**. Issues і pull requests беруться з хостингу самого проєкту: GitHub, GitLab, Gitea, Gerrit або хоста, який додає [розширення](/uk/extensions/#розширення-як-git-хост). Вкладка **Linear** з'являється, лише коли Linear підключено. Проєкт, що не належить жодному з цих хостів, показує лише цю вкладку або каже, що показувати нічого. Remote на аліасі хоста з `~/.ssh/config`, наприклад `github.com-work`, не належить жодному з них.
+Усе вміщено в один рядок панелі інструментів. Ліворуч вибір проєкту з іконками проєктів і пошуком. Поруч перемикач **Issues**, **Pull requests** і **Linear**. Issues і pull requests беруться з хостингу самого проєкту: GitHub, GitLab, Gitea, Forgejo, Gerrit або хоста, який додає [розширення](/uk/extensions/#розширення-як-git-хост). Вкладка **Linear** з'являється, лише коли Linear підключено. Проєкт, що не належить жодному з цих хостів, показує лише цю вкладку або каже, що показувати нічого. Remote на аліасі хоста з `~/.ssh/config`, наприклад `github.com-work`, не належить жодному з них.
 
 На **Linear** вибір проєкту стає вибором команди: виберіть **All teams** або одну команду. Якщо підключено кілька робочих просторів Linear, перемикайте їх у тому ж меню. Як підключити Linear, описано в [Інтеграціях](/uk/integrations/).
 
 Пошук приймає назву, номер або вставлене посилання. Меню фільтрів не закривається, поки ви вибираєте, тож фільтри можна поєднувати.
 
-Для GitHub, GitLab, Gitea і Gerrit:
+Для GitHub, GitLab, Gitea, Forgejo і Gerrit:
 
 - Статус: **Open**, **Closed**, **All**, а для pull requests ще **Merged**
 - Люди: **Anyone**, **Assigned to me**, **Created by me**, а для pull requests ще **Review requested**
@@ -73,6 +73,6 @@ description: Переглядайте issues і pull requests проєкту а�
 
 ## Пов'язане
 
-- [Git-хости](/uk/github/): підключення GitHub, GitLab, Gitea чи Gerrit і прикріплення елементів до повідомлень
+- [Git-хости](/uk/github/): підключення GitHub, GitLab, Gitea, Forgejo чи Gerrit і прикріплення елементів до повідомлень
 - [Сесії worktree](/uk/worktrees/): звідки стартують сесії worktree
 - [Інтеграції](/uk/integrations/): підключення Linear і зіставлення команд із проєктами

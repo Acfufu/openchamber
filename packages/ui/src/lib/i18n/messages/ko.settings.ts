@@ -2549,6 +2549,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': '활성 저장 계정이 없을 때 {cli} 자격 증명을 사용합니다.',
   'settings.sourceControl.instance.label': '{provider} 인스턴스',
   'settings.sourceControl.instance.infoLoopback': 'HTTPS 주소를 사용하세요. HTTP는 로컬 주소에서만 허용됩니다.',
+  'settings.sourceControl.instance.otherProvider': '이 서버는 {provider}에 속합니다. 계정은 그곳에서 추가하세요.',
   'settings.sourceControl.status.checking': '연결 확인 중…',
   'settings.sourceControl.provider.status.connected': '연결됨',
   'settings.sourceControl.actions.connect': '{provider} 연결',

@@ -11,6 +11,7 @@ import { createProvider as createGiteaProvider } from '../gitea/provider.js';
 import { createProvider as createGitLabProvider } from '../gitlab/provider.js';
 import { createGitHubMutations } from '../github/mutations.js';
 import { createProvider as createGerritProvider } from '../gerrit/provider.js';
+import { createProvider as createForgejoProvider } from '../forgejo/provider.js';
 
 /**
  * `source-control-mutations.json` keeps `running` and `outcome-unknown`
@@ -43,6 +44,9 @@ const FROZEN = {
   giteaReviewApprove: 'a1581e82d4df9ed62961f829fd3e870b87f39b6ef3676070c25630c91c9044ba',
   giteaReviewRequestChanges: '8bb0fd8f0c6b4fe515f8b4f7bf454f341855fa38fab6a8203dae62afc65114a3',
   giteaReviewApproveNoBody: 'b44110e9b23bf70a4326230a69b34b1398ce0f24c071bca9c0ef4da56ec9008c',
+  forgejoCreate: '1810de7888d41517fc1618072127236ebc6107467a8071dd0b840cc6aaa8ff05',
+  forgejoMerge: '47be2711e41210cc26042419efc08a7b1fb15136e1aa9d1201e94b4646189208',
+  forgejoReviewApprove: '8368ef10a4748b6ab894f62b6cf798a41837e9aef6ac5496c18df6db57bfc91e',
   gerritSubmit: '4473b7f7a3d939ced0c85bca30e6bce3e8f289bbd621a9ddb1e2337da643b1f1',
   gerritVotes: '4fd47905b510db66309e7539296b6e4d8781a12f726f940af841adfeeaeddb0e',
   gerritVotesNoBody: 'dda0eb5b26714cde0f71362205281948a83a5dff6f07851dfdcea1ee83a2c1f3',
@@ -178,6 +182,24 @@ describe('persisted mutation digests', () => {
     const labels = prepare('/issues/labels', { labels: ['bug', 'a', 'bug'] }, numbered);
     expect(labels.kind).toBe('issue-labels');
     expect(labels.digest(numbered)).toBe(FROZEN.giteaIssueLabels);
+  });
+
+  // Forgejo shares Gitea's table: the same kinds, digests that differ by the actor.
+  it('keeps Forgejo\'s kinds and digests', () => {
+    const actor = { provider: 'forgejo', instance: 'https://codeberg.org', accountId: 'occred:v1:forgejo:one:r1' };
+    const credential = { accountId: actor.accountId, credentialRevision: 1 };
+    const numbered = { ...glTarget, number: 5 };
+    const reviewTarget = { ...numbered, headSha: 'a'.repeat(40) };
+    delete reviewTarget.head;
+    delete reviewTarget.base;
+    const { mutations } = createForgejoProvider({ store: {}, events: {} });
+    const prepare = (route, input, target) => mutations.prepare({ route, input, context: { primaryRemote: 'origin', target }, actor, credential });
+
+    expect(prepare('/pr/create', { title: 'Feature' }, glTarget)).toMatchObject({ kind: 'change-request-create' });
+    expect(prepare('/pr/create', { title: 'Feature' }, glTarget).digest(glTarget)).toBe(FROZEN.forgejoCreate);
+    expect(prepare('/pr/merge', { method: 'squash' }, numbered).digest(numbered)).toBe(FROZEN.forgejoMerge);
+    expect(prepare('/pr/review', { verdict: 'approve', body: 'Looks good' }, reviewTarget)).toMatchObject({ kind: 'change-request-review' });
+    expect(prepare('/pr/review', { verdict: 'approve', body: 'Looks good' }, reviewTarget).digest(reviewTarget)).toBe(FROZEN.forgejoReviewApprove);
   });
 
   it('keeps every built-in\'s review kind and digest, which a retried review replays by', () => {

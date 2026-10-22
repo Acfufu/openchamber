@@ -93,7 +93,7 @@ describe('Gerrit through the route shell', () => {
   it('is listed last among the built-ins and answers capabilities and account routes', async () => {
     const { app, accountId } = await appWith();
     const providers = await request(app).get('/api/source-control/providers').expect(200);
-    expect(providers.body.providers.map((provider) => provider.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit']);
+    expect(providers.body.providers.map((provider) => provider.id)).toEqual(['github', 'gitlab', 'gitea', 'gerrit', 'forgejo']);
     const capabilities = await request(app).get('/api/source-control/gerrit/capabilities').query({ instance: ORIGIN }).expect(200);
     expect(capabilities.body).toMatchObject({ mergeChangeRequests: true, mergeMethods: ['submit'], issues: false });
     const status = await request(app).get('/api/source-control/gerrit/auth/status').query({ instance: ORIGIN }).expect(200);

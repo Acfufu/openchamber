@@ -2549,6 +2549,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': '有効な保存済みアカウントがない場合に {cli} の認証情報を使用します。',
   'settings.sourceControl.instance.label': '{provider} インスタンス',
   'settings.sourceControl.instance.infoLoopback': 'HTTPS のオリジンを使用してください。HTTP はローカルアドレスでのみ許可されます。',
+  'settings.sourceControl.instance.otherProvider': 'このサーバーは {provider} に属します。アカウントはそちらで追加してください。',
   'settings.sourceControl.status.checking': '接続を確認中…',
   'settings.sourceControl.provider.status.connected': '接続済み',
   'settings.sourceControl.actions.connect': '{provider} に接続',

@@ -2557,6 +2557,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'Kayıtlı bir hesap etkin değilken {cli} kimlik bilgilerini kullan.',
   'settings.sourceControl.instance.label': "{provider} instance'ı",
   'settings.sourceControl.instance.infoLoopback': 'Bir HTTPS origin kullanın. HTTP yalnızca loopback adresleri için izinlidir.',
+  'settings.sourceControl.instance.otherProvider': 'Bu sunucu {provider} altında. Hesaplarını orada ekleyin.',
   'settings.sourceControl.status.checking': 'Bağlantı kontrol ediliyor…',
   'settings.sourceControl.provider.status.connected': 'Bağlı',
   'settings.sourceControl.actions.connect': '{provider} bağlantısı kur',

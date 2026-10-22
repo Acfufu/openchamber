@@ -2549,6 +2549,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'Utiliser les identifiants {cli} lorsqu’aucun compte enregistré n’est actif.',
   'settings.sourceControl.instance.label': 'Instance {provider}',
   'settings.sourceControl.instance.infoLoopback': 'Utilisez une origine HTTPS. HTTP est autorisé uniquement pour les adresses locales.',
+  'settings.sourceControl.instance.otherProvider': 'Ce serveur relève de {provider}. Ajoutez-y ses comptes.',
   'settings.sourceControl.status.checking': 'Vérification de la connexion…',
   'settings.sourceControl.provider.status.connected': 'Connecté',
   'settings.sourceControl.actions.connect': 'Connecter {provider}',

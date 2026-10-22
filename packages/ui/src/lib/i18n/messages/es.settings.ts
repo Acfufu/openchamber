@@ -2549,6 +2549,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': 'Usa las credenciales de {cli} cuando no haya una cuenta guardada activa.',
   'settings.sourceControl.instance.label': 'Instancia de {provider}',
   'settings.sourceControl.instance.infoLoopback': 'Usa un origen HTTPS. HTTP solo se permite para direcciones locales.',
+  'settings.sourceControl.instance.otherProvider': 'Este servidor pertenece a {provider}. Añade sus cuentas allí.',
   'settings.sourceControl.status.checking': 'Comprobando conexión…',
   'settings.sourceControl.provider.status.connected': 'Conectado',
   'settings.sourceControl.actions.connect': 'Conectar {provider}',

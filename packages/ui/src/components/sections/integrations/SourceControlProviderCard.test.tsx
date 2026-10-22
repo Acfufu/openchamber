@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { Window } from 'happy-dom';
 import { registerRuntimeAPIs } from '@/contexts/runtimeAPIRegistry';
+import { SourceControlInstanceOtherProviderError } from '@/lib/api/types';
 import type {
   RuntimeAPIs,
   SourceControlAPI,
@@ -12,6 +13,7 @@ import type {
 } from '@/lib/api/types';
 import type { SourceControlProviderDescriptor } from '@/lib/source-control/providers/descriptor';
 import { acmeDescriptor, githubLikeDescriptor, gitlabLikeDescriptor } from '@/lib/source-control/providers/descriptor.fixture';
+import { useSourceControlProviderRegistry } from '@/lib/source-control/providers/registry';
 import { useSourceControlAuthStore } from '@/stores/useSourceControlAuthStore';
 import { normalizeInstanceInput } from '@/components/sections/openchamber/sourceControlProviderSettings';
 
@@ -80,6 +82,8 @@ describe('SourceControlProviderCard', () => {
   let activationFails = false;
   let discoveryFails = false;
   let tokenAccepted = true;
+  // The provider whose card the server says the instance belongs on, if any.
+  let tokenOwner: string | null = null;
   let beforeActivation = async () => {};
   let available = { device: true, pat: true, cli: true };
   let withCliLogin = true;
@@ -130,6 +134,7 @@ describe('SourceControlProviderCard', () => {
     },
     authSetToken: async (identity, token) => {
       if (!tokenAccepted) throw Object.assign(new Error('Token rejected'), { code: 'INVALID_TOKEN' });
+      if (tokenOwner) throw new SourceControlInstanceOtherProviderError(`${identity.instance} belongs on another card`, tokenOwner);
       savedTokens.push([identity.instance, token]);
       return statusFor(identity);
     },
@@ -185,6 +190,7 @@ describe('SourceControlProviderCard', () => {
     activationFails = false;
     discoveryFails = false;
     tokenAccepted = true;
+    tokenOwner = null;
     beforeActivation = async () => {};
     available = { device: true, pat: true, cli: true };
     withCliLogin = true;
@@ -297,6 +303,30 @@ describe('SourceControlProviderCard', () => {
     await click('Save changes');
     expect(savedTokens).toEqual([['https://forge.example.com', 'secret-token']]);
     expect(passwordInput()?.value ?? '').toBe('');
+  });
+
+  test('names the provider whose card an instance belongs on when the server refuses it here', async () => {
+    withCliLogin = false;
+    const registry = useSourceControlProviderRegistry.getState();
+    useSourceControlProviderRegistry.setState({ byId: new Map([['gitlab', gitlab]]) });
+    try {
+      await mount(acme);
+      await addInstance('https://forge.example.com', 'https://forge.example.com');
+      const input = passwordInput();
+      if (!input) throw new Error('Missing token input');
+
+      tokenOwner = 'gitlab';
+      await type(input, 'secret-token');
+      await click('Save changes');
+      expect(savedTokens).toEqual([]);
+      expect(container.textContent).toContain('This server belongs under GitLab. Add accounts for it there.');
+
+      tokenOwner = null;
+      await click('Save changes');
+      expect(container.textContent).not.toContain('belongs under');
+    } finally {
+      useSourceControlProviderRegistry.setState({ byId: registry.byId });
+    }
   });
 
   test('links to the provider\'s token page on the instance and names the scopes it needs', async () => {

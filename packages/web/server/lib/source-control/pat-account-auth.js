@@ -3,7 +3,7 @@ import { ownedOriginInstance } from './origin-instance.js';
 /**
  * The account half of a provider that signs in with personal access tokens
  * only and keeps its accounts in its origin-keyed section of the auth store
- * (`authStore.section(id)`): Gitea, and extension providers. The provider
+ * (`authStore.section(id)`): Gitea, Forgejo, and extension providers. The provider
  * supplies the two network calls; everything else is the store.
  *
  * - `verify(origin, token)` answers the token's user (`{ id, login, ... }`)
@@ -11,6 +11,9 @@ import { ownedOriginInstance } from './origin-instance.js';
  *   refused the token, which writes the account off.
  * - `probe(origin)` answers `{ supported, version?, message? }` without a
  *   token: whether the instance is one this provider can serve.
+ * - `ownerElsewhere({ origin, version })`, optional, answers another
+ *   provider (`{ id, label }`) whose card the instance belongs on, or null.
+ *   Connect refuses such an instance before anything is stored.
  *
  * A provider whose settings declare a `username` field signs in with HTTP
  * Basic (Gerrit: username plus HTTP password), so the token alone cannot
@@ -26,7 +29,7 @@ const UNSUPPORTED_METHOD = Object.freeze({ available: false, reason: 'unsupporte
 /** An error the shell answers with exactly this status and body. */
 const responseError = (status, body) => Object.assign(new Error(body.error), { sourceControlResponse: { status, body } });
 
-export function createPatAccountAuth({ descriptor, store, events, verify, probe, classifyFailure }) {
+export function createPatAccountAuth({ descriptor, store, events, verify, probe, classifyFailure, ownerElsewhere = null }) {
   const takesUsername = descriptor.settings?.some((field) => field.type === 'username') === true;
   const loginOf = (account) => account.user?.login ?? account.user?.username ?? '';
   const verifyAccount = (origin, account) => (takesUsername
@@ -144,7 +147,7 @@ export function createPatAccountAuth({ descriptor, store, events, verify, probe,
       const instance = await store.readInstance(origin);
       return instance.accounts.map((account) => accountView(origin, account, account.id === instance.activeAccountId, instance.accounts));
     },
-    /** The token's user first, then the instance's support; nothing is stored unless both pass. */
+    /** The token's user first, then the instance's support and owner; nothing is stored unless all pass. */
     connectToken: async ({ instance: origin, token, username }) => {
       if (takesUsername && !username) throw responseError(400, { error: 'username is required' });
       const credentials = { username };
@@ -156,6 +159,14 @@ export function createPatAccountAuth({ descriptor, store, events, verify, probe,
         throw responseError(400, {
           error: message || (version ? `${descriptor.label} ${version} is not supported` : `${descriptor.label} is not supported`),
           code: 'UNSUPPORTED_PROVIDER_VERSION',
+        });
+      }
+      const owner = ownerElsewhere ? await ownerElsewhere({ origin, version }) : null;
+      if (owner) {
+        throw responseError(409, {
+          error: `${origin} belongs on the ${owner.label} card`,
+          code: 'SOURCE_CONTROL_INSTANCE_OTHER_PROVIDER',
+          provider: owner.id,
         });
       }
       const credential = await store.setAccount(origin, { token, user, source: 'pat' });

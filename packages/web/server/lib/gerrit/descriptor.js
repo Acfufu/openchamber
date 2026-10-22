@@ -1,11 +1,14 @@
 import { normalizeGerritInstance } from './instance.js';
 
-// Three commits on a line with a review mark, drawn for a 24x24 box
-// (OpenChamber's own mark, not Gerrit's logo artwork).
-const CHANGE_PATH = 'M7 2a3 3 0 1 1 0 6a3 3 0 1 1 0-6z'
-  + 'M7 16a3 3 0 1 1 0 6a3 3 0 1 1 0-6z'
-  + 'M6 8h2v8H6z'
-  + 'M13 10.5l1.5-1.5 2 2 4-4 1.5 1.5-5.5 5.5z';
+// Gerrit's logo, a change over its predecessor with the lines it removes and
+// adds, redrawn for a 24x24 box in the line weight of the other provider
+// marks: one removed and one added line where the logo has two of each, so
+// it still reads at 16 pixels.
+const CHANGE_PATH = 'M5 2H13A3 3 0 0 1 16 5V6.5H14V5A1 1 0 0 0 13 4H5A1 1 0 0 0 4 5V13A1 1 0 0 0 5 14H6.5V16H5A3 3 0 0 1 2 13V5A3 3 0 0 1 5 2Z'
+  + 'M11 8H19A3 3 0 0 1 22 11V19A3 3 0 0 1 19 22H11A3 3 0 0 1 8 19V11A3 3 0 0 1 11 8Z'
+  + 'M11 10A1 1 0 0 0 10 11V19A1 1 0 0 0 11 20H19A1 1 0 0 0 20 19V11A1 1 0 0 0 19 10Z'
+  + 'M12 12.25H18V13.75H12Z'
+  + 'M14.25 15H15.75V16.25H17V17.75H15.75V19H14.25V17.75H13V16.25H14.25Z';
 
 /**
  * Gerrit's static description: synchronous and dependency-free. Gerrit is

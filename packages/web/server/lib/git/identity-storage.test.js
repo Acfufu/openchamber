@@ -84,7 +84,7 @@ describe('git identity storage', () => {
 
   it('keeps an identity naming a provider this build does not know, the way persisted ids stay open', async () => {
     const { store } = await setup();
-    const account = { provider: 'forgejo', instance: 'https://forge.example.com', accountId: 'occred:v1:forgejo:one:r1' };
+    const account = { provider: 'sourcehut', instance: 'https://forge.example.com', accountId: 'occred:v1:sourcehut:one:r1' };
     store.createProfile({ ...profile('f'), account, transport: 'account' });
     expect(store.getProfiles().find((entry) => entry.id === 'f')?.account).toEqual(account);
   });

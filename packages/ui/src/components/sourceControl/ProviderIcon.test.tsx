@@ -20,7 +20,7 @@ describe('ProviderIcon', () => {
     expect(markup).toContain('size-4');
     expect(renderToStaticMarkup(<ProviderIcon descriptor={acmeDescriptor({ icon: { sprite: 'no-such-icon' } })} />))
       .toContain('href="#oc-git-branch"');
-    expect(renderToStaticMarkup(<ProviderIcon descriptor={unknownProviderDescriptor('forgejo')} />)).toContain('href="#oc-git-branch"');
+    expect(renderToStaticMarkup(<ProviderIcon descriptor={unknownProviderDescriptor('sourcehut')} />)).toContain('href="#oc-git-branch"');
   });
 
   test('serves the same mark as a data URI for surfaces that take an icon URL', () => {
@@ -29,6 +29,6 @@ describe('ProviderIcon', () => {
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z" fill="currentColor"/></svg>',
     );
     expect(providerIconSrc(gitlabLikeDescriptor()).startsWith('data:image/svg+xml,')).toBe(true);
-    expect(decode(providerIconSrc(unknownProviderDescriptor('forgejo')))).toContain('<path');
+    expect(decode(providerIconSrc(unknownProviderDescriptor('sourcehut')))).toContain('<path');
   });
 });

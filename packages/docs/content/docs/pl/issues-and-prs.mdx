@@ -5,7 +5,7 @@ description: Przeglądaj issues i pull requesty projektu albo swoje issues z Lin
 
 # Issues i PR-y
 
-Tablica **Issues and PRs** to osobna strona z listą issues i pull requestów projektu z GitHub, GitLab, Gitea albo Gerrit (na GitLab merge requestów, na Gerrit zmian, bo Gerrit nie ma issues) albo twoich issues z Linear. Wybierz element, a jego podgląd otworzy się obok listy. Oglądanie tu innego projektu nie zmienia projektu, na którym jest reszta aplikacji.
+Tablica **Issues and PRs** to osobna strona z listą issues i pull requestów projektu z GitHub, GitLab, Gitea, Forgejo albo Gerrit (na GitLab merge requestów, na Gerrit zmian, bo Gerrit nie ma issues) albo twoich issues z Linear. Wybierz element, a jego podgląd otworzy się obok listy. Oglądanie tu innego projektu nie zmienia projektu, na którym jest reszta aplikacji.
 
 ## Otwórz tablicę
 
@@ -19,13 +19,13 @@ Tablica otwiera się ponownie na projekcie, karcie i zespole, na których ją zo
 
 ## Znajdź elementy
 
-Wszystko mieści się w jednym wierszu paska narzędzi. Po lewej jest wybór projektu z ikonami projektów i wyszukiwaniem. Obok przełączasz między **Issues**, **Pull requests** i **Linear**. Issues i pull requesty pochodzą z hostingu samego projektu: GitHub, GitLab, Gitea, Gerrit albo hosta, który dodaje [rozszerzenie](/pl/extensions/#rozszerzenie-jako-host-git). Karta **Linear** pojawia się dopiero po połączeniu Linear. Projekt, który nie jest na żadnym z tych hostów, pokazuje tylko tę kartę albo mówi, że nie ma czego wyświetlić. Remote na aliasie hosta z `~/.ssh/config`, takim jak `github.com-work`, nie liczy się jako żaden z nich.
+Wszystko mieści się w jednym wierszu paska narzędzi. Po lewej jest wybór projektu z ikonami projektów i wyszukiwaniem. Obok przełączasz między **Issues**, **Pull requests** i **Linear**. Issues i pull requesty pochodzą z hostingu samego projektu: GitHub, GitLab, Gitea, Forgejo, Gerrit albo hosta, który dodaje [rozszerzenie](/pl/extensions/#rozszerzenie-jako-host-git). Karta **Linear** pojawia się dopiero po połączeniu Linear. Projekt, który nie jest na żadnym z tych hostów, pokazuje tylko tę kartę albo mówi, że nie ma czego wyświetlić. Remote na aliasie hosta z `~/.ssh/config`, takim jak `github.com-work`, nie liczy się jako żaden z nich.
 
 W **Linear** wybór projektu zamienia się w wybór zespołu: wybierz **All teams** albo jeden zespół. Jeśli masz połączoną więcej niż jedną przestrzeń roboczą Linear, przełączasz ją w tym samym menu. Jak połączyć Linear, opisują [Integracje](/pl/integrations/).
 
 Wyszukiwanie przyjmuje tytuł, numer albo wklejony link. Menu filtrów zostaje otwarte, gdy wybierasz, więc możesz łączyć filtry.
 
-Dla GitHub, GitLab, Gitea i Gerrit:
+Dla GitHub, GitLab, Gitea, Forgejo i Gerrit:
 
 - Status: **Open**, **Closed**, **All**, a dla pull requestów także **Merged**
 - Osoby: **Anyone**, **Assigned to me**, **Created by me**, a dla pull requestów także **Review requested**
@@ -73,6 +73,6 @@ Otwarte issue albo pull request ma na dole też **Close issue** lub **Close pull
 
 ## Powiązane
 
-- [Hosty Git](/pl/github/): połącz GitHub, GitLab, Gitea albo Gerrit i dołączaj elementy do wiadomości
+- [Hosty Git](/pl/github/): połącz GitHub, GitLab, Gitea, Forgejo albo Gerrit i dołączaj elementy do wiadomości
 - [Sesje worktree](/pl/worktrees/): skąd startują sesje worktree
 - [Integracje](/pl/integrations/): połącz Linear i zmapuj zespoły na projekty

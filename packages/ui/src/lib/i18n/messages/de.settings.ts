@@ -2555,6 +2555,7 @@ export const settingsDict = {
   'settings.sourceControl.cli.info': '{cli}-Anmeldedaten verwenden, wenn kein gespeichertes Konto aktiv ist.',
   'settings.sourceControl.instance.label': '{provider}-Instanz',
   'settings.sourceControl.instance.infoLoopback': 'Eine HTTPS-Adresse verwenden. HTTP ist nur für lokale Adressen zulässig.',
+  'settings.sourceControl.instance.otherProvider': 'Dieser Server gehört zu {provider}. Füge Konten dafür dort hinzu.',
   'settings.sourceControl.status.checking': 'Verbindung wird geprüft…',
   'settings.sourceControl.provider.status.connected': 'Verbunden',
   'settings.sourceControl.actions.connect': '{provider} verbinden',

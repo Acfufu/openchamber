@@ -13,7 +13,7 @@ A git identity is the name and email your commits carry, and the way a repositor
 2. Enter the **User name** and **Email address** to commit with.
 3. Pick an **Auth method**, how it pushes and pulls:
    - **This machine**: whatever Git on this machine already uses, such as SSH keys, a credential manager or the `gh` CLI
-   - **Account**: the **Source control account** you pick, any account connected on a host card in [Integrations](/integrations/), such as GitHub, GitLab, Gitea or Gerrit; pushes go over HTTPS with that account's token
+   - **Account**: the **Source control account** you pick, any account connected on a host card in [Integrations](/integrations/), such as GitHub, GitLab, Gitea, Forgejo or Gerrit; pushes go over HTTPS with that account's token
    - **SSH**: a key OpenChamber keeps for this identity
    - **Anonymous**: reads public repositories over HTTPS without signing in, and can't push
 4. Optionally give it a color and icon so it's easy to spot.
@@ -31,4 +31,4 @@ Applying an identity writes it to that repository's **local** git config, so it 
 ## Related
 
 - [Git Workflows](/git/): commit using the identity you set
-- [Git hosts](/github/): connect an account on GitHub, GitLab, Gitea or Gerrit
+- [Git hosts](/github/): connect an account on GitHub, GitLab, Gitea, Forgejo or Gerrit

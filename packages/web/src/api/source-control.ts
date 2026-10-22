@@ -65,6 +65,7 @@ import type {
   RepositoryReferenceReviewer,
   RepositorySelector,
 } from '@openchamber/ui/lib/api/types';
+import { SourceControlInstanceOtherProviderError } from '@openchamber/ui/lib/api/types';
 import { runtimeFetch } from '@openchamber/ui/lib/runtime-fetch';
 import type { RuntimeFetchOptions } from '@openchamber/ui/lib/runtime-fetch';
 import { isSafeRepositoryEndpoint, parseBindingResponse, resolveBindingReadiness } from '../../server/lib/source-control/binding-contract.js';
@@ -75,6 +76,8 @@ import { BUILT_IN_SOURCE_CONTROL_PROVIDERS, fetchSourceControlProviders, provide
 interface ErrorResponse {
   error?: string;
   code?: string;
+  /** The provider whose card an instance belongs on (`SOURCE_CONTROL_INSTANCE_OTHER_PROVIDER`). */
+  provider?: string;
 }
 
 class SourceControlRequestError extends Error {
@@ -388,7 +391,11 @@ const request = async <TResult extends ErrorResponse | null>(
   });
   const payload: TResult = await response.json();
   if (!response.ok) {
-    throw new SourceControlRequestError(payload?.error || response.statusText || 'Source control request failed', payload?.code);
+    const message = payload?.error || response.statusText || 'Source control request failed';
+    if (payload?.code === 'SOURCE_CONTROL_INSTANCE_OTHER_PROVIDER' && isNonEmptyString(payload.provider)) {
+      throw new SourceControlInstanceOtherProviderError(message, payload.provider);
+    }
+    throw new SourceControlRequestError(message, payload?.code);
   }
   return payload;
 };

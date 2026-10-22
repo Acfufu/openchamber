@@ -14,7 +14,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 // Ids of providers the server ships today. A comparison against one of them,
 // on any expression, picks behavior by provider instead of by descriptor.
-const KNOWN_PROVIDER_IDS = ['github', 'gitlab', 'gitea', 'linear'];
+const KNOWN_PROVIDER_IDS = ['github', 'gitlab', 'gitea', 'forgejo', 'linear'];
 const ID_ALTERNATION = KNOWN_PROVIDER_IDS.join('|');
 const KNOWN_ID_COMPARISON = new RegExp(`[!=]==?\\s*['"\`](?:${ID_ALTERNATION})['"\`]|['"\`](?:${ID_ALTERNATION})['"\`]\\s*[!=]==?|case\\s+['"\`](?:${ID_ALTERNATION})['"\`]\\s*:`);
 // Any string-literal comparison on a value named `provider` (`provider`, `x.provider`),

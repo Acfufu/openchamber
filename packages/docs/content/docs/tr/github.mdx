@@ -1,11 +1,11 @@
 ---
 title: "Git sunucuları: issue'lar ve pull request'ler"
-description: GitHub, GitLab, Gitea ya da Gerrit'i bağlayın ve OpenChamber'dan issue'lar ve pull request'lerle çalışın.
+description: GitHub, GitLab, Gitea, Forgejo ya da Gerrit'i bağlayın ve OpenChamber'dan issue'lar ve pull request'lerle çalışın.
 ---
 
 # Git sunucuları: issue'lar ve pull request'ler
 
-Projenizin bulunduğu sunucuda bir hesap bağlayın. OpenChamber o sunucunun issue'larını ve pull request'lerini listeleyebilir, birinden oturum başlatabilir, sizin yerinize pull request açabilir, inceleyebilir ve merge edebilir. Dört sunucu yerleşiktir: GitHub Enterprise dahil GitHub; self-managed GitLab dahil GitLab; Gitea; ve Gerrit. Bir [uzantı](/extensions/#git-sunucusu-olarak-bir-uzantı) bir tane daha ekleyebilir.
+Projenizin bulunduğu sunucuda bir hesap bağlayın. OpenChamber o sunucunun issue'larını ve pull request'lerini listeleyebilir, birinden oturum başlatabilir, sizin yerinize pull request açabilir, inceleyebilir ve merge edebilir. Beş sunucu yerleşiktir: GitHub Enterprise dahil GitHub; self-managed GitLab dahil GitLab; Gitea; Codeberg dahil Forgejo; ve Gerrit. Bir [uzantı](/extensions/#git-sunucusu-olarak-bir-uzantı) bir tane daha ekleyebilir.
 
 OpenChamber'ın hangi sunucuyla konuşacağına projenin remote'u karar verir. `origin`'i gitlab.com'da olan bir proje; pano, branch'lerindeki pull request rozeti ve Git paneli için GitLab hesabınızı kullanır. `~/.ssh/config` içindeki bir host takma adındaki remote, örneğin `github.com-work`, hiçbir sunucuyla eşleşmez.
 
@@ -18,9 +18,10 @@ Kullanılan sözcükler sunucuya göre değişir. GitLab merge request der, Gerr
    - **GitHub**: **GitHub'a Bağlan** seçin, gösterilen bağlantıyı açın, kısa kodu girin ve onaylayın. GitHub Enterprise için **Diğer instance'lar** altında **Instance ekle** seçin, sunucunuzun adresini girin ve bir personal access token yapıştırın.
    - **GitLab**: gitlab.com'da kısa bir kodla, bir personal access token ile ya da `glab` oturumuyla giriş yapın. Self-managed bir GitLab için adresini ekleyin ve bir personal access token yapıştırın.
    - **Gitea**: sunucunuzun adresini ekleyin ve bir personal access token yapıştırın.
+   - **Forgejo**: Codeberg için bir personal access token yapıştırın; başka bir sunucu için önce adresini ekleyin.
    - **Gerrit**: sunucunuzun adresini, ardından Gerrit kullanıcı adınızı ve bir HTTP parolası ekleyin.
 
-Bağlantı kurulunca hesabınız kartta görünür. Bir sunucuda birden fazla hesap bağlayıp aralarında geçiş yapabilir ya da istediğiniz zaman bağlantıyı kesebilirsiniz. Aynı makinede `gh` CLI ile giriş yapılmışsa OpenChamber onu GitHub için de kullanabilir. Her jetonun ihtiyaç duyduğu kapsamlar ve her sunucunun gerektirdiği sürümler [Entegrasyonlar](/integrations/#gitlab-gitea-ve-gerrit) sayfasında.
+Bağlantı kurulunca hesabınız kartta görünür. Bir sunucuda birden fazla hesap bağlayıp aralarında geçiş yapabilir ya da istediğiniz zaman bağlantıyı kesebilirsiniz. Aynı makinede `gh` CLI ile giriş yapılmışsa OpenChamber onu GitHub için de kullanabilir. Her jetonun ihtiyaç duyduğu kapsamlar ve her sunucunun gerektirdiği sürümler [Entegrasyonlar](/integrations/#gitlab-gitea-forgejo-ve-gerrit) sayfasında.
 
 Bağlı bir hesap projenin [Git kimliği](/git-identities/) de olabilir; böylece commit'ler onun adını taşır, HTTPS üzerinden push da onun jetonunu kullanır.
 
@@ -41,7 +42,7 @@ Yeni oturum, öğe mesaj kutusuna zaten eklenmiş halde açılır. Sizin yeriniz
 [Git paneli](/git/) içindeki **PR** sekmesinden pull request oluşturabilir, güncelleyebilir, taslağı hazır diye işaretleyebilir ya da merge edebilirsiniz. OpenChamber başlığı ve açıklamayı değişikliklerinizden yazabilir.
 
 - **GitLab**: aynı sekme merge request açar. Merge, merge ve squash seçeneklerini sunar.
-- **Gitea**: GitHub'dakiyle aynı.
+- **Gitea** ve **Forgejo**: GitHub'dakiyle aynı.
 - **Gerrit**: değişikliği incelemeye push ederek oluşturursunuz, sonraki her push yeni bir yama seti yükler. Bkz. [Gerrit'te incelemeye push etme](/git/#gerritte-incelemeye-push-etme). Merge burada **Gönder** olur ve değişiklik gönderim gereksinimlerini karşılayana kadar bekler. İncelemeler, projenin Code-Review ve Verified gibi etiketlerine verilen oylardır.
 
 ## Bir issue ya da pull request'i mesaja bağlayın

@@ -221,10 +221,10 @@ describe('Git credential resolver', () => {
   it('fails closed on a provider this build does not know, before any credential lookup', async () => {
     const readTransportCredential = vi.fn();
     const credentialId = createHttpsCredentialReference({
-      provider: 'forgejo', instance: 'https://forge.example.com', credentialId: 'occred:v1:forgejo:one:r1',
+      provider: 'sourcehut', instance: 'https://forge.example.com', credentialId: 'occred:v1:sourcehut:one:r1',
       credentialRevision: 1, providerUserId: 'https://forge.example.com#7',
     });
-    expect(parseGitCredentialReference(credentialId)).toMatchObject({ provider: 'forgejo', instance: 'https://forge.example.com' });
+    expect(parseGitCredentialReference(credentialId)).toMatchObject({ provider: 'sourcehut', instance: 'https://forge.example.com' });
     await expect(createGitCredentialResolver({ readTransportCredential, describeProvider }).resolve({
       mode: 'managed', credentialId, endpoint: { protocol: 'https', host: 'forge.example.com', path: 'owner/repo.git' },
     })).rejects.toThrow('Managed provider account is unavailable');
