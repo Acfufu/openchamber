@@ -103,6 +103,8 @@ import {
   useGlobalSessionStatusStore,
 } from "./global-session-status"
 import { applyGlobalBlockingRequestEvents, applyWaitingPageEvent, useGlobalBlockingRequestsStore } from "./global-blocking-requests"
+import { requestHostTurnStarts } from "./host-session-status-seed"
+import { setHostTurnStartRequester } from "./session-activity-timing"
 import { applyBackgroundShellEvents, directoriesWithRunningShells, refreshBackgroundShells } from "./background-shells"
 import {
   CHAT_LOCATION_RELEASE_DELAY_MS,
@@ -176,6 +178,10 @@ type SyncSystem = SyncRuntime & {
 // Subagent sessions keep their parent's turn open in the status index; the
 // global sessions list knows every session's parent, children included.
 setSessionParentResolver((sessionId) => useGlobalSessionsStore.getState().entityById.get(sessionId)?.parentID)
+
+// A turn this page did not see begin counts from the host's record of its
+// start, read from the host's status map.
+setHostTurnStartRequester(requestHostTurnStarts)
 
 const SYNC_CONTEXT_GLOBAL_KEY = "__openchamber_sync_context__"
 const SYNC_RUNTIME_CONTEXT_GLOBAL_KEY = "__openchamber_sync_runtime_context__"
