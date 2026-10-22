@@ -283,15 +283,17 @@ preview's footer holds actions instead of what the agent gets.
   and resolved or reopened, as far as the host says this account may. GitLab
   merge requests can also start a thread from the reply box; GitHub threads
   start only from a line in a review, so GitHub has no such button.
-- The issue or PR preview, on the board and in a Tracker tab, has a refresh
-  button beside the host link (`onRefresh`). It reads the shown item alone
+- The issue or PR preview, on the board and in a Tracker tab, the checked-out
+  branch's own tab included, has a refresh button beside the host link
+  (`onRefresh`). It reads the shown item alone
   again: the server forgets its short-lived answers about that item
   (`sourceControl.refreshProviderReads(context, { item })`,
   `POST <provider>/read-cache/refresh?scope=item`) and reads that item's
   followed state now; the app forgets that PR's listed checks; then the
   item's detail is read again. Other items, lists and followed state are left
   alone, so a change made on the host's own site shows without waiting out
-  the cache and without a read of everything else.
+  the cache and without a read of everything else. The branch's tab also asks
+  the branch's PR status again, since it reads state, head and checks there.
 - The board's list has a refresh button of its own after the filter. It reads
   what is listed again (`{ lists: true }`, `scope=lists`; Linear's
   `linear.refreshListReads`), with the checks of the listed PRs, so an item
