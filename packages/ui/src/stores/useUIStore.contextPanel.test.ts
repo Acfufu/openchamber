@@ -1312,6 +1312,18 @@ describe('useUIStore workspace zones', () => {
     expect(panel()?.zones.bottom.expanded).toBe(true);
   });
 
+  test('a file opened expanded spreads the zone that shows files, and a second one keeps it spread', () => {
+    const store = useUIStore.getState();
+    store.openContextFile('/repo', '/repo/a.png', { expanded: true });
+    expect(panel()).toMatchObject({ isOpen: true, expanded: true });
+
+    store.moveContextSurfaceToZone('file', 'left');
+    store.openContextFile('/repo', '/repo/b.png', { expanded: true });
+    store.openContextFile('/repo', '/repo/c.png', { expanded: true });
+    expect(panel()?.zones.left).toMatchObject({ isOpen: true, expanded: true });
+    expect(panel()?.expanded).toBe(false);
+  });
+
   test('state saved before zones loads with every surface on the right', async () => {
     useUIStore.persist.setOptions({ storage: {
       getItem: () => ({

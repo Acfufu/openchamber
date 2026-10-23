@@ -1645,6 +1645,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.toolPart.showFormattedJson': 'Pokaż sformatowany JSON',
   'chat.toolPart.showNavigableJson': 'Pokaż nawigowalny JSON',
   'chat.toolPart.openFile': 'Otwórz plik',
+  'chat.toolPart.openImageExpanded': 'Otwórz',
   'chat.toolPart.openFileAtFirstChange': 'Otwórz plik przy pierwszej zmianie',
   'chat.toolPart.openFileDiff': 'Otwórz różnice pliku',
   'chat.toolPart.copyOutput': 'Kopiuj wyjście',

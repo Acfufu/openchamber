@@ -2680,6 +2680,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.toolPart.showFormattedJson': '显示格式化 JSON',
   'chat.toolPart.showNavigableJson': '显示可导航 JSON',
   'chat.toolPart.openFile': '打开文件',
+  'chat.toolPart.openImageExpanded': '打开',
   'chat.toolPart.openFileAtFirstChange': '在首次更改处打开文件',
   'chat.toolPart.openFileDiff': '打开文件差异',
   'chat.toolPart.copyOutput': '复制输出',

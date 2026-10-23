@@ -2655,6 +2655,7 @@ export const dict = {
   'chat.toolPart.showFormattedJson': 'إظهار JSON منسّق',
   'chat.toolPart.showNavigableJson': 'إظهار JSON قابل للتصفح',
   'chat.toolPart.openFile': 'فتح الملف',
+  'chat.toolPart.openImageExpanded': 'فتح',
   'chat.toolPart.openFileAtFirstChange': 'فتح الملف عند أول تغيير',
   'chat.toolPart.openFileDiff': 'فتح فروقات الملف',
   'chat.toolPart.copyOutput': 'نسخ المخرجات',

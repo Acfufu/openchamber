@@ -2714,6 +2714,7 @@ export const dict = {
    'chat.toolPart.showFormattedJson': 'Opgemaakte JSON tonen',
    'chat.toolPart.showNavigableJson': 'Navigeerbare JSON tonen',
    'chat.toolPart.openFile': 'Bestand openen',
+   'chat.toolPart.openImageExpanded': 'Openen',
    'chat.toolPart.openFileAtFirstChange': 'Bestand openen bij eerste wijziging',
    'chat.toolPart.openFileDiff': 'Bestandsdiff openen',
   'chat.toolPart.copyOutput': 'Uitvoer kopiëren',

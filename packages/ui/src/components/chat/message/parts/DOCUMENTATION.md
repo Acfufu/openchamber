@@ -522,6 +522,10 @@ the same owner.
   identity because hidden providers can miss endpoint events.
 
 - `read` and `skill` are **static navigation tools** and render via `StaticToolRow`.
+  A `read` of an image adds a fullscreen icon after the title, placed and
+  styled like the open icon of the edit rows; it opens the image with the files zone expanded over the chat
+  (`openContextFile` with `expanded`). Only web and desktop show it: VS Code
+  and mobile open files full size already, through the path itself.
 - Every other tool, including search/fetch, OpenCode built-ins, custom tools, plugins, and MCP tools, is **expandable** and renders through `ToolPart`.
 - The managed `openchamber` plugin tool uses the expandable path and hides its broad protocol input. The plugin supplies the selected action's human description as the native tool title; the UI renders that metadata without owning an action map. The full versioned result envelope renders through the same neutral JSON summary/tree/raw views as other tools, without a tool-specific output card.
 - Selecting a JSON summary, tree, or raw view saves that mode in the persisted UI settings. New and refreshed JSON tool outputs read the saved mode across sessions; missing or invalid preferences use Summary. A summary section's chevron turns on that section's own `<details>` state (`JsonSummarySection`), never on an enclosing one, so a nested row that is still collapsed keeps pointing right while its parent is open.

@@ -1185,7 +1185,8 @@ interface UIStore {
   openTrackerItem: (directory: string, item: { url: string; key: string; label: string; targetDirectory: string | null }) => string | null;
   openContextDiff: (directory: string, filePath: string, staged?: boolean, scope?: PendingDiffScope | null) => void;
   /** `preview` opens it as the replaceable preview tab (a files-tree click). */
-  openContextFile: (directory: string, filePath: string, options?: { preview?: boolean }) => void;
+  /** `expanded` also spreads the file's zone over the chat. */
+  openContextFile: (directory: string, filePath: string, options?: { preview?: boolean; expanded?: boolean }) => void;
   /** Turns a preview file tab into a regular one. */
   pinContextPanelTab: (directory: string, tabID: string) => void;
   openContextFileAtLine: (directory: string, filePath: string, line: number, column?: number, options?: { preview?: boolean }) => void;
@@ -1877,6 +1878,13 @@ export const useUIStore = create<UIStore>()(
           openFileTab(get(), normalizedDirectory, normalizedFilePath, options?.preview === true);
           get().setPendingFileFocusPath(normalizedFilePath);
           get().setPendingFileNavigation(null);
+          if (options?.expanded) {
+            const zone = zoneOfMode(get().contextSurfaceZones, 'file');
+            const panel = get().contextPanelByDirectory[normalizedDirectory];
+            if (panel && !getZoneView(panel, zone).expanded) {
+              get().toggleContextPanelExpanded(normalizedDirectory, zone);
+            }
+          }
         },
 
         openContextFileAtLine: (directory, filePath, line, column, options) => {

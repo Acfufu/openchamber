@@ -3529,6 +3529,7 @@ export const dict = {
   'sessionAuth.expired.sendBlocked': 'Session süresi doldu — mesaj göndermek için oturum açın.',
   'chat.chatInput.toast.noModelSelected': 'Göndermeden önce bir provider ve model seçin.',
   'chat.toolPart.openFile': 'Dosyayı aç',
+  'chat.toolPart.openImageExpanded': 'Aç',
   'memoryDebugPanel.tabs.requests': 'Request\'ler',
   'memoryDebugPanel.requests.inFlight': 'Devam eden',
   'memoryDebugPanel.requests.peak': 'Zirve',

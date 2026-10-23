@@ -2689,6 +2689,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.toolPart.showFormattedJson': '顯示格式化 JSON',
   'chat.toolPart.showNavigableJson': '顯示可導覽 JSON',
   'chat.toolPart.openFile': '開啟檔案',
+  'chat.toolPart.openImageExpanded': '開啟',
   'chat.toolPart.openFileAtFirstChange': '在首次變更處開啟檔案',
   'chat.toolPart.openFileDiff': '開啟檔案差異',
   'chat.toolPart.copyOutput': '複製輸出',
