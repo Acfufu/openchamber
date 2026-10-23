@@ -169,8 +169,17 @@ message's output tokens divided by the union of its nonempty text intervals.
 It excludes initial waiting, reasoning tokens and reasoning time, and earlier
 tool steps. It requires complete, valid text timing and a final message without
 tools, errors, synthetic text or ignored text. This measures text delivery from
-stored timestamps, not provider-side decode speed. The header shows only this
-rate; unavailable response timing never falls back to whole-turn speed.
+the live text timestamps, not provider-side decode speed. The header shows only
+this rate; unavailable response timing never falls back to whole-turn speed.
+OpenCode stores no timing for text, so a reloaded or never-watched turn has
+text stamped with its step's `created` and `completed`. A text start equal to
+`created` is that stamp, so Response speed is unknown after a reload.
+
+Hiding it there was weighed against one window for both cases, the whole final
+step from `created` to `completed`. That window gives the same number live and
+after a reload, but it counts the initial wait and reasoning, which the row's
+tooltip excludes, and it read about half the live rate on real turns. A missing
+number is better than a second, lower one for the same turn.
 
 Whole-turn speed uses output plus reasoning tokens from every step, divided by
 elapsed assistant time minus the union of completed and failed tool intervals.
