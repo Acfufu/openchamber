@@ -5264,6 +5264,29 @@ describe.runIf(canRunGit())('getBranches', () => {
     expect(branches.all).not.toContain('remotes/origin/remote-only');
   });
 
+  it('does not list a detached HEAD as a branch', async () => {
+    const { repository } = createRepositoryWithRemote({ remoteName: 'origin', defaultBranch: 'react' });
+    runGit(repository, ['tag', 'v2.1.3']);
+    runGit(repository, ['checkout', '--detach', 'v2.1.3']);
+
+    const branches = await getBranches(repository, { remote: 'local' });
+
+    expect(branches.all).not.toContain('v2.1.3');
+    expect(branches.branches).not.toHaveProperty('v2.1.3');
+  });
+
+  it('keeps a branch that shares its name with the detached HEAD', async () => {
+    const { repository } = createRepositoryWithRemote({ remoteName: 'origin', defaultBranch: 'react' });
+    runGit(repository, ['branch', 'v2.1.3']);
+    runGit(repository, ['tag', 'v2.1.3']);
+    runGit(repository, ['checkout', '--detach', 'refs/tags/v2.1.3']);
+
+    const branches = await getBranches(repository, { remote: 'local' });
+
+    expect(branches.all.filter((name) => name === 'v2.1.3')).toHaveLength(1);
+    expect(branches.branches['v2.1.3']).toMatchObject({ current: false });
+  });
+
   it('reuses a remote\'s answer until its local tracking refs change', async () => {
     const { repository, remote } = createRepositoryWithRemote({ remoteName: 'origin', defaultBranch: 'react' });
     expect((await getBranches(repository)).all).not.toContain('remotes/origin/later');

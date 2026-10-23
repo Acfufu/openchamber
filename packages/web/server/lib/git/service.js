@@ -4481,6 +4481,27 @@ export async function commit(directory, message, options = {}) {
 }
 
 /**
+ * On a detached HEAD, `git branch` prints `(HEAD detached at v2.1.3)` and
+ * simple-git lists it as a branch named after the tag or commit. Picking that
+ * name in the branch selector checks out the same tag again, so the user can
+ * never get back onto a branch through it. Git prints the detached line first,
+ * so dropping the first occurrence of the name keeps a real branch that shares
+ * it, and the details map already holds that branch's later entry.
+ */
+const withoutDetachedHeadEntry = (summary) => {
+  if (!summary.detached) {
+    return { all: summary.all, branches: summary.branches };
+  }
+  const index = summary.all.indexOf(summary.current);
+  const all = summary.all.filter((_, entryIndex) => entryIndex !== index);
+  const branches = { ...summary.branches };
+  if (!all.includes(summary.current)) {
+    delete branches[summary.current];
+  }
+  return { all, branches };
+};
+
+/**
  * `remote: 'local'` answers from local refs alone, as `git branch -a` does: the
  * callers that only need the checked-out branch and its upstream (publishing,
  * worktree creation) must not wait on every remote's network round trip.
@@ -4490,8 +4511,7 @@ export async function getBranches(directory, { remote = 'live' } = {}) {
 
   try {
     const result = await git.branch();
-
-    const allBranches = result.all;
+    const { all: allBranches, branches } = withoutDetachedHeadEntry(result);
     const remoteBranches = allBranches.filter(branch => branch.startsWith('remotes/'));
     // Read-only ref discovery, not a transfer: it never writes refs and never
     // takes the planned-operation path, so a branch pushed from elsewhere is
@@ -4507,7 +4527,7 @@ export async function getBranches(directory, { remote = 'live' } = {}) {
         ...activeRemoteBranches,
       ],
       current: result.current,
-      branches: result.branches,
+      branches,
       defaultBranches,
     };
   } catch (error) {
