@@ -286,7 +286,7 @@ export const WorkStatusPrimaryGroup: React.FC<Props> = ({ sessionId, directory, 
               />
               <WorkStatusMeter percent={usagePercent ?? 0} color={meterColor} />
               {contextUsage.state === 'compacted' ? (
-                <p className="mx-1 mb-1 text-[11px] leading-4 text-muted-foreground">
+                <p className="mx-1 mb-1 text-[0.6875rem] leading-4 text-muted-foreground">
                   {t('contextUsage.compacted.description')}
                 </p>
               ) : null}
@@ -294,7 +294,7 @@ export const WorkStatusPrimaryGroup: React.FC<Props> = ({ sessionId, directory, 
                   than reporting a reading of its own, so it carries no icon
                   and no label column. */}
               {showCostBreakdown ? (
-                <p className="mx-1 mb-1 truncate text-[11px] leading-4 text-muted-foreground tabular-nums">
+                <p className="mx-1 mb-1 truncate text-[0.6875rem] leading-4 text-muted-foreground tabular-nums">
                   {t('chat.workStatus.cost.breakdown', {
                     session: formatCost(ownCost),
                     subagents: formatCost(subagentCost),

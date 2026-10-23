@@ -202,7 +202,7 @@ const OpenInAppListIcon = ({ label, iconDataUrl }: { label: string; iconDataUrl?
     <span
       className={cn(
         'size-4 rounded-sm flex items-center justify-center',
-        'oc-tile-inset text-[9px] font-medium text-muted-foreground'
+        'oc-tile-inset text-[0.5625rem] font-medium text-muted-foreground'
       )}
     >
       {initial}
