@@ -391,6 +391,23 @@ Bridge surface (`bridge-config-runtime.ts`), matching the web routes:
   scope, directory }` turns a skill off or on with the shared
   `writeSkillDisabled`, in the same files the web route edits
   (`setSkillEnabled` in `opencodeConfig.ts` mirrors `skill-switch.js`).
+- `api:config/skills:catalog` — `GET /api/config/skills/catalog`; answers
+  `{ ok, sources, itemsBySource: {} }` without scanning anything, like the web
+  route. The shared UI asks for it on every Skills catalog open and on every
+  OpenCode `skill` or `config` catalog event, catalog page open or not.
+- `api:config/skills:catalog/source` — `GET /api/config/skills/catalog/source`;
+  `{ sourceId, refresh }` scans that one source (`skillsCatalog.ts`) and answers
+  `{ ok, items }` or `{ ok: false, error }`. Results stay cached for 30 minutes,
+  and requests for a source whose scan is still running wait for that scan,
+  `refresh` included.
+
+### Why the catalog list does not scan the sources
+Until #5446 `api:config/skills:catalog` scanned every source one after another
+in the same request, skipping the cache when asked to refresh. A scan of a large
+source outlasted the webview's 30 second bridge timeout, so the page showed
+"timed out" and the next open or catalog event started more scans beside the
+ones still running. Per-source requests are what the web server already
+offers, so the shared UI needs no VS Code branch.
 
 ## Session archive and metadata
 
