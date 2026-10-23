@@ -206,7 +206,9 @@ export function createFlexokiCodeMirrorTheme(
     /* ── Text input base: border-radius matches action buttons (4px) ── */
     '.cm-search .cm-textfield': {
       appearance: 'none',
-      height: '26px',
+      // 26px at the default interface size, like the buttons beside it; the
+      // text scales with the interface size, so the field grows with it.
+      height: 'calc(1em + 14px)',
       margin: 0,
       padding: '0 8px',
       borderRadius: '6px !important',

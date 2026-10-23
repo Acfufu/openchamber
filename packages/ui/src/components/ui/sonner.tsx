@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "sonner"
 import type { ToasterProps } from "sonner"
 import { getLocaleDirection, useI18nStore } from "@/lib/i18n"
 import { buttonVariants } from "@/components/ui/button-variants"
+import { Spinner } from "@/components/ui/spinner"
 
 type ToastPosition = NonNullable<ToasterProps["position"]>
 
@@ -100,6 +101,9 @@ const Toaster = ({ position = "bottom-right", ...props }: ToasterProps) => {
       position={direction === "rtl" ? MIRRORED_POSITION[position] : position}
       className="toaster group font-sans"
       closeButton={false}
+      // Sonner's own spinner is a fixed 16px box pinned to the icon slot's
+      // corner; the app's spinner is centered in the slot and scales with it.
+      icons={{ loading: <Spinner className="size-5" /> }}
       toastOptions={{
         // Sonner's built-in look is written in px (width, text, button height)
         // and its own font stack, so it ignores the interface font and size.
@@ -114,14 +118,15 @@ const Toaster = ({ position = "bottom-right", ...props }: ToasterProps) => {
           // onto a row of their own below, where the first one's auto margin
           // keeps them at the end. Text that fits leaves them beside it.
           content: "flex min-w-0 flex-col [[data-icon]+&]:max-w-[calc(100%-1.875rem)]",
-          // Padded to the xs button's 1.5rem, so a one-line title centers on the
-          // buttons beside it and the icon lines up with the title's first line.
-          title: "typography-ui-label font-medium text-foreground py-[calc((1.5rem-1lh)/2)]",
+          // Padded to the buttons' height (`--toast-row`), so a one-line title
+          // centers on the buttons beside it and the icon lines up with the
+          // title's first line.
+          title: "typography-ui-label font-medium text-foreground py-[calc((var(--toast-row)-1lh)/2)]",
           // `!`: sonner colours dark-theme descriptions even when unstyled.
           description: "typography-meta !text-muted-foreground",
           actionButton: buttonVariants({ size: "xs" }),
           cancelButton: buttonVariants({ variant: "secondary", size: "xs" }),
-          icon: "relative me-0.5 flex h-6 w-5 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-5",
+          icon: "relative me-0.5 flex h-[var(--toast-row)] w-5 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-5",
           success: "[&_[data-icon]]:!text-[var(--status-success)]",
           error: "[&_[data-icon]]:!text-[var(--status-error)]",
           warning: "[&_[data-icon]]:!text-[var(--status-warning)]",
@@ -134,8 +139,11 @@ const Toaster = ({ position = "bottom-right", ...props }: ToasterProps) => {
       }}
       style={
         {
-          // Sonner sets 356px; in rem the toast grows with the interface size.
-          "--width": "22.25rem",
+          // Sonner sets 356px; in rem the toast grows with the interface size,
+          // up to the window less sonner's 24px offset on each side.
+          "--width": "min(22.25rem, calc(100vw - 48px))",
+          // The xs button's height; mobile.css raises it with the buttons.
+          "--toast-row": "1.5rem",
           "--normal-bg": "var(--surface-elevated)",
           "--normal-text": "var(--foreground)",
           "--normal-border": "transparent",

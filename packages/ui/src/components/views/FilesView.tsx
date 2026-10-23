@@ -4998,7 +4998,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               variant="outline"
               onClick={() => void saveAndContinue()}
               disabled={isSaving}
-              className="border-[var(--status-success-border)] bg-[var(--status-success-background)] text-[var(--status-success)] hover:bg-[rgb(var(--status-success)/0.2)]"
+              className="border-[var(--status-success-border)] bg-[var(--status-success-background)] text-[var(--status-success)] hover:bg-[var(--status-success)]/20"
             >
               {t('filesView.unsaved.saveChanges')}
             </Button>
