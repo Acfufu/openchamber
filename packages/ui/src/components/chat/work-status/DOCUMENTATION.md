@@ -284,6 +284,16 @@ only the automatic remote key, so the panel reads the freshest entry for the
 directory and branch across remote keys. This keeps its PR and checks rows in
 sync with the live PR surface without adding another request owner.
 
+### Why checks read "7/9" and not one word per state
+
+The Checks row shows passed out of all after a dot in the run's colour: red
+once any check failed, yellow while any still runs (the dot blinks on the
+shared clock), green when all passed. Skipped and neutral checks count as
+passed, as the server's summary counts them. This is the form GitHub's pull
+request list uses, so the number reads the same in both places. The row once
+showed "1 failed" or "2 running" alone, which gave no sense of how far the run
+was; the per-state counts now live in the row's tooltip.
+
 ### Changed files come from git status, not the session
 
 `Session.summary` looks like the obvious source and does not work. OpenCode's

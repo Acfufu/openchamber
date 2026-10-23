@@ -34,6 +34,8 @@ import { useSourceControlProvider } from '@/lib/source-control/providers/registr
 import { ProjectActionsButton } from '@/components/layout/ProjectActionsButton';
 import { OpenInAppButton } from '@/components/desktop/OpenInAppButton';
 import { useProjectActionsContext } from '@/hooks/useProjectActionsContext';
+import { PrChecksValue } from './PrChecksValue';
+import { prChecksTooltip } from './prChecks';
 
 type Props = {
   sessionId: string | null;
@@ -394,25 +396,8 @@ export const WorkStatusPrimaryGroup: React.FC<Props> = ({ sessionId, directory, 
                   ariaLabel={t(changeRequestCopy('chat.workStatus.action.openPr', prTerm))}
                   label={t('chat.workStatus.pr.checks')}
                   muted
-                  value={(
-                    <>
-                      {prSummary.checks.failure > 0 ? (
-                        <WorkStatusValue tone="error">
-                          {t('chat.workStatus.pr.checksFailed', { count: prSummary.checks.failure })}
-                        </WorkStatusValue>
-                      ) : null}
-                      {prSummary.checks.pending > 0 ? (
-                        <WorkStatusValue tone="warning">
-                          {t('chat.workStatus.pr.checksPending', { count: prSummary.checks.pending })}
-                        </WorkStatusValue>
-                      ) : null}
-                      {prSummary.checks.failure === 0 && prSummary.checks.pending === 0 ? (
-                        <WorkStatusValue tone="success">
-                          {t('chat.workStatus.pr.checksPassed', { count: prSummary.checks.success })}
-                        </WorkStatusValue>
-                      ) : null}
-                    </>
-                  )}
+                  tooltip={prChecksTooltip(prSummary.checks, t)}
+                  value={<PrChecksValue checks={prSummary.checks} />}
                 />
               ) : null}
             </>
