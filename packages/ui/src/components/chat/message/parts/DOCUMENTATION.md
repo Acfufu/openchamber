@@ -525,7 +525,7 @@ the same owner.
 
 - `read` and `skill` are **static navigation tools** and render via `StaticToolRow`.
   A `read` of an image adds a fullscreen icon after the title, placed and
-  styled like the open icon of the edit rows; it opens the image with the files zone expanded over the chat
+  styled like the open icon of the edit rows; it opens the image with the files zone expanded beside the chat
   (`openContextFile` with `expanded`). Only web and desktop show it: VS Code
   and mobile open files full size already, through the path itself.
 - Every other tool, including search/fetch, OpenCode built-ins, custom tools, plugins, and MCP tools, is **expandable** and renders through `ToolPart`.
