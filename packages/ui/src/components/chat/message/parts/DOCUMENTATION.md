@@ -483,7 +483,9 @@ the same owner.
   Automatic probes skip emails, handles and digit-leading suffixes
   (`user@gmail.com`, `v1.2.3`, `backup.7z`); an `@` after a slash is a path
   (`node_modules/@types/...`) and still links. Clicks on a link keep the broad rules, so a
-  file-looking href opens the viewer and never a new window (#3858).
+  file-looking href opens the viewer and never a new window (#3858). In the
+  phone shell the click also opens the workspace drawer on Files, as tool
+  rows and attachments do; without it the file is staged out of sight (#5486).
   Directory/runtime changes must reject older results. Explicit file links
   retain their navigation behavior independently of automatic probing.
 - Assistant media nodes belong to `MarkdownMedia` and `MarkdownMediaContext`.
