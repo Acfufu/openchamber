@@ -100,7 +100,7 @@ Actions, commands, and the badge are host chrome too. `useGuestActions` (`packag
 
 Add a type when the host grows that hole, not before. Any new `connectHost` method ships with a `PluginPane` / `answerGuestMessage` branch in the same change.
 
-Rebuild every example bundle after an SDK change (`bunx openchamber-guest-bundle` per entry, see `examples/README.md`); the built files are checked in.
+Rebuild every example bundle after an SDK change (`bunx openchamber-guest-bundle` per entry, see `examples/README.md`); the built files are checked in. A Bun upgrade needs the same rebuild: the minifier names identifiers differently between releases, so a panel bundle built by the previous Bun no longer matches and `examples.test.ts` fails for every PR until the bundles are regenerated. Service bundles are not minified and keep matching.
 
 ## Anchored popovers
 
