@@ -4588,7 +4588,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
         {!isSelectedNonText && textViewMode === 'edit' && (
           <>
-            {withTooltip(t('filesView.editor.findInFile'),
+            {/* The Markdown preview has its own find button; this one drives the
+                editor, which the preview replaces. */}
+            {!(isMarkdown && getMdViewMode() === 'preview') && withTooltip(t('filesView.editor.findInFile'),
               <Button
                 variant="ghost"
                 size="sm"
