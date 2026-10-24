@@ -243,6 +243,28 @@ describe('generation jobs', () => {
     expect(sentPrompts.at(-1)).toContain('A previous walkthrough');
   });
 
+  it('sends the reader preferences from the walkthrough prompt override', async () => {
+    generateSmallModelText.mockResolvedValue({ text: RESPONSE });
+    const readWalkthroughInstructions = vi.fn(async () => '  Point out every new dependency.  ');
+
+    await generateWalkthrough({ directory: '/repo', source: SOURCE }, { readWalkthroughInstructions });
+
+    expect(readWalkthroughInstructions).toHaveBeenCalledWith('/repo');
+    expect(generateSmallModelText.mock.calls.at(-1)[0].system).toContain('<preferences>\nPoint out every new dependency.\n</preferences>');
+  });
+
+  it('refuses to generate without preferences it could not read, and still answers a read', async () => {
+    generateSmallModelText.mockResolvedValue({ text: RESPONSE });
+    const readWalkthroughInstructions = vi.fn(async () => { throw new Error('magic-prompts.json is not valid JSON'); });
+
+    await expect(generateWalkthrough({ directory: '/repo', source: SOURCE }, { readWalkthroughInstructions }))
+      .rejects.toMatchObject({ code: 'instructions-unreadable' });
+    expect(generateSmallModelText).not.toHaveBeenCalled();
+
+    const read = await getWalkthrough({ directory: '/repo', source: SOURCE }, { readWalkthroughInstructions });
+    expect(read.readiness).toMatchObject({ ready: true });
+  });
+
   it('isolates PR jobs, stages, cancellation, and cache results by bound read context', async () => {
     const secondContext = { ...PR_CONTEXT, accountId: 'github.com#8' };
     const getPullRequestDiff = vi.fn(async () => ({ patch: PATCH, meta: {} }));

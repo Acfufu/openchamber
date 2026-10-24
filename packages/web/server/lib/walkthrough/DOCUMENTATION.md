@@ -54,6 +54,18 @@ from the code: strings, docs, tests and what the new code connects to.
 `critical` is meant for the stop or two the change rests on; the size guidance
 gives the model a ceiling for both critical stops and observations.
 
+The reader's own preferences come from the Walkthrough Magic Prompt
+(`walkthrough.instructions`), read on the server for the directory through
+`readWalkthroughInstructions` (project override over global; no built-in
+text, so no override means none). They go into the system prompt inside
+`<preferences>`, at most 4,000 characters, after a line saying they shape tone
+and emphasis and cannot change the format, the anchoring or the factual nature
+of observations. A generation that cannot read them fails with
+`instructions-unreadable` instead of sending none; the panel read only measures
+readiness with them and does not fail. They are not part of the cache key, like
+the thinking level: changing them keeps the review on screen until the user
+regenerates.
+
 ### Why observations and not "what a reviewer should check"
 
 The earlier prompt asked every stop for what a reviewer should check or be

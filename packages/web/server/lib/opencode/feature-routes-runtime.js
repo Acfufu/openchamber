@@ -118,6 +118,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
 
   let walkthroughService = null;
   let walkthroughBindingService = null;
+  let magicPrompts = null;
   let gitRepositoryCredentialRuntime = null;
   let networkOperations = null;
   let gitWorktreeCreation = null;
@@ -129,6 +130,12 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       ]);
       walkthroughService = {
         ...service,
+        // The reader's preferences, the Walkthrough Magic Prompt as the
+        // directory's project or global overrides set it. It has no built-in
+        // text, so no override means none.
+        readWalkthroughInstructions: async (directory) => (
+          magicPrompts ? (await magicPrompts.overridesForDirectory(directory))['walkthrough.instructions'] ?? '' : ''
+        ),
         // Forward only the request options by name: the remaining slots are
         // dependency overrides and must not be reachable from a route.
         getPullRequestDiff: (directory, number, readContext, { allowEmpty, sourceRepo, revision } = {}) => pullRequest.getPullRequestDiff(
@@ -744,7 +751,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
     registerTrackerRoutes(app, { registry: trackers });
     registerLinearRoutes(app);
     registerDevServerRoutes(app, { scanner: devServerScanner, getOwnPorts });
-    registerMagicPromptRoutes(app, {
+    magicPrompts = registerMagicPromptRoutes(app, {
       fsPromises,
       path,
       openchamberDataDir,

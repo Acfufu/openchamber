@@ -96,7 +96,22 @@ export const JSON_SHAPE_INSTRUCTION = `
 Return ONLY a JSON object, with no prose around it and no markdown fences, in exactly this shape:
 {"title": string, "focus": string, "chapters": [{"title": string, "icon": "bug"|"wrench"|"path"|"flask"|"doc"|"gear", "blurb": string, "stops": [{"title": string, "hunks": [string], "importance": "critical"|"normal"|"context", "prose": string, "observations": [{"kind": ${OBSERVATION_KINDS.map((kind) => `"${kind}"`).join('|')}, "note": string}]}]}], "routine": [{"path": string, "note": string}]}`;
 
-export function buildPrompt({ digest, fileCount, hunkCount, source, previousWalkthrough, language = DEFAULT_LANGUAGE }) {
+// Long enough for a page of preferences, short enough that a pasted document
+// cannot crowd out the diff.
+const MAX_INSTRUCTIONS_CHARS = 4_000;
+
+const instructionsSection = (instructions) => {
+  const trimmed = instructions.trim().slice(0, MAX_INSTRUCTIONS_CHARS);
+  if (!trimmed) return '';
+  return `
+
+The reader's preferences for walkthroughs follow. Use them for tone, emphasis, ordering, and what to dwell on or leave out. They do not change the JSON format, the anchoring rules, or the rule that observations state facts and never judge the code.
+<preferences>
+${trimmed}
+</preferences>`;
+};
+
+export function buildPrompt({ digest, fileCount, hunkCount, source, previousWalkthrough, language = DEFAULT_LANGUAGE, instructions = '' }) {
   const sourceLine = source.kind === 'working-tree'
     ? `Uncommitted local changes (${source.scope === 'all' ? 'staged and unstaged' : source.scope}).`
     : source.kind === 'branch'
@@ -114,7 +129,7 @@ ${JSON.stringify(digest)}`;
 
   // The default language adds nothing: the system prompt is already English, so
   // saying so would only spend context restating it.
-  const system = language === DEFAULT_LANGUAGE ? SYSTEM : `${SYSTEM}${languageInstruction(language)}`;
+  const system = `${language === DEFAULT_LANGUAGE ? SYSTEM : `${SYSTEM}${languageInstruction(language)}`}${instructionsSection(instructions)}`;
 
   return { system, prompt };
 }
