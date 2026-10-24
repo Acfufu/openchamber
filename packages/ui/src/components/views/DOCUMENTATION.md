@@ -284,6 +284,16 @@ expander asks `useGitComparison.fetchFullFile`, which reads both sides of that
 file from the provider through `/api/walkthrough/pr-file` (merge base and PR head),
 never from disk, so local edits and unfetched fork commits cannot leak in or
 block it. Existing inline comment controls still attach selected code to chat.
+
+A comment on a comparison (a pull request, a commit, a branch against its
+base) carries the diff it was written on (`lib/diffCommentOrigin.ts`): Changes,
+mobile Changes and walkthrough each derive it from the source they show. The
+model reads where the lines come from ("in GitHub pull request #5543 at commit
+…"), because a pull request that is not checked out has other lines on disk,
+and the chip names it beside the file. Drafts show only on the diff they were
+written on, so a comment on a pull request's `app.ts` does not appear on the
+working tree's. A comment on uncommitted changes has no origin: its lines are
+the files on disk.
 Changes hands its PR source to walkthrough; walkthrough's Changes action opens
 PR mode with the shared selection. Picking a PR never generates a walkthrough.
 

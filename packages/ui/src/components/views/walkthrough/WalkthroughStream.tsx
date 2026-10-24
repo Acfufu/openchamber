@@ -8,6 +8,7 @@ import { useI18n, type I18nKey } from '@/lib/i18n';
 import { groupHunksByFile } from '@/lib/walkthrough/model';
 import type { WalkthroughStopView, WalkthroughView } from '@/lib/walkthrough/model';
 import type { WalkthroughHunk, WalkthroughObservationKind, WalkthroughStopImportance } from '@/lib/walkthrough/types';
+import type { DiffCommentOrigin } from '@/lib/diffCommentOrigin';
 import { cn } from '@/lib/utils';
 import { WalkthroughHunkRun } from './WalkthroughHunkRun';
 import { findRunKey, UNCOVERED_STOP_ID } from './walkthroughFind';
@@ -22,6 +23,8 @@ interface WalkthroughStreamProps {
   onScrollHandled: () => void;
   renderSideBySide: boolean;
   wrapLines: boolean;
+  /** The diff the walkthrough reads, for comments; absent for uncommitted changes. */
+  commentOrigin?: DiffCommentOrigin;
   /** What the change is about, shown above the first step when the contents column is hidden. */
   summary?: string;
   /** Find-in-walkthrough: opens the uncovered tail each time it moves past 0. */
@@ -145,6 +148,7 @@ const HunkRuns = ({
   hunks,
   renderSideBySide,
   wrapLines,
+  commentOrigin,
   registerFindViewerRef,
   onFindWordRequest,
 }: {
@@ -152,6 +156,7 @@ const HunkRuns = ({
   hunks: WalkthroughHunk[];
   renderSideBySide: boolean;
   wrapLines: boolean;
+  commentOrigin?: DiffCommentOrigin;
   registerFindViewerRef?: (runKey: string, handle: PierreDiffViewerHandle | null) => void;
   onFindWordRequest?: (runKey: string, request: DiffFindWordRequest) => void;
 }) => {
@@ -167,6 +172,7 @@ const HunkRuns = ({
             hunks={run.hunks}
             renderSideBySide={renderSideBySide}
             wrapLines={wrapLines}
+            commentOrigin={commentOrigin}
             runKey={findRunKey(stopId, index, run.hunks)}
             registerFindViewerRef={registerFindViewerRef}
             onFindWordRequest={onFindWordRequest}
@@ -190,6 +196,7 @@ export const WalkthroughStream = memo(function WalkthroughStream({
   onScrollHandled,
   renderSideBySide,
   wrapLines,
+  commentOrigin,
   summary,
   uncoveredOpenRequest = 0,
   registerFindViewerRef,
@@ -318,6 +325,7 @@ export const WalkthroughStream = memo(function WalkthroughStream({
               hunks={stopView.hunks}
               renderSideBySide={renderSideBySide}
               wrapLines={wrapLines}
+              commentOrigin={commentOrigin}
               registerFindViewerRef={registerFindViewerRef}
               onFindWordRequest={onFindWordRequest}
             />
@@ -357,6 +365,7 @@ export const WalkthroughStream = memo(function WalkthroughStream({
                   hunks={run.hunks}
                   renderSideBySide={renderSideBySide}
                   wrapLines={wrapLines}
+                  commentOrigin={commentOrigin}
                   runKey={findRunKey(UNCOVERED_STOP_ID, index, run.hunks)}
                   registerFindViewerRef={registerFindViewerRef}
                   onFindWordRequest={onFindWordRequest}

@@ -23,6 +23,7 @@ import type { Metadata } from '@/lib/opencode/model';
 import type { InlineCommentDraft } from '@/stores/useInlineCommentDraftStore';
 import { chatQuoteAnchorSchema, type ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import { appendTerminalContexts } from './terminalContext';
+import { describeDiffCommentOrigin, diffCommentOriginSchema, type DiffCommentOrigin } from '@/lib/diffCommentOrigin';
 
 export const CONTEXT_METADATA_KEY = 'openchamberContext';
 const OPENCODE_COMMENT_METADATA_KEY = 'opencodeComment';
@@ -37,6 +38,8 @@ export type CodeCommentContext = {
     language: string;
     code: string;
     text: string;
+    /** The diff a `diff` comment was written on; absent for uncommitted changes and older messages. */
+    origin?: DiffCommentOrigin;
 };
 
 type TerminalContextPayload = {
@@ -219,7 +222,8 @@ export function formatContextText(payload: ContextPartPayload): string {
         case 'code-comment': {
             const range = `lines ${payload.startLine}-${payload.endLine}`;
             const sideNote = payload.source === 'diff' && payload.side ? ` (${payload.side})` : '';
-            return `Comment on \`${payload.fileLabel}\` ${range}${sideNote}:\n\`\`\`${payload.language}\n${payload.code}\n\`\`\`\n\n${payload.text}`;
+            const originNote = payload.origin ? ` ${describeDiffCommentOrigin(payload.origin)}` : '';
+            return `Comment on \`${payload.fileLabel}\` ${range}${sideNote}${originNote}:\n\`\`\`${payload.language}\n${payload.code}\n\`\`\`\n\n${payload.text}`;
         }
         case 'terminal':
             return appendTerminalContexts('', [{
@@ -337,6 +341,7 @@ export function contextPayloadFromDraft(draft: InlineCommentDraft): ContextPartP
                 text: draft.text,
             };
             if (draft.source === 'diff' && draft.side) payload.side = draft.side;
+            if (draft.source === 'diff' && draft.origin) payload.origin = draft.origin;
             return payload;
         }
     }
@@ -357,6 +362,7 @@ const canonicalContextPayloadSchema = z.discriminatedUnion('kind', [
         language: z.string(),
         code: z.string(),
         text: z.string(),
+        origin: diffCommentOriginSchema.optional(),
     }),
     z.object({
         kind: z.literal('terminal'),
@@ -570,6 +576,7 @@ export function draftFromContextPayload(
                 text: payload.text,
             };
             if (payload.side) draft.side = payload.side;
+            if (payload.origin) draft.origin = payload.origin;
             return draft;
         }
         case 'terminal':

@@ -43,6 +43,7 @@ import { findWordAtOffset } from '@/lib/diff/findWord';
 import type { DiffFindSide } from '@/lib/diff/diffFind';
 import { PIERRE_DIFF_TINT_CSS } from '@/lib/shiki/pierreDiffTint';
 import { DiffStickyScrollbar } from './DiffStickyScrollbar';
+import type { DiffCommentOrigin } from '@/lib/diffCommentOrigin';
 
 /**
  * A click on a collapsed-context expander of a partial (patch-only) diff.
@@ -88,6 +89,8 @@ interface PierreDiffViewerProps {
   fileDiff?: FileDiffMetadata;
   language: string;
   fileName?: string;
+  /** The diff this is, for comments; absent for uncommitted changes. */
+  commentOrigin?: DiffCommentOrigin;
   renderSideBySide: boolean;
   wrapLines?: boolean;
   layout?: 'fill' | 'inline';
@@ -1011,6 +1014,7 @@ const PierreDiffViewerBody: React.FC<
   fileDiff: incomingFileDiff,
   language,
   fileName,
+  commentOrigin,
   renderSideBySide,
   wrapLines,
   layout = 'fill',
@@ -1042,6 +1046,7 @@ const PierreDiffViewerBody: React.FC<
   const diffCommentController = useInlineCommentController<SelectedLineRange>({
     source: 'diff',
     fileLabel: fileName || 'unknown',
+    origin: commentOrigin,
     language,
     getCodeForRange: (range) => extractSelectedCode(original, modified, incomingFileDiff, range),
     toStoreRange: (range) => ({
