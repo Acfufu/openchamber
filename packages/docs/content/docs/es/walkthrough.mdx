@@ -68,7 +68,7 @@ La generación se ejecuta en el servidor de OpenChamber, no en la pestaña del n
 Cada parada está anclada al contenido exacto del código que describe, así que el panel puede avisarte cuando ese código ha cambiado:
 
 - **Pasos desactualizados** — el código que describía una parada cambió o desapareció. El recorrido se sigue mostrando, marcado, para que decidas si regenerar.
-- **Sin cubrir** — cambios del diff actual que ninguna parada describe. Ahí entran las ediciones hechas después de generar, los cambios que el recorrido consideró rutinarios y los archivos de bloqueo u otra salida generada, que se dejan fuera del modelo a propósito. Todo aparece al final para que nada desaparezca en silencio.
+- **Sin cubrir** — cambios del diff actual que ninguna parada describe. Ahí entran las ediciones hechas después de generar, los cambios que el recorrido consideró rutinarios y los archivos de bloqueo u otra salida generada, que se dejan fuera del modelo a propósito. Todo aparece al final para que nada desaparezca en silencio. Un archivo que el recorrido dejó fuera lleva una nota de una línea sobre lo que cambió allí, por ejemplo «Traducciones de los textos nuevos».
 
 Regenerar no parchea, reescribe: el recorrido anterior va al modelo como contexto, así que lo que sigue siendo cierto se conserva, y todo se reancla al código actual. Regenerar con otro modelo o en otro idioma empieza de cero, así que obtienes la lectura propia de ese modelo.
 

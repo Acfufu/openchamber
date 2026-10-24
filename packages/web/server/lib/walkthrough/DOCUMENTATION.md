@@ -429,6 +429,12 @@ anchor is computed as `uncoveredHunkIds` and rendered as a collapsed tail, so
 the reader can always answer "have I seen everything that changed". No hunk
 disappears from the view.
 
+For each file it left out the model writes one `routine` note ("Translations
+for the two new strings"), shown under that file in the tail, so the reader can
+trust a left-out file without opening it. The normalizer keeps a note only for
+a digest file a stop left at least partly uncovered, one per path. Generated
+files never reach the model and carry none.
+
 ## Cost of reading
 
 Opening the panel is a `GET` that runs the whole git pipeline, so it is kept as

@@ -152,6 +152,27 @@ describe('normalizeWalkthrough', () => {
     expect(three.observations).toHaveLength(2);
   });
 
+  it('keeps a routine note only for a digest file a stop left uncovered', () => {
+    const digestFiles = [
+      { path: 'src/a.ts', hunks: [{ alias: 'h1' }, { alias: 'h2' }] },
+      { path: 'src/b.ts', hunks: [{ alias: 'h3' }] },
+    ];
+    const result = normalizeWalkthrough({
+      ...walkthrough([{ title: 'All', icon: 'doc', blurb: '', stops: [
+        { title: 'One', hunks: ['h1', 'h3'], importance: 'normal', prose: 'Text.' },
+      ] }]),
+      routine: [
+        { path: 'src/a.ts', note: 'Import order.' },
+        { path: 'src/a.ts', note: 'Twice.' },
+        { path: 'src/b.ts', note: 'Fully covered by a stop.' },
+        { path: 'src/missing.ts', note: 'Not in the diff.' },
+        { path: 'src/a.ts', note: '' },
+      ],
+    }, ALIASES, digestFiles);
+
+    expect(result.routine).toEqual([{ path: 'src/a.ts', note: 'Import order.' }]);
+  });
+
   it('caps observations across the whole walkthrough', () => {
     const aliases = new Map(Array.from({ length: 6 }, (_, index) => [`h${index + 1}`, `working:src/a.ts:${index}`]));
     const stops = Array.from({ length: 6 }, (_, index) => ({

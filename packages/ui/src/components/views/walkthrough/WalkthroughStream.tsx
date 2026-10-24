@@ -297,6 +297,11 @@ export const WalkthroughStream = memo(function WalkthroughStream({
   }, [handleIntersection, view.stops]);
 
   const uncoveredRuns = useMemo(() => groupHunksByFile(view.uncoveredHunks), [view.uncoveredHunks]);
+  // The model's line on why a left-out file needs no stop, shown once per file.
+  const routineNotes = useMemo(
+    () => new Map((view.walkthrough.routine ?? []).map((entry) => [entry.path, entry.note])),
+    [view.walkthrough.routine],
+  );
 
   return (
     <div
@@ -360,6 +365,9 @@ export const WalkthroughStream = memo(function WalkthroughStream({
             && uncoveredRuns.map((run, index) => (
               <div key={`${run.path}-${index}`}>
                 <FileHeader path={run.path} />
+                {routineNotes.has(run.path) && uncoveredRuns.findIndex((other) => other.path === run.path) === index && (
+                  <p className="typography-meta px-4 py-1.5 text-muted-foreground">{routineNotes.get(run.path)}</p>
+                )}
                 <WalkthroughHunkRun
                   path={run.path}
                   hunks={run.hunks}

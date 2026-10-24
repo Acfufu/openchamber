@@ -55,10 +55,18 @@ export interface WalkthroughChapter {
   stops: WalkthroughStop[];
 }
 
+/** One line on a file the stops left out, shown where the reader meets it. */
+export interface WalkthroughRoutineNote {
+  path: string;
+  note: string;
+}
+
 export interface Walkthrough {
   title: string;
   focus: string;
   chapters: WalkthroughChapter[];
+  /** Absent on entries written before routine notes existed. */
+  routine?: WalkthroughRoutineNote[];
 }
 
 export interface WalkthroughHunk {

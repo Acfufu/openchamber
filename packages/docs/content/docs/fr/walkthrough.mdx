@@ -68,7 +68,7 @@ La génération tourne sur le serveur OpenChamber, pas dans votre onglet. Rechar
 Chaque étape est ancrée au contenu exact du code qu’elle décrit, ce qui permet au panneau de signaler quand ce code a bougé :
 
 - **Étapes obsolètes** — le code décrit par une étape a changé ou disparu. Le parcours reste affiché, marqué, pour que vous décidiez s’il faut régénérer.
-- **Non traité** — des modifications du diff actuel qu’aucune étape ne décrit. On y trouve les changements faits après la génération, ceux que le parcours a jugés courants, ainsi que les fichiers de verrouillage et autres sorties générées, délibérément tenus hors du modèle. Tout est listé à la fin pour que rien ne disparaisse en silence.
+- **Non traité** — des modifications du diff actuel qu’aucune étape ne décrit. On y trouve les changements faits après la génération, ceux que le parcours a jugés courants, ainsi que les fichiers de verrouillage et autres sorties générées, délibérément tenus hors du modèle. Tout est listé à la fin pour que rien ne disparaisse en silence. Un fichier laissé de côté par le parcours porte une note d’une ligne sur ce qui y a changé, par exemple « Traductions des nouveaux textes ».
 
 Régénérer ne rapièce pas, cela réécrit : le parcours précédent est fourni au modèle comme contexte, ce qui reste vrai est conservé, et tout est réancré sur le code actuel. Régénérer avec un autre modèle ou dans une autre langue repart de zéro : vous obtenez la lecture propre à ce modèle.
 

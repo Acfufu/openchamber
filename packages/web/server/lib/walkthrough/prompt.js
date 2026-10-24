@@ -28,7 +28,8 @@ The focus line says what changes for the people using the software: what they ca
 Rules:
 - Anchor every stop to hunk aliases from the digest, exactly as given (h1, h2, …). Never invent an alias.
 - Anchor each hunk at most once, in the stop where it matters most.
-- You do not have to cover every hunk. Mechanical changes are better left out than padded into a stop; whatever you omit is still shown to the reader separately.
+- You do not have to cover every hunk. Mechanical changes are better left out than padded into a stop; whatever you omit is still shown to the reader separately, file by file.
+- routine: for every file with hunks you left out of the stops, one entry {path, note}, path exactly as in the digest. The note is one short line on what changed there, so the reader can trust it without opening it: "Translations for the two new strings", "Snapshot updated for the renamed field", "Same rename as in the Android plugin". A file every hunk of which belongs to a stop gets no entry.
 - importance: "critical" only for the stop or two that the rest of the change depends on or where its main behavior lives, "context" for supporting changes that are safe to skim (docs, wiring, translations, fixtures), "normal" otherwise.
 - Stop titles name the thing the stop is about, not the act of reviewing it. "Hardware keyboard bridge" and "Overflow menu removed" tell a reader scanning the contents what they will find; "Exercise the boundaries" and "Describe the contract" do not.
 - Write prose and observations as plain sentences. No markdown, no bullet lists, no code fences.
@@ -46,7 +47,7 @@ Respond with a single JSON object and nothing else. (Some providers refuse a str
 // would be unsearchable.
 const languageInstruction = (language) => `
 
-Write all prose in ${languageName(language)}: the walkthrough title, the focus line, chapter titles and blurbs, stop titles and prose, and observation notes. The reader of this review reads ${languageName(language)}.
+Write all prose in ${languageName(language)}: the walkthrough title, the focus line, chapter titles and blurbs, stop titles and prose, observation notes, and routine notes. The reader of this review reads ${languageName(language)}.
 
 Keep these in English exactly as given, regardless of the prose language: hunk aliases (h1, h2, …), the "icon" values, the "importance" values, and the observation "kind" values. Keep identifiers, file paths, and API names as they appear in the code — never translate them.`;
 
@@ -93,7 +94,7 @@ ${outline}
 // in the prompt instead of the request body.
 export const JSON_SHAPE_INSTRUCTION = `
 Return ONLY a JSON object, with no prose around it and no markdown fences, in exactly this shape:
-{"title": string, "focus": string, "chapters": [{"title": string, "icon": "bug"|"wrench"|"path"|"flask"|"doc"|"gear", "blurb": string, "stops": [{"title": string, "hunks": [string], "importance": "critical"|"normal"|"context", "prose": string, "observations": [{"kind": ${OBSERVATION_KINDS.map((kind) => `"${kind}"`).join('|')}, "note": string}]}]}]}`;
+{"title": string, "focus": string, "chapters": [{"title": string, "icon": "bug"|"wrench"|"path"|"flask"|"doc"|"gear", "blurb": string, "stops": [{"title": string, "hunks": [string], "importance": "critical"|"normal"|"context", "prose": string, "observations": [{"kind": ${OBSERVATION_KINDS.map((kind) => `"${kind}"`).join('|')}, "note": string}]}]}], "routine": [{"path": string, "note": string}]}`;
 
 export function buildPrompt({ digest, fileCount, hunkCount, source, previousWalkthrough, language = DEFAULT_LANGUAGE }) {
   const sourceLine = source.kind === 'working-tree'

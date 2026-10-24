@@ -614,7 +614,7 @@ async function runGeneration({ directory, source, repoRoot, key, force, explicit
 
   let walkthrough;
   try {
-    walkthrough = normalizeWalkthrough(parseModelJson(raw.text), idByAlias);
+    walkthrough = normalizeWalkthrough(parseModelJson(raw.text), idByAlias, digest.files);
   } catch (error) {
     // Without schema support the model was asked for JSON in prose and did not
     // deliver: that is a capability problem the user can fix by switching model,

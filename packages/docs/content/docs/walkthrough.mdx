@@ -82,7 +82,7 @@ Generation runs on the OpenChamber server, not in your browser tab. Reload the p
 Every stop is anchored to the exact content of the code it describes, so the panel can tell you when that code has moved on:
 
 - **Outdated steps** — the code a stop described has changed or is gone. The walkthrough still shows, marked, so you can decide whether to regenerate.
-- **Not covered** — changes in the current diff that no stop describes. That includes edits made after generating, changes the walkthrough judged routine, and lockfiles and other generated files, which are deliberately kept out of the model's input. They are all listed at the end of the stream so nothing disappears silently.
+- **Not covered** — changes in the current diff that no stop describes. That includes edits made after generating, changes the walkthrough judged routine, and lockfiles and other generated files, which are deliberately kept out of the model's input. They are all listed at the end of the stream so nothing disappears silently. A file the walkthrough left out carries a one-line note on what changed there, such as "Translations for the new strings".
 
 Regenerating re-authors rather than patches: the previous walkthrough goes to the model as context so accurate parts survive, and everything is re-anchored to the current code. Regenerating with another model or in another language starts from scratch, so you get that model's own reading.
 
