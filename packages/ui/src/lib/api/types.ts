@@ -20,7 +20,11 @@ import type {
   ProjectUpstream,
   ReadyChangeRequestInput,
   CommentInput,
+  DiscussionCloseReason,
+  DiscussionCommentInput,
   ReviewChangeRequestInput,
+  SetDiscussionAnswerInput,
+  SetDiscussionStateInput,
   SetStateInput,
   SetLabelsInput,
   SetReviewersInput,
@@ -1578,17 +1582,27 @@ export type IssueLiveSummary = RepositoryItemRef & {
   state: 'open' | 'completed' | 'not_planned';
 };
 
+/** A discussion's state: open, or the reason it was closed for. */
+export type DiscussionState = 'open' | DiscussionCloseReason;
+
+/** Live state of a known discussion; `answered` is null in a category that takes no answers. */
+export type DiscussionLiveSummary = RepositoryItemRef & {
+  title: string;
+  state: DiscussionState;
+  answered: boolean | null;
+};
+
 
 export type RepositorySelector = {
   owner: string;
   repo: string;
 };
 
-export type RepositoryReferenceKind = 'issue' | 'pull';
+/** `discussion` only where the provider keeps them (`features.discussions`). */
+export type RepositoryReferenceKind = 'issue' | 'pull' | 'discussion';
 
-/** Which slice of open items the picker lists; `reviewRequested` is for PRs. */
-/** A repository list's state; `merged` applies to change requests. */
-export type RepositoryReferenceState = 'open' | 'closed' | 'merged' | 'all';
+/** A repository list's state; `merged` applies to change requests, `unanswered` to discussions. */
+export type RepositoryReferenceState = 'open' | 'closed' | 'merged' | 'all' | 'unanswered';
 /** Whose items a repository list shows; review requests apply to change requests. */
 export type RepositoryReferencePeople = 'any' | 'assigned' | 'created' | 'reviewRequested';
 export type RepositoryReferenceFilter = { state: RepositoryReferenceState; people: RepositoryReferencePeople };
@@ -1626,6 +1640,17 @@ export type RepositoryIssueReference = RepositoryReferenceCommon & {
   state: IssueLiveSummary['state'];
 };
 
+/** A repository discussion; `answered` is null in a category that takes no answers. */
+export type RepositoryDiscussionReference = RepositoryReferenceCommon & {
+  kind: 'discussion';
+  state: DiscussionState;
+  answered: boolean | null;
+  upvotes: number;
+  locked: boolean;
+  /** `emoji` is the category's own character, when it has one. */
+  category: { name: string; emoji: string | null; answerable: boolean };
+};
+
 export type RepositoryChangeRequestReference = RepositoryReferenceCommon & {
   kind: 'pull';
   state: GitHubPullRequest['state'];
@@ -1651,13 +1676,15 @@ export type RepositoryReferenceComment = {
   path: string | null;
   line: number | null;
   review: 'approved' | 'changes_requested' | 'commented' | 'dismissed' | null;
-  /** Set when the comment opens a review thread. */
+  /** Set when the comment opens a review thread, or on a discussion, the thread of its replies. */
   thread?: RepositoryReferenceThread;
+  /** A discussion comment in a category that takes answers: whether it is the answer, and whether this account may change that. */
+  answer?: { chosen: boolean; canChange: boolean };
 };
 
-/** A review thread a comment opens: the answers under it and whether it is resolved. */
+/** A review thread a comment opens, or a discussion comment's replies: the answers under it and whether it is resolved. */
 export type RepositoryReferenceThread = {
-  /** The host's id: a GraphQL node id on GitHub, a discussion id on GitLab. */
+  /** The host's id: a GraphQL node id on GitHub (a discussion comment's own), a discussion id on GitLab. */
   id: string;
   resolved: boolean;
   /** Whether this account can resolve the thread, or open it again. */
@@ -1707,6 +1734,8 @@ export type RepositoryReferenceDetail = {
     /** Where the host keeps revisions (patchsets), oldest first. */
     revisions?: ChangeRequestRevision[];
   } | null;
+  /** A discussion's: what this account may do with it. Absent for an issue or a change request. */
+  discussion?: { canComment: boolean; canClose: boolean; canReopen: boolean };
 };
 
 
@@ -1724,8 +1753,8 @@ export type RepositoryReferenceDetailResult =
   | { connected: false }
   | { connected: true; detail: RepositoryReferenceDetail | null };
 
-/** An issue or PR as the reference picker lists and previews it. */
-export type RepositoryReference = RepositoryIssueReference | RepositoryChangeRequestReference;
+/** An issue, PR or discussion as the reference picker lists and previews it. */
+export type RepositoryReference = RepositoryIssueReference | RepositoryChangeRequestReference | RepositoryDiscussionReference;
 
 /** What colours a listed open PR: its checks and whether it conflicts. */
 export type ChangeRequestListStatus = RepositoryItemRef & {
@@ -1834,6 +1863,11 @@ export interface SourceControlAPI {
   issueSetState(payload: SetStateInput): Promise<SourceControlMutationReceipt<SourceControlStateMutationResult>>;
   changeRequestSetLabels(payload: SetLabelsInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
   issueSetLabels(payload: SetLabelsInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
+  /** A discussion's writes, where the provider keeps discussions (`features.discussions`). */
+  discussionComment(payload: DiscussionCommentInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
+  discussionSetState(payload: SetDiscussionStateInput): Promise<SourceControlMutationReceipt<SourceControlStateMutationResult>>;
+  discussionSetAnswer(payload: SetDiscussionAnswerInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
+  discussionSetLabels(payload: SetLabelsInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
   changeRequestSetReviewers(payload: SetReviewersInput): Promise<SourceControlMutationReceipt<SourceControlEmptyMutationResult>>;
   /**
    * Forgets the server's short-lived answers from this host, so the next
@@ -1896,9 +1930,10 @@ export interface SourceControlAPI {
   referencesAcross?(contexts: SourceControlReadContext[], query: RepositoryReferenceQuery): Promise<RepositoryReferencesAcrossResult>;
   /**
    * Comments of one item the picker previews, and a change request's size,
-   * review and checks (`features.referenceDetail`). Throws on failure.
+   * review and checks (`features.referenceDetail`); `kind: 'discussion'`
+   * reads a discussion's. Throws on failure.
    */
-  referenceDetail(context: SourceControlReadContext, ref: RepositoryItemRef): Promise<RepositoryReferenceDetailResult>;
+  referenceDetail(context: SourceControlReadContext, ref: RepositoryItemRef & { kind?: 'discussion' }): Promise<RepositoryReferenceDetailResult>;
   /**
    * Checks and mergeability of up to 30 listed change requests, for their
    * colour (`features.listStatuses`). Throws on failure.

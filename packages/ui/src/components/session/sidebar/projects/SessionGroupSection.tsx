@@ -682,7 +682,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     return byKey.size > 0 ? [...byKey.values()] : EMPTY_GROUP_ISSUES;
   }, [allGroupSessions, group.isArchivedBucket, group.isMain, groupPrSummary, hideGroupLabel, urlMatcher]);
   const groupRepositoryIssueItems = React.useMemo(
-    () => groupIssues.flatMap((issue) => (issue.source === 'repository' ? [repositoryThread('issue', issue.ref)] : [])),
+    () => groupIssues.flatMap((issue) => (issue.source === 'repository' ? [repositoryThread(issue.ref.thread, issue.ref)] : [])),
     [groupIssues],
   );
   const groupIssueStates = useTrackedIssueStates(groupRepositoryIssueItems);

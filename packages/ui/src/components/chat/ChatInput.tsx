@@ -27,6 +27,7 @@ import {
     type AttachmentInputModality,
 } from '@/sync/attachment-files';
 import type { AttachedFile } from '@/stores/types/sessionTypes';
+import type { RepositoryReferenceKind } from '@/lib/api/types';
 import * as sessionActions from '@/sync/session-actions';
 // Guest surfaces load on demand: VS Code and mobile never mount them, and the
 // composer must not pay for the guest bridge before an extension is installed.
@@ -296,7 +297,7 @@ const collectInlineSkillMentions = (text: string, skillNames: Set<string>): stri
     collectKnownTokenNames(text, '$', skillNames, 'exact');
 
 /** Which reference picker is open, and for the repository on which tab. */
-type ReferencePickerState = { source: 'repository'; kind?: 'issue' | 'pull' } | { source: TrackerReferenceSource } | null;
+type ReferencePickerState = { source: 'repository'; kind?: RepositoryReferenceKind } | { source: TrackerReferenceSource } | null;
 
 /**
  * Record what a session was pointed at, so the work-status panel can show it
@@ -1494,6 +1495,15 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 restored.push({
                     kind: 'repository-issue',
                     ...(payload.provider ? { provider: payload.provider } : {}),
+                    number: payload.number,
+                    title: payload.title,
+                    url: payload.url,
+                    contextText: part.text,
+                });
+            } else if (payload.kind === 'repository-discussion') {
+                restored.push({
+                    kind: 'repository-discussion',
+                    provider: payload.provider,
                     number: payload.number,
                     title: payload.title,
                     url: payload.url,
@@ -3966,6 +3976,20 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                                 openInBrowserLabel={t('chat.chatInput.linked.issue.openInBrowserAria')}
                                 removeLabel={t('chat.chatInput.linked.issue.removeAria')}
                                 onReopenPicker={() => setReferencePicker({ source: 'repository', kind: 'issue' })}
+                                onRemove={remove}
+                            />
+                        );
+                    case 'repository-discussion':
+                        return (
+                            <LinkedReferenceRow
+                                key={key}
+                                numberLabel={`#${reference.number}`}
+                                title={reference.title}
+                                url={reference.url}
+                                author={reference.author}
+                                openInBrowserLabel={t('chat.chatInput.linked.discussion.openInBrowserAria')}
+                                removeLabel={t('chat.chatInput.linked.discussion.removeAria')}
+                                onReopenPicker={() => setReferencePicker({ source: 'repository', kind: 'discussion' })}
                                 onRemove={remove}
                             />
                         );

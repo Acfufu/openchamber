@@ -83,6 +83,15 @@ type RepositoryIssueContext = {
     url: string;
 };
 
+/** A repository discussion; only providers that keep discussions have one. */
+type RepositoryDiscussionContext = {
+    kind: 'repository-discussion';
+    provider: SourceControlProvider;
+    number: number;
+    title: string;
+    url: string;
+};
+
 type FileQuoteContext = {
     kind: 'file-quote';
     fileLabel: string;
@@ -149,6 +158,7 @@ export type ContextPartPayload =
     | FileQuoteContext
     | ChatQuoteContext
     | RepositoryIssueContext
+    | RepositoryDiscussionContext
     | ChangeRequestContext
     | TrackerItemContext
     | GuestIssueContext
@@ -237,6 +247,7 @@ export function formatContextText(payload: ContextPartPayload): string {
         case 'pr-check':
             return `Attached failed ${changeRequestCheckSource(payload.provider)} (${payload.label}):\n\`\`\`\n${payload.output}\n\`\`\`${payload.text ? `\n\n${payload.text}` : ''}`;
         case 'repository-issue':
+        case 'repository-discussion':
         case 'change-request':
         case 'tracker-item':
         case 'guest-issue':
@@ -393,6 +404,13 @@ const canonicalContextPayloadSchema = z.discriminatedUnion('kind', [
     z.object({
         kind: z.literal('repository-issue'),
         provider: sourceControlProviderIdSchema.optional(),
+        number: z.number().int().positive(),
+        title: z.string(),
+        url: z.string(),
+    }),
+    z.object({
+        kind: z.literal('repository-discussion'),
+        provider: sourceControlProviderIdSchema,
         number: z.number().int().positive(),
         title: z.string(),
         url: z.string(),
@@ -601,6 +619,7 @@ export function draftFromContextPayload(
                 anchor: payload.anchor,
             };
         case 'repository-issue':
+        case 'repository-discussion':
         case 'change-request':
         case 'tracker-item':
         case 'guest-issue':

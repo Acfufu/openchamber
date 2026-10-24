@@ -207,6 +207,10 @@ other.
   `/api/linear` alias exists, so older bundled UIs keep showing and keeping
   it; other trackers are `kind: 'tracker'`, see
   `../trackers/DOCUMENTATION.md`), anything else an `external` entry shown by identifier.
+  A github.com discussion is such an external entry, identified `#N` unless the
+  agent named it, under the id the UI writes when one is attached
+  (`link:<origin>/<owner>/<repo>/discussions/<N>`), and newer UIs read it as a
+  discussion by its address.
   A change request or issue address that a source-control provider's
   `urls.thread` names (GitLab's `/-/merge_requests/N` shape on any host) is
   keyed by the thread, so linking it again from a tab like `/diffs` or with a

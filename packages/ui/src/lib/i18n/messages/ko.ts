@@ -2,6 +2,7 @@ import type { I18nKey } from './en';
 import { settingsDict } from './ko.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
+import { repositoryDiscussionsI18n } from './repository-discussions.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
 import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
@@ -143,6 +144,7 @@ export const dict: Record<I18nKey, string> = {
   'gitView.publish.succeeded': 'push 완료',
   ...linearIssuePickerI18n.ko,
   ...referencePickerI18n.ko,
+  ...repositoryDiscussionsI18n.ko,
   ...sessionMenuHintsI18n.ko,
   ...projectKnowledgeI18n.ko,
   ...linearPanelI18n.ko,

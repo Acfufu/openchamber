@@ -1,6 +1,7 @@
 import { settingsDict } from './ar.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
+import { repositoryDiscussionsI18n } from './repository-discussions.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
 import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
@@ -3814,6 +3815,7 @@ export const dict = {
   ...fileContentSearchI18n.ar,
   ...fileEditorAidsI18n.ar,
   ...htmlRenderI18n.ar,
+  ...repositoryDiscussionsI18n.ar,
   ...sessionNoticesI18n.ar,
   ...usageStatsI18n.ar,
   ...webSearchI18n.ar,

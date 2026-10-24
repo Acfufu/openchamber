@@ -482,7 +482,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     [isVSCode, session, urlMatcher],
   );
   const repositoryIssueItems = React.useMemo(
-    () => linkedIssues.flatMap((issue) => (issue.source === 'repository' ? [repositoryThread('issue', issue.ref)] : [])),
+    () => linkedIssues.flatMap((issue) => (issue.source === 'repository' ? [repositoryThread(issue.ref.thread, issue.ref)] : [])),
     [linkedIssues],
   );
   const repositoryIssueStates = useTrackedIssueStates(repositoryIssueItems);

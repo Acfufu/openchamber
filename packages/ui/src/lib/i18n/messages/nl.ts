@@ -1,6 +1,7 @@
 import { settingsDict } from './nl.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
+import { repositoryDiscussionsI18n } from './repository-discussions.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
 import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
@@ -142,6 +143,7 @@ export const dict = {
   ...settingsDict,
   ...linearIssuePickerI18n.nl,
   ...referencePickerI18n.nl,
+  ...repositoryDiscussionsI18n.nl,
   ...sessionMenuHintsI18n.nl,
   ...projectKnowledgeI18n.nl,
   ...linearPanelI18n.nl,

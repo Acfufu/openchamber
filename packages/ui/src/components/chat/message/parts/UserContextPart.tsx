@@ -231,6 +231,7 @@ const UserContextPart: React.FC<{
             );
         }
         case 'repository-issue':
+        case 'repository-discussion':
         case 'change-request':
         case 'tracker-item':
         case 'guest-issue':

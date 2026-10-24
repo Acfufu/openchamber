@@ -2,6 +2,7 @@ import type { I18nKey } from './en';
 import { settingsDict } from './zh-CN.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
+import { repositoryDiscussionsI18n } from './repository-discussions.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
 import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
@@ -143,6 +144,7 @@ export const dict: Record<I18nKey, string> = {
   'gitView.publish.succeeded': '已 push',
   ...linearIssuePickerI18n['zh-CN'],
   ...referencePickerI18n['zh-CN'],
+  ...repositoryDiscussionsI18n['zh-CN'],
   ...sessionMenuHintsI18n['zh-CN'],
   ...projectKnowledgeI18n['zh-CN'],
   ...linearPanelI18n['zh-CN'],
