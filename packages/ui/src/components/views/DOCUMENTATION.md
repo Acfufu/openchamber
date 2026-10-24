@@ -373,3 +373,28 @@ archive. Restore brings it back on its own, under that parent. One rule,
 `isRestorableOnItsOwn` in `sync/session-restore-rule.ts`, decides what the page
 lists, when the chat header's session menu offers Restore, and what the restore
 action accepts, so the three never disagree.
+
+On desktop the panel on the left groups by project, not by folder: a session
+belongs to its project the way the sidebar decides it (by folder, then by
+OpenCode's project, which still places a session whose worktree is gone).
+The chats of a deleted isolated space keep their own groups, and everything
+outside a project is one Other group. A project's archived worktrees
+(`lib/worktrees/worktreeArchive.ts`, read from the repository each time the
+page opens) head its list, each a tile with Restore and Delete for good and
+its own sessions inside; the project's other sessions follow. The archive records
+which sessions it holds, so a folder name that repeats across repositories or
+over time never mixes them up. Restoring one session of an archived worktree
+restores the whole worktree (`lib/worktrees/relocateRestoredSession.ts`), since
+in the project root it would miss the changes it worked on; a session whose
+folder is gone without an archive still moves to the project root. Restores of one archive are
+joined, not repeated: a session's subsessions come back one by one, and each
+would start it. Deleting an archive for good deletes only its sessions still in
+the archive that no other archive of the project holds.
+
+The phone shows the same page in one column: the groups are a row of chips
+that scrolls sideways (hidden while searching, since a search spans them
+all), and a selected project's archived worktrees are tiles above its other
+sessions, as on the desktop. Restore and a worktree's Delete are always shown,
+as nothing hovers; rows name their group only in the lists that mix groups.
+Deleting a session stays on the desktop, whose confirmation dialog the mobile
+shell does not mount.

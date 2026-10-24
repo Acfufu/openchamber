@@ -938,7 +938,14 @@ export interface GitWorktreeInfo {
   name: string;
   branch: string;
   path: string;
+  /** The task's name: the first line of the branch description, when set. */
+  title?: string;
   provenance?: GitContributorWorktreeProvenance;
+}
+
+export interface GitWorktreeTitleResult {
+  title: string;
+  branch: string;
 }
 
 export interface GitContributorWorktreeProvenance {
@@ -1014,6 +1021,13 @@ export interface CreateGitWorktreePayload {
   changeRequestSource?: GitChangeRequestSourceRequest;
   /** Return once the target directory exists and finish Git worktree setup in the background. */
   returnAfterDirectoryCreated?: boolean;
+  /**
+   * The task title of a worktree made for a pull request or an issue: written
+   * as the agent's, so the agent can replace it with a short name.
+   */
+  taskTitle?: string;
+  /** Set to the branch name when OpenChamber generated it, so the agent may later rename it after the task. */
+  generatedBranchName?: string;
 }
 
 export interface GitChangeRequestSourceRequest {
@@ -1063,6 +1077,50 @@ export interface GitWorktreeSnapshotResult {
   head: string;
 }
 
+/**
+ * An archived worktree: its folder is gone, and `refs/openchamber/archive/<id>`
+ * holds what restoring it needs.
+ */
+export interface GitWorktreeArchive {
+  id: string;
+  ref: string;
+  /** Snapshot commit: the branch's commit plus every change git did not ignore. */
+  commit: string;
+  /** The commit the branch stood on when archived. */
+  head: string;
+  /** Where the worktree was. */
+  path: string;
+  /** Empty for a worktree that had no branch checked out. */
+  branch: string;
+  branchExists: boolean;
+  /** The task title it had; empty when it had none. */
+  title: string;
+  archivedAt: number;
+  /** The sessions archived with it. */
+  sessionIds: string[];
+}
+
+export interface ArchiveGitWorktreePayload {
+  /** The worktree to archive. */
+  directory: string;
+  id: string;
+  sessionIds: string[];
+  /** The name the sidebar showed for the work, kept when the worktree has no task title. */
+  title?: string;
+}
+
+export interface GitWorktreeArchiveRestoreResult {
+  id: string;
+  /** The changes clashed with the branch: git's conflict state is left and the archive is kept. */
+  conflicts: boolean;
+}
+
+export interface DeleteGitWorktreeArchivePayload {
+  id: string;
+  /** Also delete the archive's local branch, unless a checkout uses it. */
+  deleteBranch?: boolean;
+}
+
 export interface GitDeleteBranchPayload {
   branch: string;
   force?: boolean;
@@ -1104,8 +1162,16 @@ interface GitWorktreeAPI {
   preview?(directory: string, payload: CreateGitWorktreePayload): Promise<GitWorktreeCreateResult>;
   create?(directory: string, payload: CreateGitWorktreePayload): Promise<GitWorktreeCreateResult>;
   remove?(directory: string, payload: RemoveGitWorktreePayload): Promise<{ success: boolean }>;
+  /** Sets the task title of the worktree at `directory` as the user's; an empty title clears it. */
+  setTitle?(directory: string, title: string): Promise<GitWorktreeTitleResult>;
   /** `directory` is the worktree to snapshot. */
   snapshot?(directory: string, payload: GitWorktreeSnapshotPayload): Promise<GitWorktreeSnapshotResult>;
+  /** `directory` is the project; the worktree is removed, its branch kept. */
+  archive?(directory: string, payload: ArchiveGitWorktreePayload): Promise<GitWorktreeArchive>;
+  listArchives?(directory: string): Promise<GitWorktreeArchive[]>;
+  /** `directory` is the new checkout of the archive's branch. */
+  restoreArchive?(directory: string, id: string): Promise<GitWorktreeArchiveRestoreResult>;
+  deleteArchive?(directory: string, payload: DeleteGitWorktreeArchivePayload): Promise<{ id: string; branchDeleted: boolean }>;
 }
 
 export interface GitAPI {
