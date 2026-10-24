@@ -43,6 +43,7 @@ import { withAttachmentChips } from '../../message/parts/attachmentCitationChips
 import { useInputStore } from '@/sync/input-store';
 import { GlassPopupMotion } from './GlassPopupMotion';
 import { fileWithDiffCommentOrigin } from '@/lib/diffCommentOrigin';
+import { isWholeFileComment } from '@/components/comments/wholeFileComment';
 
 interface ComposerContextChipsProps {
     draftTarget: InlineCommentDraftTarget | null;
@@ -335,6 +336,7 @@ function ComposerContextChipsView({ draftTarget, colors, previewHost }: Composer
                     : t('chat.message.context.fileQuote', { file: basename(draft.fileLabel) });
             default: {
                 const file = fileWithDiffCommentOrigin(basename(draft.fileLabel), draft.origin);
+                if (isWholeFileComment(draft)) return t('chat.message.context.codeCommentFile', { file });
                 return draft.startLine === draft.endLine
                     ? t('chat.message.context.codeCommentLine', { file, line: draft.startLine })
                     : t('chat.message.context.codeComment', { file, start: draft.startLine, end: draft.endLine });

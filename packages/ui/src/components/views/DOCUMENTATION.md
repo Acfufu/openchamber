@@ -294,6 +294,13 @@ and the chip names it beside the file. Drafts show only on the diff they were
 written on, so a comment on a pull request's `app.ts` does not appear on the
 working tree's. A comment on uncommitted changes has no origin: its lines are
 the files on disk.
+
+A file's header in Changes, mobile Changes and the walkthrough also takes a
+comment on the whole file (`components/comments/useWholeFileComment.tsx`): a
+diff draft with lines 0-0, the same origin, and no code. Its editor and saved
+cards render under the header, never inside the diff, so the viewer filters
+those drafts out of its line annotations. The trigger fades in with the
+header's hover and stays visible on touch and while its editor is open.
 Changes hands its PR source to walkthrough; walkthrough's Changes action opens
 PR mode with the shared selection. Picking a PR never generates a walkthrough.
 

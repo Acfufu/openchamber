@@ -220,9 +220,13 @@ export function changeRequestCheckSource(provider: SourceControlProvider | undef
 export function formatContextText(payload: ContextPartPayload): string {
     switch (payload.kind) {
         case 'code-comment': {
+            const originNote = payload.origin ? ` ${describeDiffCommentOrigin(payload.origin)}` : '';
+            // A whole-file comment has no lines to quote: the model reads the file itself.
+            if (payload.startLine === 0 && payload.endLine === 0) {
+                return `Comment on \`${payload.fileLabel}\` (the whole file)${originNote}:\n\n${payload.text}`;
+            }
             const range = `lines ${payload.startLine}-${payload.endLine}`;
             const sideNote = payload.source === 'diff' && payload.side ? ` (${payload.side})` : '';
-            const originNote = payload.origin ? ` ${describeDiffCommentOrigin(payload.origin)}` : '';
             return `Comment on \`${payload.fileLabel}\` ${range}${sideNote}${originNote}:\n\`\`\`${payload.language}\n${payload.code}\n\`\`\`\n\n${payload.text}`;
         }
         case 'terminal':
@@ -271,18 +275,17 @@ export function createContextPart(payload: ContextPartPayload, text?: string): C
     const resolvedText = text ?? formatContextText(payload);
     const metadata: ContextPartMetadata = { [CONTEXT_METADATA_KEY]: payload };
     if (payload.kind === 'code-comment') {
-        metadata[OPENCODE_COMMENT_METADATA_KEY] = {
+        const comment: OpenCodeCommentMetadata = {
             path: payload.fileLabel,
-            selection: {
-                startLine: payload.startLine,
-                endLine: payload.endLine,
-                startChar: 0,
-                endChar: 0,
-            },
             comment: payload.text,
             preview: payload.code,
             origin: payload.source === 'diff' ? 'review' : 'file',
         };
+        // A whole-file comment has no selection to mirror.
+        if (payload.startLine !== 0 || payload.endLine !== 0) {
+            comment.selection = { startLine: payload.startLine, endLine: payload.endLine, startChar: 0, endChar: 0 };
+        }
+        metadata[OPENCODE_COMMENT_METADATA_KEY] = comment;
     }
     return {
         text: resolvedText,

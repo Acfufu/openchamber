@@ -22,6 +22,7 @@ import {
   buildPierreLineAnnotations,
   type PierreAnnotationData,
   PierreDiffCommentOverlays,
+  isWholeFileComment,
   toPierreAnnotationId,
   useInlineCommentController,
 } from '@/components/comments';
@@ -1062,7 +1063,7 @@ const PierreDiffViewerBody: React.FC<
   });
 
   const {
-    drafts: fileDrafts,
+    drafts: diffDrafts,
     selection,
     setSelection,
     commentText,
@@ -1073,6 +1074,8 @@ const PierreDiffViewerBody: React.FC<
     startEdit,
     deleteDraft,
   } = diffCommentController;
+  // Whole-file comments have no lines to sit under; the file header shows them.
+  const fileDrafts = useMemo(() => diffDrafts.filter((draft) => !isWholeFileComment(draft)), [diffDrafts]);
 
   const selectionRef = useRef<SelectedLineRange | null>(null);
   const editingDraftIdRef = useRef<string | null>(null);

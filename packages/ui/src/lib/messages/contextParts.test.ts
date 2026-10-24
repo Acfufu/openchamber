@@ -117,6 +117,15 @@ describe('model-facing text', () => {
                 .toBe('Comment on `src/app.ts` lines 3-5 (modified) in the changes of branch `feature` compared with `origin/main`:\n```ts\nconst x = 1;\n```\n\nfix this');
         });
 
+        test('a whole-file comment names the file and quotes no lines', () => {
+            expect(formatContextText(contextPayloadFromDraft(draft({
+                startLine: 0, endLine: 0, side: undefined, code: '',
+                origin: { kind: 'change-request', provider: 'github', number: 5543 },
+            })))).toBe('Comment on `src/app.ts` (the whole file) in GitHub pull request #5543:\n\nfix this');
+            const part = createContextPart(contextPayloadFromDraft(draft({ startLine: 0, endLine: 0, side: undefined, code: '' })));
+            expect(part.metadata.opencodeComment?.selection).toBeUndefined();
+        });
+
         test('a part from before parts named their provider reads as a plain pull request', () => {
             expect(formatContextText(contextPayloadFromDraft(draft({ source: 'pr-comment', fileLabel: 'octo/repo#7', code: 'the comment', text: '' }))))
                 .toBe('Attached pull request comment (octo/repo#7):\n\nthe comment');
@@ -147,6 +156,7 @@ describe('round-trip through part metadata', () => {
             contextPayloadFromDraft(draft({ source: 'file-quote', startLine: 3, endLine: 5 })),
             contextPayloadFromDraft(draft({ source: 'file-quote', startLine: 0, endLine: 0 })),
             contextPayloadFromDraft(draft({ origin: { kind: 'change-request', provider: 'github', number: 5543, revision: 'abc' } })),
+            contextPayloadFromDraft(draft({ startLine: 0, endLine: 0, side: undefined, code: '' })),
         ];
         for (const payload of payloads) {
             expect(readContextPart(asPart(payload))).toEqual(payload);

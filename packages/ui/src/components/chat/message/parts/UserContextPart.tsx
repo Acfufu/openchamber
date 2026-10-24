@@ -11,6 +11,7 @@ import { withAttachmentChips } from './attachmentCitationChips';
 import { legacyChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import { useChatQuoteHighlightApi } from '../../hooks/chatQuoteHighlightStore';
 import { fileWithDiffCommentOrigin } from '@/lib/diffCommentOrigin';
+import { isWholeFileComment } from '@/components/comments/wholeFileComment';
 
 /**
  * A context item attached to a user message: an inline code comment, a
@@ -150,10 +151,15 @@ const UserContextPart: React.FC<{
         case 'code-comment': {
             const file = fileWithDiffCommentOrigin(basename(payload.fileLabel), payload.origin);
             const fullFile = fileWithDiffCommentOrigin(payload.fileLabel, payload.origin);
-            const summary = payload.startLine === payload.endLine
+            const wholeFile = isWholeFileComment(payload);
+            const summary = wholeFile
+                ? t('chat.message.context.codeCommentFile', { file })
+                : payload.startLine === payload.endLine
                 ? t('chat.message.context.codeCommentLine', { file, line: payload.startLine })
                 : t('chat.message.context.codeComment', { file, start: payload.startLine, end: payload.endLine });
-            const fullTitle = payload.startLine === payload.endLine
+            const fullTitle = wholeFile
+                ? t('chat.message.context.codeCommentFile', { file: fullFile })
+                : payload.startLine === payload.endLine
                 ? t('chat.message.context.codeCommentLine', { file: fullFile, line: payload.startLine })
                 : t('chat.message.context.codeComment', { file: fullFile, start: payload.startLine, end: payload.endLine });
             return <ContextCard icon="chat-1" summary={summary} title={fullTitle} body={payload.code} text={payload.text} mono {...shared} />;

@@ -89,6 +89,7 @@ import { resolveFindDiff, useDiffFind, type DiffFindLayout, type DiffFindNestedS
 import { useDiffFindSurface } from './diffFind/useDiffFindSurface';
 import { createFindDiffBatchReader } from './diffFind/findDiffBatch';
 import { diffCommentOriginFromSource, type DiffCommentOrigin } from '@/lib/diffCommentOrigin';
+import { useWholeFileComment, WholeFileCommentButton } from '@/components/comments';
 
 // Minimum width for side-by-side diff view (px)
 const SIDE_BY_SIDE_MIN_WIDTH = 1100;
@@ -962,6 +963,7 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
 }) => {
     const { t } = useI18n();
     const { git } = useRuntimeAPIs();
+    const wholeFileComment = useWholeFileComment({ fileLabel: file.path, origin: rangeComparisonDiff ? commentOrigin : undefined });
     const cachedDiff = useGitStore(
         React.useCallback((state) => {
             return state.directories.get(directory)?.diffCache.get(file.path) ?? null;
@@ -1366,6 +1368,11 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                                 )}
                             </Button>
                         ) : null}
+                        <WholeFileCommentButton
+                            onClick={wholeFileComment.open}
+                            active={wholeFileComment.isOpen}
+                            hoverGroupClass="group-hover/header:opacity-70"
+                        />
                         <DiffViewToggle
                             mode={renderSideBySide ? 'side-by-side' : 'unified'}
                             onModeChange={(mode: DiffViewMode) => {
@@ -1378,6 +1385,7 @@ export const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                     </div>
                 </div>
             </div>
+            {wholeFileComment.body}
             {isExpanded && (
                 // Clip, not hidden: a hidden overflow is a scroll box of its
                 // own, and the diff's sticky scrollbar would stick to it

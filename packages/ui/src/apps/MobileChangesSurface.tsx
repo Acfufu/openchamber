@@ -77,6 +77,7 @@ import { generateCommitMessage, stageGitFile, stageGitFiles, unstageGitFile, uns
 import type { GitRemote } from '@/lib/gitApi';
 import { getLanguageFromExtension, isImageFile } from '@/lib/toolHelpers';
 import { diffCommentOriginFromSource, type DiffCommentOrigin } from '@/lib/diffCommentOrigin';
+import { useWholeFileComment } from '@/components/comments';
 import {
   useGitStore,
   useGitIdentity,
@@ -1548,6 +1549,7 @@ const MobileDiffDetail: React.FC<{
   const hideWhitespace = useUIStore((state) => state.diffHideWhitespace);
   const setHideWhitespace = useUIStore((state) => state.setDiffHideWhitespace);
   const whitespaceState = hideWhitespace ? t('diffView.whitespace.hidden') : t('diffView.whitespace.shown');
+  const wholeFileComment = useWholeFileComment({ fileLabel: path, origin: commentOrigin });
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
@@ -1577,7 +1579,21 @@ const MobileDiffDetail: React.FC<{
         >
           <WhitespaceToggleIcon hidden={hideWhitespace} className="size-5" />
         </button>
+        <button
+          type="button"
+          className={cn(
+            'flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-interactive-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            wholeFileComment.isOpen ? 'text-foreground' : 'text-muted-foreground',
+          )}
+          aria-label={t('inlineComment.actions.commentOnFile')}
+          aria-pressed={wholeFileComment.isOpen}
+          title={t('inlineComment.actions.commentOnFile')}
+          onClick={wholeFileComment.open}
+        >
+          <Icon name="chat-1" className="size-5" />
+        </button>
       </header>
+      {wholeFileComment.body}
       <div className="min-h-0 flex-1 overflow-hidden">
         {!fileExists ? (
           <MobileChangesState icon message={t('mobile.changes.diffDetail.missingTitle')} description={t('mobile.changes.diffDetail.missingDescription')} />
