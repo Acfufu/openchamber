@@ -4,10 +4,10 @@ import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { ChangedPathLabel } from '@/components/views/git/ChangedPathLabel';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, type I18nKey } from '@/lib/i18n';
 import { groupHunksByFile } from '@/lib/walkthrough/model';
 import type { WalkthroughStopView, WalkthroughView } from '@/lib/walkthrough/model';
-import type { WalkthroughHunk, WalkthroughStopImportance } from '@/lib/walkthrough/types';
+import type { WalkthroughHunk, WalkthroughObservationKind, WalkthroughStopImportance } from '@/lib/walkthrough/types';
 import { cn } from '@/lib/utils';
 import { WalkthroughHunkRun } from './WalkthroughHunkRun';
 import { findRunKey, UNCOVERED_STOP_ID } from './walkthroughFind';
@@ -46,6 +46,25 @@ const IMPORTANCE_CLASS: Record<WalkthroughStopImportance, string> = {
   context: 'oc-tile-inset text-muted-foreground',
 };
 
+// Observations sit apart from the prose so the explanation stays neutral. They
+// are facts the reader agrees to, not findings, so they take no status colour
+// either: a neutral pill names the kind and its tooltip says what that means.
+const OBSERVATION_LABEL_KEY = {
+  decision: 'walkthrough.observation.decision',
+  cost: 'walkthrough.observation.cost',
+  limitation: 'walkthrough.observation.limitation',
+  asymmetry: 'walkthrough.observation.asymmetry',
+  unproven: 'walkthrough.observation.unproven',
+} as const satisfies Record<WalkthroughObservationKind, I18nKey>;
+
+const OBSERVATION_HINT_KEY = {
+  decision: 'walkthrough.observation.decisionHint',
+  cost: 'walkthrough.observation.costHint',
+  limitation: 'walkthrough.observation.limitationHint',
+  asymmetry: 'walkthrough.observation.asymmetryHint',
+  unproven: 'walkthrough.observation.unprovenHint',
+} as const satisfies Record<WalkthroughObservationKind, I18nKey>;
+
 const StopHeader = ({ stopView }: { stopView: WalkthroughStopView }) => {
   const { t } = useI18n();
   const { stop } = stopView;
@@ -80,6 +99,23 @@ const StopHeader = ({ stopView }: { stopView: WalkthroughStopView }) => {
         )}
       </div>
       <p className="typography-ui-label text-muted-foreground">{stop.prose}</p>
+      {stop.observations && stop.observations.length > 0 && (
+        <ul className="oc-tile flex flex-col gap-1.5 rounded-lg px-3 py-2">
+          {stop.observations.map((observation) => (
+            <li key={`${observation.kind}:${observation.note}`} className="typography-ui-label text-foreground">
+              <Tooltip>
+                <TooltipTrigger className="oc-tile-inset typography-micro me-1.5 inline-flex h-5 items-center whitespace-nowrap rounded px-1.5 align-[0.1em] leading-none text-muted-foreground">
+                  {t(OBSERVATION_LABEL_KEY[observation.kind])}
+                </TooltipTrigger>
+                <TooltipContent className="max-w-64">
+                  <p className="typography-micro leading-tight">{t(OBSERVATION_HINT_KEY[observation.kind])}</p>
+                </TooltipContent>
+              </Tooltip>
+              {observation.note}
+            </li>
+          ))}
+        </ul>
+      )}
       {stopView.isStale && (
         <p className="typography-meta flex items-center gap-1.5 text-status-warning">
           <Icon name="error-warning" className="size-3.5 shrink-0" />

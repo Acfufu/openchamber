@@ -25,6 +25,20 @@ The tag is about **where to spend your attention**, not about the quality of the
 
 The only marks that do report a problem are **Outdated** and **Not covered**, and both are about the walkthrough itself going out of date rather than about your code — see below.
 
+## Observations
+
+A few stops carry an **observation**: something you agree to by accepting the change that the explanation alone would let you miss. Most stops have none.
+
+| Kind | What it points out |
+| --- | --- |
+| **Decision** | A product or design call made here that could have gone another way |
+| **Cost** | Something the project maintains from now on, such as code in another language or a new dependency |
+| **Limitation** | Something users still can't do, or will see fail, after the change |
+| **Difference** | Two versions of the same thing that behave differently, for example on two platforms |
+| **Untested** | The change's main promise has no test |
+
+Observations state facts about the change and say nothing about whether the code is right. Looking for bugs is what **Review** does. The reason a change exists is worked out from the code itself, its strings, docs and tests, so a stale pull request description doesn't mislead it.
+
 ## What it can review
 
 | Scope | What it covers |
@@ -70,7 +84,7 @@ Every stop is anchored to the exact content of the code it describes, so the pan
 - **Outdated steps** — the code a stop described has changed or is gone. The walkthrough still shows, marked, so you can decide whether to regenerate.
 - **Not covered** — changes in the current diff that no stop describes. That includes edits made after generating, changes the walkthrough judged routine, and lockfiles and other generated files, which are deliberately kept out of the model's input. They are all listed at the end of the stream so nothing disappears silently.
 
-Regenerating re-authors rather than patches: the previous walkthrough goes to the model as context so accurate parts survive, and everything is re-anchored to the current code.
+Regenerating re-authors rather than patches: the previous walkthrough goes to the model as context so accurate parts survive, and everything is re-anchored to the current code. Regenerating with another model or in another language starts from scratch, so you get that model's own reading.
 
 ## Notes
 

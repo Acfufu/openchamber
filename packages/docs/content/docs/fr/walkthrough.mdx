@@ -11,6 +11,20 @@ Il explique et ordonne. Il ne juge pas votre code et ne rend aucun verdict — c
 
 Ouvrez-le par l’icône **Parcours** dans la barre de droite, ou par le bouton **Parcours IA** dans les panneaux des modifications et de la pull request. Les deux se contentent d’ouvrir le panneau ; rien n’est généré tant que vous n’appuyez pas sur **Générer le parcours**.
 
+## Observations
+
+Certaines étapes portent une **observation** : quelque chose que vous acceptez en acceptant le changement et que l’explication seule laisserait passer. La plupart des étapes n’en ont pas.
+
+| Type | Ce qu’elle signale |
+| --- | --- |
+| **Décision** | Un choix produit ou de conception qui aurait pu être autre |
+| **Coût** | Quelque chose que le projet maintient désormais, comme du code dans un autre langage ou une nouvelle dépendance |
+| **Limite** | Ce que les utilisateurs ne peuvent toujours pas faire, ou verront échouer, après le changement |
+| **Différence** | Deux versions d’une même chose se comportent différemment, par exemple sur deux plateformes |
+| **Non testé** | Aucun test ne vérifie la promesse principale du changement |
+
+Les observations énoncent des faits sur le changement et ne disent rien de la justesse du code. Chercher des bugs, c’est le rôle de **Review**. La raison d’être du changement est déduite du code lui-même, de ses textes, de sa documentation et de ses tests, si bien qu’une description de pull request périmée ne l’induit pas en erreur.
+
 ## Ce qu’il peut parcourir
 
 | Portée | Ce qu’elle couvre |
@@ -56,7 +70,7 @@ Chaque étape est ancrée au contenu exact du code qu’elle décrit, ce qui per
 - **Étapes obsolètes** — le code décrit par une étape a changé ou disparu. Le parcours reste affiché, marqué, pour que vous décidiez s’il faut régénérer.
 - **Non traité** — des modifications du diff actuel qu’aucune étape ne décrit. On y trouve les changements faits après la génération, ceux que le parcours a jugés courants, ainsi que les fichiers de verrouillage et autres sorties générées, délibérément tenus hors du modèle. Tout est listé à la fin pour que rien ne disparaisse en silence.
 
-Régénérer ne rapièce pas, cela réécrit : le parcours précédent est fourni au modèle comme contexte, ce qui reste vrai est conservé, et tout est réancré sur le code actuel.
+Régénérer ne rapièce pas, cela réécrit : le parcours précédent est fourni au modèle comme contexte, ce qui reste vrai est conservé, et tout est réancré sur le code actuel. Régénérer avec un autre modèle ou dans une autre langue repart de zéro : vous obtenez la lecture propre à ce modèle.
 
 ## Notes
 

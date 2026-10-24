@@ -33,6 +33,43 @@ has to ask for it.
 - `index.js` — orchestration.
 - `routes.js` — `/api/walkthrough*`.
 
+## What a walkthrough says
+
+A walkthrough does three things, in the prompt's words: a reading order (stops
+grouped across files and ordered so each builds on the last), an explanation
+of what each stop's code now does differently, and rare **observations**. An
+observation is a fact the reader agrees to by accepting the change, of one of
+five kinds: `decision` (a product or architecture call that could have gone
+another way), `cost` (code in another language, a dependency or pinned
+version, a second implementation), `limitation` (what users still cannot do),
+`asymmetry` (two paths of the same thing behaving differently for the user),
+and `unproven` (the main promise has no test). Each stop carries an
+`observations` array, empty on most; the normalizer drops unknown kinds and
+empty notes and keeps at most two per stop and `MAX_OBSERVATIONS` in all.
+Entries written before observations existed have no array, and the client
+treats that as none.
+
+The focus line says what changes for the people using the software, worked out
+from the code: strings, docs, tests and what the new code connects to.
+`critical` is meant for the stop or two the change rests on; the size guidance
+gives the model a ceiling for both critical stops and observations.
+
+### Why observations and not "what a reviewer should check"
+
+The earlier prompt asked every stop for what a reviewer should check or be
+suspicious about. Models answered every stop, on every model tried, with the
+invariant they had just described rephrased as "check that…": it read like a
+review and checked nothing. Finding bugs is the Review action's job. The five
+kinds are facts rather than verdicts, so a model can say "this pins OkHttp
+5.3.2" without calling the code wrong, and empty is the expected answer for
+most stops.
+
+### Why the user need comes from the code and not the PR description
+
+The description is not sent. It can be stale, wrong, or written for a reviewer
+rather than about the change, and a local scope has none at all. The code, its
+strings, docs and tests are the same evidence for every scope.
+
 ## Hunk identity
 
 `hunks.js` is the only place that decides what a hunk is or what its id is. The

@@ -8,15 +8,20 @@ export const WALKTHROUGH_VERSION = 1;
 // Bumping this invalidates every cached walkthrough, which is the point: a
 // changed prompt produces different output and old entries would misrepresent
 // what the current code would say.
-export const PROMPT_VERSION = 3;
+export const PROMPT_VERSION = 4;
 
 export const MAX_CHAPTERS = 6;
 export const MAX_STOPS = 16;
 export const MAX_HUNKS_PER_STOP = 14;
 export const MAX_CHAPTER_TITLE_CHARS = 24;
+// Observations are meant to be rare; past these the reader stops telling the
+// one that matters from the rest, so the surplus is dropped.
+export const MAX_OBSERVATIONS = 6;
+const MAX_OBSERVATIONS_PER_STOP = 2;
 
 const CHAPTER_ICONS = ['bug', 'wrench', 'path', 'flask', 'doc', 'gear'];
 const STOP_IMPORTANCE = ['critical', 'normal', 'context'];
+export const OBSERVATION_KINDS = ['decision', 'cost', 'limitation', 'asymmetry', 'unproven'];
 
 export const responseSchema = {
   type: 'object',
@@ -40,8 +45,20 @@ export const responseSchema = {
                 hunks: { type: 'array', items: { type: 'string' } },
                 importance: { type: 'string', enum: STOP_IMPORTANCE },
                 prose: { type: 'string' },
+                observations: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      kind: { type: 'string', enum: OBSERVATION_KINDS },
+                      note: { type: 'string' },
+                    },
+                    required: ['kind', 'note'],
+                    additionalProperties: false,
+                  },
+                },
               },
-              required: ['title', 'hunks', 'importance', 'prose'],
+              required: ['title', 'hunks', 'importance', 'prose', 'observations'],
               additionalProperties: false,
             },
           },
@@ -76,6 +93,7 @@ export function normalizeWalkthrough(raw, idByAlias) {
   const usedIds = new Set();
   let droppedAnchors = 0;
   let stopCount = 0;
+  let observationCount = 0;
 
   const chapters = [];
   for (const [chapterIndex, rawChapter] of (Array.isArray(raw.chapters) ? raw.chapters : []).entries()) {
@@ -105,6 +123,15 @@ export function normalizeWalkthrough(raw, idByAlias) {
       const prose = asString(rawStop.prose);
       if (hunkIds.length === 0 || !prose) continue;
 
+      const observations = [];
+      for (const rawObservation of Array.isArray(rawStop.observations) ? rawStop.observations : []) {
+        if (observations.length >= MAX_OBSERVATIONS_PER_STOP || observationCount >= MAX_OBSERVATIONS) break;
+        const note = asString(rawObservation?.note);
+        if (!note || !OBSERVATION_KINDS.includes(rawObservation.kind)) continue;
+        observationCount += 1;
+        observations.push({ kind: rawObservation.kind, note });
+      }
+
       stopCount += 1;
       stops.push({
         id: `stop-${chapterIndex + 1}-${stops.length + 1}`,
@@ -112,6 +139,7 @@ export function normalizeWalkthrough(raw, idByAlias) {
         hunkIds,
         importance: STOP_IMPORTANCE.includes(rawStop.importance) ? rawStop.importance : 'normal',
         prose,
+        observations,
       });
     }
 

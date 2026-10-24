@@ -29,6 +29,13 @@ export type WalkthroughTarget =
 
 export type WalkthroughChapterIcon = 'bug' | 'wrench' | 'path' | 'flask' | 'doc' | 'gear';
 export type WalkthroughStopImportance = 'critical' | 'normal' | 'context';
+export type WalkthroughObservationKind = 'decision' | 'cost' | 'limitation' | 'asymmetry' | 'unproven';
+
+/** A fact the reader agrees to by accepting the change; never a finding. */
+export interface WalkthroughObservation {
+  kind: WalkthroughObservationKind;
+  note: string;
+}
 
 export interface WalkthroughStop {
   id: string;
@@ -36,6 +43,8 @@ export interface WalkthroughStop {
   hunkIds: string[];
   importance: WalkthroughStopImportance;
   prose: string;
+  /** Absent on entries written before observations existed. */
+  observations?: WalkthroughObservation[];
 }
 
 export interface WalkthroughChapter {
