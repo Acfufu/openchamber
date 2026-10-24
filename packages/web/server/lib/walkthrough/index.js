@@ -503,11 +503,21 @@ async function runGeneration({ directory, source, repoRoot, key, force, explicit
   // A forced regeneration hands the model its own previous narrative so it can
   // keep what is still true instead of starting from a blank page. The old
   // anchors are deliberately not included — they belong to code that has moved.
+  // Only the same model writing in the same language counts as "its own": a
+  // review asked of another model or language is a fresh one, and handing it
+  // the last entry would have it copy that entry while the prompt claims the
+  // code moved on.
   let previousWalkthrough = null;
   const pointer = readPointer(repoRoot, key, readContext);
   if (pointer) {
     const previousEntry = readCachedWalkthrough(pointer.cacheKey);
-    if (previousEntry && previousEntry.cacheKey !== cacheKey) {
+    if (
+      previousEntry
+      && previousEntry.cacheKey !== cacheKey
+      && previousEntry.model?.providerID === model.providerID
+      && previousEntry.model?.modelID === model.modelID
+      && normalizeLanguage(previousEntry.language) === language
+    ) {
       previousWalkthrough = previousEntry.walkthrough;
     }
   }

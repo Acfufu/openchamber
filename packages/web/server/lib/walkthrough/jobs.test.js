@@ -214,6 +214,35 @@ describe('generation jobs', () => {
     expect(generateSmallModelText).not.toHaveBeenCalled();
   });
 
+  // Asking another model about the same diff is asking for a second opinion;
+  // handing it the first one under "the code has moved on" got a copy back.
+  it('hands the previous narrative only to the same model and language after the code moved', async () => {
+    const otherModel = {
+      providerID: 'openai',
+      modelID: 'gpt-5.6',
+      source: 'request',
+      inputCharBudget: 1_000_000,
+      structuredOutput: true,
+    };
+    const sentPrompts = [];
+    generateSmallModelText.mockImplementation(async ({ prompt }) => {
+      sentPrompts.push(prompt);
+      return { text: RESPONSE };
+    });
+
+    await generateWalkthrough({ directory: '/repo', source: SOURCE });
+    describeSmallModel.mockResolvedValueOnce(otherModel);
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, model: 'openai/gpt-5.6' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    expect(sentPrompts.some((prompt) => prompt.includes('A previous walkthrough'))).toBe(false);
+
+    getDiff.mockImplementation(async (_dir, options) => (
+      options?.staged ? '' : PATCH.replace('const added = true;', 'const added = false;')
+    ));
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    expect(sentPrompts.at(-1)).toContain('A previous walkthrough');
+  });
+
   it('isolates PR jobs, stages, cancellation, and cache results by bound read context', async () => {
     const secondContext = { ...PR_CONTEXT, accountId: 'github.com#8' };
     const getPullRequestDiff = vi.fn(async () => ({ patch: PATCH, meta: {} }));

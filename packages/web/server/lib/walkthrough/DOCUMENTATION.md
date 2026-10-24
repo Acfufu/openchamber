@@ -359,6 +359,12 @@ against the current digest. Splicing partially-regenerated chapters into an old
 narrative was considered and rejected — the seams produce stops that contradict
 each other, and the failure is invisible.
 
+The previous narrative goes only to the same model writing in the same
+language. A review asked of another model or in another language is a fresh
+one: handing it the last entry, under a prompt that says the code has moved on,
+got a near-copy of the first model's review back on an unchanged diff, which is
+the opposite of the second opinion that switching models asks for.
+
 ## Hygiene
 
 - Entries are bounded by count and total size (200 / 50 MB) and evicted
