@@ -18,7 +18,9 @@ terminal has no session to deliver into.
 
 - `runtime.js` — `createDispatchResultsRuntime(...)`: pending entries,
   persistence, the delivery loop, event handling; plus the pure
-  `readDispatchOutcome` and `buildDispatchResultMessage`.
+  `readDispatchOutcome` and `buildDispatchResultMessage`. Workflow runs
+  (`../workflows`) reuse `readDispatchOutcome` to tell when an agent's turn
+  ended, and `createMessageId` and `escapeAttribute` for their report.
 - `runtime.test.js` — delivery, waiting on running sessions and subagents,
   archived and deleted parents, a deleted dispatched session, idempotent
   retries, unknown versus idle, restart, a corrupt file.

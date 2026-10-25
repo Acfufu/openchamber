@@ -14,6 +14,7 @@ import { WorkStatusPrimaryGroup } from './WorkStatusPrimaryGroup';
 import { WorkStatusUsageSection } from './WorkStatusUsageSection';
 import { WorkStatusTelemetrySection } from './WorkStatusTelemetrySection';
 import { WorkStatusSubagentsSection } from './WorkStatusSubagentsSection';
+import { WorkStatusWorkflowsSection } from './WorkStatusWorkflowsSection';
 import { WorkStatusMcpSection } from './WorkStatusMcpSection';
 import { WorkStatusPinnedSection } from './WorkStatusPinnedSection';
 import { WorkStatusContextSection } from './WorkStatusContextSection';
@@ -27,6 +28,7 @@ import {
   resolveWorkStatusSectionOrder,
   type WorkStatusSectionId,
 } from './sections';
+import { useUnavailableWorkStatusSections } from './useUnavailableWorkStatusSections';
 import { useWorkStatusExtensionSections } from './useWorkStatusExtensionSections';
 import { WorkStatusPresenceProvider } from './presence';
 import { Icon } from '@/components/icon/Icon';
@@ -83,9 +85,10 @@ export const WorkStatusPanel: React.FC<Props> = ({ sessionId, directory, visible
   const hiddenSections = useUIStore((state) => state.workStatusHiddenSections);
   const storedOrder = useUIStore((state) => state.workStatusSectionOrder);
   const extensionSections = useWorkStatusExtensionSections();
+  const unavailableSections = useUnavailableWorkStatusSections();
   const sectionOrder = React.useMemo(
-    () => resolveWorkStatusSectionOrder(storedOrder, extensionSections.ids),
-    [extensionSections.ids, storedOrder],
+    () => resolveWorkStatusSectionOrder(storedOrder, extensionSections.ids, unavailableSections),
+    [extensionSections.ids, storedOrder, unavailableSections],
   );
   const [sectionsDialogOpen, setSectionsDialogOpen] = React.useState(false);
   // Starts optimistic: sections report after their first commit, and rendering
@@ -112,7 +115,7 @@ export const WorkStatusPanel: React.FC<Props> = ({ sessionId, directory, visible
   // re-enable sections. The previous `renderedSections > 0` guard is preserved
   // for the transient "no data yet" state so the panel doesn't flash a bare
   // bordered card on first mount.
-  const allSectionsHidden = areAllWorkStatusSectionsHidden(hiddenSections, extensionSections.ids);
+  const allSectionsHidden = areAllWorkStatusSectionsHidden(hiddenSections, extensionSections.ids, unavailableSections);
   const { interactive, showEmptyState } = getWorkStatusPanelPresentation({
     visible,
     contentMounted,
@@ -205,6 +208,7 @@ export const WorkStatusPanel: React.FC<Props> = ({ sessionId, directory, visible
     usage: <WorkStatusUsageSection />,
     telemetry: <WorkStatusTelemetrySection sessionId={sessionId} directory={directory} />,
     subagents: <WorkStatusSubagentsSection sessionId={sessionId} directory={directory} />,
+    workflows: <WorkStatusWorkflowsSection sessionId={sessionId} directory={directory} />,
     mcp: <WorkStatusMcpSection sessionId={sessionId} directory={directory} />,
     pinned: <WorkStatusPinnedSection sessionId={sessionId} directory={directory} />,
     contextSources: <WorkStatusContextSection sessionId={sessionId} directory={directory} />,

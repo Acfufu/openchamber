@@ -18,7 +18,10 @@ import {
   resolveAgentToolAction,
   OPENCHAMBER_WEB_ACTION_DEFINITIONS,
   OPENCHAMBER_WEB_ACTIONS,
+  OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS,
+  OPENCHAMBER_WORKFLOW_ACTIONS,
 } from '../openchamber-control/actions.js';
+import { MAX_AGENTS_PER_RUN, MAX_CONCURRENT_AGENTS } from '../workflows/runtime.js';
 import {
   RENDER_PAGE_CLOSED_IN_CHAT_NOTE,
   RENDER_PAGE_IMAGE_BUDGET_BYTES,
@@ -39,6 +42,7 @@ const ACTIONS = new Set([
   ...OPENCHAMBER_KNOWLEDGE_ACTIONS,
   ...OPENCHAMBER_NOTIFY_ACTIONS,
   ...OPENCHAMBER_RENDER_ACTIONS,
+  ...OPENCHAMBER_WORKFLOW_ACTIONS,
 ]);
 const AGENT_TOOL_ACTION_TITLES = Object.fromEntries(
   [
@@ -49,6 +53,7 @@ const AGENT_TOOL_ACTION_TITLES = Object.fromEntries(
     ...OPENCHAMBER_KNOWLEDGE_ACTION_DEFINITIONS,
     ...OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS,
     ...OPENCHAMBER_RENDER_ACTION_DEFINITIONS,
+    ...OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS,
   ].map(({ action, title }) => [action, title]),
 );
 
@@ -232,6 +237,25 @@ const RENDER_PARAMETER_PROPERTIES = {
   awaitAnswer: { type: 'boolean', description: RENDER_PAGE_AWAIT_DESCRIPTION },
 };
 
+// How to write a script lives on `script`, read while the agent writes it,
+// for the same reason the page rules live on render's `html`.
+const WORKFLOW_SCRIPT_DESCRIPTION = [
+  "JavaScript. It starts with export const meta = { name: 'audit-routes', description: 'One sentence', phases: ['Find', 'Audit'] }, then a body with top-level await and return.",
+  'The body sees: agent(prompt, { label, agent, model, schema }) runs one agent in a fresh session and resolves to its final answer text, to JSON matching schema (JSON Schema: type, properties, required, items, enum), or to null when it failed. The agent has none of this conversation, so the prompt carries everything it needs: paths, the question, what to answer.',
+  'parallel([() => agent(...), ...]) runs tasks together and resolves to their results, null for a failed one. pipeline(items, (item, index) => agent(...)) runs one task per item. phase(title) groups the agents that follow under a title listed in meta.phases. log(message) shows a line in the run. args is the JSON passed to workflow.run.',
+  `At most ${MAX_CONCURRENT_AGENTS} agents work at once and ${MAX_AGENTS_PER_RUN} per run. No imports, files, network, timers, Date.now(), new Date() or Math.random(): agents read and write files and run commands, the script only coordinates them, and a resumed run replays it.`,
+  "Return a short report value: each agent's full answer stays readable with workflow.result.",
+].join(' ');
+
+const WORKFLOW_PARAMETER_PROPERTIES = {
+  script: { type: 'string', description: WORKFLOW_SCRIPT_DESCRIPTION },
+  name: { type: 'string', description: 'A saved workflow, instead of script' },
+  args: { type: 'object', description: 'An object the script reads as args, such as { paths: [...] }' },
+  runId: { type: 'string', description: 'From workflow.run' },
+  agent: { type: 'string', description: "workflow.result: one agent's key or session id, from workflow.status" },
+  overwrite: { type: 'boolean', description: 'workflow.save: replace a saved workflow of the same name' },
+};
+
 // When to act (link an issue, save a memory, draw a page) is stated once, in
 // every session's context (../session-knowledge/runtime.js): a rule the agent
 // must apply before it thinks of a tool cannot live in the tool. The
@@ -263,6 +287,10 @@ const RENDER_TOOL_DESCRIPTION = "Draw a finished HTML page inline in the chat, a
   + "The page is part of your reply and sits on the chat's background: leave html, body and the outermost element without a background, add no outer card, border or banner title, and set boxes apart by tone. Style with the theme variables listed under html. "
   + "Read html before writing a page and awaitAnswer before asking on one.";
 
+const WORKFLOW_TOOL_DESCRIPTION = 'Workflows: a script that fans a large task out to many agents, which OpenChamber runs in the background while you stay free. '
+  + 'For work with many similar independent pieces (a review per file, an audit across many routes, a migration of many files, research cross-checked across sources) or a check that must run on every piece. A single feature or a few steps is not one: do it yourself or with a subagent. '
+  + 'One action per call. Check a script with workflow.check, then workflow.run: the user approves the plan in the chat, and the report arrives as a message when the run ends. Read script before writing one.';
+
 // A field means the same thing in every tool that declares it, so one set
 // covers them all.
 const BOOLEAN_PARAMETER_NAMES = [...new Set([
@@ -272,6 +300,7 @@ const BOOLEAN_PARAMETER_NAMES = [...new Set([
   KNOWLEDGE_PARAMETER_PROPERTIES,
   NOTIFY_PARAMETER_PROPERTIES,
   RENDER_PARAMETER_PROPERTIES,
+  WORKFLOW_PARAMETER_PROPERTIES,
 ].flatMap((properties) => Object.entries(properties)
   .filter(([, schema]) => schema.type === 'boolean')
   .map(([name]) => name)))];
@@ -564,7 +593,7 @@ ${answers ? ANSWER_WAIT_SETUP : ''}
  */
 const OPENCODE_TOOLS_REPLACED_BY_CONTROL = ['opencode_worktree_create', 'opencode_models'];
 
-const createPluginSource = ({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode }) => {
+const createPluginSource = ({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeWorkflow, codeMode }) => {
   const entries = [];
   if (includeControl) {
     entries.push(`    for (const id of ${JSON.stringify(OPENCODE_TOOLS_REPLACED_BY_CONTROL)}) tools.remove(id)
@@ -638,6 +667,17 @@ const createPluginSource = ({ includeControl, includeSchedule, includeWeb, inclu
       answers: true,
     }));
   }
+  if (includeWorkflow) {
+    entries.push(createToolEntry({
+      name: 'openchamber_workflow',
+      description: WORKFLOW_TOOL_DESCRIPTION,
+      definitions: OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS,
+      parameters: WORKFLOW_PARAMETER_PROPERTIES,
+      // Never behind Code Mode, like render: the chat draws the run's card
+      // from this tool's own call, which an execute script would hide.
+      codeMode: false,
+    }));
+  }
 
   // The callback carries the per-child token over plain HTTP. With a proxy in
   // the child's environment, fetch would hand a non-loopback callback, token
@@ -709,13 +749,13 @@ export const createAgentToolRuntime = (dependencies) => {
    * change while it runs, so the source on disk always matches the settings —
    * the running OpenCode reloads the directory it already has configured.
    */
-  const materializePlugin = async ({ includeControl = true, includeSchedule = false, includeWeb = true, includeMemory = true, includeKnowledge = false, includeNotify = false, includeRender = false, codeMode = false } = {}) => {
-    if (!includeControl && !includeSchedule && !includeWeb && !includeMemory && !includeKnowledge && !includeNotify && !includeRender) {
+  const materializePlugin = async ({ includeControl = true, includeSchedule = false, includeWeb = true, includeMemory = true, includeKnowledge = false, includeNotify = false, includeRender = false, includeWorkflow = false, codeMode = false } = {}) => {
+    if (!includeControl && !includeSchedule && !includeWeb && !includeMemory && !includeKnowledge && !includeNotify && !includeRender && !includeWorkflow) {
       throw new Error('At least one OpenChamber managed tool must be enabled to inject the plugin');
     }
     await fsPromises.mkdir(pluginDirectory, { recursive: true });
     await fsPromises.writeFile(pluginManifestPath, PLUGIN_PACKAGE_JSON, { mode: 0o600 });
-    await fsPromises.writeFile(pluginPath, createPluginSource({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode }), { mode: 0o600 });
+    await fsPromises.writeFile(pluginPath, createPluginSource({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeWorkflow, codeMode }), { mode: 0o600 });
     return pluginDirectory;
   };
 

@@ -483,6 +483,22 @@ describe('managed agent tool runtime', () => {
     expect(sent[2].contextDirectory).toBeUndefined();
   });
 
+  it('declares the workflow tool only when asked, with the scripting guide on script', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    await prepareManagedEnv(runtime, { includeControl: true, includeWorkflow: true });
+    const tools = await loadTools(dataDir, 'workflow-tool');
+
+    expect(tools.openchamber_workflow.input.properties.action.oneOf.map((entry) => entry.const)).toEqual([
+      'workflow.check', 'workflow.run', 'workflow.status', 'workflow.result', 'workflow.stop', 'workflow.resume', 'workflow.save', 'workflow.list',
+    ]);
+    const parameters = tools.openchamber_workflow.input.properties.parameters.properties;
+    expect(parameters.script.description).toContain('agent(prompt, { label, agent, model, schema })');
+    expect(Object.keys(parameters)).toEqual(['script', 'name', 'args', 'runId', 'agent', 'overwrite']);
+
+    await prepareManagedEnv(runtime, { includeControl: true });
+    expect((await loadTools(dataDir, 'workflow-tool-off')).openchamber_workflow).toBeUndefined();
+  });
+
   it('runs the one action of a single-action tool, reviving a call stuffed into the action as JSON', async () => {
     const { runtime, dataDir } = await createRuntime();
     const prepared = await prepareManagedEnv(runtime, { includeControl: true, includeRender: true });

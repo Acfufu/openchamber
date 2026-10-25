@@ -117,6 +117,7 @@ import {
   type LocationRelease,
 } from "./location-release"
 import { applySessionAssistEvent, subscribeSessionAssistSettled } from "./pending-session-assists"
+import { useWorkflowRunsStore } from "@/lib/workflows/store"
 import { isChatDirectoryPath } from "@/lib/chatDirectories"
 import type { State } from "./types"
 import {
@@ -2013,6 +2014,13 @@ export function handleEvent(
     return
   }
 
+  // Workflow runs live in their own store, keyed by the session that proposed them.
+  if (payload.type === "openchamber.workflow-run") {
+    if (expectedRuntimeKey !== getRuntimeKey()) return
+    useWorkflowRunsStore.getState().apply(payload.properties.run)
+    return
+  }
+
   if (payload.type === "openchamber.permission-auto-accept") {
     usePermissionStore.getState().applySnapshot(policySnapshotFromWire(payload.properties), expectedRuntimeKey, payload.properties.spaceId ?? "")
     return
@@ -3227,6 +3235,8 @@ export function SyncProvider(props: {
         }
         // Queue recovery is independent of the directory-bootstrap debounce.
         void useMessageQueueStore.getState().resync().catch(() => undefined)
+        // Workflow run changes during a gap are not replayed: read the shown sessions' runs again.
+        useWorkflowRunsStore.getState().reloadLoaded()
         useConfigStore.setState({
           isConnected: true,
           hasEverConnected: true,

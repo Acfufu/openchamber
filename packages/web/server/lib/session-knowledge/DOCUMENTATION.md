@@ -136,6 +136,15 @@ page (`awaitAnswer`) when the user has to choose between visual options; the
 tool description repeats none of it. It goes into `openchamber.guidance`, so a
 change to the text reaches running sessions on their next message.
 
+## When to offer a workflow
+
+A session whose agent has the `openchamber_workflow` tool (a build with
+workflows, the setting on, and OpenChamber launched OpenCode, read through
+`isWorkflowAvailable`) is told when a task is big enough for one
+(`WORKFLOW_GUIDANCE`). A run costs many agents, so the agent starts one only
+when the user asks; when it sees a task with many similar independent pieces
+it says so and offers one. Small tasks never get one.
+
 ## Where the tools are called
 
 While the managed tools are direct tools (the default; `agentToolsCodeMode`

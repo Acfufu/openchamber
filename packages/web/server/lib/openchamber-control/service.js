@@ -237,6 +237,9 @@ export const createOpenChamberControlService = (dependencies) => {
     // Delivers a dispatched session's result back to the session that asked
     // (`returnResult`); absent means the server cannot offer it.
     dispatchResults = null,
+    // Agent workflows (../workflows/runtime.js); absent where they are not
+    // available, which is every build without OPENCHAMBER_WORKFLOWS_ENABLE.
+    workflowRuntime = null,
     // Archive lives in OpenChamber's own store now — v2 has no route that sets
     // Session.time.archived — so an unwired store simply means nothing is archived.
     archiveStore = null,
@@ -868,6 +871,13 @@ export const createOpenChamberControlService = (dependencies) => {
           throw new OpenChamberControlError(result.body.error, result.status);
         }
         return result.body;
+      }
+      if (action.startsWith('workflow.')) {
+        if (!workflowRuntime) throw new OpenChamberControlError('Workflows are not available on this server', 503);
+        return await workflowRuntime.executeAction(action, input, {
+          sessionId: asNonEmptyString(options.contextSessionId),
+          directory: asNonEmptyString(contextDirectory),
+        });
       }
       if (action === 'render.page') {
         return await renderPage(input, {

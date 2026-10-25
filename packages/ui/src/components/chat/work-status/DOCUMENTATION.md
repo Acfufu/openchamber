@@ -115,6 +115,7 @@ which requests only providers enabled for this panel.
 | PR + checks | `useFreshestSourceControlVisualSummaryForBranch` | **read-only**; follows the freshest bound-identity entry for the branch |
 | Subagents | child sessions from `useAllLiveSessions` (`parentID`) + `useAllSessionStatuses`; per-row cost from `computeRollup`'s `perChildCost` (each child's own subtree total, so nested subagent-of-subagent cost rolls up under its immediate parent row) | |
 | Subagent blockers | directory `permission` / `question` maps | one subscription covers every child |
+| Workflows | `useSessionWorkflowRuns` (`lib/workflows/store.ts`): the session's runs read once from the server, then kept current by `openchamber:workflow-run` events | only in builds with workflows |
 | Usage | `components/usage/usageGroups.ts` over `useQuotaStore` | grouping shared with the mobile popover; presentation is not |
 | Linked threads | `lib/linkedIssues.ts` over session metadata; state from tracked items | written by the flows that attach an issue or PR, and removable from the row; a linked PR that is also the checked-out branch's PR shows the branch summary, as its sidebar row does |
 | Turn stats | `telemetry.ts` over `useSessionMessageRecords` | computed while authoritatively idle, including when collapsed so the headline stays current; either rate above 5,000 tok/s is reported as unknown (see the two-rate description below) |
@@ -321,6 +322,26 @@ changes on the branch, so the panel neither fetches status nor renders the
 changed-files row until the bootstrap settles, then forces one status fetch so
 the row reflects the reset tree rather than a mid-creation snapshot.
 
+### Workflow rows
+
+The Workflows section lists the runs the session proposed
+(`packages/web/server/lib/workflows`), newest first. A run's row carries the
+one action its state allows: Run and Don't run while it waits for approval,
+Stop while it runs, Resume after a failure or a stop; a finished run shows its
+state. An open run lists its phases with how many agents finished, and each
+phase its agents; a finished run folds to its row until pressed. An agent row
+opens its session like a subagent row (`useOpenChildSession`, shared with the
+Subagents section).
+
+A workflow's agents are child sessions of the session too. The Subagents
+section leaves them out, so a run of fifty agents does not bury the session's
+own subagents and each session shows in one place.
+
+In a build without workflows the section exists in no list: the panel and the
+sections dialog both drop it (`useUnavailableWorkStatusSections`), so the name
+of an unreleased feature does not appear in the dialog. Its id stays in the
+saved order, so it comes back where the user put it.
+
 ## Section order
 
 The default order is by durability:
@@ -330,7 +351,7 @@ The default order is by durability:
    throughput, duration, TTFT, cache hit rate) — true for as long as the session
    is open. Usage sits here rather than lower down because a spent quota stops the
    work outright;
-2. **Subagents** — what is happening right now;
+2. **Subagents** and **Workflows** — what is happening right now;
 3. **MCP**, **Pinned messages**, **Context sources** — supporting material.
 
 The sections dialog has drag handles for changing this order, including hidden

@@ -116,6 +116,10 @@ import { createNotificationTemplateRuntime } from './lib/notifications/template-
 import { createPermissionAutoAcceptRuntime } from './lib/permission-auto-accept/runtime.js';
 import { createMessageQueueRuntime } from './lib/message-queue/runtime.js';
 import { createDispatchResultsRuntime } from './lib/dispatch-results/runtime.js';
+import { isWorkflowFeatureAvailable } from './lib/workflows/feature-flag.js';
+import { createWorkflowAgentSessions } from './lib/workflows/agent-session.js';
+import { createWorkflowRuntime } from './lib/workflows/runtime.js';
+import { createWorkflowRunStore } from './lib/workflows/store.js';
 import { createRoutingRuntime } from './lib/routing/runtime.js';
 import { createJevClient } from './lib/routing/jev.js';
 import { createSessionWorkRuntime } from './lib/session-work/runtime.js';
@@ -1118,6 +1122,11 @@ const sessionKnowledgeRuntime = createSessionKnowledgeRuntime({
     const settings = await readSettingsFromDiskMigrated().catch(() => null);
     return settings?.agentRenderToolEnabled !== false;
   },
+  isWorkflowAvailable: async () => {
+    if (isExternalOpenCode || ENV_SKIP_OPENCODE_START || !isWorkflowFeatureAvailable()) return false;
+    const settings = await readSettingsFromDiskMigrated().catch(() => null);
+    return settings?.agentWorkflowToolEnabled !== false;
+  },
   areAgentToolsInCodeMode: async () => {
     const settings = await readSettingsFromDiskMigrated().catch(() => null);
     return settings?.agentToolsCodeMode === true;
@@ -1245,6 +1254,44 @@ const dispatchResultsRuntime = createDispatchResultsRuntime({
   isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
 });
 dispatchResultsRuntime.start();
+
+// Agent workflows: scripts that fan a task out to many agents, run here while
+// the agent that asked stays free. Absent entirely unless the build flag is set.
+const isWorkflowToolEnabled = async () => {
+  if (!isWorkflowFeatureAvailable()) return false;
+  const settings = await readSettingsFromDiskMigrated().catch(() => null);
+  return settings?.agentWorkflowToolEnabled !== false;
+};
+const workflowAgentSessions = isWorkflowFeatureAvailable()
+  ? createWorkflowAgentSessions({
+    buildOpenCodeUrl,
+    getOpenCodeAuthHeaders,
+    // Declared further down; only ever called after startup.
+    waitForOpenCodeReady: (...args) => waitForOpenCodeReady(...args),
+    globalEventHub: globalMessageStreamHub,
+  })
+  : null;
+const workflowRuntime = workflowAgentSessions
+  ? createWorkflowRuntime({
+    store: createWorkflowRunStore({ fsPromises, path, dataDir: OPENCHAMBER_DATA_DIR }),
+    agentSessions: workflowAgentSessions,
+    postSynthetic: workflowAgentSessions.postSynthetic,
+    // Declared further down; only ever called after startup.
+    broadcast: (event) => broadcastOpenChamberUiEvent(event),
+    isEnabled: isWorkflowToolEnabled,
+    fsPromises,
+    path,
+  })
+  : null;
+if (workflowRuntime) {
+  void workflowRuntime.start().catch((error) => {
+    console.warn('[workflows] failed to restore runs:', error?.message ?? error);
+  });
+  // Reports wait for OpenCode, which answers once the event hub connects.
+  globalMessageStreamHub.subscribeStatus((status) => {
+    if (status?.type === 'connect') void workflowRuntime.deliverPending();
+  });
+}
 
 // Full-text search over this server's conversations (user messages and agent
 // replies). Opt-in: off by default, and off means idle. The index is derived
@@ -2007,6 +2054,7 @@ const openChamberControlService = createOpenChamberControlService({
     updateMetadata: updateSessionMetadataWith,
   },
   dispatchResults: dispatchResultsRuntime,
+  workflowRuntime,
   archiveStore: openChamberSessionService.archiveStore,
 });
 
@@ -2066,6 +2114,7 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   sessionWarmingRuntime,
   messageQueueRuntime,
   dispatchResultsRuntime,
+  workflowRuntime,
   messageSearchRuntime,
   sessionRuntime,
   getHealthCheckInterval: () => healthCheckInterval,
@@ -2154,6 +2203,7 @@ async function main(options = {}) {
     limitFailoverRuntime,
     readSettings: () => readSettingsFromDiskMigrated(),
     isAgentMemoryAvailable: isAgentMemoryFeatureAvailable,
+    isWorkflowAvailable: isWorkflowFeatureAvailable,
   });
   await ensureChatsDir({ fsPromises, chatsDir: OPENCHAMBER_CHATS_DIR, warn: (message) => console.warn(`[data-dir] ${message}`) });
 
@@ -2755,6 +2805,7 @@ async function main(options = {}) {
     worktreeBootstrapStore,
     messageQueueRuntime,
     routingRuntime,
+    workflowRuntime,
   });
 
   // After bootstrap: the upgrade gate needs the real UI auth controller.

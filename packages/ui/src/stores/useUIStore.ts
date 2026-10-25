@@ -1114,6 +1114,7 @@ interface UIStore {
   agentKnowledgeToolEnabled: boolean;
   agentNotifyToolEnabled: boolean;
   agentRenderToolEnabled: boolean;
+  agentWorkflowToolEnabled: boolean;
   /** Whether OpenChamber's agent tools sit behind OpenCode's Code Mode instead of being direct tools. */
   agentToolsCodeMode: boolean;
   /** The isolated-spaces switch as saved; the server applies it at its next start. */
@@ -1125,6 +1126,11 @@ interface UIStore {
    * persisted: an unreleased feature must not come back from a stale cache.
    */
   agentMemoryFeatureAvailable: boolean;
+  /**
+   * Whether this build has agent workflows (`OPENCHAMBER_WORKFLOWS_ENABLE`).
+   * Server-owned and not persisted, for the same reason as the memory flag.
+   */
+  agentWorkflowFeatureAvailable: boolean;
   /**
    * Whether this build has Jev model routing. Server-owned and not persisted,
    * for the same reason as the memory flag.
@@ -1400,10 +1406,12 @@ interface UIStore {
   setAgentKnowledgeToolEnabled: (value: boolean) => void;
   setAgentNotifyToolEnabled: (value: boolean) => void;
   setAgentRenderToolEnabled: (value: boolean) => void;
+  setAgentWorkflowToolEnabled: (value: boolean) => void;
   setAgentToolsCodeMode: (value: boolean) => void;
   setIsolatedSpacesEnabled: (value: boolean) => void;
   setPermissionDefaultMode: (value: PermissionMode) => void;
   setAgentMemoryFeatureAvailable: (value: boolean) => void;
+  setAgentWorkflowFeatureAvailable: (value: boolean) => void;
   setRoutingFeatureAvailable: (value: boolean) => void;
   setOverviewFeatureAvailable: (value: boolean) => void;
   markAgentMemoryViewed: (key: string, viewedAt: number) => void;
@@ -1635,10 +1643,12 @@ export const useUIStore = create<UIStore>()(
         agentKnowledgeToolEnabled: true,
         agentNotifyToolEnabled: false,
         agentRenderToolEnabled: true,
+        agentWorkflowToolEnabled: true,
         agentToolsCodeMode: false,
         isolatedSpacesEnabled: false,
         permissionDefaultMode: 'ask',
         agentMemoryFeatureAvailable: false,
+        agentWorkflowFeatureAvailable: false,
         routingFeatureAvailable: false,
         overviewFeatureAvailable: false,
         agentMemoryViewedAt: {},
@@ -3258,11 +3268,17 @@ export const useUIStore = create<UIStore>()(
         setAgentRenderToolEnabled: (value) => {
           set({ agentRenderToolEnabled: value });
         },
+        setAgentWorkflowToolEnabled: (value) => {
+          set({ agentWorkflowToolEnabled: value });
+        },
         setAgentToolsCodeMode: (value) => {
           set({ agentToolsCodeMode: value });
         },
         setAgentMemoryFeatureAvailable: (value) => {
           set({ agentMemoryFeatureAvailable: value });
+        },
+        setAgentWorkflowFeatureAvailable: (value) => {
+          set({ agentWorkflowFeatureAvailable: value });
         },
         setRoutingFeatureAvailable: (value) => {
           set({ routingFeatureAvailable: value });
@@ -3787,6 +3803,7 @@ export const useUIStore = create<UIStore>()(
           agentKnowledgeToolEnabled: state.agentKnowledgeToolEnabled,
           agentNotifyToolEnabled: state.agentNotifyToolEnabled,
           agentRenderToolEnabled: state.agentRenderToolEnabled,
+          agentWorkflowToolEnabled: state.agentWorkflowToolEnabled,
           agentToolsCodeMode: state.agentToolsCodeMode,
           isolatedSpacesEnabled: state.isolatedSpacesEnabled,
           permissionDefaultMode: state.permissionDefaultMode,

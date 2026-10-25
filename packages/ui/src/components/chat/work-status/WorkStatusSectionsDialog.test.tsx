@@ -150,7 +150,8 @@ describe('section arrangement dialog', () => {
     await act(async () => dispatch('touchstart', 18));
     await act(async () => dispatch('touchmove', 90));
     await act(async () => dispatch('touchend', 90));
-    expect(order()).toEqual([...WORK_STATUS_SECTION_IDS]);
+    // Workflows are not in this build, so their section is not listed.
+    expect(order()).toEqual(WORK_STATUS_SECTION_IDS.filter((id) => id !== 'workflows'));
     await act(async () => {
       dispatch('touchstart', 18);
       await new Promise((resolve) => setTimeout(resolve, 220));

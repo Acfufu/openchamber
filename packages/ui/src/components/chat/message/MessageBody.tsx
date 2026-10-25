@@ -54,8 +54,8 @@ import { formatTimestampForDisplay } from './timeFormat';
 import { ToolRevealOnMount } from './parts/ToolRevealOnMount';
 import { StaticToolRow } from './parts/ProgressiveGroup';
 import { isExpandableTool } from './parts/toolRenderUtils';
-import { ShownPage } from './parts/HtmlRenderFrame';
-import { renderedPage } from '@/lib/opencode/tools';
+import { ShownToolCard } from './parts/ShownToolCard';
+import { isShownInPlace } from '@/lib/opencode/tools';
 import { LiveActivityCollapse } from '../components/LiveActivityCollapse';
 import { ActivityRowSkipContext, isActivityRowPart, isToolRowShown } from '../lib/turns/activityRows';
 import { LiveFinalActivityContext, LiveTurnHoistedPagesContext } from '../components/liveActivityContext';
@@ -1738,7 +1738,7 @@ const AssistantMessageBody = React.memo(({
                 }
                 if (splitLiveActivity && !hasRenderedAnswerText) {
                     for (const pagePart of liveFinalActivity?.pages ?? []) {
-                        rendered.push(<ShownPage key={`page-${pagePart.id}`} part={pagePart} />);
+                        rendered.push(<ShownToolCard key={`page-${pagePart.id}`} part={pagePart} />);
                     }
                 }
                 hasRenderedAnswerText = true;
@@ -1824,11 +1824,12 @@ const AssistantMessageBody = React.memo(({
                     continue;
                 }
 
-                // A page the agent showed is drawn in place of its row. With
-                // Activity collapsed, the final answer draws it instead.
-                if (renderedPage(toolPart.tool, toolPart.state)) {
+                // A page the agent showed, or a workflow it proposed, is drawn
+                // in place of its row. With Activity collapsed, the final
+                // answer draws it instead.
+                if (isShownInPlace(toolPart.tool, toolPart.state)) {
                     if (!hoistedPages?.has(toolPart.id)) {
-                        rendered.push(<ShownPage key={`page-${toolPart.id}`} part={toolPart} />);
+                        rendered.push(<ShownToolCard key={`page-${toolPart.id}`} part={toolPart} />);
                     }
                     i++;
                     continue;

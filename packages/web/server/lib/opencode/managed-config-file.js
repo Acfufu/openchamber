@@ -44,6 +44,7 @@ const DISABLED_BUILTIN_PLUGINS = ['-opencode.browser'];
  * @param {object|null} [dependencies.limitFailoverRuntime] `../limit-failover/runtime.js`; its plugin calls back through the agent tool's address
  * @param {() => Promise<object|null>} dependencies.readSettings
  * @param {() => boolean} dependencies.isAgentMemoryAvailable
+ * @param {() => boolean} [dependencies.isWorkflowAvailable] whether workflows ship in this build (`../workflows/feature-flag.js`)
  */
 export const createManagedConfigRuntime = ({
   fsPromises,
@@ -54,6 +55,7 @@ export const createManagedConfigRuntime = ({
   limitFailoverRuntime = null,
   readSettings,
   isAgentMemoryAvailable,
+  isWorkflowAvailable = () => false,
 }) => {
   const filePath = path.join(instanceDir, MANAGED_CONFIG_FILE_NAME);
 
@@ -89,11 +91,13 @@ export const createManagedConfigRuntime = ({
     const includeKnowledge = settings?.agentKnowledgeToolEnabled !== false;
     const includeNotify = settings?.agentNotifyToolEnabled === true;
     const includeRender = settings?.agentRenderToolEnabled !== false;
+    // On by default wherever the build has workflows: the build flag is the opt-in.
+    const includeWorkflow = isWorkflowAvailable() && settings?.agentWorkflowToolEnabled !== false;
     const codeMode = settings?.agentToolsCodeMode === true;
 
     const directories = [];
-    if (agentToolRuntime && (includeControl || includeSchedule || includeWeb || includeMemory || includeKnowledge || includeNotify || includeRender)) {
-      directories.push(await agentToolRuntime.materializePlugin({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, codeMode }));
+    if (agentToolRuntime && (includeControl || includeSchedule || includeWeb || includeMemory || includeKnowledge || includeNotify || includeRender || includeWorkflow)) {
+      directories.push(await agentToolRuntime.materializePlugin({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeWorkflow, codeMode }));
     }
     // Only while an option is on: otherwise every limit error would cost the
     // plugin a round trip to hear "do nothing".

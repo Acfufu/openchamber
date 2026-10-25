@@ -892,6 +892,15 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => !ctx.isVSCode && useUIStore.getState().agentMemoryFeatureAvailable,
   },
   {
+    id: 'sessions.agent-workflow-tool',
+    page: 'general',
+    titleKey: 'settings.openchamber.tools.field.agentWorkflowTool',
+    descriptionKey: 'settings.openchamber.tools.field.agentWorkflowToolInfo',
+    keywords: ['agent', 'tool', 'workflow', 'workflows', 'subagents', 'fan out', 'parallel', 'openchamber'],
+    // Unreleased: only in builds that have workflows.
+    isAvailable: (ctx) => !ctx.isVSCode && useUIStore.getState().agentWorkflowFeatureAvailable,
+  },
+  {
     id: 'routing.token',
     page: 'routing',
     titleKey: 'settings.routing.token.label',
