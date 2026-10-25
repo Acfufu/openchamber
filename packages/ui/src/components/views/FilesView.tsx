@@ -102,7 +102,7 @@ import { useRawAssetUrl } from './files/useRawAssetUrl';
 import { useHtmlPreviewAnnotation } from './files/useHtmlPreviewAnnotation';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
-import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController } from '@/components/comments';
+import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection } from '@/components/comments';
 import { opencodeClient } from '@/lib/opencode/client';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
@@ -733,9 +733,6 @@ type FileEditorPosition = {
 const fileEditorPositions = new Map<string, FileEditorPosition>();
 const MAX_FILE_EDITOR_POSITIONS = 100;
 
-type LineNumbersConfig = React.ComponentProps<typeof CodeMirrorEditor>['lineNumbersConfig'];
-type LineNumberHandlers = NonNullable<NonNullable<LineNumbersConfig>['domEventHandlers']>;
-
 const FilePositionEditor = ({
   positionKey,
   onViewReady,
@@ -1217,9 +1214,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   // Line selection state for commenting
   const [lineSelection, setLineSelection] = React.useState<SelectedLineRange | null>(null);
-  const isSelectingRef = React.useRef(false);
-  const selectionStartRef = React.useRef<number | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
 
   // Session/config for sending comments
   const pendingFileNavigation = useUIStore((state) => state.pendingFileNavigation);
@@ -1235,17 +1229,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }, [fileEditorKeymap, fileEditorVimMappings]);
   const settingsDefaultFileViewerPreview = useConfigStore((state) => state.settingsDefaultFileViewerPreview);
   const showMessageTTSButtons = useConfigStore((state) => state.showMessageTTSButtons);
-
-  // Global mouseup to end drag selection
-  React.useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      isSelectingRef.current = false;
-      selectionStartRef.current = null;
-      setIsDragging(false);
-    };
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -1291,6 +1274,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     deleteDraft,
   } = fileCommentController;
 
+  const { isDragging, lineNumbersConfig, isDragReleaseClick } = useLineNumberDragSelection({
+    lineSelection,
+    setLineSelection,
+    onClear: cancel,
+    isMobile,
+  });
+
   React.useEffect(() => {
     // A moved file is the same document under a new path: it keeps its draft.
     if (pendingPathMoveRef.current?.to === selectedFile?.path) return;
@@ -1308,6 +1298,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (!lineSelection && !editingDraftId) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      if (isDragReleaseClick()) return;
       const target = e.target as HTMLElement;
 
       if (target.closest('[data-comment-input="true"]') || target.closest('[data-comment-card="true"]')) return;
@@ -1328,7 +1319,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [cancel, commentText, editingDraftId, lineSelection]);
+  }, [cancel, commentText, editingDraftId, isDragReleaseClick, lineSelection]);
 
   // Touch devices: while the comment bar is open, the line range is shown by
   // the highlightLines decoration. Any native text selection left in the
@@ -3618,95 +3609,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       || transaction.isUserEvent('undo') || transaction.isUserEvent('redo') || transaction.isUserEvent('move')
     ));
     if (edited) pinPreviewOnEditRef.current();
-  }), []);
-
-  // Line-number gutter handlers read the latest render's state through a ref,
-  // so the config handed to CodeMirror keeps its identity: a new one would
-  // rebuild the gutter on every FilesView render.
-  const lineNumberHandlers: LineNumberHandlers = {
-    mousedown: (view, line, event) => {
-      if (!(event instanceof MouseEvent)) {
-        return false;
-      }
-      if (event.button !== 0) {
-        return false;
-      }
-      event.preventDefault();
-
-      const lineNumber = view.state.doc.lineAt(line.from).number;
-
-      if (
-        lineSelection &&
-        !event.shiftKey &&
-        Math.min(lineSelection.start, lineSelection.end) === lineNumber &&
-        Math.max(lineSelection.start, lineSelection.end) === lineNumber
-      ) {
-        setLineSelection(null);
-        cancel();
-        isSelectingRef.current = false;
-        selectionStartRef.current = null;
-        setIsDragging(false);
-        return true;
-      }
-
-      // Mobile: tap-to-extend selection
-      if (isMobile && lineSelection && !event.shiftKey) {
-        const start = Math.min(lineSelection.start, lineSelection.end, lineNumber);
-        const end = Math.max(lineSelection.start, lineSelection.end, lineNumber);
-        setLineSelection({ start, end });
-        isSelectingRef.current = false;
-        selectionStartRef.current = null;
-        setIsDragging(false);
-        return true;
-      }
-
-      isSelectingRef.current = true;
-      selectionStartRef.current = lineNumber;
-      setIsDragging(true);
-
-      if (lineSelection && event.shiftKey) {
-        const start = Math.min(lineSelection.start, lineNumber);
-        const end = Math.max(lineSelection.end, lineNumber);
-        setLineSelection({ start, end });
-      } else {
-        setLineSelection({ start: lineNumber, end: lineNumber });
-      }
-
-      return true;
-    },
-    mouseover: (view, line, event) => {
-      if (!(event instanceof MouseEvent)) {
-        return false;
-      }
-      if (event.buttons !== 1) {
-        return false;
-      }
-      if (!isSelectingRef.current || selectionStartRef.current === null) {
-        return false;
-      }
-
-      const lineNumber = view.state.doc.lineAt(line.from).number;
-      const start = Math.min(selectionStartRef.current, lineNumber);
-      const end = Math.max(selectionStartRef.current, lineNumber);
-      setLineSelection({ start, end });
-      setIsDragging(true);
-      return false;
-    },
-    mouseup: () => {
-      isSelectingRef.current = false;
-      selectionStartRef.current = null;
-      setIsDragging(false);
-      return false;
-    },
-  };
-  const lineNumberHandlersRef = React.useRef(lineNumberHandlers);
-  lineNumberHandlersRef.current = lineNumberHandlers;
-  const lineNumbersConfig = React.useMemo<LineNumbersConfig>(() => ({
-    domEventHandlers: {
-      mousedown: (view, line, event) => lineNumberHandlersRef.current.mousedown?.(view, line, event) ?? false,
-      mouseover: (view, line, event) => lineNumberHandlersRef.current.mouseover?.(view, line, event) ?? false,
-      mouseup: (view, line, event) => lineNumberHandlersRef.current.mouseup?.(view, line, event) ?? false,
-    },
   }), []);
 
   // Cmd/Ctrl+click on a relative import opens the file it names. The handler

@@ -29,7 +29,27 @@ costs Chrome a 200 to 300 ms frame whenever an accessibility client is on,
 on every panel close and every switch away from the file surface; both must
 happen in one commit, so the editor is never hidden while attached.
 `CodeMirrorEditor` reconfigures only the compartments whose input changed,
-so `FilesView` keeps its line-number config's identity across renders.
+so `FilesView` and `PlanView` keep their line-number config's identity across
+renders.
+
+## Selecting lines for a comment
+
+In `FilesView` and `PlanView` a press on a line number starts a line range for
+a comment, Shift+press extends it, and a press on the only selected line
+clears it. `comments/useLineNumberDragSelection.ts` owns this for both, with
+the gutter config they pass to the editor. After the press the drag is
+followed on the window: the range ends at the line at the pointer's height
+wherever the pointer is, and while it is held at the editor's top or bottom
+edge, or past it, the editor scrolls and the range follows. The click that
+ends a drag lands on whatever the pointer ended over, so each view's
+click-outside handler skips it (`isDragReleaseClick`) and the range stays.
+
+### Why the window follows the drag and not the gutter
+
+The gutter only sees the pointer while it is over the line-number column,
+about 40 px wide. Extending on gutter `mouseover` froze the range as soon as a
+hand drifted into the code, never scrolled, and the click after a release that
+was not over the pressed line number often cleared the range (#5556).
 
 File tree ownership and request rules are in `files/DOCUMENTATION.md`.
 `DiffView` gates repository discovery, comparisons, per-file reads, viewport
