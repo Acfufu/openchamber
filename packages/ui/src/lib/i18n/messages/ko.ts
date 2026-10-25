@@ -33,6 +33,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict: Record<I18nKey, string> = {
@@ -177,6 +179,8 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n.ko,
   ...integrationsCatalogI18n['ko'],
   ...diffFindI18n['ko'],
+  ...markdownGithubI18n['ko'],
+  ...autocompleteScopeI18n['ko'],
   ...guestStatusViewI18n['ko'],
   'terminalView.actions.attachSelection': '선택한 출력 첨부',
   'terminalView.actions.copySelection': '선택한 출력 복사',
@@ -2437,8 +2441,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.command.btwDescription': '이 채팅을 방해하지 않고 임시 하위 세션에서 별도 질문하기',
   'chat.commandAutocomplete.command.forkDescription': '마지막으로 완료된 응답에서 이 채팅을 포크하여 이어갑니다. /fork 뒤의 텍스트는 포크된 세션으로 전송됩니다.',
   'chat.commandAutocomplete.command.exploreDescription': '코드베이스에 대한 방향을 잡습니다: 아키텍처와 주요 부분을 한눈에 살펴봅니다.',
-  'chat.commandAutocomplete.badge.command': '명령',
-  'chat.commandAutocomplete.badge.system': 'system',
   'chat.commandAutocomplete.empty': '명령 없음',
   'chat.agentMentionAutocomplete.badge.system': 'system',
   'chat.agentMentionAutocomplete.empty': '에이전트 없음',
@@ -2607,7 +2609,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.dictation.insertAndSend': '삽입 후 전송',
   'chat.dictation.retry': '변환 다시 시도',
   'chat.dictation.discard': '녹음 삭제',
-  'chat.snippetAutocomplete.action.addNew': '+ 새 스니펫 추가',
+  'chat.snippetAutocomplete.action.addNew': '새 스니펫 추가',
   'chat.snippetAutocomplete.empty': '스니펫을 찾을 수 없음',
   'chat.snippetAutocomplete.footer': '↑↓ 이동 • Enter 선택 • Esc 닫기',
   'snippets.source.global': '전역',

@@ -63,6 +63,7 @@ import type { FileMentionHandle } from './FileMentionAutocomplete';
 import type { CommandAutocompleteHandle, CommandInfo } from './CommandAutocomplete';
 import type { SkillAutocompleteHandle } from './SkillAutocomplete';
 import type { SnippetAutocompleteHandle } from './SnippetAutocomplete';
+import type { EmojiAutocompleteHandle } from '@/components/emoji/EmojiAutocomplete';
 import { cn } from "@/lib/utils";
 import { ModelControls } from './ModelControls';
 import { parseAgentMentions } from '@/lib/messages/agentMentions';
@@ -491,6 +492,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const commandRef = React.useRef<CommandAutocompleteHandle>(null);
     const skillRef = React.useRef<SkillAutocompleteHandle>(null);
     const snippetRef = React.useRef<SnippetAutocompleteHandle>(null);
+    const emojiRef = React.useRef<EmojiAutocompleteHandle>(null);
     // Ref to track current message value without triggering re-renders in effects
     const messageRef = React.useRef(message);
     const dictationSendInFlightRef = React.useRef(false);
@@ -2507,7 +2509,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             : openAutocomplete === 'skill' ? skillRef.current
                 : openAutocomplete === 'snippet' ? snippetRef.current
                     : openAutocomplete === 'mention' ? mentionRef.current
-                        : null;
+                        // An emoji list takes keys only once it shows something.
+                        : openAutocomplete === 'emoji' && emojiRef.current?.hasResults?.() ? emojiRef.current
+                            : null;
         const autocompleteKey = getDropdownNavigationKey(e) ?? e.key;
         if (autocomplete && (autocompleteKey === 'Enter' || autocompleteKey === 'ArrowUp' || autocompleteKey === 'ArrowDown' || autocompleteKey === 'Escape' || autocompleteKey === 'Tab')) {
             e.preventDefault();
@@ -2639,14 +2643,14 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }
     };
 
-    // Focus mode places the open picker at the caret; elsewhere each picker
-    // anchors to the composer itself.
+    // The open picker sits at the caret, right above the line being typed.
     const {
         position: autocompleteOverlayPosition,
         update: updateAutocompleteOverlayPosition,
     } = useAutocompletePosition({
-        enabled: isDesktopExpanded,
+        fullWidth: isMobile,
         openAutocomplete,
+        query: autocompleteQuery,
         message,
         editorRef: composerRef,
         containerRef: dropZoneRef,
@@ -3403,6 +3407,21 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             if (composerRef.current) {
                 composerRef.current.setSelection(nextCursor);
             }
+            updateAutocompleteState(newMessage, nextCursor);
+        });
+        closeAutocomplete();
+        composerRef.current?.focus();
+    });
+
+    const handleEmojiSelect = useStableHandler((emoji: string) => {
+        const cursorPosition = composerRef.current?.getSelection().start ?? message.length;
+        const startIndex = Math.max(0, cursorPosition - autocompleteQuery.length - 1);
+        const inserted = `${emoji} `;
+        const newMessage = `${message.substring(0, startIndex)}${inserted}${message.substring(cursorPosition)}`;
+        setMessage(newMessage);
+        const nextCursor = startIndex + inserted.length;
+        requestAnimationFrame(() => {
+            composerRef.current?.setSelection(nextCursor);
             updateAutocompleteState(newMessage, nextCursor);
         });
         closeAutocomplete();
@@ -4469,16 +4488,18 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     <ComposerAutocompletePopups
                         open={openAutocomplete}
                         query={autocompleteQuery}
-                        overlayPosition={isDesktopExpanded ? autocompleteOverlayPosition : null}
+                        overlayPosition={autocompleteOverlayPosition}
                         commandRef={commandRef}
                         skillRef={skillRef}
                         snippetRef={snippetRef}
                         mentionRef={mentionRef}
+                        emojiRef={emojiRef}
                         onCommandSelect={handleCommandSelect}
                         onSkillSelect={handleSkillSelect}
                         onSnippetSelect={handleSnippetSelect}
                         onFileSelect={handleFileSelect}
                         onAgentSelect={handleAgentSelect}
+                        onEmojiSelect={handleEmojiSelect}
                         onClose={closeAutocomplete}
                     />
                 {/* The lift shadow lives on this wrapper, apart from the

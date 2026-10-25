@@ -23,8 +23,8 @@ import {
   rankFileMentionResults,
 } from './fileMentionResults';
 import { matchesRankQuery, rankByQuery } from '@/lib/search/fuzzySearch';
-import { AutocompleteRowTooltip } from './composer/ui/AutocompleteRowTooltip';
-import { useAutocompleteDetails } from './composer/ui/useAutocompleteDetails';
+import { AutocompleteRowDetail } from './composer/ui/AutocompleteRowParts';
+import { useAutocompleteSelectionScroll } from './composer/ui/useAutocompleteSelectionScroll';
 
 /** Subagents listed before the user types; the rest are a keystroke away. */
 const AGENTS_SHOWN_WITHOUT_QUERY = 6;
@@ -110,8 +110,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
   // Only the selected row scrolls an overflowing path, so only it is measured.
   const [selectedOverflow, setSelectedOverflow] = React.useState<{ index: number; duration: number } | null>(null);
   const itemRefs = React.useRef<(HTMLDivElement | null)[]>([]);
-  const { listRef, detailsVisible, onListScroll, onItemMouseMove, onKeyboardNavigate } =
-    useAutocompleteDetails(selectedIndex, itemRefs);
+  const { listRef, onKeyboardNavigate } = useAutocompleteSelectionScroll(selectedIndex, itemRefs);
   const labelRefs = React.useRef<(HTMLSpanElement | null)[]>([]);
   const measureRefs = React.useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -508,39 +507,36 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
   return (
       <div
         ref={containerRef}
-        className="absolute z-[100] min-w-0 w-full max-w-[640px] max-h-64 oc-glass-popover oc-glass-floating rounded-xl bottom-full mb-2 inset-s-0 flex flex-col"
+        className="absolute z-[100] min-w-0 w-full max-w-[560px] max-h-64 oc-glass-popover oc-glass-floating rounded-xl bottom-full mb-2 inset-s-0 flex flex-col"
         style={mobileMaxHeight !== undefined ? { ...style, maxHeight: mobileMaxHeight } : style}
       >
-        <ScrollableOverlay ref={listRef} onScroll={onListScroll} preventOverscroll outerClassName="flex-1 min-h-0" className="px-0">
+        <ScrollableOverlay ref={listRef} preventOverscroll outerClassName="flex-1 min-h-0" className="p-1">
         {loading ? (
           <div className="flex items-center justify-center py-4">
             <Icon name="refresh" className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="pb-2">
+          <div>
             {visibleAgents.map((agent, index) => {
               const isSelected = selectedIndex === index;
               return (
-                <AutocompleteRowTooltip description={agent.description} active={!isMobile && isSelected && detailsVisible}>
                 <div
                   key={`agent-${agent.name}`}
                   ref={(el) => { itemRefs.current[index] = el; }}
                   className={cn(
-                    'flex items-start gap-2 px-3 py-1.5 cursor-pointer typography-ui-label rounded-lg',
+                    'flex items-center gap-2 px-2 py-1.5 cursor-pointer typography-ui-label rounded-lg',
                     isSelected && 'bg-interactive-selection',
                   )}
                   onClick={() => handleAgentPick(agent.name)}
-                  onMouseMove={() => { onItemMouseMove(); setSelectedIndex(index); }}
+                  onMouseMove={() => { setSelectedIndex(index); }}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold truncate">@{agent.name}</div>
-                  </div>
+                  <span className="max-w-[60%] shrink-0 truncate font-semibold">@{agent.name}</span>
+                  <AutocompleteRowDetail description={agent.description} />
                 </div>
-                </AutocompleteRowTooltip>
               );
             })}
             {visibleAgents.length < agents.length && (
-              <div className="px-3 py-1 typography-meta text-muted-foreground">
+              <div className="px-2 py-1 typography-meta text-muted-foreground">
                 {t('chat.fileMentionAutocomplete.searchMoreAgents')}
               </div>
             )}
@@ -560,11 +556,11 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
                   key={`recent-${file.path}`}
                   ref={(el) => { itemRefs.current[rowIndex] = el; }}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 cursor-pointer typography-ui-label rounded-lg",
+                    "flex items-center gap-2 px-2 py-1.5 cursor-pointer typography-ui-label rounded-lg",
                     isSelected && "bg-interactive-selection"
                   )}
                   onClick={() => handleFileSelect(file)}
-                  onMouseMove={() => { onItemMouseMove(); setSelectedIndex(rowIndex); }}
+                  onMouseMove={() => { setSelectedIndex(rowIndex); }}
                 >
                   {getFileIcon(file)}
                   <span
@@ -613,11 +609,11 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
                 <div
                   ref={(el) => { itemRefs.current[rowIndex] = el; }}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 cursor-pointer typography-ui-label rounded-lg",
+                      "flex items-center gap-2 px-2 py-1.5 cursor-pointer typography-ui-label rounded-lg",
                       isSelected && "bg-interactive-selection"
                   )}
                   onClick={() => handleFileSelect(file)}
-                  onMouseMove={() => { onItemMouseMove(); setSelectedIndex(rowIndex); }}
+                  onMouseMove={() => { setSelectedIndex(rowIndex); }}
                 >
                   {file.kind === 'directory'
                     ? <Icon name="folder-3-fill" className="h-3.5 w-3.5 text-primary/60" />
@@ -660,7 +656,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
               );
             })}
             {visibleResults.length === 0 && visibleRecentFiles.length === 0 && visibleAgents.length === 0 && (
-              <div className="px-3 py-2 typography-ui-label text-muted-foreground">
+              <div className="px-2 py-1.5 typography-ui-label text-muted-foreground">
                 {t('chat.fileMentionAutocomplete.empty')}
               </div>
             )}
@@ -668,7 +664,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
         )}
         </ScrollableOverlay>
         {!isMobile && (
-          <div className="px-3 pt-1 pb-1.5 border-t typography-meta text-muted-foreground">
+          <div className="px-3 py-1.5 border-t typography-meta text-muted-foreground">
             {t('chat.autocomplete.keyboardHint')}
           </div>
         )}

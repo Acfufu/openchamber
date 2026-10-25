@@ -33,6 +33,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict: Record<I18nKey, string> = {
@@ -177,6 +179,8 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n.pl,
   ...integrationsCatalogI18n['pl'],
   ...diffFindI18n['pl'],
+  ...markdownGithubI18n['pl'],
+  ...autocompleteScopeI18n['pl'],
   ...guestStatusViewI18n['pl'],
   'terminalView.actions.attachSelection': 'Dołącz zaznaczone dane wyjściowe',
   'terminalView.actions.copySelection': 'Kopiuj zaznaczone dane wyjściowe',
@@ -1020,8 +1024,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.command.btwDescription': 'Zadaj pytanie poboczne w tymczasowej sesji potomnej, nie przerywając tego czatu.',
   'chat.commandAutocomplete.command.forkDescription': 'Rozgałęź ten czat od ostatniej zakończonej odpowiedzi i kontynuuj tam; tekst po /fork zostanie wysłany do nowej sesji.',
   'chat.commandAutocomplete.command.exploreDescription': 'Zorientuj się w bazie kodu: ogólny przegląd architektury i głównych części.',
-  'chat.commandAutocomplete.badge.command': 'polecenie',
-  'chat.commandAutocomplete.badge.system': 'system',
   'chat.commandAutocomplete.empty': 'Nie znaleziono poleceń',
   'chat.agentMentionAutocomplete.badge.system': 'system',
   'chat.agentMentionAutocomplete.empty': 'Nie znaleziono agentów',
@@ -1424,7 +1426,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.dictation.insertAndSend': 'Wstaw i wyślij',
   'chat.dictation.retry': 'Ponów transkrypcję',
   'chat.dictation.discard': 'Odrzuć nagranie',
-  'chat.snippetAutocomplete.action.addNew': '+ Dodaj nowy fragment',
+  'chat.snippetAutocomplete.action.addNew': 'Dodaj nowy fragment',
   'chat.snippetAutocomplete.empty': 'Nie znaleziono fragmentów',
   'chat.snippetAutocomplete.footer': '↑↓ nawigacja • Enter wybierz • Esc zamknij',
   'snippets.source.global': 'globalny',

@@ -30,8 +30,13 @@ The frame also owns the header row through its `header` and `compact` props;
 callers supply controls and content, not their own header padding.
 
 `GlassPopupMotion` gives the frame, the autocomplete pickers and the
-context-chip preview one enter and exit motion: the wrapper moves, the glass
-surface fades. The fade stays on the glass element itself, since an ancestor
+context-chip preview one enter and exit motion, mostly a fade with a short
+rise from below and no scale (from the wrapper's corner, scaling read as a
+diagonal slide): the wrapper moves, the glass surface fades. Autocomplete
+lists take the `brief` pace (90ms in, 60ms out), since they come and go with
+typing; panels keep the standard 140/100ms. Text-field lists
+(`components/inline-picker/`) play the same motion as a CSS animation on the
+list itself, since they are fixed-position. The fade stays on the glass element itself, since an ancestor
 with opacity below 1 is a backdrop root and the blur would go flat mid-fade.
 Exit needs `AnimatePresence` around the conditional popup, so each dock keys
 its panel there (BTW keys each stage, forms key the form id); switching panels
@@ -377,10 +382,13 @@ copy.
   full-width dollar signs a CJK IME types for the Shift+4 key, so `¥5` is
   money for the same reason.
 - `triggers.ts` — which picker a caret position asks for. Exactly one can be
-  active, with precedence `command > skill > snippet > mention`. Commands open
+  active, with precedence `command > skill > snippet > mention > emoji`. Commands open
   only on a `/` in the first column; skills open on `$` or its IME spellings at
   any word boundary, the start of the text included. The two never share a list: the `/` palette
-  holds commands only. Only typing and pasting open a picker: text the app sets
+  holds commands only. Emoji open on a typed `:` plus two letters of a name
+  after whitespace (`matchEmojiTrigger` in `lib/emoji/shortcodes.ts`), never on
+  a paste, so `12:30`, `http://` and `:)` stay text; choosing one writes the
+  emoji itself, so the agent gets the character, not a shortcode. Only typing and pasting open a picker: text the app sets
   through the editor's `value` prop (a restored draft, a git conflict prompt)
   arrives with `ComposerChange.fromValueProp` and closes any open picker.
 - `tokenize.ts` — one pass producing every highlight range. Adding a construct
@@ -684,27 +692,19 @@ and the send path reading the same grammar.
 - `ChatInput.tsx` maps Ctrl+N/P to the active command, skill, snippet, or
   mention picker after its IME guard.
 
-## Autocomplete details
+## Autocomplete rows
 
-`ui/useAutocompleteDetails.ts` owns detail visibility for the command, skill and
-`@` mention pickers (in the mention picker only agent rows carry details). Each list attaches its scroll handler to its own `ScrollableOverlay`.
-Scrolling hides details and cancels the row's pending 200ms display through
-`active`, while selection and the draft stay intact. Details stay closed until
-a fresh mouse move after a 150ms scroll gap or another keyboard navigation.
+A command, skill or `@` agent row reads as its name, then its description,
+muted on one line and cut where it runs out of room, then at the end edge the
+item's scope (`ui/AutocompleteRowParts.tsx`). The scope is the one badge a row
+carries: `user`, `project`, `opencode` (OpenCode's own commands),
+`openchamber` (OpenChamber's), or an extension's name. Nothing pops up on
+hover or selection: a tooltip over the list covered the transcript, and an
+info mark on every row read as noise. `ui/useAutocompleteSelectionScroll.ts`
+keeps the keyboard's selection in view.
 
-The hook runs `scrollIntoView` in the layout phase and records its resulting
-position so its deferred scroll event preserves the requested details. A
-keyboard request also handles one-item lists with an unchanged selected index.
-The row clears its display timer on deactivation or unmount; React removes the
-list's scroll handler on unmount.
-
-`../AutocompleteDetails.test.tsx` mounts the command and skill pickers and their
-row tooltips; the mention picker uses the same hook and wiring without its own test. It covers delayed display cancellation, sustained scrolling, unrelated
-scrolls, same-row hover recovery, keyboard recovery with and without an index
-change, pending manual scroll events, selection callbacks and unmount cleanup.
-Its input forwards keys directly to the picker handle; it does not exercise
-the full composer's key routing or draft persistence. Happy DOM models
-`scrollIntoView`; native scrolling and positioning require a full-app live run.
+`../AutocompleteRows.test.tsx` mounts the command and skill pickers and covers
+the row's parts and the absent popup on selection.
 
 ## Input recall ownership
 
@@ -1040,9 +1040,9 @@ meaning "the prompt editor".
 
 Snippets are the one part of the prompt language comments speak. The desktop
 floating input, the mobile shell and the diff/editor/file comment input
-(`components/comments/InlineCommentInput.tsx`) open the snippet picker on `#`
-through `components/comments/useCommentSnippetPicker.tsx`, and the mobile editor
-highlights known triggers. Agents, commands and files stay inert. Comments
+(`components/comments/InlineCommentInput.tsx`) open the snippet picker on `#`,
+and the emoji picker on `:`, through `components/comments/useCommentFieldPicker.tsx` (placed at the caret by `components/inline-picker/`),
+and the mobile editor highlights known triggers. Agents, commands and files stay inert. Comments
 become synthetic context, which the send-time snippet expansion skips, so
 `expandCommentSnippets` (`submit/buildOutgoingMessage.ts`) expands each
 comment's own text before assembly, on the send and queue paths alike. The

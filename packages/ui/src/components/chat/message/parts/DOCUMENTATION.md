@@ -482,6 +482,16 @@ the same owner.
   reference descriptions/comments opt into safe raw HTML with `allowRawHtml`.
   Author styles, application classes and active content remain forbidden.
   Restricted disclosures have a dedicated remark parser in ordinary chat.
+  A summary that is a single `<h1>`-`<h6>` tag, as GitHub review bodies write
+  it, becomes a heading node there, so it renders as a heading in both modes.
+  GitHub alerts (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`,
+  `[!CAUTION]`) become titled callouts in every Markdown surface
+  (`remarkAlerts.ts`, `MarkdownBlockquote.tsx`); the kind travels as a
+  generated `data-oc-alert` the policy drops from authored HTML, and copying
+  writes the marker back. Item text in the references preview also links
+  repository references (`remarkRepositoryReferences.ts`, see
+  `components/references/DOCUMENTATION.md`) and draws review suggestions
+  (`markdownSuggestion.ts`).
   Safe custom application links keep the app-link confirmation flow; only
   existing session routes qualify as `openchamber:` links. VS Code keeps
   session links inert.

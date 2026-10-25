@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -2373,8 +2375,6 @@ export const dict = {
   'chat.commandAutocomplete.command.exploreDescription': 'היכרות עם בסיס הקוד: סיור כללי בארכיטקטורה ובחלקים העיקריים.',
   'chat.commandAutocomplete.command.btwDescription': 'שאלה צדדית בהפעלת משנה זמנית, בלי להסיט את הצ\'אט הזה.',
   'chat.commandAutocomplete.command.forkDescription': 'פיצול הצ\'אט מהתגובה האחרונה שהסתיימה והמשך שם; טקסט אחרי /fork נשלח להפעלה המפוצלת.',
-  'chat.commandAutocomplete.badge.command': 'פקודה',
-  'chat.commandAutocomplete.badge.system': 'מערכת',
   'chat.commandAutocomplete.empty': 'לא נמצאו פקודות',
   'chat.agentMentionAutocomplete.badge.system': 'מערכת',
   'chat.agentMentionAutocomplete.empty': 'לא נמצאו סוכנים',
@@ -2543,7 +2543,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'הוסף ושלח',
   'chat.dictation.retry': 'נסה לתמלל שוב',
   'chat.dictation.discard': 'מחק הקלטה',
-  'chat.snippetAutocomplete.action.addNew': '+ הוסף קטע קוד חדש',
+  'chat.snippetAutocomplete.action.addNew': 'הוסף קטע קוד חדש',
   'chat.snippetAutocomplete.empty': 'לא נמצאו קטעי קוד',
   'chat.snippetAutocomplete.footer': '↑↓ ניווט • Enter בחירה • Esc סגירה',
   'snippets.source.global': 'כללי',
@@ -3823,6 +3823,8 @@ export const dict = {
   ...pluginsGridI18n.he,
   ...integrationsCatalogI18n['he'],
   ...diffFindI18n['he'],
+  ...markdownGithubI18n['he'],
+  ...autocompleteScopeI18n['he'],
   ...guestStatusViewI18n['he'],
   'settings.usage.page.state.claudeSignedOutTitle': 'לא מחובר ל-Claude Code',
   'settings.usage.page.state.claudeSignInCommand': 'יש להריץ את הפקודה הזו במסוף:',

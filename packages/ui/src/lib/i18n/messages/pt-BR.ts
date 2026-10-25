@@ -33,6 +33,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict: Record<I18nKey, string> = {
@@ -187,6 +189,8 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n['pt-BR'],
   ...integrationsCatalogI18n['pt-BR'],
   ...diffFindI18n['pt-BR'],
+  ...markdownGithubI18n['pt-BR'],
+  ...autocompleteScopeI18n['pt-BR'],
   ...guestStatusViewI18n['pt-BR'],
   'terminalView.actions.attachSelection': 'Anexar saída selecionada',
   'terminalView.actions.copySelection': 'Copiar saída selecionada',
@@ -2406,8 +2410,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.command.btwDescription': 'Faça uma pergunta paralela em uma sessão filha temporária sem desviar este chat.',
   'chat.commandAutocomplete.command.forkDescription': 'Bifurque este chat a partir da última resposta concluída e continue lá; o texto após /fork é enviado para a bifurcação.',
   "chat.commandAutocomplete.command.exploreDescription": "Oriente-se neste código: um tour geral pela arquitetura e pelas partes principais.",
-  "chat.commandAutocomplete.badge.command": "comando",
-  "chat.commandAutocomplete.badge.system": "sistema",
   "chat.commandAutocomplete.empty": "Nenhum comando encontrado",
   "chat.agentMentionAutocomplete.badge.system": "sistema",
   "chat.agentMentionAutocomplete.empty": "Nenhum agente encontrado",
@@ -2564,7 +2566,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.chatInput.placeholder.chat": "Planeje, construa ou pergunte. @ para mencionar, $ para habilidades, / para comandos",
   "chat.chatInput.placeholder.chatCompact": "Planeje, construa ou pergunte",
   "chat.chatInput.placeholder.selectSession": "Selecione ou crie uma sessão para começar a conversar",
-  "chat.snippetAutocomplete.action.addNew": "+ Adicionar novo snippet",
+  "chat.snippetAutocomplete.action.addNew": "Adicionar novo snippet",
   "chat.snippetAutocomplete.empty": "Nenhum snippet encontrado",
   "chat.snippetAutocomplete.footer": "↑↓ navegar • Enter selecionar • Esc fechar",
   "snippets.source.global": "global",

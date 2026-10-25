@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -2373,8 +2375,6 @@ export const dict = {
   'chat.commandAutocomplete.command.exploreDescription': 'تعرّف على قاعدة الشيفرة هذه: جولة عامة في البنية والأجزاء الرئيسية.',
   'chat.commandAutocomplete.command.btwDescription': 'اطرح سؤالًا جانبيًا في جلسة فرعية مؤقتة دون تشتيت هذه المحادثة.',
   'chat.commandAutocomplete.command.forkDescription': 'اشتقاق هذه المحادثة من آخر رد مكتمل والمتابعة هناك؛ يُرسل النص بعد /fork إلى النسخة المشتقة.',
-  'chat.commandAutocomplete.badge.command': 'أمر',
-  'chat.commandAutocomplete.badge.system': 'النظام',
   'chat.commandAutocomplete.empty': 'لم يتم العثور على أوامر',
   'chat.agentMentionAutocomplete.badge.system': 'النظام',
   'chat.agentMentionAutocomplete.empty': 'لم يتم العثور على وكلاء',
@@ -2543,7 +2543,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'إدراج وإرسال',
   'chat.dictation.retry': 'إعادة محاولة التفريغ النصي',
   'chat.dictation.discard': 'تجاهل التسجيل',
-  'chat.snippetAutocomplete.action.addNew': '+ إضافة مقتطف جديد',
+  'chat.snippetAutocomplete.action.addNew': 'إضافة مقتطف جديد',
   'chat.snippetAutocomplete.empty': 'لم يتم العثور على مقتطفات',
   'chat.snippetAutocomplete.footer': '↑↓ للتنقل • Enter للاختيار • Esc للإغلاق',
   'snippets.source.global': 'عام',
@@ -3823,6 +3823,8 @@ export const dict = {
   ...pluginsGridI18n.ar,
   ...integrationsCatalogI18n['ar'],
   ...diffFindI18n['ar'],
+  ...markdownGithubI18n['ar'],
+  ...autocompleteScopeI18n['ar'],
   ...guestStatusViewI18n['ar'],
   'settings.usage.page.state.claudeSignedOutTitle': 'لم يتم تسجيل الدخول إلى Claude Code',
   'settings.usage.page.state.claudeSignInCommand': 'شغّل هذا الأمر في الطرفية:',

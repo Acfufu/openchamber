@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -115,6 +117,8 @@ export const dict = {
   ...pluginsGridI18n.tr,
   ...integrationsCatalogI18n['tr'],
   ...diffFindI18n['tr'],
+  ...markdownGithubI18n['tr'],
+  ...autocompleteScopeI18n['tr'],
   ...guestStatusViewI18n['tr'],
   'terminalView.actions.attachSelection': 'Seçili çıktıyı ekle',
   'terminalView.actions.copySelection': 'Seçili çıktıyı kopyala',
@@ -2292,8 +2296,6 @@ export const dict = {
   'chat.commandAutocomplete.command.debugDescription': 'Düzeltme önermeden önce hatanın kök nedenini rehberli şekilde araştırır.',
   'chat.commandAutocomplete.command.weighDescription': 'Commit etmeden önce 2-3 yaklaşımı ödünleşimleriyle değerlendirir ve bir öneri sunar.',
   'chat.commandAutocomplete.command.exploreDescription': 'Bu kod tabanında yön bulmanı sağlar: mimarinin ve ana bölümlerin üst düzey bir turu.',
-  'chat.commandAutocomplete.badge.command': 'komut',
-  'chat.commandAutocomplete.badge.system': 'sistem',
   'chat.commandAutocomplete.empty': 'Komut bulunamadı',
   'chat.agentMentionAutocomplete.badge.system': 'sistem',
   'chat.agentMentionAutocomplete.empty': 'Agent bulunamadı',
@@ -2436,7 +2438,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'Ekle ve gönder',
   'chat.dictation.retry': 'Yazıya dökmeyi yeniden dene',
   'chat.dictation.discard': 'Kaydı iptal et',
-  'chat.snippetAutocomplete.action.addNew': '+ Yeni snippet ekle',
+  'chat.snippetAutocomplete.action.addNew': 'Yeni snippet ekle',
   'chat.snippetAutocomplete.empty': 'Snippet bulunamadı',
   'chat.snippetAutocomplete.footer': '↑↓ gezin • Enter seç • Esc kapat',
   'snippets.source.global': 'genel',

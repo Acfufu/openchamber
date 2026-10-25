@@ -33,6 +33,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict: Record<I18nKey, string> = {
@@ -177,6 +179,8 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n.ja,
   ...integrationsCatalogI18n['ja'],
   ...diffFindI18n['ja'],
+  ...markdownGithubI18n['ja'],
+  ...autocompleteScopeI18n['ja'],
   ...guestStatusViewI18n['ja'],
   'terminalView.actions.attachSelection': '選択した出力を添付',
   'terminalView.actions.copySelection': '選択した出力をコピー',
@@ -2433,8 +2437,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.command.btwDescription': 'このチャットを乱さず、一時的な子セッションで脇の質問をする',
   'chat.commandAutocomplete.command.forkDescription': '最後に完了した応答からこのチャットをフォークして続行します。/fork の後のテキストはフォーク先に送信されます。',
   'chat.commandAutocomplete.command.exploreDescription': 'このコードベースに慣れる: アーキテクチャと主要部分の概要ツアー。',
-  'chat.commandAutocomplete.badge.command': 'コマンド',
-  'chat.commandAutocomplete.badge.system': 'システム',
   'chat.commandAutocomplete.empty': 'コマンドが見つかりません',
   'chat.agentMentionAutocomplete.badge.system': 'システム',
   'chat.agentMentionAutocomplete.empty': 'エージェントが見つかりません',
@@ -2603,7 +2605,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.dictation.insertAndSend': '挿入して送信',
   'chat.dictation.retry': '文字起こしを再試行',
   'chat.dictation.discard': '録音を破棄',
-  'chat.snippetAutocomplete.action.addNew': '+ 新しいスニペットを追加',
+  'chat.snippetAutocomplete.action.addNew': '新しいスニペットを追加',
   'chat.snippetAutocomplete.empty': 'スニペットが見つかりません',
   'chat.snippetAutocomplete.footer': '↑↓ 移動 • Enter 選択 • Esc 閉じる',
   'snippets.source.global': 'グローバル',

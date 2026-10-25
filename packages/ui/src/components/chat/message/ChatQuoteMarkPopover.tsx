@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
+import { useEmojiPicker } from '@/components/emoji/useEmojiPicker';
 import { Icon } from '@/components/icon/Icon';
 import { useI18n } from '@/lib/i18n';
 import { isIMECompositionEvent } from '@/lib/ime';
@@ -44,6 +45,7 @@ export function ChatQuoteMarkPopover({
     const { t } = useI18n();
     const [draft, setDraft] = React.useState(comment);
     const inputRef = React.useRef<HTMLTextAreaElement>(null);
+    const emojiPicker = useEmojiPicker(inputRef, editing);
 
     const resizeInput = React.useCallback(() => {
         const element = inputRef.current;
@@ -116,6 +118,7 @@ export function ChatQuoteMarkPopover({
                         className="min-w-0 w-64 max-w-[70vw] flex-1 resize-none bg-transparent py-1.5 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground placeholder:opacity-60"
                         style={{ minHeight: 0, height: 'auto' }}
                     />
+                    {emojiPicker}
                     <button
                         type="button"
                         onClick={save}

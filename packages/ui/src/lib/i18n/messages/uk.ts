@@ -33,6 +33,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict: Record<I18nKey, string> = {
@@ -187,6 +189,8 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n.uk,
   ...integrationsCatalogI18n['uk'],
   ...diffFindI18n['uk'],
+  ...markdownGithubI18n['uk'],
+  ...autocompleteScopeI18n['uk'],
   ...guestStatusViewI18n['uk'],
   'terminalView.actions.attachSelection': 'Прикріпити вибраний вивід',
   'terminalView.actions.copySelection': 'Скопіювати вибраний вивід',
@@ -2406,8 +2410,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.command.btwDescription': 'Поставте побічне питання в тимчасовій дочірній сесії, не відволікаючи цей чат.',
   'chat.commandAutocomplete.command.forkDescription': 'Відгалузити цей чат від останньої завершеної відповіді й продовжити там; текст після /fork надсилається у відгалуження.',
   "chat.commandAutocomplete.command.exploreDescription": "Зорієнтуватись у кодовій базі: високорівневий тур архітектурою й основними частинами.",
-  "chat.commandAutocomplete.badge.command": "команда",
-  "chat.commandAutocomplete.badge.system": "система",
   "chat.commandAutocomplete.empty": "Команди не знайдено",
   "chat.agentMentionAutocomplete.badge.system": "система",
   "chat.agentMentionAutocomplete.empty": "Агентів не знайдено",
@@ -2564,7 +2566,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.chatInput.placeholder.chat": "Плануйте, створюйте або запитуйте. @ щоб згадати, $ для навичок, / для команд",
   "chat.chatInput.placeholder.chatCompact": "Плануйте, створюйте або запитуйте",
   "chat.chatInput.placeholder.selectSession": "Виберіть або створіть сесію, щоб розпочати спілкування",
-  "chat.snippetAutocomplete.action.addNew": "+ Додати новий сніпет",
+  "chat.snippetAutocomplete.action.addNew": "Додати новий сніпет",
   "chat.snippetAutocomplete.empty": "Сніпети не знайдено",
   "chat.snippetAutocomplete.footer": "↑↓ навігація • Enter вибрати • Esc закрити",
   "snippets.source.global": "глобальний",

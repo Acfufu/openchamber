@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -176,6 +178,8 @@ export const dict = {
   ...pluginsGridI18n.nl,
   ...integrationsCatalogI18n['nl'],
   ...diffFindI18n['nl'],
+  ...markdownGithubI18n['nl'],
+  ...autocompleteScopeI18n['nl'],
   ...guestStatusViewI18n['nl'],
   'terminalView.actions.attachSelection': 'Geselecteerde uitvoer toevoegen',
   'terminalView.actions.copySelection': 'Geselecteerde uitvoer kopiëren',
@@ -2437,8 +2441,6 @@ export const dict = {
   'chat.commandAutocomplete.command.exploreDescription': 'Krijg greep op deze codebase: een rondleiding op hoog niveau door de architectuur en de belangrijkste onderdelen.',
   'chat.commandAutocomplete.command.btwDescription': 'Stel een bijvraag in een tijdelijke subsessie zonder deze chat uit de koers te halen.',
   'chat.commandAutocomplete.command.forkDescription': 'Fork deze chat vanaf het laatst afgeronde antwoord en ga daar verder; tekst na /fork wordt naar de fork gestuurd.',
-  'chat.commandAutocomplete.badge.command': 'opdracht',
-  'chat.commandAutocomplete.badge.system': 'systeem',
   'chat.commandAutocomplete.empty': 'Geen opdrachten gevonden',
   'chat.agentMentionAutocomplete.badge.system': 'systeem',
   'chat.agentMentionAutocomplete.empty': 'Geen agents gevonden',
@@ -2607,7 +2609,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'Invoegen en verzenden',
   'chat.dictation.retry': 'Transcriptie opnieuw proberen',
   'chat.dictation.discard': 'Opname weggooien',
-  'chat.snippetAutocomplete.action.addNew': '+ Nieuw fragment toevoegen',
+  'chat.snippetAutocomplete.action.addNew': 'Nieuw fragment toevoegen',
   'chat.snippetAutocomplete.empty': 'Geen fragmenten gevonden',
   'chat.snippetAutocomplete.footer': '↑↓ navigeren • Enter selecteren • Esc sluiten',
   'snippets.source.global': 'globaal',

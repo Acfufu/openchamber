@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -176,6 +178,8 @@ export const dict = {
   ...pluginsGridI18n.de,
   ...integrationsCatalogI18n['de'],
   ...diffFindI18n['de'],
+  ...markdownGithubI18n['de'],
+  ...autocompleteScopeI18n['de'],
   ...guestStatusViewI18n['de'],
   'common.language.german': 'Deutsch',
   'common.loading': 'Wird geladen...',
@@ -2165,8 +2169,6 @@ export const dict = {
   'chat.commandAutocomplete.command.btwDescription': 'Stelle eine Neben-Frage in einer temporären Kind-Sitzung, ohne diesen Chat zu unterbrechen.',
   'chat.commandAutocomplete.command.forkDescription': 'Diesen Chat ab der letzten abgeschlossenen Antwort abzweigen und dort weitermachen; Text nach /fork wird an die Abzweigung gesendet.',
   'chat.commandAutocomplete.command.exploreDescription': 'Vertraut machen mit diesem Codebase: Eine Übersicht über die Architektur und Hauptbestandteile.',
-  'chat.commandAutocomplete.badge.command': 'Befehl',
-  'chat.commandAutocomplete.badge.system': 'System',
   'chat.commandAutocomplete.empty': 'Keine Befehle gefunden',
   'chat.agentMentionAutocomplete.badge.system': 'System',
   'chat.agentMentionAutocomplete.empty': 'Keine Agenten gefunden',
@@ -2321,7 +2323,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'Einfügen und senden',
   'chat.dictation.retry': 'Transkription erneut versuchen',
   'chat.dictation.discard': 'Aufnahme verwerfen',
-  'chat.snippetAutocomplete.action.addNew': '+ Neues Snippet hinzufügen',
+  'chat.snippetAutocomplete.action.addNew': 'Neues Snippet hinzufügen',
   'chat.snippetAutocomplete.empty': 'Keine Snippets gefunden',
   'chat.snippetAutocomplete.footer': '↑↓ navigieren • Enter auswählen • Esc schließen',
   'snippets.source.global': 'global',

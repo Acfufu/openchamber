@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -176,6 +178,8 @@ export const dict = {
   ...pluginsGridI18n.en,
   ...integrationsCatalogI18n['en'],
   ...diffFindI18n['en'],
+  ...markdownGithubI18n['en'],
+  ...autocompleteScopeI18n['en'],
   ...guestStatusViewI18n['en'],
   'terminalView.actions.attachSelection': 'Attach selected output',
   'terminalView.actions.copySelection': 'Copy selected output',
@@ -2437,8 +2441,6 @@ export const dict = {
   'chat.commandAutocomplete.command.exploreDescription': 'Get oriented in this codebase: a high-level tour of the architecture and main parts.',
   'chat.commandAutocomplete.command.btwDescription': 'Ask a side question in a temporary child session without derailing this chat.',
   'chat.commandAutocomplete.command.forkDescription': 'Fork this chat from the last finished reply and continue there; text after /fork is sent to the fork.',
-  'chat.commandAutocomplete.badge.command': 'command',
-  'chat.commandAutocomplete.badge.system': 'system',
   'chat.commandAutocomplete.empty': 'No commands found',
   'chat.agentMentionAutocomplete.badge.system': 'system',
   'chat.agentMentionAutocomplete.empty': 'No agents found',
@@ -2607,7 +2609,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'Insert and send',
   'chat.dictation.retry': 'Retry transcription',
   'chat.dictation.discard': 'Discard recording',
-  'chat.snippetAutocomplete.action.addNew': '+ Add new snippet',
+  'chat.snippetAutocomplete.action.addNew': 'Add new snippet',
   'chat.snippetAutocomplete.empty': 'No snippets found',
   'chat.snippetAutocomplete.footer': '↑↓ navigate • Enter select • Esc close',
   'snippets.source.global': 'global',

@@ -33,6 +33,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict: Record<I18nKey, string> = {
@@ -177,6 +179,8 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n['zh-CN'],
   ...integrationsCatalogI18n['zh-CN'],
   ...diffFindI18n['zh-CN'],
+  ...markdownGithubI18n['zh-CN'],
+  ...autocompleteScopeI18n['zh-CN'],
   ...guestStatusViewI18n['zh-CN'],
   'terminalView.actions.attachSelection': '附加所选输出',
   'terminalView.actions.copySelection': '复制所选输出',
@@ -2403,8 +2407,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.commandAutocomplete.command.btwDescription': '在临时子会话中提问，不打断当前对话',
   'chat.commandAutocomplete.command.forkDescription': '从最后一个已完成的回复分叉此对话并在新会话中继续；/fork 后的文本会发送到分叉会话。',
   'chat.commandAutocomplete.command.exploreDescription': '快速熟悉这个代码库：对架构和主要部分的概览。',
-  'chat.commandAutocomplete.badge.command': '命令',
-  'chat.commandAutocomplete.badge.system': '系统',
   'chat.commandAutocomplete.empty': '未找到命令',
   'chat.agentMentionAutocomplete.badge.system': '系统',
   'chat.agentMentionAutocomplete.empty': '未找到智能体',
@@ -2573,7 +2575,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.dictation.insertAndSend': '插入并发送',
   'chat.dictation.retry': '重试转写',
   'chat.dictation.discard': '放弃录音',
-  'chat.snippetAutocomplete.action.addNew': '+ 新建代码片段',
+  'chat.snippetAutocomplete.action.addNew': '新建代码片段',
   'chat.snippetAutocomplete.empty': '未找到代码片段',
   'chat.snippetAutocomplete.footer': '↑↓ 导航 • Enter 选择 • Esc 关闭',
   'snippets.source.global': '全局',

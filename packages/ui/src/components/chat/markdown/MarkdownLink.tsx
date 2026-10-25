@@ -138,7 +138,9 @@ function ScreenMarkdownHref({ href, children: originalChildren, node, ...props }
   const path = useConfirmedInlineFile(probe);
   const textFile = Boolean(path && probe !== href);
   const external = isExternalHttpUrl(href);
-  const favicon = external && !path ? getExternalFaviconUrl(href) : null;
+  // A host's own reference (`#12`, a commit) reads as part of the text, without the site's mark.
+  const reference = node?.properties.dataOcReference !== undefined;
+  const favicon = external && !path && !reference ? getExternalFaviconUrl(href) : null;
   const showPreview = presentation.loopbackPreview && isLoopbackHttpUrl(href) && directory
     && !(isDesktopShell() && openLinksInBrowserPanel);
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {

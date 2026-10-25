@@ -32,6 +32,8 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { markdownGithubI18n } from './markdown-github.i18n';
+import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
 export const dict = {
@@ -176,6 +178,8 @@ export const dict = {
   ...pluginsGridI18n.fr,
   ...integrationsCatalogI18n['fr'],
   ...diffFindI18n['fr'],
+  ...markdownGithubI18n['fr'],
+  ...autocompleteScopeI18n['fr'],
   ...guestStatusViewI18n['fr'],
   'terminalView.actions.attachSelection': 'Joindre la sortie sélectionnée',
   'terminalView.actions.copySelection': 'Copier la sortie sélectionnée',
@@ -2153,8 +2157,6 @@ export const dict = {
   'chat.commandAutocomplete.command.compactDescription': 'Compresser l\'historique des sessions à l\'aide de l\'IA pour réduire la taille du contexte',
   'chat.commandAutocomplete.command.summaryDescription': 'Résumé de session non destructif. Indice de sujet facultatif après la commande.',
   'chat.commandAutocomplete.command.workspaceReviewDescription': 'Examine les modifications actuelles de l’espace de travail pour ne signaler que les problèmes importants.',
-  'chat.commandAutocomplete.badge.command': 'commande',
-  'chat.commandAutocomplete.badge.system': 'système',
   'chat.commandAutocomplete.empty': 'Aucune commande trouvée',
   'chat.agentMentionAutocomplete.badge.system': 'système',
   'chat.agentMentionAutocomplete.empty': 'Aucun agent trouvé',
@@ -2312,7 +2314,7 @@ export const dict = {
   'chat.dictation.insertAndSend': 'Insérer et envoyer',
   'chat.dictation.retry': 'Réessayer la transcription',
   'chat.dictation.discard': 'Abandonner l\'enregistrement',
-  'chat.snippetAutocomplete.action.addNew': '+ Ajouter un nouvel extrait',
+  'chat.snippetAutocomplete.action.addNew': 'Ajouter un nouvel extrait',
   'chat.snippetAutocomplete.empty': 'Aucun extrait trouvé',
   'chat.snippetAutocomplete.footer': '↑↓ naviguer • Entrer sélectionner • Esc fermer',
   'snippets.source.global': 'mondial',
