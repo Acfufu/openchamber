@@ -62,9 +62,7 @@ import { cn, getRevealLabelKey } from '@/lib/utils';
 import { getLanguageFromExtension, getImageMimeType, isAudioFile, isBinaryFile, isDelimitedTableFile, isDrawioFile, isExcalidrawFile, isFontFile, isImageFile, isMermaidFile, isPdfFile, isSvgFile, isVideoFile, looksLikeBinaryText } from '@/lib/toolHelpers';
 import { shouldAllowFileDraftSave, shouldScheduleFileAutosave } from '@/lib/fileEditorAutosave';
 import { LARGE_FILE_CHAR_THRESHOLD, initialFileTextMode, makeFileContentCacheKey, prepareFileEditorContent, serializeEditorContent, type FileLineEnding } from './fileEditorContent';
-import { getRuntimeUrlResolver } from '@/lib/runtime-url';
-import { acquireRuntimeUrlAuthToken, refreshRuntimeUrlAuthToken, subscribeRuntimeUrlAuthToken } from '@/lib/runtime-auth';
-import { getRuntimeApiBaseUrl, getRuntimeKey } from '@/lib/runtime-switch';
+import { getRuntimeKey } from '@/lib/runtime-switch';
 import { subscribeToFileContentInvalidation } from '@/lib/fileContentInvalidation';
 import { isFilePathMoveInFlight, rebaseMovedPath, rebaseMovedPathKeys, subscribeToFilePathMoves } from '@/lib/filePathMoves';
 import { DiagramEditor } from '@/components/diagram';
@@ -100,6 +98,7 @@ import { MediaArtifact } from './files/previews/MediaArtifact';
 import { TableArtifact } from './files/previews/TableArtifact';
 import { useMarkdownLocalAssets } from './files/previews/useMarkdownLocalAssets';
 import { useHtmlPreviewUrl } from './files/useHtmlPreviewUrl';
+import { useRawAssetUrl } from './files/useRawAssetUrl';
 import { useHtmlPreviewAnnotation } from './files/useHtmlPreviewAnnotation';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
@@ -777,62 +776,6 @@ const FilePositionEditor = ({
       }}
     />
   );
-};
-
-/**
- * Keeps a token-bearing asset preview (image/HTML/PDF) authenticated. While
- * `assetKey` is set this registers an active url-token consumer (so runtime-auth
- * proactively refreshes the shared token before it expires) and subscribes to
- * token replacements, bumping `nonce` so the iframe/img remounts with the fresh
- * token — but only when the token actually changed, not on every interval.
- */
-const useAssetAuthRefresh = (
-  assetKey: string,
-  setFileError: React.Dispatch<React.SetStateAction<string | null>>,
-  errorFallback: string,
-): { readyKey: string; nonce: number } => {
-  const [readyKey, setReadyKey] = React.useState('');
-  const [nonce, setNonce] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!assetKey) {
-      setReadyKey('');
-      return;
-    }
-
-    let cancelled = false;
-    setReadyKey('');
-    const apiBaseUrl = getRuntimeApiBaseUrl();
-    const release = acquireRuntimeUrlAuthToken(apiBaseUrl);
-
-    void refreshRuntimeUrlAuthToken(apiBaseUrl)
-      .then((token) => {
-        if (cancelled || !token) return;
-        setReadyKey(assetKey);
-        setFileError(null);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setFileError(error instanceof Error ? error.message : errorFallback);
-        setReadyKey(assetKey);
-      });
-
-    const unsubscribe = subscribeRuntimeUrlAuthToken(() => {
-      if (cancelled) return;
-      // Token was refreshed underneath us — remount the asset with the fresh URL.
-      setReadyKey(assetKey);
-      setNonce((n) => n + 1);
-      setFileError(null);
-    });
-
-    return () => {
-      cancelled = true;
-      release();
-      unsubscribe();
-    };
-  }, [assetKey, setFileError, errorFallback]);
-
-  return { readyKey, nonce };
 };
 
 export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = true, onCloseFile }) => {
@@ -2523,7 +2466,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
           lastLoadedFileStatRef.current = latestStat;
           // Reset loadedFilePath so the effect above triggers a single reload.
+          // A PDF, media or font preview holds its URL per revision, so the
+          // revision is what makes it load the new bytes.
           setLoadedFilePath(null);
+          setFileContentRevision((revision) => revision + 1);
         })
         .catch((error) => {
           if (cancelled || getRuntimeKey() !== requestRuntime || fileScopeRef.current !== requestScope) return;
@@ -3865,10 +3811,18 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   // PDFs, audio, video and fonts are handed to the browser as a URL it owns
   // (iframe, media element, FontFace), so they need the scoped URL token.
   const usesRawAssetUrl = isSelectedPdf || isSelectedMedia || isSelectedFont;
-  const pdfAssetAuthKey = selectedFile?.path
-    && usesRawAssetUrl
-    ? `${selectedFile.path}|${selectedFileReadOptions.allowOutsideWorkspace ? 'outside' : 'workspace'}|${fileContentRevision}`
-    : '';
+  const rawAssetRequest = React.useMemo(
+    () => (selectedFile?.path && usesRawAssetUrl
+      ? {
+        runtime: runtimeKey,
+        path: selectedFile.path,
+        directory: root || '',
+        revision: String(fileContentRevision),
+        outsideWorkspace: selectedFileReadOptions.allowOutsideWorkspace,
+      }
+      : null),
+    [runtimeKey, selectedFile?.path, usesRawAssetUrl, root, fileContentRevision, selectedFileReadOptions.allowOutsideWorkspace],
+  );
 
   const htmlPreviewRequest = React.useMemo(
     () => (selectedFile?.path && isHtml && htmlViewMode === 'preview' && !runtime.isVSCode
@@ -3896,9 +3850,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (htmlPreview.status === 'error') setFileError(htmlPreview.message);
     else if (htmlPreview.status === 'ready') setFileError(null);
   }, [htmlPreview, setFileError]);
-  const { readyKey: pdfAssetAuthReadyKey, nonce: pdfPreviewNonce } =
-    useAssetAuthRefresh(pdfAssetAuthKey, setFileError, assetAuthErrorFallback);
-  const isPdfAssetAuthLoading = Boolean(pdfAssetAuthKey && pdfAssetAuthReadyKey !== pdfAssetAuthKey);
+  const rawAsset = useRawAssetUrl(rawAssetRequest, setFileError, assetAuthErrorFallback);
+  const isPdfAssetAuthLoading = rawAsset.loading;
 
   const imageSrc = selectedFile?.path && isSelectedImage
     ? (isSelectedSvg
@@ -3906,24 +3859,17 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       : desktopImageSrc)
     : '';
 
-  const pdfSrc = selectedFile?.path && usesRawAssetUrl && pdfAssetAuthKey && pdfAssetAuthReadyKey === pdfAssetAuthKey
-    ? getRuntimeUrlResolver().authenticatedAsset('/api/fs/raw', {
-      path: selectedFile.path,
-      allowOutsideWorkspace: selectedFileReadOptions.allowOutsideWorkspace ? 'true' : undefined,
-      directory: root || undefined,
-    })
-    : '';
+  const pdfSrc = rawAsset.src;
 
   const renderPdfPreview = React.useCallback((file: FileNode) => (
     <div className="h-full overflow-hidden bg-[var(--surface-background)]">
       <iframe
-        key={pdfPreviewNonce}
         src={pdfSrc}
         className="h-full w-full border-0"
         title={file.name}
       />
     </div>
-  ), [pdfSrc, pdfPreviewNonce]);
+  ), [pdfSrc]);
 
   const downloadButton = selectedFile && files.downloadFile ? (
     <Button
@@ -3954,9 +3900,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (isSelectedMedia) {
       return (
         <MediaArtifact
-          key={pdfPreviewNonce}
           kind={isSelectedVideo ? 'video' : 'audio'}
           src={pdfSrc}
+          renewSrc={rawAsset.renew}
           name={file.name}
           sizeBytes={artifactSize}
           download={downloadButton}
@@ -3964,7 +3910,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       );
     }
     if (isSelectedFont) {
-      return <FontArtifact key={pdfPreviewNonce} src={pdfSrc} name={file.name} sizeBytes={artifactSize} />;
+      return <FontArtifact src={pdfSrc} name={file.name} sizeBytes={artifactSize} />;
     }
     if (isUnsupportedBinary) {
       return <BinaryArtifact name={file.name} path={file.path} sizeBytes={artifactSize} download={downloadButton} />;
