@@ -435,7 +435,7 @@ div[data-chat-input-footer="true"] {
    composites to the same pixels. The bands are later siblings of the
    scroller (ChatContainer) and follow its scroll-shadow attributes through
    `~`, so they switch in the same style pass the mask did. They sit under the
-   overlay scrollbar, the prompt rail and the composer, none of which the mask
+   overlay scrollbar, the prompt navigator and the composer, none of which the mask
    covered either. */
 .chat-scroll-fade {
   --scroll-shadow-size: 48px;

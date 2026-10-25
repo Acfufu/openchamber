@@ -604,6 +604,8 @@ const ChatViewport = React.memo(({
                     />
                     {showPromptNavigator && promptTurnIds.length >= 2 ? (
                         <PromptNavigatorRail
+                            sessionId={currentSessionId}
+                            directory={directory}
                             turnIds={promptTurnIds}
                             previewsByTurnId={promptPreviewsByTurnId}
                             activeTurnId={railActiveTurnId}
@@ -1486,12 +1488,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         void navigation.scrollToTurnId(turnId, { behavior: 'auto' });
     }, [navigation]);
     const canLoadEarlierPrompts = timelineController.historySignals.canLoadEarlier;
-    // The mini chat window is too narrow to give the rail its gutter.
-    const promptRailEnabled = !isMobile
+    // The mini chat window is too narrow for the navigator's panel.
+    const showPromptNavigator = !isMobile
         && chatSurfaceMode !== 'mini-chat'
         && !isDesktopExpandedInput
-        && promptNavigatorEnabled;
-    const showPromptNavigator = promptRailEnabled
+        && promptNavigatorEnabled
         && timelineController.turnIds.length >= 2;
 
     React.useEffect(() => {
@@ -1880,11 +1881,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 			// transcript fades out above the composer (index.css). Once the
 			// reader leaves the end, the rows slide under its glass again.
 			data-live-tail={sessionStatusForCurrent.type === 'busy' && isFollowingProgrammatically ? 'true' : undefined}
-			// The transcript and the composer keep clear of the prompt rail
-			// together (typography.css). The room is reserved whenever the
-			// rail is enabled, before the rail itself appears with the second
-			// prompt, so its arrival does not shift anything sideways.
-			data-prompt-rail={promptRailEnabled && !draftLayoutVisible ? '' : undefined}
 			className="relative flex min-w-0 flex-1 flex-col h-full bg-background"
 		>
 			{returnToParentButton}
