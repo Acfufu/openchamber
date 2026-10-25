@@ -1160,6 +1160,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     );
     const addToQueue = useMessageQueueStore((state) => state.addToQueue);
     const takeForSend = useMessageQueueStore((state) => state.takeForSend);
+    const popQueuedToInput = useMessageQueueStore((state) => state.popToInput);
 
     // Inline comment drafts
     const inlineDraftSessionKey = isBtwActive ? btwComposerSessionId ?? '' : currentSessionId ?? (newSessionDraftOpen ? 'draft' : '');
@@ -1675,15 +1676,30 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }
     }, [inlineDraftTarget, mailboxTarget, rememberSessionMentions]);
 
-    const handleQueuedMessageEdit = React.useCallback((queued: QueuedMessage) => {
-        setMessage(queued.content);
-        // Back in the composer, the message is armed again as it was queued.
-        if (queued.goal) useSessionGoalArmStore.getState().setArmed(true, queued.goal.objective ?? null);
-        restoreQueuedContext(queued.context ?? []);
-        setTimeout(() => {
-            composerRef.current?.focus();
-        }, 0);
-    }, [restoreQueuedContext]);
+    // Editing takes the message out of the queue, so sending it again queues
+    // one message, not a copy.
+    const handleQueuedMessageEdit = React.useCallback((messageId: string) => {
+        if (!messageQueueTarget) return;
+        // The full message (attachments included) comes back from the queue's
+        // owner; the queue row only knows the summary.
+        void popQueuedToInput(messageQueueTarget, messageId).then((queued) => {
+            if (!queued) return;
+            if (queued.attachments && queued.attachments.length > 0) {
+                const currentAttachments = useInputStore.getState().attachedFiles;
+                useInputStore.getState().setAttachedFiles([...currentAttachments, ...queued.attachments]);
+            }
+            setMessage(queued.content);
+            // Back in the composer, the message is armed again as it was queued.
+            if (queued.goal) useSessionGoalArmStore.getState().setArmed(true, queued.goal.objective ?? null);
+            restoreQueuedContext(queued.context ?? []);
+            setTimeout(() => {
+                composerRef.current?.focus();
+            }, 0);
+        }).catch((error) => {
+            console.warn('[queue] failed to take queued message for editing:', error);
+            toast.error(t('chat.queuedMessage.toast.takeFailed'));
+        });
+    }, [messageQueueTarget, popQueuedToInput, restoreQueuedContext, t]);
 
     const handleQueuedMessageSend = React.useCallback((messageId: string) => {
         // Force-sending from the queue during a busy session counts as steer
@@ -2679,6 +2695,14 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
         if (e.key === 'ArrowUp' && canNavigateHistoryUp) {
             e.preventDefault();
+            // An empty composer over a queue edits the newest queued message, as
+            // its Edit button does; recalling its text from history and sending
+            // it would queue a duplicate.
+            const lastQueued = queuedMessages[queuedMessages.length - 1];
+            if (lastQueued && message.length === 0 && attachedFiles.length === 0) {
+                handleQueuedMessageEdit(lastQueued.id);
+                return;
+            }
             const recalled = messageHistory.older({ text: message, attachments: attachedFiles });
             if (recalled !== null) {
                 setMessage(recalled.text);
