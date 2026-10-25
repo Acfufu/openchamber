@@ -1,6 +1,7 @@
 import React from 'react';
 import type { FilePart, Part } from '@/lib/opencode/model';
 
+import { sessionMentionChipsOf } from './parts/sessionMentionChips';
 import UserTextPart from './parts/UserTextPart';
 import ToolPart from './parts/ToolPart';
 import AssistantTextPart from './parts/AssistantTextPart';
@@ -443,6 +444,7 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
         });
     }, [parts]);
 
+    const sessionMentionChips = React.useMemo(() => sessionMentionChipsOf(parts), [parts]);
     const attachmentFilenames = React.useMemo(() => parts.flatMap((part) => (
         part.type === 'file' && part.filename ? [part.filename] : []
     )), [parts]);
@@ -792,6 +794,7 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
                                 attachmentFilenames={attachmentFilenames}
                                 attachmentFiles={attachmentFiles}
                                 onShowPopup={onShowPopup}
+                                sessionMentionChips={sessionMentionChips}
                             />
                         </React.Fragment>
                     );

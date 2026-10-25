@@ -19,6 +19,7 @@ import { CommandAutocomplete, type CommandAutocompleteHandle, type CommandInfo }
 import { FileMentionAutocomplete, type FileMentionHandle } from '../../FileMentionAutocomplete';
 import { SkillAutocomplete, type SkillAutocompleteHandle } from '../../SkillAutocomplete';
 import { SnippetAutocomplete, type SnippetAutocompleteHandle } from '../../SnippetAutocomplete';
+import type { Session } from '@/lib/opencode/model';
 import type { AutocompleteKind } from '../language/triggers';
 import { GlassPopupMotion } from './GlassPopupMotion';
 
@@ -64,6 +65,8 @@ interface ComposerAutocompletePopupsProps {
     onSnippetSelect: (snippet: unknown, trigger: string) => void;
     onFileSelect: (file: { name: string; path: string; relativePath?: string }) => void;
     onAgentSelect: (agentName: string) => void;
+    /** Mentions another session; absent where the composer cannot attach one. */
+    onSessionSelect?: (session: Session) => void;
     onEmojiSelect: (emoji: string) => void;
     onClose: () => void;
 }
@@ -127,6 +130,7 @@ function AutocompletePopup(props: ComposerAutocompletePopupsProps & { open: Auto
                     searchQuery={query}
                     onFileSelect={props.onFileSelect}
                     onAgentSelect={props.onAgentSelect}
+                    onSessionSelect={props.onSessionSelect}
                     onClose={onClose}
                     style={style}
                 />

@@ -706,6 +706,43 @@ keeps the keyboard's selection in view.
 `../AutocompleteRows.test.tsx` mounts the command and skill pickers and covers
 the row's parts and the absent popup on selection.
 
+## Other sessions as context
+
+Another session, or one message of it, is mentioned in the text itself: as
+its link (`openchamber://session/<id>`, `?message=<id>` for a message, or a
+web link to this server), which the composer draws as a chip with the
+session's title or the start of the message, like a file mention
+(`sessionLinkChips` in the language context, `composerLanguage.ts`). The
+model reads the link where the user put it. Beside the text, each mention
+goes as its own context part (`sessionReferences.ts`, kinds `session` and
+`session-message` in `lib/messages/contextParts.ts`).
+
+- `@` lists sessions by title once the user types (`sessionMentionResults.ts`):
+  titles that hold the query, no typo-tolerant guesses, every project, the
+  open project's first, at most five, without the session being written in or
+  subagent runs. They come after the files, so Enter on `@pack` still picks
+  `package.json`. The list is ranked from a snapshot per query, since other
+  sessions update all the time. Choosing one writes its link over the typed
+  `@query`.
+- A pasted session or message link pastes as usual and draws as a chip once
+  read. One this server cannot resolve, or a message that cannot be read,
+  gets a toast and stays a plain link. A message with no text of its own
+  names its session instead. A bare `ses_…` id is text.
+- The text decides what is sent: each linked session or message once, in the
+  order it appears; one deleted from the text is not sent. A link not read yet
+  (typed by hand, or still loading) is read at send, so it never goes bare.
+- The model reads a session by name and id, with the note that the openchamber
+  tool reads its messages: a whole session is too long to send. A message goes
+  whole, with no cut, since the tool lists a session's latest messages but
+  cannot fetch one by id. Neither says what to do with it.
+- In the sent message the links draw as the same chips
+  (`message/parts/sessionMentionChips.tsx`, from the message's context parts;
+  in Markdown mode through `MarkdownLink`), and open the session, or the
+  session at that message, in the app. Mentions are not linked issues: sending
+  one records nothing on the session.
+- VS Code keeps session links inert (its sessions live on its own OpenCode),
+  so it offers neither the `@` sessions nor the chips.
+
 ## Input recall ownership
 
 Prompt recall has two owners on purpose.

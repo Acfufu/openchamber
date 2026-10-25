@@ -282,7 +282,8 @@ const serializeInlineElement = (element: Element, format: RenderedCopyFormat): s
 };
 
 const serializeNode = (node: Node, format: RenderedCopyFormat): Serialized | null => {
-  if (node.nodeType === TEXT_NODE) return { block: false, text: node.textContent ?? '' };
+  // Word joiners only keep a chip and its punctuation on one line; they are not text.
+  if (node.nodeType === TEXT_NODE) return { block: false, text: (node.textContent ?? '').replace(/\u2060/g, '') };
   if (!isElement(node) || node.matches(SKIP_SELECTOR)) return null;
   if (isBlockElement(node)) return { block: true, text: serializeBlockElement(node, format) };
   return { block: false, text: serializeInlineElement(node, format) };
