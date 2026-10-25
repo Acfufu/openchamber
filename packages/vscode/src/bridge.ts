@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { type OpenCodeManager } from './opencode';
 import { handleStandardGitBridgeMessage } from './bridge-git-runtime';
@@ -12,7 +11,7 @@ import { waitForWorktreeRemoval } from './gitService';
 import { handlePermissionAutoAcceptBridgeMessage } from './bridge-permission-auto-accept-runtime';
 import { handleProjectSetupBridgeMessage } from './bridge-project-setup-runtime';
 import { createSessionStateStore, getOpenChamberDataDir } from './openchamberSessionState';
-import { createOpenCodeTrust } from '../../web/server/lib/opencode-trust/index.js';
+import { openCodeTrust } from './opencodeTrust';
 import {
   fetchOpenCodeSkillsFromApi,
   persistSettings,
@@ -61,9 +60,6 @@ export interface BridgeContext {
 
 const CLIENT_RELOAD_DELAY_MS = 800;
 const sessionStateStore = createSessionStateStore({ dataDir: getOpenChamberDataDir() });
-// The same answers file as the desktop app and web server, so a folder trusted
-// in one is trusted in the other.
-const openCodeTrust = createOpenCodeTrust({ storePath: path.join(getOpenChamberDataDir(), 'opencode-trust.json') });
 
 const UPDATE_CHECK_URL = process.env.OPENCHAMBER_UPDATE_API_URL || 'https://api.openchamber.dev/v1/update/check';
 

@@ -15,6 +15,7 @@ const TRUST_REQUIRED_ERROR = 'OpenCode is paused for this folder until you trust
 // its configuration once.
 const ASSESSMENT_CACHE_MS = 2000;
 const ASSESSMENT_CACHE_LIMIT = 200;
+const SEED_PROJECT_TIMEOUT_MS = 2000;
 
 // Reads that never start a location in OpenCode, so they run for a folder
 // nobody has trusted: a paused folder still lists and shows its sessions.
@@ -91,6 +92,11 @@ const publicAssessment = (assessment, trusted) => ({
  */
 export const createOpenCodeTrust = ({
   storePath,
+  // The folders of the projects the user already has. The first time this
+  // check runs, their configuration as it is now counts as trusted: OpenCode
+  // ran it before the check existed, and a prompt for each of them would
+  // protect nothing. Later changes to them still ask.
+  listKnownDirectories = null,
   homeDirectory = os.homedir(),
   fsPromises = fs.promises,
   now = Date.now,
@@ -98,21 +104,78 @@ export const createOpenCodeTrust = ({
   const store = createOpenCodeTrustStore({ filePath: storePath, fsPromises });
   const cache = new Map();
 
+  let seeding = null;
+  // Every check waits for the seeding, so one project on a network share
+  // that stopped answering must not hold the app: past the limit it is left
+  // out and asks when opened.
+  const assessWithin = (directory) => Promise.race([
+    assessOpenCodeConfig(directory, { fsPromises, homeDirectory }).catch(() => null),
+    new Promise((resolve) => { setTimeout(resolve, SEED_PROJECT_TIMEOUT_MS, null).unref?.(); }),
+  ]);
+  const seedKnown = async () => {
+    if (!listKnownDirectories || await store.isSeeded()) return;
+    const assessments = await Promise.all((await listKnownDirectories()).map(assessWithin));
+    await store.seed(assessments
+      .filter((assessment) => assessment?.fingerprint)
+      .map((assessment) => [assessment.repositoryKey, assessment.fingerprint]));
+  };
+  // A failed seeding (settings not readable) records nothing and is tried
+  // again on the next start.
+  const ensureSeeded = () => {
+    seeding ??= seedKnown().catch((error) => {
+      console.warn('[opencode-trust] Could not trust the existing projects:', error?.message ?? error);
+    });
+    return seeding;
+  };
+
   const evaluate = async (directory) => {
+    await ensureSeeded();
     const assessment = await assessOpenCodeConfig(directory, { fsPromises, homeDirectory });
     const trusted = assessment.fingerprint === null || await store.has(assessment.repositoryKey, assessment.fingerprint);
     return { assessment, trusted };
   };
 
+  // The check matters when OpenCode opens a folder: once open, OpenCode
+  // reloads its plugins itself and nothing here can stop that. So while the
+  // runtime reports OpenCode closing folders (`forget`), a trusted answer
+  // holds until OpenCode closes that folder. Without those reports, and for
+  // folders not trusted, an answer holds for one burst of requests.
+  let followsLocations = false;
+
+  const isFresh = (entry) => (
+    (followsLocations && entry.trusted === true) || now() - entry.at < ASSESSMENT_CACHE_MS
+  );
+
   const assess = (directory, { fresh = false } = {}) => {
     const cached = cache.get(directory);
-    if (!fresh && cached && now() - cached.at < ASSESSMENT_CACHE_MS) return cached.result;
+    if (!fresh && cached && isFresh(cached)) return cached.result;
     const result = evaluate(directory);
+    const entry = { at: now(), result, trusted: null, resolved: null };
     cache.delete(directory);
-    cache.set(directory, { at: now(), result });
+    cache.set(directory, entry);
     if (cache.size > ASSESSMENT_CACHE_LIMIT) cache.delete(cache.keys().next().value);
-    result.catch(() => cache.delete(directory));
+    result.then((answer) => {
+      entry.trusted = answer.trusted;
+      entry.resolved = answer.assessment.directory;
+    }, () => cache.delete(directory));
     return result;
+  };
+
+  /** OpenCode closed `directory`: its next opening is checked again. */
+  const forget = async (directory) => {
+    const resolved = await fsPromises.realpath(directory).catch(() => directory);
+    for (const [key, entry] of cache) {
+      if ([key, entry.resolved].some((name) => name === directory || name === resolved)) cache.delete(key);
+    }
+  };
+
+  /**
+   * Whether the runtime reports every folder OpenCode closes. Turning it on
+   * forgets every answer, since closings may have gone unreported before.
+   */
+  const followLocations = (following) => {
+    if (following) cache.clear();
+    followsLocations = following;
   };
 
   /** The first of `directories` OpenCode may not open yet, or null. */
@@ -190,5 +253,5 @@ export const createOpenCodeTrust = ({
     return { status: 405, body: { error: 'Method not allowed' } };
   };
 
-  return { assess, isTrusted, firstUntrusted, trust, refusalFor, handleRoute };
+  return { assess, isTrusted, firstUntrusted, trust, refusalFor, handleRoute, forget, followLocations };
 };

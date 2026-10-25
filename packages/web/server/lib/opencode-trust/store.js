@@ -12,6 +12,9 @@ const FINGERPRINTS_PER_REPOSITORY = 20;
 
 const documentSchema = z.object({
   version: z.literal(1),
+  // Set once the projects the user had before this check existed were
+  // trusted as they were (`seedKnown`).
+  seeded: z.boolean().optional(),
   repositories: z.record(z.string(), z.object({ fingerprints: z.array(z.string().min(1)) })),
 });
 
@@ -48,13 +51,19 @@ export const createOpenCodeTrustStore = ({ filePath, fsPromises = fs.promises })
     return document.repositories[repositoryKey]?.fingerprints.includes(fingerprint) ?? false;
   };
 
-  const add = (repositoryKey, fingerprint) => {
+  const addTo = (document, repositoryKey, fingerprint) => {
+    const previous = document.repositories[repositoryKey]?.fingerprints ?? [];
+    document.repositories[repositoryKey] = {
+      fingerprints: [fingerprint, ...previous.filter((value) => value !== fingerprint)].slice(0, FINGERPRINTS_PER_REPOSITORY),
+    };
+  };
+
+  // Read, change and write one document at a time, so answers given together
+  // all land.
+  const update = (change) => {
     const write = writes.then(async () => {
       const document = await read();
-      const previous = document.repositories[repositoryKey]?.fingerprints ?? [];
-      document.repositories[repositoryKey] = {
-        fingerprints: [fingerprint, ...previous.filter((value) => value !== fingerprint)].slice(0, FINGERPRINTS_PER_REPOSITORY),
-      };
+      if (change(document) === false) return;
       await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
       writeFileAtomic(filePath, `${JSON.stringify(document, null, 2)}\n`);
     });
@@ -62,5 +71,16 @@ export const createOpenCodeTrustStore = ({ filePath, fsPromises = fs.promises })
     return write;
   };
 
-  return { has, add };
+  const add = (repositoryKey, fingerprint) => update((document) => addTo(document, repositoryKey, fingerprint));
+
+  const isSeeded = async () => (await read()).seeded === true;
+
+  /** Trust `entries` (`[repositoryKey, fingerprint]`) and mark the store seeded; a seeded store stays as it is. */
+  const seed = (entries) => update((document) => {
+    if (document.seeded) return false;
+    for (const [repositoryKey, fingerprint] of entries) addTo(document, repositoryKey, fingerprint);
+    document.seeded = true;
+  });
+
+  return { has, add, isSeeded, seed };
 };

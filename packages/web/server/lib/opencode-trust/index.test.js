@@ -173,6 +173,108 @@ describe('createOpenCodeTrust', () => {
     expect(refusal?.status).toBe(403);
   });
 
+  it('trusts the projects the user already had, once, and asks about everything after', async () => {
+    await write('.opencode/plugins/probe.js', 'export default {}');
+    const other = path.join(home, 'projects', 'other');
+    await mkdir(path.join(other, '.opencode', 'plugins'), { recursive: true });
+    await writeFile(path.join(other, '.opencode', 'plugins', 'probe.js'), 'export default {}');
+    const withProjects = (directories) => createOpenCodeTrust({
+      storePath: path.join(root, 'data', 'opencode-trust.json'),
+      homeDirectory: home,
+      listKnownDirectories: async () => directories,
+    });
+
+    const first = withProjects([repo]);
+    expect(await first.isTrusted(repo)).toBe(true);
+    expect(await first.isTrusted(other)).toBe(false);
+
+    // A project added later is not trusted by a second start.
+    expect(await withProjects([repo, other]).isTrusted(other)).toBe(false);
+
+    await write('.opencode/plugins/probe.js', 'export default { changed: true }');
+    expect(await withProjects([repo]).isTrusted(repo)).toBe(false);
+  });
+
+  it('seeds the other projects when one folder stops answering', async () => {
+    await write('.opencode/plugins/probe.js', 'export default {}');
+    const hung = path.join(root, 'network-share');
+    const fsPromises = {
+      ...(await import('fs')).promises,
+      realpath: async (target) => (target === hung ? new Promise(() => {}) : realpath(target)),
+    };
+    const trust = createOpenCodeTrust({
+      storePath: path.join(root, 'data', 'opencode-trust.json'),
+      homeDirectory: home,
+      fsPromises,
+      listKnownDirectories: async () => [hung, repo],
+    });
+    const started = Date.now();
+    expect(await trust.isTrusted(repo)).toBe(true);
+    expect(Date.now() - started).toBeLessThan(4000);
+  }, 10_000);
+
+  it('seeds nothing when the project list cannot be read', async () => {
+    await write('.opencode/plugins/probe.js', 'export default {}');
+    const failing = createOpenCodeTrust({
+      storePath: path.join(root, 'data', 'opencode-trust.json'),
+      homeDirectory: home,
+      listKnownDirectories: async () => { throw new Error('settings unreadable'); },
+    });
+    expect(await failing.isTrusted(repo)).toBe(false);
+    const later = createOpenCodeTrust({
+      storePath: path.join(root, 'data', 'opencode-trust.json'),
+      homeDirectory: home,
+      listKnownDirectories: async () => [repo],
+    });
+    expect(await later.isTrusted(repo)).toBe(true);
+  });
+
+  it('checks a folder once per opening while OpenCode reports closings', async () => {
+    await write('.opencode/plugins/probe.js', 'export default {}');
+    let clock = 0;
+    const trust = createOpenCodeTrust({ storePath: path.join(root, 'data', 'opencode-trust.json'), homeDirectory: home, now: () => clock });
+    trust.followLocations(true);
+    const shown = await trust.handleRoute({ method: 'GET', query: { directory: repo } });
+    await trust.handleRoute({ method: 'POST', body: { directory: repo, fingerprint: shown.body.fingerprint } });
+    expect(await trust.isTrusted(repo)).toBe(true);
+
+    // The folder stays open: a changed plugin is OpenCode's to reload, the
+    // answer holds however long it has been.
+    await write('.opencode/plugins/probe.js', 'export default { changed: true }');
+    clock += 60 * 60 * 1000;
+    expect(await trust.isTrusted(repo)).toBe(true);
+
+    // OpenCode closed the folder: the next opening reads it again.
+    await trust.forget(repo);
+    expect(await trust.isTrusted(repo)).toBe(false);
+  });
+
+  it('keeps answers short while closings go unreported', async () => {
+    await write('.opencode/plugins/probe.js', 'export default {}');
+    let clock = 0;
+    const trust = createOpenCodeTrust({ storePath: path.join(root, 'data', 'opencode-trust.json'), homeDirectory: home, now: () => clock });
+    const shown = await trust.handleRoute({ method: 'GET', query: { directory: repo } });
+    await trust.handleRoute({ method: 'POST', body: { directory: repo, fingerprint: shown.body.fingerprint } });
+    expect(await trust.isTrusted(repo)).toBe(true);
+
+    await write('.opencode/plugins/probe.js', 'export default { changed: true }');
+    clock += 1000;
+    expect(await trust.isTrusted(repo)).toBe(true);
+    clock += 2000;
+    expect(await trust.isTrusted(repo)).toBe(false);
+  });
+
+  it('forgets every answer when it starts following closings', async () => {
+    await write('.opencode/plugins/probe.js', 'export default {}');
+    const trust = makeTrust();
+    const shown = await trust.handleRoute({ method: 'GET', query: { directory: repo } });
+    await trust.handleRoute({ method: 'POST', body: { directory: repo, fingerprint: shown.body.fingerprint } });
+    expect(await trust.isTrusted(repo)).toBe(true);
+    await write('.opencode/plugins/probe.js', 'export default { changed: true }');
+    trust.followLocations(true);
+    expect(await trust.isTrusted(repo)).toBe(false);
+  });
+
   it('trusts nothing from a store it cannot read', async () => {
     await write('.opencode/plugins/probe.js', 'export default {}');
     await mkdir(path.join(root, 'data'), { recursive: true });

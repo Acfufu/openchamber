@@ -48,6 +48,10 @@ export interface OpenCodeTrust {
   isTrusted(directory: string): Promise<boolean>;
   refusalFor(request: OpenCodeTrustRequest): Promise<OpenCodeTrustAnswer | null>;
   handleRoute(request: OpenCodeTrustRouteRequest): Promise<OpenCodeTrustAnswer>;
+  /** OpenCode closed `directory`: its next opening is checked again. */
+  forget(directory: string): Promise<void>;
+  /** Whether the runtime reports every folder OpenCode closes; on, a trusted answer holds until then. */
+  followLocations(following: boolean): void;
 }
 
 export declare function createOpenCodeTrust(options: {

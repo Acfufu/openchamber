@@ -49,6 +49,35 @@ Where the check runs:
   answers, and a worktree whose configuration differs from every trusted one
   asks. The latest 20 fingerprints per repository are kept, so switching
   between branches that each carry trusted plugins does not ask again.
+- The projects already in the user's list when the check first runs are
+  trusted as they are, once (`seeded` in the answers file). OpenCode ran
+  their configuration before the check existed, so a prompt for each would
+  protect nothing. A project added later, a worktree whose configuration
+  differs, and any later change to a seeded project ask. A seeding that
+  cannot read the project list records nothing and runs again on the next
+  start. Every check waits for the seeding, so projects are read in parallel
+  and one that takes over 2 seconds (a network share that stopped answering)
+  is left out and asks when opened.
+
+## Cost
+
+Measured on an M-series Mac: one check reads a folder in 0.2 to 0.5 ms
+without plugins and about 4 to 6 ms for 30 plugin files plus a configuration
+and a 200-repository answers file. Requests that name no folder, or name only
+global routes, read nothing.
+
+The server reads a folder once each time OpenCode opens it. A trusted answer
+holds until OpenCode reports the folder closed (`location.shutdown` on the
+event stream, through `forget`); the next opening reads it again, which is
+where a pull made while it was closed is caught. While the event stream is
+down closings go unreported, so answers last 2 seconds, and a new connection
+forgets them all (`followLocations`). Untrusted answers always last 2
+seconds, so a folder whose plugin was removed opens without a prompt.
+
+VS Code follows closings the same way: its global event watcher
+(`vscode/src/sessionActivityWatcher.ts`) runs while the extension is
+connected to OpenCode and reports `location.shutdown` to the shared instance
+in `vscode/src/opencodeTrust.ts`.
 - A store that cannot be read trusts nothing. The prompt returns rather than
   code running unasked; the next answer rewrites the file.
 - `POST /api/opencode/trust` records only the fingerprint the user was shown.
