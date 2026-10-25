@@ -2261,6 +2261,7 @@ export const dict = {
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'הענף כבר פתוח בעץ עבודה',
   'session.githubIntegration.validation.failed': 'האימות נכשל',
   'chat.fileAttachment.toast.attachFailed': 'לא ניתן היה לצרף את הקובץ',
+  'chat.fileAttachment.toast.tooLarge': '{name} גדול מדי לצירוף (מעל {size}). אם הקובץ נמצא בפרויקט, אפשר לאזכר אותו עם @.',
   'chat.fileAttachment.toast.someFilesSkipped': "חלק מהקבצים דולגו:\n{summary}",
   'chat.fileAttachment.toast.vscodePickFailed': 'לא ניתן היה לבחור קבצים ב-VS Code',
   'chat.fileAttachment.fileFallback': 'קובץ',

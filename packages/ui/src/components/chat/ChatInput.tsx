@@ -3147,6 +3147,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }
 
         const attachedOtherNames: string[] = [];
+        let reported = false;
         for (const file of otherFiles) {
             try {
                 if (await addAttachedFile(file)) {
@@ -3155,12 +3156,17 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 }
             } catch (error) {
                 console.error('File attach failed', error);
+                // The store names the cause (a file too large to attach).
+                if (error instanceof Error) {
+                    toast.error(error.message);
+                    reported = true;
+                }
             }
             if (useInputStore.getState().attachmentDraftKey !== attachmentDraftKey) return;
         }
         insertCitation(attachedOtherNames, '');
 
-        if (files.length > 0 && !attached && !savedAny) {
+        if (files.length > 0 && !attached && !savedAny && !reported) {
             toast.error(t('chat.chatInput.toast.attachFileFailed'));
         }
     }, [addAttachedFile, imageSaveMode, insertCitationAtSelection, savePastedImagesAsFiles, saveImagesWithPathCitation, t]);
@@ -3816,15 +3822,21 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             }
         }
 
+        let reported = false;
         for (const file of list) {
             try {
                 attached = (await addAttachedFile(file)) || attached;
             } catch (error) {
                 console.error('File attach failed', error);
+                // The store names the cause (a file too large to attach).
+                if (error instanceof Error) {
+                    toast.error(error.message);
+                    reported = true;
+                }
             }
             if (useInputStore.getState().attachmentDraftKey !== attachmentDraftKey) return;
         }
-        if (list.length > 0 && !attached) {
+        if (list.length > 0 && !attached && !reported) {
             toast.error(t('chat.chatInput.toast.attachFileFailed'));
         }
     }, [addAttachedFile, imageSaveMode, saveImagesWithPathCitation, t]);
