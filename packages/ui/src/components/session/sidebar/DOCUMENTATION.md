@@ -296,10 +296,12 @@ owns the details). A work is either a linked worktree with every session in
 it, or a root session of the project root (or of a space) with what nests
 under it. Nesting is display lineage (`lib/sessionWorkLineage.ts`,
 `resolveSessionNestingParentId`): a subagent under its run (`parentID`), and
-under the session it grew out of an auto-review (`originalSessionID`), a fork
-or promoted `/btw` (`fork.sessionID`), and a session another session's agent
-started through the openchamber tool (`metadata.openchamber.originSessionID`,
-written by the server's create route). The folder decides first: a session in
+under the session it grew out of an auto-review (`originalSessionID`), and a
+fork or promoted `/btw` (`fork.sessionID`). A session another session's agent
+started through the openchamber tool stays a root: it is the user's own
+conversation, and its prompt links back to the sender in the transcript
+(`metadata.openchamber.promptedBy`). The `originSessionID` older builds wrote
+on such sessions is ignored. The folder decides first: a session in
 another folder stays a root there, and so does a multi-run lane. Archive,
 restore and the Archive page keep OpenCode's `parentID` only.
 `list/sessionCollection.ts` and `projects/useSessionGrouping.ts` both build

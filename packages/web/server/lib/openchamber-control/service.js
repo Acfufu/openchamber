@@ -619,12 +619,16 @@ export const createOpenChamberControlService = (dependencies) => {
         if (asNonEmptyString(input.startRef)) payload.worktree.startRef = input.startRef.trim();
       }
     }
+    // The prompt's message names the session whose agent sent it, so the
+    // receiving transcript can link back. A session prompting itself has
+    // nothing to link to.
+    if (parentSessionID && !(action === 'session.send' && sessionID === parentSessionID)) {
+      payload.promptedBySessionId = parentSessionID;
+    }
     const startedAt = now();
     let result;
     if (action === 'session.create') {
-      // The calling session is where this one grew from: the sidebar lists it
-      // under the caller's work (a fork records its source on its own).
-      result = await sessionService.create(parentSessionID ? { ...payload, originSessionId: parentSessionID } : payload);
+      result = await sessionService.create(payload);
     } else {
       if (!sessionID) throw new OpenChamberControlError('sessionId is required', 400);
       if (action === 'session.send') {
