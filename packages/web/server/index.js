@@ -76,6 +76,8 @@ import {
 } from './lib/opencode/core-routes.js';
 import { registerOpenChamberRoutes } from './lib/opencode/openchamber-routes.js';
 import { createServerUtilsRuntime } from './lib/opencode/server-utils-runtime.js';
+import { createOpenCodeTrust } from './lib/opencode-trust/index.js';
+import { guardOpenCodeFetch } from './lib/opencode-trust/fetch-guard.js';
 import { createStaticRoutesRuntime } from './lib/opencode/static-routes-runtime.js';
 import { createSettingsRuntime } from './lib/opencode/settings-runtime.js';
 import { createOpenCodeResolutionRuntime } from './lib/opencode/opencode-resolution-runtime.js';
@@ -375,6 +377,16 @@ const OPENCHAMBER_DATA_DIR = OPENCHAMBER_USER_CONFIG_ROOT;
 const SETTINGS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'settings.json');
 const PUSH_SUBSCRIPTIONS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'push-subscriptions.json');
 const APNS_TOKENS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'apns-tokens.json');
+const openCodeTrust = createOpenCodeTrust({ storePath: path.join(OPENCHAMBER_DATA_DIR, 'opencode-trust.json') });
+// Server features reach OpenCode through clients of their own, with folders
+// the UI hands them. Every such request passes the same trust check as the
+// proxy. Installed before any runtime below captures `fetch`.
+globalThis.fetch = guardOpenCodeFetch({
+  fetchImpl: globalThis.fetch,
+  openCodeTrust,
+  buildOpenCodeUrl: (...args) => buildOpenCodeUrl(...args),
+  getOpenCodeAuthHeaders: (...args) => getOpenCodeAuthHeaders(...args),
+});
 const REMOTE_CLIENTS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'remote-clients.json');
 const CLIENT_PAIRING_SESSIONS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'client-pairing-sessions.json');
 const CLOUDFLARE_MANAGED_REMOTE_TUNNELS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'cloudflare-managed-remote-tunnels.json');
@@ -469,7 +481,13 @@ const settingsRuntime = createSettingsRuntime({
     });
   },
   // Declared further down; settings are only saved once the server serves requests.
-  onLastDirectoryChanged: (directory) => openCodeLifecycleRuntime.noteCurrentDirectory(directory),
+  // A folder OpenCode may not open yet must not become the one server-side
+  // reads fall back to.
+  onLastDirectoryChanged: (directory) => {
+    void openCodeTrust.isTrusted(directory).then((trusted) => {
+      if (trusted) openCodeLifecycleRuntime.noteCurrentDirectory(directory);
+    }, () => {});
+  },
 });
 
 const readSettingsFromDiskMigrated = (...args) => settingsRuntime.readSettingsFromDiskMigrated(...args);
@@ -1367,6 +1385,7 @@ const serverUtilsRuntime = createServerUtilsRuntime({
   // the global SSE stream their events. Called, not captured: the host is made in `main`.
   getMergeSpaceSessionList: () => (spacesHost ? (payload) => spacesHost.mergeSessionList(payload) : null),
   getSpaceEventHub: () => (spacesHost ? globalMessageStreamHub : null),
+  openCodeTrust,
   fs,
   os,
   path,
@@ -1592,8 +1611,13 @@ const openCodeLifecycleRuntime = createOpenCodeLifecycleRuntime({
     }
     // A deleted project would fail every read scoped to it, and the first entry
     // also scopes server-side reads that have no directory of their own.
+    // Warming a folder runs its OpenCode plugins, so only trusted ones warm;
+    // the rest wait for the user to open them.
     const existing = await Promise.all([...new Set(directories)].map(async (directory) => (
-      (await fs.promises.stat(directory).catch(() => null))?.isDirectory() ? directory : null
+      (await fs.promises.stat(directory).catch(() => null))?.isDirectory()
+        && await openCodeTrust.isTrusted(directory).catch(() => false)
+        ? directory
+        : null
     )));
     return existing.filter(Boolean);
   },
@@ -1901,6 +1925,7 @@ const openChamberControlService = createOpenChamberControlService({
   buildOpenCodeUrl,
   getOpenCodeAuthHeaders,
   waitForOpenCodeReady,
+  isOpenCodeDirectoryTrusted: (directory) => openCodeTrust.isTrusted(directory),
   sessionService: openChamberSessionService,
   scheduledTaskService,
   browserControl: browserControlRouter,

@@ -240,6 +240,8 @@ export const createOpenChamberControlService = (dependencies) => {
     // Archive lives in OpenChamber's own store now — v2 has no route that sets
     // Session.time.archived — so an unwired store simply means nothing is archived.
     archiveStore = null,
+    // Whether OpenCode may open a folder (../opencode-trust); absent opens every folder.
+    isOpenCodeDirectoryTrusted = null,
     createClient = OpenCode.make,
     sleep = (duration) => new Promise((resolve) => setTimeout(resolve, duration)),
     now = Date.now,
@@ -267,6 +269,14 @@ export const createOpenChamberControlService = (dependencies) => {
   // Every v2 route lives under /api and the client appends it, so it only
   // wants the origin. Per-directory scoping is a request header.
   const getClient = async (directory = '') => {
+    // An agent can name any folder, a pull request checkout included. One whose
+    // OpenCode configuration runs code waits until the user trusts it in the app.
+    if (directory && isOpenCodeDirectoryTrusted && !(await isOpenCodeDirectoryTrusted(directory))) {
+      throw new OpenChamberControlError(
+        `OpenCode is paused for ${directory}: its configuration runs plugins or commands the user has not trusted. Ask the user to open the folder in OpenChamber and trust it.`,
+        403,
+      );
+    }
     if (typeof waitForOpenCodeReady === 'function') await waitForOpenCodeReady(10_000, 250);
     return createClient({
       baseUrl: new URL(buildOpenCodeUrl('/api/info', '')).origin,
