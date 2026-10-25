@@ -3416,6 +3416,7 @@ export const dict = {
   'common.duration.minutesSecondsCompact': '{minutes} د {seconds} ث',
   'common.duration.hoursMinutesCompact': '{hours} س {minutes} د',
   'contextFileOpen.failure.tooLarge': 'الملف أكبر من أن يُفتح (>{count} سطر)',
+  'contextFileOpen.failure.tooLargeSize': 'الملف كبير جدًا بحيث لا يمكن فتحه (أكثر من {size})',
   'contextFileOpen.failure.missing': 'الملف غير موجود',
   'contextFileOpen.failure.unreadable': 'تعذّر فتح الملف',
   'quota.window.5h': '5 ساعات',

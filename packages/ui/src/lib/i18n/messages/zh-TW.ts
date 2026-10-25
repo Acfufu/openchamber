@@ -3480,6 +3480,7 @@ export const dict: Record<I18nKey, string> = {
   'common.duration.minutesSecondsCompact': '{minutes}分{seconds}秒',
   'common.duration.hoursMinutesCompact': '{hours}小時{minutes}分',
   'contextFileOpen.failure.tooLarge': 'File is too large to open (>{count} lines)',
+  'contextFileOpen.failure.tooLargeSize': '檔案過大，無法開啟（超過 {size}）',
   'contextFileOpen.failure.missing': 'File not found',
   'contextFileOpen.failure.unreadable': 'Failed to open file',
   'quota.window.5h': '5 小時',

@@ -3416,6 +3416,7 @@ export const dict = {
   'common.duration.minutesSecondsCompact': '{minutes} דק׳ {seconds} שנ׳',
   'common.duration.hoursMinutesCompact': '{hours} שע׳ {minutes} דק׳',
   'contextFileOpen.failure.tooLarge': 'הקובץ גדול מדי לפתיחה (יותר מ-{count} שורות)',
+  'contextFileOpen.failure.tooLargeSize': 'הקובץ גדול מדי לפתיחה (מעל {size})',
   'contextFileOpen.failure.missing': 'הקובץ לא נמצא',
   'contextFileOpen.failure.unreadable': 'לא ניתן היה לפתוח את הקובץ',
   'quota.window.5h': '5 שעות',

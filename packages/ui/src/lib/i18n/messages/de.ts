@@ -3183,6 +3183,7 @@ export const dict = {
   'common.duration.minutesSecondsCompact': '{minutes}m {seconds}s',
   'common.duration.hoursMinutesCompact': '{hours}h {minutes}m',
   'contextFileOpen.failure.tooLarge': 'Datei ist zu groß zum Öffnen (>{count} Zeilen)',
+  'contextFileOpen.failure.tooLargeSize': 'Datei ist zu groß zum Öffnen (über {size})',
   'contextFileOpen.failure.missing': 'Datei nicht gefunden',
   'contextFileOpen.failure.unreadable': 'Fehler beim Öffnen der Datei',
   'quota.window.5h': '5-Stunden-Limit',

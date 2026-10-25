@@ -3472,6 +3472,7 @@ export const dict: Record<I18nKey, string> = {
   "common.duration.minutesSecondsCompact": "{minutes}m {seconds}s",
   "common.duration.hoursMinutesCompact": "{hours}h {minutes}m",
   "contextFileOpen.failure.tooLarge": "File is too large to open (>{count} lines)",
+  "contextFileOpen.failure.tooLargeSize": "O arquivo é grande demais para abrir (mais de {size})",
   "contextFileOpen.failure.missing": "File not found",
   "contextFileOpen.failure.unreadable": "Failed to open file",
   "quota.window.5h": "5 horas",

@@ -3480,6 +3480,7 @@ export const dict = {
   'common.duration.minutesSecondsCompact': '{minutes}m {seconds}s',
   'common.duration.hoursMinutesCompact': '{hours}u {minutes}m',
   'contextFileOpen.failure.tooLarge': 'Bestand is te groot om te openen (>{count} regels)',
+  'contextFileOpen.failure.tooLargeSize': 'Bestand is te groot om te openen (meer dan {size})',
   'contextFileOpen.failure.missing': 'Bestand niet gevonden',
   'contextFileOpen.failure.unreadable': 'Kan bestand niet openen',
   'quota.window.5h': '5-uurslimiet',

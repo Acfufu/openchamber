@@ -3282,6 +3282,7 @@ export const dict = {
   'common.duration.minutesSecondsCompact': '{minutes}dk {seconds}sn',
   'common.duration.hoursMinutesCompact': '{hours}sa {minutes}dk',
   'contextFileOpen.failure.tooLarge': 'Dosya açmak için çok büyük (>{count} satır)',
+  'contextFileOpen.failure.tooLargeSize': 'Dosya açılamayacak kadar büyük ({size} üzeri)',
   'contextFileOpen.failure.missing': 'Dosya bulunamadı',
   'contextFileOpen.failure.unreadable': 'Dosya açılamadı',
   'quota.window.5h': '5 Saatlik',

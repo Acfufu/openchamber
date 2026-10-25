@@ -3476,6 +3476,7 @@ export const dict: Record<I18nKey, string> = {
   'common.duration.minutesSecondsCompact': '{minutes}分{seconds}秒',
   'common.duration.hoursMinutesCompact': '{hours}時間{minutes}分',
   'contextFileOpen.failure.tooLarge': 'ファイルが大きすぎて開けません（>{count}行）',
+  'contextFileOpen.failure.tooLargeSize': 'ファイルが大きすぎるため開けません（{size} 超）',
   'contextFileOpen.failure.missing': 'ファイルが見つかりません',
   'contextFileOpen.failure.unreadable': 'ファイルを開けませんでした',
   'quota.window.5h': '5時間',

@@ -3148,6 +3148,7 @@ export const dict = {
   'common.duration.minutesSecondsCompact': '{minutes}m {seconds}s',
   'common.duration.hoursMinutesCompact': '{hours}h {minutes}m',
   'contextFileOpen.failure.tooLarge': 'Le fichier est trop volumineux pour être ouvert (> {count} lignes)',
+  'contextFileOpen.failure.tooLargeSize': 'Le fichier est trop volumineux pour être ouvert (plus de {size})',
   'contextFileOpen.failure.missing': 'Fichier introuvable',
   'contextFileOpen.failure.unreadable': 'Impossible d’ouvrir le fichier',
   'quota.window.5h': '5 heures',
