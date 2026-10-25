@@ -3,6 +3,7 @@ import React from 'react';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useUIStore } from '@/stores/useUIStore';
+import { useLeaveWorkStatus } from './leaveWorkStatus';
 
 /**
  * Opens a child session of the panel's session, the way the transcript's Task
@@ -13,11 +14,13 @@ export const useOpenChildSession = (directory: string | null): ((childId: string
   const isMobile = useUIStore((state) => state.isMobile);
   const openContextPanelTab = useUIStore((state) => state.openContextPanelTab);
   const setCurrentSession = useSessionUIStore((state) => state.setCurrentSession);
+  const leaveWorkStatus = useLeaveWorkStatus();
 
   return React.useCallback((childId: string, label: string) => {
     if (!directory) return;
     if (isMobile || isVSCodeRuntime()) {
       setCurrentSession(childId, directory);
+      leaveWorkStatus?.();
       return;
     }
     openContextPanelTab(directory, {
@@ -26,5 +29,5 @@ export const useOpenChildSession = (directory: string | null): ((childId: string
       label,
       readOnly: true,
     });
-  }, [directory, isMobile, openContextPanelTab, setCurrentSession]);
+  }, [directory, isMobile, leaveWorkStatus, openContextPanelTab, setCurrentSession]);
 };

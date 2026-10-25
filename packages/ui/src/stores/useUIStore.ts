@@ -871,6 +871,11 @@ interface UIStore {
   mobileWorkspaceTabOrder: string[];
   /** Workspace drawer tabs the user hid; stored as the hidden set so tabs added later appear for everyone. */
   mobileWorkspaceHiddenTabs: string[];
+  /**
+   * Work Status sections hidden on the phone's Status tab. Per device and apart
+   * from `workStatusHiddenSections`: Subagents starts hidden there.
+   */
+  mobileWorkStatusHiddenSections: string[];
   /** Surfaces the user moved off the right zone, per device (lib/workspace/zones.ts). */
   contextSurfaceZones: ContextZonePlacement;
   contextEditorTreeVisible: boolean;
@@ -1250,6 +1255,8 @@ interface UIStore {
   setContextRailHiddenSurfaces: (surfaceIds: string[]) => void;
   setMobileWorkspaceTabOrder: (order: readonly string[]) => void;
   setMobileWorkspaceTabVisible: (tab: MobileWorkspaceTab, visible: boolean) => void;
+  setMobileWorkStatusSectionVisible: (sectionId: string, visible: boolean) => void;
+  setMobileWorkStatusHiddenSections: (sectionIds: string[]) => void;
   setSessionSwitcherOpen: (open: boolean) => void;
   setSessionDropdownOpen: (open: boolean) => void;
   setPendingDiffFile: (filePath: string | null, staged?: boolean, scope?: PendingDiffScope | null) => void;
@@ -1486,6 +1493,7 @@ export const useUIStore = create<UIStore>()(
         contextRailHiddenSurfaces: [],
         mobileWorkspaceTabOrder: [],
         mobileWorkspaceHiddenTabs: [],
+        mobileWorkStatusHiddenSections: ['subagents'],
         contextSurfaceZones: {},
         contextEditorTreeVisible: true,
         fileTreeSide: 'right',
@@ -2351,6 +2359,20 @@ export const useUIStore = create<UIStore>()(
 
         setWorkStatusHiddenSections: (sectionIds) => {
           set({ workStatusHiddenSections: [...new Set(sectionIds)], workStatusHiddenSectionsExplicit: true });
+        },
+        setMobileWorkStatusSectionVisible: (sectionId, visible) => {
+          set((state) => {
+            const hidden = state.mobileWorkStatusHiddenSections;
+            if (visible === !hidden.includes(sectionId)) return state;
+            return {
+              mobileWorkStatusHiddenSections: visible
+                ? hidden.filter((entry) => entry !== sectionId)
+                : [...hidden, sectionId],
+            };
+          });
+        },
+        setMobileWorkStatusHiddenSections: (sectionIds) => {
+          set({ mobileWorkStatusHiddenSections: [...new Set(sectionIds)] });
         },
         setWorkStatusSectionOrder: (sectionIds) => {
           set({ workStatusSectionOrder: sanitizeWorkStatusSectionOrder(sectionIds) });
@@ -3698,6 +3720,7 @@ export const useUIStore = create<UIStore>()(
           contextRailHiddenSurfaces: state.contextRailHiddenSurfaces,
           mobileWorkspaceTabOrder: state.mobileWorkspaceTabOrder,
           mobileWorkspaceHiddenTabs: state.mobileWorkspaceHiddenTabs,
+          mobileWorkStatusHiddenSections: state.mobileWorkStatusHiddenSections,
           contextSurfaceZones: state.contextSurfaceZones,
           contextEditorTreeVisible: state.contextEditorTreeVisible,
           fileTreeSide: state.fileTreeSide,

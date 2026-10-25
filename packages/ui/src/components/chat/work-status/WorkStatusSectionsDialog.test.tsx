@@ -62,7 +62,7 @@ describe('section arrangement dialog', () => {
       }
     };
     ({ WorkStatusSectionsDialog } = await import('./WorkStatusSectionsDialog'));
-    useUIStore.setState({ workStatusSectionOrder: [...WORK_STATUS_SECTION_IDS], workStatusHiddenSections: [] });
+    useUIStore.setState({ workStatusSectionOrder: [...WORK_STATUS_SECTION_IDS], workStatusHiddenSections: [], isMobile: false, mobileWorkStatusHiddenSections: ['subagents'] });
     closeCount = 0;
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -139,6 +139,17 @@ describe('section arrangement dialog', () => {
     await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, code: 'Escape', key: 'Escape' })));
     expect(order().slice(0, 2)).toEqual(['repository', 'session']);
     expect(closeCount).toBe(0);
+  });
+
+  test('on the phone it edits the Status tab list, which hides Subagents and has no Usage', async () => {
+    await act(async () => useUIStore.setState({ isMobile: true }));
+    expect(order()).not.toContain('usage');
+    const subagents = rows().find((row) => row.dataset.settingsItem?.endsWith('.subagents'));
+    if (!subagents) throw new Error('Expected the Subagents row');
+    expect(subagents.getAttribute('aria-pressed')).toBe('false');
+    await act(async () => subagents.click());
+    expect(useUIStore.getState().mobileWorkStatusHiddenSections).toEqual([]);
+    expect(useUIStore.getState().workStatusHiddenSections).toEqual([]);
   });
 
   test('touch requires a hold and commits the same order as mouse dragging', async () => {

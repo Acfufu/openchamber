@@ -325,7 +325,6 @@ export const dict: Record<I18nKey, string> = {
   'mobile.menu.files': 'ファイル',
   'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'ターミナル',
-  'mobile.menu.mcp': 'MCP',
   'mobile.menu.update': '更新',
   'mobile.menu.settings': '設定',
   'mobile.sessions.footer.more': 'その他',
@@ -3523,6 +3522,7 @@ export const dict: Record<I18nKey, string> = {
   'quota.window.premiumInteractions': 'AIクレジット',
 
   'chat.workStatus.ariaLabel': '作業状況',
+  'chat.workStatus.mobileEmpty': 'このセッションにはまだ表示する内容がありません',
   'chat.workStatus.context.label': 'コンテキスト',
   'chat.workStatus.cost.breakdown': 'セッション {session} · サブエージェント {subagents}',
   'chat.workStatus.git.changedFileSingle': '{count} 件のファイルを変更',

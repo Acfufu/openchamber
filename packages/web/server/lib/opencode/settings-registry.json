@@ -829,6 +829,10 @@
       "scope": "device",
       "local": true
     },
+    "mobileWorkStatusHiddenSections": {
+      "scope": "device",
+      "local": true
+    },
     "contextSurfaceZones": {
       "scope": "device",
       "local": true

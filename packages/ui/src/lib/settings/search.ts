@@ -234,7 +234,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'general',
     titleKey: 'settings.layout.general.mobileTabs.title',
     descriptionKey: 'settings.layout.general.mobileTabs.info',
-    keywords: ['tabs', 'workspace', 'panel', 'order', 'hide', 'git', 'files', 'terminal', 'mcp', 'mobile'],
+    keywords: ['tabs', 'workspace', 'panel', 'order', 'hide', 'status', 'git', 'files', 'terminal', 'mobile'],
     isAvailable: (ctx) => ctx.isMobile,
   },
   {

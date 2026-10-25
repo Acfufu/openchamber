@@ -54,7 +54,8 @@ The overlay form stays inside the chat column in `ChatContainer`.
 `useWorkStatusVisibility` hides the panel when any of these hold:
 
 - the user switched it off;
-- the runtime is mobile or VS Code;
+- the runtime is mobile or VS Code (the phone shows the sections in its own
+  tab, see below);
 - the context panel is open for the directory the app is effectively on —
   looked up through `useEffectiveDirectory` and `normalizeContextPanelDirectoryKey`,
   the same key the rail and the panel use. It is deliberately **not** the
@@ -100,6 +101,45 @@ context panel opens. `useWorkStatusVisibility.test.ts` pins both properties.
 The context-panel check mirrors `ContextPanel`'s own derivation: `isOpen` alone
 is not enough, because a panel with no resolvable active tab renders nothing
 and therefore displaces nothing.
+
+## On the phone
+
+The phone has no card. Its workspace drawer opens on a Work status tab
+(`apps/MobileStatusPane.tsx`), first by default, that renders the same
+`WorkStatusSectionList` the card renders, for the session on screen. It
+replaced the drawer's MCP tab: the MCP section carries the same switches.
+
+- **Its own hidden list.** `mobileWorkStatusHiddenSections` is per device and
+  starts with Subagents hidden; the order is the shared
+  `workStatusSectionOrder`. `useWorkStatusHiddenSections` picks the list by
+  `isMobile`, so the sections dialog edits whichever one is on screen.
+- **Usage is left out** (`useUnavailableWorkStatusSections`). The phone has its
+  own Usage page, which reads better there than these compact rows.
+- **Rows go where the phone can show them.** The rows read
+  `useMobileAppActions`: Branch and Changes switch to the drawer's Changes tab,
+  PR and Checks open the PR on the issues and PRs board by its link, and the
+  Context row and the project's app and run controls are absent, since they
+  need a desktop host. A row that opens something outside the drawer (a
+  subagent's session, a pinned message, the board) closes the drawer through
+  `LeaveWorkStatusContext`; the desktop card provides none.
+- **The phone's look, from the same primitives.** Under `WorkStatusTouchContext`
+  (`touchContext.ts`) the primitives draw what the phone's Usage popover draws:
+  a quiet heading over one toned card per section, rows at least 44px with a
+  20px icon column, label then value on the end, text from the typography
+  scale (`typography-ui-label`, `typography-meta`) so it follows the phone's
+  text size. Sections take no props for it. The one section that reads the
+  context itself is MCP: its switch moves from the icon column to the row's
+  end, full size, where a phone puts a switch.
+- The sections dialog opens from a button in the drawer's tab row, shown while
+  this tab is open, rather than over the first heading as on the card.
+- Sections mount only while the tab is on screen, so a closed drawer holds no
+  subscriptions.
+
+### Why a separate hidden list and not the shared one
+
+Subagents are off on the phone unless the user turns them on, while on desktop
+every section is on. One shared list could not hold both defaults, and a phone
+and a laptop are set up apart anyway, as the drawer's tabs already are.
 
 ## Data sources
 

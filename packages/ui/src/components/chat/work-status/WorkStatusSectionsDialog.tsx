@@ -25,6 +25,7 @@ import {
 } from './sections';
 import { useUnavailableWorkStatusSections } from './useUnavailableWorkStatusSections';
 import { useWorkStatusExtensionSections, type WorkStatusExtensionSections } from './useWorkStatusExtensionSections';
+import { useWorkStatusHiddenSections } from './useWorkStatusSectionLayout';
 
 /** Built-in sections are named by the host; an extension's by its own title. */
 const useSectionLabel = (extensions: WorkStatusExtensionSections) => {
@@ -84,9 +85,7 @@ export const WorkStatusSectionsDialog: React.FC<{
   onOpenChange: (open: boolean) => void;
 }> = ({ open, onOpenChange }) => {
   const { t } = useI18n();
-  const hidden = useUIStore((state) => state.workStatusHiddenSections);
-  const setSectionVisible = useUIStore((state) => state.setWorkStatusSectionVisible);
-  const setHiddenSections = useUIStore((state) => state.setWorkStatusHiddenSections);
+  const { hidden, setSectionVisible, setHiddenSections } = useWorkStatusHiddenSections();
   const storedOrder = useUIStore((state) => state.workStatusSectionOrder);
   const setSectionOrder = useUIStore((state) => state.setWorkStatusSectionOrder);
   const extensionSections = useWorkStatusExtensionSections();
