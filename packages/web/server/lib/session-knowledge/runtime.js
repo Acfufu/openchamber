@@ -61,7 +61,8 @@ const describeCheckout = ({ directory, branch, placeholder = false }) => {
 const placeholderBranchGuidance = (branch) => `Its name \`${branch}\` is a placeholder OpenChamber generated, not one the user chose,`
   + ' and it is not pushed yet. Name the task with work.name, passing branch too: work.name renames the branch to it.'
   + " Follow the naming the repository's other branches use (`git branch -a`); with none, `<type>/<short-kebab-case>`"
-  + ' with the conventional commit types, such as `fix/login-timeout`. No tool or app prefix.';
+  + ' with the conventional commit types, such as `fix/login-timeout`. No tool or app prefix.'
+  + ' A placeholder made for an issue (`issue-180-merry-salamander`) keeps its `issue-180-`: work.name puts it in front of your name.';
 
 const renderMemorySection = (entries) => entries
   .slice()
