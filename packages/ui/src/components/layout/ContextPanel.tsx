@@ -459,10 +459,10 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
   const isTreeOnly = !isVertical && activeTab?.mode === 'file' && !showsEditor;
   const isExpanded = Boolean(isOpen && zoneView.expanded && !isTreeOnly);
   // A fixed size in px: the one the user resized this zone to, else the
-  // default, whatever surface it shows, so switching surfaces leaves its edge
-  // in place. It does not follow the chat area, so a sidebar toggle or a
+  // default, whatever surface or folder it shows, so switching either leaves
+  // its edge in place. It does not follow the chat area, so a sidebar toggle or a
   // window resize leaves it alone unless the chat would get too small.
-  const manualSize = panelState?.sizeByZone?.[zone];
+  const manualSize = useUIStore((state) => state.contextZoneSizes[zone]);
   const desiredSize = isTreeOnly
     ? contextEditorTreeWidth
     : isVertical
@@ -501,7 +501,7 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
     const editorShown = panel.tabs.some((entry) => entry.mode === 'file' && entry.targetPath)
       && (state.contextEditorVisible || !state.contextEditorTreeVisible);
     if (tab.mode === 'file' && !editorShown) return state.contextEditorTreeWidth;
-    return panel.sizeByZone[otherSide] ?? CONTEXT_ZONE_DEFAULT_WIDTH;
+    return state.contextZoneSizes[otherSide] ?? CONTEXT_ZONE_DEFAULT_WIDTH;
   });
   // The closed right zone still holds the work-status card's column.
   const otherSideReserved = otherSide === 'right' && workStatusReserved && !chatCovered && otherSideWidth === 0
@@ -678,12 +678,12 @@ export const ContextPanel: React.FC<{ zone?: ContextZone }> = ({ zone = 'right' 
     document.documentElement.style.cursor = '';
     if (isTreeOnly) {
       setContextEditorTreeWidth(finalSize);
-    } else if (directoryKey) {
-      setContextZoneSize(directoryKey, zone, finalSize);
+    } else {
+      setContextZoneSize(zone, finalSize);
     }
     setIsResizing(false);
     activeResizePointerIDRef.current = null;
-  }, [clampSizeForDrag, directoryKey, isTreeOnly, setContextEditorTreeWidth, setContextZoneSize, size, zone]);
+  }, [clampSizeForDrag, isTreeOnly, setContextEditorTreeWidth, setContextZoneSize, size, zone]);
 
   // Window-level drag listeners: tracking the pointer via the thin handle and
   // pointer capture is unreliable (capture can fail over iframes and a missed

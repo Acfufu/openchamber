@@ -48,8 +48,9 @@ export const clampContextEditorTreeWidth = (width: number): number =>
   Math.min(480, Math.max(200, Math.round(width)));
 
 const persistedPixelsSchema = z.number().finite().optional().catch(undefined);
-// Older builds stored a size per surface (`widthByMode`, `heightByMode`) and,
-// before that, a share of the chat area (`widthFractionByMode`, ignored). A
+// Builds before v26 kept a directory's sizes on its panel state: one per zone
+// (`sizeByZone`), before that one per surface (`widthByMode`, `heightByMode`),
+// before that a share of the chat area (`widthFractionByMode`, ignored). A
 // state without `sizeByZone` takes each zone's size from the surface it shows.
 const persistedZoneSizesSchema = z.object({
   sizeByZone: z.object({
@@ -129,11 +130,6 @@ type ContextPanelDirectoryState = {
   activeTabId: string | null;
   /** The left and bottom zones. Every zone shows tabs of the surfaces placed in it. */
   zones: MovedZoneViews;
-  /** The size the user resized each zone to, px: the width of a side zone,
-      the height of the bottom one. Every surface the zone shows shares it,
-      so switching surfaces leaves the zone's edge in place; unset opens at
-      the default. */
-  sizeByZone: Partial<Record<ContextZone, number>>;
   touchedAt: number;
 };
 
@@ -516,7 +512,6 @@ const touchContextPanelState = (
     tabs: [],
     activeTabId: null,
     zones: { left: CLOSED_ZONE_VIEW, bottom: CLOSED_ZONE_VIEW },
-    sizeByZone: {},
     touchedAt: Date.now(),
   };
 };
@@ -748,8 +743,15 @@ const withoutForeignComparisons = (
     : panel]));
 };
 
+type LegacyZoneSizes = { sizes: Partial<Record<ContextZone, number>>; touchedAt: number };
+
+/**
+ * Builds before v26 kept zone sizes per directory; `legacySizes` collects
+ * each directory's, so the migration can keep the last one the user worked in.
+ */
 const sanitizeContextPanelByDirectory = (
   value: unknown,
+  legacySizes?: LegacyZoneSizes[],
 ): Record<string, ContextPanelDirectoryState> => {
   if (!value || typeof value !== 'object') {
     return {};
@@ -803,17 +805,23 @@ const sanitizeContextPanelByDirectory = (
     // Placement loads after this, so zones only keep ids that still exist
     // here; touchContextPanelState settles them against the placement.
     const zones = keepZoneViewsOnTabs(zoneViewsSchema.parse(candidate.zones), new Set(clampedTabs.map((tab) => tab.id)));
-    const savedSizes = persistedZoneSizesSchema.parse(rawState);
-    const sizeByZone: Partial<Record<ContextZone, number>> = {};
-    for (const zone of CONTEXT_ZONES) {
-      let pixels = savedSizes.sizeByZone?.[zone];
-      if (!savedSizes.sizeByZone) {
-        // Per-surface sizes: the zone keeps the size of what it showed.
-        const zoneTabId = zone === 'right' ? resolvedTabId : zones[zone].activeTabId;
-        const mode = clampedTabs.find((tab) => tab.id === zoneTabId)?.mode;
-        pixels = mode ? (zone === 'bottom' ? savedSizes.heightByMode : savedSizes.widthByMode)[mode] : undefined;
+    const touchedAt = typeof candidate.touchedAt === 'number' && Number.isFinite(candidate.touchedAt)
+      ? candidate.touchedAt
+      : Date.now();
+    if (legacySizes) {
+      const savedSizes = persistedZoneSizesSchema.parse(rawState);
+      const sizes: Partial<Record<ContextZone, number>> = {};
+      for (const zone of CONTEXT_ZONES) {
+        let pixels = savedSizes.sizeByZone?.[zone];
+        if (!savedSizes.sizeByZone) {
+          // Per-surface sizes: the zone keeps the size of what it showed.
+          const zoneTabId = zone === 'right' ? resolvedTabId : zones[zone].activeTabId;
+          const mode = clampedTabs.find((tab) => tab.id === zoneTabId)?.mode;
+          pixels = mode ? (zone === 'bottom' ? savedSizes.heightByMode : savedSizes.widthByMode)[mode] : undefined;
+        }
+        if (pixels !== undefined) sizes[zone] = clampContextZoneSize(zone, pixels);
       }
-      if (pixels !== undefined) sizeByZone[zone] = clampContextZoneSize(zone, pixels);
+      legacySizes.push({ sizes, touchedAt });
     }
 
     next[directory] = {
@@ -822,10 +830,7 @@ const sanitizeContextPanelByDirectory = (
       tabs: clampedTabs,
       activeTabId: resolvedTabId,
       zones,
-      sizeByZone,
-      touchedAt: typeof candidate.touchedAt === 'number' && Number.isFinite(candidate.touchedAt)
-        ? candidate.touchedAt
-        : Date.now(),
+      touchedAt,
     };
   }
 
@@ -885,6 +890,11 @@ interface UIStore {
       it leaves only the tree, with the file tabs kept open. */
   contextEditorVisible: boolean;
   contextEditorTreeWidth: number;
+  /** The size the user resized each zone to, px: the width of a side zone,
+      the height of the bottom one. One for every project and worktree and
+      every surface the zone shows, so neither switching folders nor
+      switching surfaces moves the zone's edge; unset opens at the default. */
+  contextZoneSizes: Partial<Record<ContextZone, number>>;
   /** Expanded collapsible sections of the in-chat work-status panel, by id. */
   workStatusExpandedSections: Record<string, boolean>;
   /**
@@ -1234,8 +1244,8 @@ interface UIStore {
   closeContextZone: (directory: string, zone: ContextZone) => void;
   /** One zone is expanded at a time; expanding one collapses the others. */
   toggleContextPanelExpanded: (directory: string, zone?: ContextZone) => void;
-  /** Width for a side zone, height for the bottom one; shared by its surfaces. */
-  setContextZoneSize: (directory: string, zone: ContextZone, size: number) => void;
+  /** Width for a side zone, height for the bottom one; shared by its surfaces and folders. */
+  setContextZoneSize: (zone: ContextZone, size: number) => void;
   /**
    * Places a surface in a zone for every project on this device. Where it is
    * on screen it goes along: the zone it left closes and the new one opens on it.
@@ -1499,6 +1509,7 @@ export const useUIStore = create<UIStore>()(
         fileTreeSide: 'right',
         contextEditorVisible: true,
         contextEditorTreeWidth: 240,
+        contextZoneSizes: {},
         workStatusExpandedSections: {},
         messageQueueExpanded: false,
         workStatusScrollTop: 0,
@@ -2250,28 +2261,8 @@ export const useUIStore = create<UIStore>()(
           });
         },
 
-        setContextZoneSize: (directory, zone, size) => {
-          const normalizedDirectory = normalizeDirectoryPath((directory || '').trim());
-          if (!normalizedDirectory) {
-            return;
-          }
-
-          set((state) => {
-            const prev = state.contextPanelByDirectory[normalizedDirectory];
-            const current = touchContextPanelState(prev, state.contextSurfaceZones);
-            const byDirectory = {
-              ...state.contextPanelByDirectory,
-              [normalizedDirectory]: {
-                ...current,
-                sizeByZone: {
-                  ...current.sizeByZone,
-                  [zone]: clampContextZoneSize(zone, size),
-                },
-              },
-            };
-
-            return { contextPanelByDirectory: clampContextPanelRoots(byDirectory, 20) };
-          });
+        setContextZoneSize: (zone, size) => {
+          set((state) => ({ contextZoneSizes: { ...state.contextZoneSizes, [zone]: clampContextZoneSize(zone, size) } }));
         },
 
         moveContextSurfaceToZone: (mode, zone) => {
@@ -3449,7 +3440,7 @@ export const useUIStore = create<UIStore>()(
       {
         name: 'ui-store',
         storage: createDeferredSafeJSONStorage(),
-        version: 25,
+        version: 26,
         migrate: (persistedState, version) => {
           if (!persistedState || typeof persistedState !== 'object') {
             return persistedState;
@@ -3639,9 +3630,17 @@ export const useUIStore = create<UIStore>()(
           delete state.rightSidebarWidth;
           delete state.rightSidebarTab;
 
-          // Every bump reruns this: v24 -> v25 turned per-surface panel sizes
-          // into one size per zone (`sizeByZone`).
-          state.contextPanelByDirectory = sanitizeContextPanelByDirectory(state.contextPanelByDirectory);
+          // Every bump reruns this. v25 -> v26: zone sizes left the directory
+          // panels for one set shared by every folder; the folder the user
+          // worked in last gives it, so the panel keeps the width they see.
+          const legacySizes: LegacyZoneSizes[] = [];
+          state.contextPanelByDirectory = sanitizeContextPanelByDirectory(state.contextPanelByDirectory, legacySizes);
+          if (version < 26) {
+            const latest = legacySizes
+              .filter((entry) => Object.keys(entry.sizes).length > 0)
+              .sort((a, b) => b.touchedAt - a.touchedAt)[0];
+            state.contextZoneSizes = latest?.sizes ?? {};
+          }
 
           if (version < 5) {
             if (!state.shortcutOverrides || typeof state.shortcutOverrides !== 'object') {
@@ -3726,6 +3725,7 @@ export const useUIStore = create<UIStore>()(
           fileTreeSide: state.fileTreeSide,
           contextEditorVisible: state.contextEditorVisible,
           contextEditorTreeWidth: state.contextEditorTreeWidth,
+          contextZoneSizes: state.contextZoneSizes,
           workStatusExpandedSections: state.workStatusExpandedSections,
           messageQueueExpanded: state.messageQueueExpanded,
           workStatusScrollTop: state.workStatusScrollTop,

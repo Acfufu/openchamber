@@ -21,13 +21,16 @@ Full-screen extension pages are separate from this rail registry. `contributes.p
   `availability: 'has-content'` surfaces (chat) are hidden from the
   rail until a tab of their mode exists, and stay visible for as long as one
   does — they must not disappear while in use.
-- A zone has one size whatever surface it shows, so switching surfaces on
-  the rail leaves its edge where it was: 640 px wide for a side zone until the
-  user resizes it (`CONTEXT_ZONE_DEFAULT_WIDTH`), the bottom zone 320 px tall.
-  A resize is remembered in px per zone in
-  `useUIStore.contextPanelByDirectory[dir].sizeByZone` and restored on reload;
-  state from builds that kept a size per surface (`widthByMode`,
-  `heightByMode`) loads each zone at the size of the surface it showed.
+- A zone has one size whatever surface it shows and whatever project or
+  worktree is open, so neither switching surfaces on the rail nor switching
+  folders moves its edge: 640 px wide for a side zone until the user resizes
+  it (`CONTEXT_ZONE_DEFAULT_WIDTH`), the bottom zone 320 px tall. A resize is
+  remembered in px per zone in `useUIStore.contextZoneSizes` and restored on
+  reload. Sizes used to be kept per folder, so a new worktree opened at the
+  default and the user resized it again for every task; state from those
+  builds takes the sizes of the folder touched last, and from builds before
+  that (a size per surface, `widthByMode`, `heightByMode`) each zone takes
+  the size of the surface it showed.
   The width does not follow the chat area: a sidebar toggle or a window resize
   leaves it alone, and it only narrows when it would leave the chat less than
   its minimum column. `ContextPanel` keeps the chat area's width as state only
