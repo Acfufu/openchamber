@@ -14,8 +14,21 @@ import { z } from 'zod';
 // plus its own `opencode.json(c)`.
 //
 // The walk stops below the user's home directory. Levels from home up hold
-// the user's own setup, which no repository can write, and OpenCode's global
-// config lives there too.
+// the user's own setup, which no repository can write. OpenCode's global
+// configuration directories are the user's too: a folder that is one of them
+// reads no project configuration in OpenCode, and a level that is one of them
+// is skipped, as OpenCode skips it.
+
+/** OpenCode's global configuration directories, as `config/discovery.ts` finds them. */
+const defaultGlobalConfigDirectories = () => {
+  const configHome = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), '.config');
+  const system = process.platform === 'darwin'
+    ? '/Library/Application Support/opencode'
+    : process.platform === 'win32'
+      ? path.join(process.env.ProgramData || 'C:\\ProgramData', 'opencode')
+      : '/etc/opencode';
+  return [path.join(configHome, 'opencode'), process.env.OPENCODE_CONFIG_DIR?.trim(), system].filter(Boolean);
+};
 
 const CONFIG_FILES = ['opencode.json', 'opencode.jsonc'];
 const PLUGIN_DIRECTORIES = ['plugin', 'plugins'];
@@ -217,9 +230,11 @@ const pluginDirectoryItems = async (fsPromises, opencodeDirectory, directory) =>
 
 const isDirectoryAt = async (fsPromises, target) => Boolean((await statOrNull(fsPromises, target))?.isDirectory());
 
-const configItems = async (fsPromises, directory, homeDirectory) => {
+const configItems = async (fsPromises, directory, homeDirectory, globalDirectories) => {
+  if (globalDirectories.has(directory)) return [];
   const items = [];
   for (const level of levelsToScan(directory, homeDirectory)) {
+    if (globalDirectories.has(level)) continue;
     const opencodeDirectory = path.join(level, '.opencode');
     if (await isDirectoryAt(fsPromises, opencodeDirectory)) {
       items.push(...await pluginDirectoryItems(fsPromises, opencodeDirectory, directory));
@@ -280,12 +295,16 @@ const fingerprintOf = (items) => (
 export const assessOpenCodeConfig = async (directory, {
   fsPromises = fs.promises,
   homeDirectory = os.homedir(),
+  globalConfigDirectories = defaultGlobalConfigDirectories(),
 } = {}) => {
   const resolved = await fsPromises.realpath(path.resolve(directory)).catch(() => null);
   if (!resolved) {
     return { directory, repositoryKey: path.resolve(directory), fingerprint: null, items: [] };
   }
-  const items = await configItems(fsPromises, resolved, homeDirectory);
+  const globalDirectories = new Set(await Promise.all(globalConfigDirectories.map((candidate) => (
+    fsPromises.realpath(path.resolve(candidate)).catch(() => path.resolve(candidate))
+  ))));
+  const items = await configItems(fsPromises, resolved, homeDirectory, globalDirectories);
   return {
     directory: resolved,
     repositoryKey: await repositoryKey(fsPromises, resolved),

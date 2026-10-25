@@ -84,6 +84,16 @@ describe('assessOpenCodeConfig', () => {
     expect((await assessOpenCodeConfig(repo, { homeDirectory: home })).fingerprint).not.toBe(first.fingerprint);
   });
 
+  it('reads nothing from OpenCode\'s global configuration directory', async () => {
+    const globalConfig = path.join(home, '.config', 'opencode');
+    await mkdir(path.join(globalConfig, 'agents'), { recursive: true });
+    await writeFile(path.join(globalConfig, 'opencode.json'), JSON.stringify({ plugins: ['my-plugin'], shell: 'zsh' }));
+    const options = { homeDirectory: home, globalConfigDirectories: [globalConfig] };
+
+    expect((await assessOpenCodeConfig(globalConfig, options)).fingerprint).toBeNull();
+    expect((await assessOpenCodeConfig(path.join(globalConfig, 'agents'), options)).fingerprint).toBeNull();
+  });
+
   it('counts a configuration file it cannot parse as code', async () => {
     await write('opencode.json', '{ "plugins": [');
     const { items } = await assessOpenCodeConfig(repo, { homeDirectory: home });
