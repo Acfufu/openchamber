@@ -270,7 +270,7 @@ const SESSIONS_INCREMENT = 7;
 
 const HEADER_ESTIMATE = 32;
 // Zone and project headers: their label is a size up from rows (`typography-ui-section`).
-const SECTION_HEADER_ESTIMATE = 35;
+const SECTION_HEADER_ESTIMATE = 34;
 const STATUS_ESTIMATE = 28;
 
 /**

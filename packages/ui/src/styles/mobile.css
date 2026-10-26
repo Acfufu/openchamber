@@ -7,7 +7,7 @@
     --text-markdown: 1rem;
     --text-code: 0.875rem;
     --text-ui-header: 0.9375rem;
-    --text-ui-section: 1.0625rem;
+    --text-ui-section: 1rem;
     --text-ui-label: 0.875rem;
     --text-meta: 0.875rem;
     --text-micro: 0.8125rem;
@@ -19,7 +19,7 @@
     --text-markdown: 1rem !important;
     --text-code: 0.875rem !important;
     --text-ui-header: 0.9375rem !important;
-    --text-ui-section: 1.0625rem !important;
+    --text-ui-section: 1rem !important;
     --text-ui-label: 0.875rem !important;
     --text-meta: 0.875rem !important;
     --text-micro: 0.8125rem !important;
@@ -291,7 +291,7 @@
     }
 
     .typography-ui-section {
-      font-size: 1.0625rem !important;
+      font-size: 1rem !important;
     }
 
     .typography-ui-label {

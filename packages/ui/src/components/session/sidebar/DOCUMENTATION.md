@@ -476,7 +476,7 @@ while In work is), Detailed rows, then Collapse all / Expand all.
   (`SIDEBAR_ACTIVITY_KEYS`: Chats, Pinned, In work and the list by time)
   together. Session folders keep their own collapse state. Zone and project
   headers are sticky. Their labels are bold and a size up from rows
-  (`typography-ui-section`, 1rem on desktop, 1.0625rem on the phone): at
+  (`typography-ui-section`, 0.9375rem on desktop, 1rem on the phone): at
   the row's size and semibold, a project read as one more row (maintainer,
   2026-10-26). A hairline sits in the middle of the gap before every
   project header that has rows above it (`sectionWrapperClass`), so projects
