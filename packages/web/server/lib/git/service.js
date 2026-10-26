@@ -5003,12 +5003,28 @@ const readGitConfigValue = async (directory, key) => {
   return result.success ? String(result.stdout || '').replace(/\r?\n$/, '') : '';
 };
 
+// A worktree made in the background (`returnAfterDirectoryCreated`) runs git
+// while the request that made it goes on to write its branch's records, and
+// git holds `.git/config.lock` for each of its own config writes. A write that
+// lands on that lock is tried again a few times instead of being lost.
+const CONFIG_LOCK_RETRY_DELAYS_MS = [50, 100, 200, 400, 800];
+const isConfigLockError = (result) => /could not lock config file/i.test([result?.message, result?.stderr].filter(Boolean).join('\n'));
+const runGitConfigWrite = async (directory, args) => {
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await runGitCommand(directory, ['config', ...args]);
+    const delay = CONFIG_LOCK_RETRY_DELAYS_MS[attempt];
+    if (result.success || delay === undefined || !isConfigLockError(result)) return result;
+    await wait(delay);
+  }
+};
+
 const writeGitConfigValue = async (directory, key, value) => {
   if (value) {
-    await runGitCommandOrThrow(directory, ['config', key, value], `Failed to write ${key}`);
+    const result = await runGitConfigWrite(directory, [key, value]);
+    if (!result.success) throw new Error(result.message || `Failed to write ${key}`);
     return;
   }
-  const result = await runGitCommand(directory, ['config', '--unset', key]);
+  const result = await runGitConfigWrite(directory, ['--unset', key]);
   // Status 5: the key was not set, which is what unsetting asks for.
   if (!result.success && result.exitCode !== 5) throw new Error(`Failed to clear ${key}`);
 };

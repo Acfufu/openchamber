@@ -6527,6 +6527,16 @@ describe('worktree task titles', () => {
   });
 
   it('keeps the recorded prefix of an issue branch when renaming it', async () => {
+  it('records a generated name even while another git process holds the config lock', async () => {
+    const { repo, linked } = createLinkedWorktree();
+    const lock = path.join(repo, '.git', 'config.lock');
+    fs.writeFileSync(lock, '');
+    // Git holds the lock for a moment, as a worktree being made in the background does.
+    setTimeout(() => fs.rmSync(lock), 120);
+    await markGeneratedBranchName(repo, 'feature/task', 'feature/');
+    expect(await readRenameableGeneratedBranch(linked)).toBe('feature/task');
+  });
+
     const { repo, linked } = createLinkedWorktree();
     runGit(linked, ['branch', '-m', 'feature/task', 'issue-180-merry-salamander']);
     await markGeneratedBranchName(repo, 'issue-180-merry-salamander', 'issue-180-');
