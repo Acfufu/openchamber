@@ -3,8 +3,10 @@ import React from 'react';
 import { Icon } from '@/components/icon/Icon';
 import { BusyDots } from '@/components/ui/busy-dots';
 import { Button } from '@/components/ui/button';
+import { isVSCodeRuntime } from '@/lib/desktop';
 import { useI18n } from '@/lib/i18n';
 import { groupWorkflowAgentsByPhase, type WorkflowRun } from '@/lib/workflows/model';
+import { openWorkflowRunInPanel } from '@/lib/workflows/panel';
 import { useWorkflowRunsStore, useWorkflowRun } from '@/lib/workflows/store';
 import { useUIStore } from '@/stores/useUIStore';
 import { useWorkflowRunAction, workflowRunLook } from './workflowRunPresentation';
@@ -45,12 +47,27 @@ const WorkflowRunCardBody: React.FC<{ run: WorkflowRun }> = ({ run }) => {
   const look = workflowRunLook(run.state);
   const phases = React.useMemo(() => groupWorkflowAgentsByPhase(run), [run]);
   const busy = pending === run.id;
+  // The Workflows panel lives in the context panel, which the phone and VS Code do not have.
+  const isMobile = useUIStore((state) => state.isMobile);
+  const panelAvailable = !isMobile && !isVSCodeRuntime();
 
   return (
     <div data-component="workflow-run" className="my-2 oc-tile rounded-xl px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-2">
         <Icon name="flow-chart" className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 truncate typography-ui-label text-foreground">{run.name}</span>
+        {panelAvailable ? (
+          <button
+            type="button"
+            onClick={() => openWorkflowRunInPanel(run.directory, run.parentSessionId, run.id)}
+            title={t('chat.workStatus.workflow.openRun', { name: run.name })}
+            className="min-w-0 truncate text-start typography-ui-label text-foreground/80 hover:text-foreground"
+            dir="auto"
+          >
+            {run.name}
+          </button>
+        ) : (
+          <span className="min-w-0 truncate typography-ui-label text-foreground" dir="auto">{run.name}</span>
+        )}
         <span className="ms-auto flex shrink-0 items-center gap-1 text-xs" style={look.color ? { color: look.color } : undefined}>
           <Icon name={look.icon} className="size-3.5" />
           {t(look.labelKey)}

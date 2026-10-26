@@ -50,10 +50,23 @@ globalThis.parallel = async (tasks) => {
     return null;
   });
 };
-globalThis.pipeline = (items, step) => {
-  if (!Array.isArray(items)) return Promise.reject(new TypeError('pipeline(items, step) takes a list'));
-  if (typeof step !== 'function') return Promise.reject(new TypeError('pipeline(items, step) takes a function (item, index) => ...'));
-  return globalThis.parallel(items.map((item, index) => () => step(item, index)));
+// Each item runs through every stage on its own, with no wait between stages:
+// one item can be in its third stage while another is in its first. A stage
+// that gives null (a failed agent) ends its item there, so no agent is started
+// on nothing.
+globalThis.pipeline = (items, ...stages) => {
+  if (!Array.isArray(items)) return Promise.reject(new TypeError('pipeline(items, ...stages) takes a list'));
+  if (stages.length === 0 || stages.some((stage) => typeof stage !== 'function')) {
+    return Promise.reject(new TypeError('pipeline(items, ...stages) takes one or more functions (previous, item, index) => ...'));
+  }
+  return globalThis.parallel(items.map((item, index) => async () => {
+    let value = item;
+    for (const stage of stages) {
+      value = await stage(value, item, index);
+      if (value === null || value === undefined) return null;
+    }
+    return value;
+  }));
 };
 `;
 
@@ -99,7 +112,10 @@ const start = ({ prelude, body, args, filename }) => {
       if (typeof prompt !== 'string' || !prompt.trim()) {
         return Promise.reject(new TypeError('agent(prompt, options) needs a non-empty prompt string'));
       }
-      return call('agent', { prompt, options: toJson(options ?? {}), phase: currentPhase });
+      // A phase given to the agent itself wins: inside parallel() and
+      // pipeline() the global phase() may already belong to another branch.
+      const own = options && typeof options.phase === 'string' && options.phase.trim() ? options.phase.trim() : null;
+      return call('agent', { prompt, options: toJson(options ?? {}), phase: own ?? currentPhase });
     },
     phase: (title) => {
       currentPhase = String(title);
@@ -116,7 +132,8 @@ const start = ({ prelude, body, args, filename }) => {
   let running;
   try {
     vm.runInContext(prelude, context, { filename: 'workflow-prelude.js' });
-    context.args = args === undefined ? undefined : toJson(args);
+    // A run without args still reads them as an object, so args.x ?? fallback works.
+    context.args = args === undefined ? {} : toJson(args);
     running = vm.runInContext(body, context, { filename });
   } catch (error) {
     parentPort.postMessage({ type: 'error', message: describeError(error) });

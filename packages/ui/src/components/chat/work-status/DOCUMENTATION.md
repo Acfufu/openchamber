@@ -365,13 +365,18 @@ the row reflects the reset tree rather than a mid-creation snapshot.
 ### Workflow rows
 
 The Workflows section lists the runs the session proposed
-(`packages/web/server/lib/workflows`), newest first. A run's row carries the
-one action its state allows: Run and Don't run while it waits for approval,
-Stop while it runs, Resume after a failure or a stop; a finished run shows its
-state. An open run lists its phases with how many agents finished, and each
-phase its agents; a finished run folds to its row until pressed. An agent row
-opens its session like a subagent row (`useOpenChildSession`, shared with the
-Subagents section).
+(`packages/web/server/lib/workflows`), newest first. Where the context panel
+exists (desktop and web), a run is one row that opens it in the Workflows
+panel (`components/chat/workflows/WorkflowsPanel.tsx`), which shows its agents,
+log, result and script. The row carries Run and Don't run while the run waits
+for approval and Resume after a failure or a stop; a running run shows its
+current phase and how many of its agents finished; a finished run's icon is
+its state, with no word beside it, as in Subagents. Stop lives in the panel
+and on the chat card. On the phone, which has no context panel, a run's row
+carries the same actions plus Stop, an open run lists its phases with how many
+agents finished and each phase its agents, and a finished run folds to its row
+until pressed. An agent row opens its session like a subagent row
+(`useOpenChildSession`, shared with the Subagents section).
 
 A workflow's agents are child sessions of the session too. The Subagents
 section leaves them out, so a run of fifty agents does not bury the session's

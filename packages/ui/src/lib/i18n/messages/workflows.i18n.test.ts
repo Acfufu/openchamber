@@ -3,8 +3,21 @@ import { describe, expect, test } from 'bun:test';
 import { workflowsI18n } from './workflows.i18n';
 
 const locales = ['de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
-// "Workflows" is the word several languages use themselves.
-const sameAsEnglish = (key: string) => key === 'chat.workStatus.section.workflows';
+// Words several languages use themselves: "Workflows", "Agents", "Script",
+// "Log", "Prompt", "Arguments", "Tokens", "JSON".
+const SAME_WORD_KEYS = new Set([
+  'chat.workStatus.section.workflows',
+  'contextPanel.mode.workflows',
+  'workflows.panel.view.agents',
+  'workflows.panel.view.log',
+  'workflows.panel.view.script',
+  'workflows.panel.agent.prompt',
+  'workflows.panel.script.args',
+  'workflows.panel.summary.agents',
+  'workflows.panel.summary.tokens',
+  'workflows.panel.answer.raw',
+]);
+const sameAsEnglish = (key: string) => SAME_WORD_KEYS.has(key);
 
 describe('workflow translations', () => {
   test('provides every key in every supported locale, translated', () => {

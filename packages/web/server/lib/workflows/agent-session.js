@@ -14,9 +14,21 @@ const statusEventSchema = z.object({
   properties: z.object({ sessionID: z.string().min(1), status: z.object({ type: z.string().min(1) }) }),
 });
 const recordSchema = z.object({ id: z.string().min(1), type: z.string() });
+const permissionRuleSchema = z.object({ action: z.string(), resource: z.string(), effect: z.enum(['allow', 'deny', 'ask']) });
 const sessionSchema = z.object({
   id: z.string().min(1),
   model: z.object({ id: z.string().min(1), providerID: z.string().min(1), variant: z.string().optional() }).nullish(),
+  permissions: z.array(permissionRuleSchema).optional(),
+});
+const usageSessionSchema = z.object({
+  model: z.object({ id: z.string().min(1), providerID: z.string().min(1) }).nullish(),
+  cost: z.number(),
+  tokens: z.object({
+    input: z.number(),
+    output: z.number(),
+    reasoning: z.number(),
+    cache: z.object({ read: z.number(), write: z.number() }),
+  }),
 });
 
 export class WorkflowAgentStopped extends Error {
@@ -172,24 +184,40 @@ export const createWorkflowAgentSessions = ({
    * stop can interrupt it. Resolves to `{ sessionId, outcome }`, where outcome
    * is dispatch-results' `{ state, text, errorMessage }`.
    */
-  const start = async ({ directory, parentSessionId, title, agent, model, text, signal, onSession }) => {
+  const start = async ({ directory, parentSessionId, title, agent, model, allowTools = [], text, signal, onSession }) => {
     const client = await getClient(directory);
     let modelRef = model ? parseModelRef(model) : null;
     if (model && !modelRef) throw new Error(`model must be provider/model or provider/model#variant, got ${model}`);
-    if (!modelRef) {
-      // Like a subagent: without a model of its own the agent runs on the
-      // session that started the run.
-      const parent = sessionSchema.safeParse(await client.session.get({ sessionID: parentSessionId }).catch(() => null));
-      if (parent.success && parent.data.model) modelRef = parent.data.model;
-    }
+    const parent = modelRef && allowTools.length === 0
+      ? null
+      : sessionSchema.safeParse(await client.session.get({ sessionID: parentSessionId }).catch(() => null));
+    // Like a subagent: without a model of its own the agent runs on the
+    // session that started the run.
+    if (!modelRef && parent?.success && parent.data.model) modelRef = parent.data.model;
     const request = { parentID: parentSessionId, title };
     if (agent) request.agent = agent;
     if (modelRef) request.model = modelRef;
+    // A child given permissions of its own no longer inherits its parent's, so
+    // they come first and the allows, read last, win. Without the parent's
+    // rules nothing is set: the agent keeps them and answers in plain text,
+    // which the prompt allows for.
+    if (allowTools.length > 0 && parent?.success) {
+      request.permissions = [
+        ...(parent.data.permissions ?? []),
+        ...allowTools.map((tool) => ({ action: tool, resource: '*', effect: 'allow' })),
+      ];
+    }
     const created = sessionSchema.parse(await client.session.create(request));
     onSession(created.id);
     if (signal.aborted) throw new WorkflowAgentStopped();
     const outcome = await prompt(client, created.id, text, signal);
     return { sessionId: created.id, outcome };
+  };
+
+  /** A plain session for a saved workflow the user runs where no session is open. */
+  const createSession = async ({ directory, title }) => {
+    const client = await getClient(directory);
+    return sessionSchema.parse(await client.session.create({ title })).id;
   };
 
   /** A follow-up prompt in an agent's own session, such as a schema correction. */
@@ -198,5 +226,20 @@ export const createWorkflowAgentSessions = ({
     return prompt(client, sessionId, text, signal);
   };
 
-  return { start, followUp, interrupt, postSynthetic, stop: unsubscribe };
+  /**
+   * The model an agent's session ran on and what it spent, as OpenCode keeps
+   * them on the session. Null when the session cannot be read.
+   */
+  const readUsage = async ({ directory, sessionId }) => {
+    const client = await getClient(directory);
+    const session = usageSessionSchema.safeParse(await client.session.get({ sessionID: sessionId }).catch(() => null));
+    if (!session.success) return null;
+    const { model, cost, tokens } = session.data;
+    return {
+      model: model ? `${model.providerID}/${model.id}` : null,
+      usage: { cost, input: tokens.input, output: tokens.output, reasoning: tokens.reasoning, cacheRead: tokens.cache.read, cacheWrite: tokens.cache.write },
+    };
+  };
+
+  return { start, createSession, followUp, interrupt, readUsage, postSynthetic, stop: unsubscribe };
 };

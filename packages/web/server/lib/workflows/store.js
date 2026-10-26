@@ -19,6 +19,16 @@ const agentSchema = z.object({
   model: z.string().optional(),
   schema: z.unknown().optional(),
   sessionId: z.string().optional(),
+  // Read from the agent's session once its call settles.
+  modelUsed: z.string().optional(),
+  usage: z.object({
+    cost: z.number(),
+    input: z.number(),
+    output: z.number(),
+    reasoning: z.number(),
+    cacheRead: z.number(),
+    cacheWrite: z.number(),
+  }).optional(),
   state: z.enum(['queued', 'running', 'completed', 'failed', 'stopped']),
   replayed: z.boolean().optional(),
   startedAt: z.number().optional(),
@@ -41,6 +51,8 @@ const runSchema = z.object({
   args: z.unknown().optional(),
   state: z.enum(RUN_STATES),
   attempt: z.number().int().nonnegative(),
+  // Absent in runs saved before the limit counted across attempts.
+  agentsStarted: z.number().int().nonnegative().optional(),
   createdAt: z.number(),
   startedAt: z.number().optional(),
   endedAt: z.number().optional(),
@@ -145,5 +157,28 @@ export const createWorkflowRunStore = ({ fsPromises, path, dataDir, now = Date.n
     return [...runs.values()].sort((left, right) => left.createdAt - right.createdAt);
   };
 
-  return { version: FILE_VERSION, load, save, get, list, flush: () => writeChain };
+  /**
+   * Deletes a run's file. Resolves once it is gone; a failed removal rejects
+   * and puts the run back, so it never vanishes from the list only to come
+   * back after a restart.
+   */
+  const remove = async (id) => {
+    await load();
+    const run = runs.get(id);
+    if (!run) return false;
+    runs.delete(id);
+    const removal = writeChain.then(() => fsPromises.rm(fileFor(id), { force: true }));
+    writeChain = removal.catch((error) => {
+      console.warn(`[workflows] failed to delete run ${id}:`, error?.message ?? error);
+    });
+    try {
+      await removal;
+    } catch (error) {
+      runs.set(id, run);
+      throw error;
+    }
+    return true;
+  };
+
+  return { version: FILE_VERSION, load, save, get, list, remove, flush: () => writeChain };
 };

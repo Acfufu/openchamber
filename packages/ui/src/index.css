@@ -1250,6 +1250,15 @@ diffs-container {
   display: inline;
 }
 
+/* Workflows panel header: gives up room in steps while its row does not fit,
+   as measured by useToolbarFit; each step keeps the ones before it. The view
+   labels go first, then the run action's label, last the run's name. */
+[data-workflows-header-compact] .workflows-header__label,
+[data-workflows-header-tight] .workflows-header__action-label,
+[data-workflows-header-narrow] .workflows-header__run-name {
+  display: none;
+}
+
 /* Pull request actions: the walkthrough label goes first, since merge controls
    are the reason the row exists. */
 @container pr-actions (max-width: 30rem) {

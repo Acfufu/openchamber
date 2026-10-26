@@ -167,6 +167,23 @@ export const OPENCHAMBER_WORKFLOW_ACTIONS = Object.freeze(
 );
 
 /**
+ * How a workflow agent asked for a schema answer hands it over. A tool of its
+ * own: the managed config denies it in every session
+ * (`../agent-tool/runtime.js`, `managedPermissionRules`) and the session of a
+ * workflow agent asked for one allows it (`../workflows/agent-session.js`), so
+ * no other session carries its declaration.
+ */
+export const WORKFLOW_ANSWER_TOOL = 'openchamber_workflow_answer';
+
+export const OPENCHAMBER_WORKFLOW_ANSWER_ACTION_DEFINITIONS = Object.freeze([
+  { action: 'workflow.answer', title: 'Submit a workflow answer', description: 'Only for a workflow agent whose prompt asks for it: answer, a JSON value matching the schema in that prompt. Checked on the spot; a mismatch says what to fix' },
+]);
+
+export const OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS = Object.freeze(
+  OPENCHAMBER_WORKFLOW_ANSWER_ACTION_DEFINITIONS.map(({ action }) => action),
+);
+
+/**
  * Which actions each managed tool may ask for.
  *
  * The callback needs this because models routinely drop the namespace: asked
@@ -185,6 +202,7 @@ const ACTIONS_BY_TOOL = Object.freeze({
   openchamber_notify: OPENCHAMBER_NOTIFY_ACTIONS,
   openchamber_render: OPENCHAMBER_RENDER_ACTIONS,
   openchamber_workflow: OPENCHAMBER_WORKFLOW_ACTIONS,
+  [WORKFLOW_ANSWER_TOOL]: OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 });
 
 const bareName = (action) => {
@@ -235,4 +253,5 @@ export const OPENCHAMBER_ALL_ACTIONS = Object.freeze([
   ...OPENCHAMBER_NOTIFY_ACTIONS,
   ...OPENCHAMBER_RENDER_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ACTIONS,
+  ...OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 ]);

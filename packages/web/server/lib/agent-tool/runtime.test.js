@@ -492,11 +492,16 @@ describe('managed agent tool runtime', () => {
       'workflow.check', 'workflow.run', 'workflow.status', 'workflow.result', 'workflow.stop', 'workflow.resume', 'workflow.save', 'workflow.list',
     ]);
     const parameters = tools.openchamber_workflow.input.properties.parameters.properties;
-    expect(parameters.script.description).toContain('agent(prompt, { label, agent, model, schema })');
+    expect(parameters.script.description).toContain('agent(prompt, { label, phase, agent, model, schema })');
     expect(Object.keys(parameters)).toEqual(['script', 'name', 'args', 'runId', 'agent', 'overwrite']);
+    // The answer tool comes along, direct; the managed config denies it outside workflow agents.
+    expect(tools.openchamber_workflow_answer.options).toEqual({ codemode: false });
+    expect(Object.keys(tools.openchamber_workflow_answer.input.properties.parameters.properties)).toEqual(['answer']);
 
     await prepareManagedEnv(runtime, { includeControl: true });
-    expect((await loadTools(dataDir, 'workflow-tool-off')).openchamber_workflow).toBeUndefined();
+    const off = await loadTools(dataDir, 'workflow-tool-off');
+    expect(off.openchamber_workflow).toBeUndefined();
+    expect(off.openchamber_workflow_answer).toBeUndefined();
   });
 
   it('runs the one action of a single-action tool, reviving a call stuffed into the action as JSON', async () => {

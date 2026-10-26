@@ -190,6 +190,37 @@ registered provider, as it did before hosts were read. Closing a Tracker whose
 account disconnected waits until any provider's default instance has answered
 an auth check.
 
+## Workflows
+
+The `workflows` surface shows the workflow runs of the project, every
+session's (`components/chat/workflows/WorkflowsPanel.tsx`), one run at a time.
+Workflows belong to the project as project actions do (`lib/workflows/project.ts`):
+its runs are those of sessions in the project's folder and in its worktrees, and
+its saved workflows are the project folder's, also when the session is in a
+worktree. The run picker, the views (agents, log, result, script) and the run's
+one action share the panel header, which gives up labels as it narrows
+(`useToolbarFit`).
+The picker lists the session on screen's runs first, then the other sessions'
+with their session named, then the project's saved workflows. A run of another
+session keeps all of this and adds Open session. Running a saved workflow asks
+first, then starts it in the session on screen, or in a new session when none
+is open (a draft), which opens; the run is that session's as if its agent had
+started it, and its report comes back there. With no runs the panel lists the
+saved workflows to run. The agents view lists each phase's agents with model,
+time, tokens and cost above a summary line, and a row opens to the agent's
+answer; a JSON answer or result is laid out as fields, with a list of records
+as one block each (`WorkflowAnswerBlock`), and the JSON itself one toggle away.
+Which run it shows is per session (per directory with no session open) and
+memory only (`lib/workflows/panel.ts`): the session's newest, else the
+project's. The picker deletes a finished run after a confirmation; the removal
+reaches every client as an event, and a read on its way never brings it back.
+
+Its rail icon shows while the project (worktrees included) has a run or a saved workflow or a
+Workflows tab is open (`useWorkflowsSurfaceShown`, and `isWorkflowsSurfaceShown`
+for the shortcut), never in VS Code, and in a build without workflows it is
+absent from the rail and from the rail's surfaces dialog, so the unreleased
+feature is not named anywhere.
+
 ## Panel header
 
 The panel has one header row. A single-instance surface with its own toolbar

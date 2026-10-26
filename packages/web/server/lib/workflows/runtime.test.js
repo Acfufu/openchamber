@@ -27,23 +27,26 @@ const waitFor = async (check, timeoutMs = 5_000) => {
  * Agent sessions without OpenCode: `answer(prompt, attempt)` decides each
  * reply. A prompt listed in `hang` runs until the run stops it.
  */
-const fakeAgentSessions = ({ answer = (prompt) => `done: ${prompt}`, hang = [] } = {}) => {
+const fakeAgentSessions = ({ answer = (prompt) => `done: ${prompt}`, hang = [], duringTurn = async () => {} } = {}) => {
   let nextSession = 0;
   let running = 0;
   const fake = {
     started: [],
+    allowed: [],
     followUps: [],
     interrupted: [],
     maxRunning: 0,
     reports: [],
-    start: async ({ text, signal, onSession }) => {
+    start: async ({ text, allowTools, signal, onSession }) => {
       nextSession += 1;
       const sessionId = `ses_agent${nextSession}`;
       fake.started.push(text);
+      fake.allowed.push(allowTools);
       onSession(sessionId);
       running += 1;
       fake.maxRunning = Math.max(fake.maxRunning, running);
       try {
+        await duringTurn(sessionId, text);
         if (hang.some((prompt) => text.startsWith(prompt))) {
           await new Promise((_, reject) => signal.addEventListener('abort', () => reject(new WorkflowAgentStopped()), { once: true }));
         }
@@ -61,6 +64,11 @@ const fakeAgentSessions = ({ answer = (prompt) => `done: ${prompt}`, hang = [] }
     interrupt: async (_, sessionId) => {
       fake.interrupted.push(sessionId);
     },
+    createSession: async ({ title }) => `ses_new_${title}`,
+    readUsage: async ({ sessionId }) => ({
+      model: 'openai/gpt-6-luna',
+      usage: { cost: 0.01, input: 100, output: sessionId.length, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+    }),
   };
   return fake;
 };
@@ -112,6 +120,10 @@ describe('workflow runtime', () => {
     expect(report.body.text).toContain('done: check a');
     expect(events.some((event) => event.type === 'openchamber:workflow-run' && event.properties.run.state === 'completed')).toBe(true);
     expect(await act('workflow.result', { runId: proposed.runId, agent: status.agents[1].sessionId })).toMatchObject({ agent: { result: 'done: check b' } });
+    // The panel's numbers and its detail reads.
+    expect(status.agents[0]).toMatchObject({ model: 'openai/gpt-6-luna', usage: { cost: 0.01, input: 100 } });
+    expect(await runtime.detail({ runId: proposed.runId })).toMatchObject({ script: expect.stringContaining('pipeline(args.items'), args: { items: ['a', 'b'] }, result: ['done: check a', 'done: check b'] });
+    expect(await runtime.agentDetail({ runId: proposed.runId, key: status.agents[1].key })).toMatchObject({ prompt: 'check b', result: 'done: check b' });
   });
 
   it('keeps at most the concurrency limit of agents working', async () => {
@@ -131,10 +143,161 @@ describe('workflow runtime', () => {
     const { runId } = await act('workflow.run', { script: script(`return agent('list files', { schema: ${schema} })`) });
     await runtime.approve({ runId });
     const status = await finished(runId);
-    expect(agents.started[0]).toContain('Answer with only a JSON value');
-    expect(agents.followUps).toEqual(['Your answer does not match the schema: the answer is not JSON. Answer again with only the JSON value.']);
+    expect(agents.started[0]).toContain('openchamber_workflow_answer');
+    expect(agents.allowed[0]).toEqual(['openchamber_workflow_answer']);
+    expect(agents.followUps).toEqual(['No accepted answer yet: the answer is not JSON. Hand it over with the openchamber_workflow_answer tool, or end your turn with only the JSON value.']);
     expect(await act('workflow.result', { runId })).toMatchObject({ result: { files: ['a.ts'] } });
     expect(status.state).toBe('completed');
+  });
+
+  it('takes the answer the tool accepted over the final text, and refuses one that does not match', async () => {
+    let runtimeRef = null;
+    const replies = [];
+    const agents = fakeAgentSessions({
+      answer: () => 'Done, see the tool call.',
+      duringTurn: async (sessionId) => {
+        const submit = (value) => runtimeRef.executeAction('workflow.answer', { answer: value }, { sessionId, directory: '/repo' }).then(
+          (data) => replies.push(data),
+          (error) => replies.push(error.message),
+        );
+        await submit('{"files":"a.ts"}');
+        await submit('{"files":["b.ts"]}');
+      },
+    });
+    const { runtime, act, finished } = await setup(agents);
+    runtimeRef = runtime;
+    const schema = "{ type: 'object', required: ['files'], properties: { files: { type: 'array' } } }";
+    const { runId } = await act('workflow.run', { script: script(`return agent('list files', { schema: ${schema} })`) });
+    await runtime.approve({ runId });
+    expect((await finished(runId)).state).toBe('completed');
+    expect(replies[0]).toContain('does not match the schema');
+    expect(replies[1]).toMatchObject({ accepted: true });
+    expect(agents.followUps).toEqual([]);
+    expect(await act('workflow.result', { runId })).toMatchObject({ result: { files: ['b.ts'] } });
+  });
+
+  it('keeps an accepted answer when the turn then ends in an error, and takes "42" as a string where a string is wanted', async () => {
+    let runtimeRef = null;
+    const replies = [];
+    const agents = fakeAgentSessions({
+      answer: () => null,
+      duringTurn: async (sessionId) => {
+        replies.push(await runtimeRef.executeAction('workflow.answer', { answer: '42' }, { sessionId, directory: '/repo' }));
+      },
+    });
+    const { runtime, act, finished } = await setup(agents);
+    runtimeRef = runtime;
+    const { runId } = await act('workflow.run', { script: script("return agent('pick a number', { schema: { type: 'string' } })") });
+    await runtime.approve({ runId });
+    expect((await finished(runId)).state).toBe('completed');
+    expect(replies[0]).toMatchObject({ accepted: true });
+    expect(await act('workflow.result', { runId })).toMatchObject({ result: '42' });
+  });
+
+  it('counts an agent against the limit only once it starts, and moves the run to the phase its agent names', async () => {
+    const agents = fakeAgentSessions({ hang: ['slow'] });
+    const { runtime, act, finished, store } = await setup(agents, { maxConcurrentAgents: 1 });
+    const body = "return parallel([() => agent('slow', { phase: 'Verify' }), () => agent('b'), () => agent('c')])";
+    const { runId } = await act('workflow.run', { script: script(body) });
+    await runtime.approve({ runId });
+    await waitFor(async () => (await act('workflow.status', { runId })).agents.some((agent) => agent.state === 'running'));
+    const running = await act('workflow.status', { runId });
+    expect(running.currentPhase).toBe('Verify');
+    expect(running.phases).toEqual(['Work', 'Verify']);
+
+    await runtime.stop({ runId });
+    await finished(runId);
+    // b and c were still waiting for a slot.
+    expect((await store.get(runId)).agentsStarted).toBe(1);
+  });
+
+  it('deletes a finished run and announces it, and refuses one that is still waiting', async () => {
+    const agents = fakeAgentSessions();
+    const { runtime, act, finished, store, events } = await setup(agents);
+    const waiting = await act('workflow.run', { script: script("return agent('x')") });
+    await expect(runtime.remove({ runId: waiting.runId })).rejects.toThrow('Stop or decline');
+
+    const { runId } = await act('workflow.run', { script: script("return agent('y')") });
+    await runtime.approve({ runId });
+    await finished(runId);
+    await expect(runtime.remove({ runId })).resolves.toEqual({ runId, removed: true });
+    expect(await store.get(runId)).toBeNull();
+    expect(events.at(-1)).toEqual({ type: 'openchamber:workflow-run-removed', properties: { runId, parentSessionId: 'ses_parent' } });
+    expect((await runtime.list({ sessionId: 'ses_parent' })).map((run) => run.id)).toEqual([waiting.runId]);
+  });
+
+  it('takes an answer as a JSON object, and as { value } for a schema that is not an object', async () => {
+    let runtimeRef = null;
+    const agents = fakeAgentSessions({
+      answer: () => 'done',
+      duringTurn: async (sessionId, text) => {
+        const answer = text.includes('pick') ? { value: 'blue' } : { files: ['a.ts'] };
+        await runtimeRef.executeAction('workflow.answer', { answer }, { sessionId, directory: '/repo' });
+      },
+    });
+    const { runtime, act, finished } = await setup(agents);
+    runtimeRef = runtime;
+    const body = "return parallel([() => agent('pick a color', { schema: { type: 'string' } }), () => agent('list files', { schema: { type: 'object', required: ['files'] } })])";
+    const { runId } = await act('workflow.run', { script: script(body) });
+    await runtime.approve({ runId });
+    expect((await finished(runId)).state).toBe('completed');
+    expect(agents.started[0]).toContain('pass { "value": <your value> }');
+    expect(await act('workflow.result', { runId })).toMatchObject({ result: ['blue', { files: ['a.ts'] }] });
+  });
+
+  it('keeps a run deleted while its report was still on its way', async () => {
+    const agents = fakeAgentSessions();
+    let release = () => {};
+    const held = new Promise((resolve) => { release = resolve; });
+    const { runtime, act, store } = await setup(agents, { postSynthetic: () => held });
+    const { runId } = await act('workflow.run', { script: script("return agent('x')") });
+    await runtime.approve({ runId });
+    await waitFor(async () => (await act('workflow.status', { runId })).state === 'completed');
+
+    await runtime.remove({ runId });
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await store.flush();
+    expect(await store.get(runId)).toBeNull();
+  });
+
+  it('takes an answer accepted during a correction even when that turn ends in an error', async () => {
+    let runtimeRef = null;
+    const agents = fakeAgentSessions({ answer: () => 'not json' });
+    agents.followUp = async ({ sessionId }) => {
+      await runtimeRef.executeAction('workflow.answer', { answer: { files: ['a.ts'] } }, { sessionId, directory: '/repo' });
+      return { state: 'error', text: '', errorMessage: 'provider dropped the stream' };
+    };
+    const { runtime, act, finished } = await setup(agents);
+    runtimeRef = runtime;
+    const { runId } = await act('workflow.run', { script: script("return agent('list files', { schema: { type: 'object', required: ['files'] } })") });
+    await runtime.approve({ runId });
+    expect((await finished(runId)).state).toBe('completed');
+    expect(await act('workflow.result', { runId })).toMatchObject({ result: { files: ['a.ts'] } });
+  });
+
+  it("runs a saved workflow at once in the given session, or in a new one, and lists a directory's runs", async () => {
+    const agents = fakeAgentSessions();
+    const { runtime, act, dataDir } = await setup(agents);
+    await act('workflow.save', { script: script("return agent('x')") });
+    expect(await runtime.listSaved({ directory: dataDir })).toEqual({ workflows: [{ name: 'test-flow', description: 'A test' }] });
+
+    const here = await runtime.startSaved({ directory: dataDir, sessionId: 'ses_parent', name: 'test-flow' });
+    const fresh = await runtime.startSaved({ directory: dataDir, sessionId: null, name: 'test-flow' });
+    expect(here.sessionId).toBe('ses_parent');
+    expect(fresh.sessionId).toBe('ses_new_test-flow');
+    await waitFor(() => agents.reports.length === 2);
+    const runs = await runtime.listByDirectory({ directories: [dataDir, '/elsewhere'] });
+    expect(runs.map((run) => [run.parentSessionId, run.state]).sort()).toEqual([['ses_new_test-flow', 'completed'], ['ses_parent', 'completed']]);
+    // Started by the user's click, yet the session's own run: its report wakes it.
+    expect(agents.reports.every((report) => report.body.resume === true)).toBe(true);
+  });
+
+  it('refuses the answer tool to a session that is not a workflow agent asked for one', async () => {
+    const agents = fakeAgentSessions();
+    const { runtime } = await setup(agents);
+    await expect(runtime.executeAction('workflow.answer', { answer: '{}' }, { sessionId: 'ses_other', directory: '/repo' }))
+      .rejects.toThrow('only for a workflow agent');
   });
 
   it('resumes a failed run and reuses the agents that completed', async () => {
@@ -154,12 +317,28 @@ describe('workflow runtime', () => {
     expect(status.agents.map((agent) => [agent.label, Boolean(agent.replayed)])).toEqual([['one', true], ['two', false]]);
   });
 
+  it('counts the agent limit across attempts, not per attempt', async () => {
+    const agents = fakeAgentSessions({ answer: () => null });
+    const { runtime, act, finished } = await setup(agents, { maxAgentsPerRun: 3 });
+    const body = "const answers = await parallel([() => agent('a'), () => agent('b')])\nif (answers.includes(null)) throw new Error('an agent failed')\nreturn answers";
+    const { runId } = await act('workflow.run', { script: script(body) });
+    await runtime.approve({ runId });
+    expect((await finished(runId)).state).toBe('failed');
+
+    await act('workflow.resume', { runId });
+    await waitFor(() => agents.reports.length === 2);
+    // Two in the first attempt, one more in the second, then the limit refuses.
+    expect(agents.started).toHaveLength(3);
+    expect((await act('workflow.status', { runId })).logs.some((line) => line.message.includes('across its attempts'))).toBe(true);
+  });
+
   it('stops a run: running agents are interrupted and the report does not wake the session', async () => {
     const agents = fakeAgentSessions({ hang: ['slow'] });
     const { runtime, act, finished } = await setup(agents);
     const { runId } = await act('workflow.run', { script: script("return parallel([() => agent('slow 1'), () => agent('slow 2')])") });
     await runtime.approve({ runId });
-    await waitFor(async () => (await act('workflow.status', { runId })).agents.filter((agent) => agent.state === 'running').length === 2);
+    // Working means in a session: an agent is saved as running just before its session exists.
+    await waitFor(async () => (await act('workflow.status', { runId })).agents.filter((agent) => agent.state === 'running' && agent.sessionId).length === 2);
 
     await runtime.stop({ runId });
     const status = await finished(runId);

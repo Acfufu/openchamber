@@ -19,6 +19,17 @@ const workflowAgentSchema = z.object({
   replayed: z.boolean().optional(),
   startedAt: z.number().optional(),
   endedAt: z.number().optional(),
+  /** The model it ran on (`provider/model`), or asked for while it runs. */
+  model: z.string().optional(),
+  /** What its session spent; read once the agent's call settles. */
+  usage: z.object({
+    cost: z.number(),
+    input: z.number(),
+    output: z.number(),
+    reasoning: z.number(),
+    cacheRead: z.number(),
+    cacheWrite: z.number(),
+  }).optional(),
   error: z.string().optional(),
   preview: z.string().optional(),
 });
@@ -48,6 +59,82 @@ export type WorkflowAgent = z.infer<typeof workflowAgentSchema>;
 export type WorkflowAgentState = WorkflowAgent['state'];
 
 export const workflowRunListSchema = z.object({ runs: z.array(workflowRunSchema) });
+
+/**
+ * An answer as the panel shows it: text an agent or script wrote, read as
+ * markdown, or a JSON value (a schema answer, a script's object), shown as JSON.
+ */
+/**
+ * A JSON value as a tree the panel can lay out: lists of records become
+ * cards, records become labelled fields, everything else reads as text.
+ */
+export type JsonNode =
+  | { kind: 'scalar'; text: string; tone: 'string' | 'number' | 'boolean' | 'null' }
+  | { kind: 'list'; items: JsonNode[] }
+  | { kind: 'record'; entries: [string, JsonNode][] };
+
+const jsonNodeSchema: z.ZodType<JsonNode> = z.lazy(() => z.union([
+  z.string().transform((text): JsonNode => ({ kind: 'scalar', text, tone: 'string' })),
+  z.number().transform((value): JsonNode => ({ kind: 'scalar', text: String(value), tone: 'number' })),
+  z.boolean().transform((value): JsonNode => ({ kind: 'scalar', text: String(value), tone: 'boolean' })),
+  z.null().transform((): JsonNode => ({ kind: 'scalar', text: 'null', tone: 'null' })),
+  z.array(jsonNodeSchema).transform((items): JsonNode => ({ kind: 'list', items })),
+  z.record(z.string(), jsonNodeSchema).transform((record): JsonNode => ({ kind: 'record', entries: Object.entries(record) })),
+]));
+
+const workflowAnswerSchema = z.union([
+  z.string().transform((text) => ({ kind: 'text' as const, text })),
+  z.json().transform((value) => ({ kind: 'json' as const, value, tree: jsonNodeSchema.parse(value) })),
+]);
+
+export type WorkflowAnswer = z.infer<typeof workflowAnswerSchema>;
+
+/** What the Workflows panel reads of one run beyond its summary. */
+export const workflowRunDetailSchema = z.object({
+  runId: z.string().min(1),
+  logs: z.array(z.object({ at: z.number(), message: z.string() })),
+  script: z.string(),
+  // Whatever JSON the agent passed: an object by convention, a list or a string allowed.
+  args: z.json().optional(),
+  result: workflowAnswerSchema.optional(),
+});
+
+export type WorkflowRunDetail = z.infer<typeof workflowRunDetailSchema>;
+
+/** One agent's prompt and full answer. */
+export const workflowAgentDetailSchema = z.object({
+  key: z.string().min(1),
+  prompt: z.string(),
+  schema: z.json().optional(),
+  result: workflowAnswerSchema.optional(),
+  error: z.string().optional(),
+});
+
+export type WorkflowAgentDetail = z.infer<typeof workflowAgentDetailSchema>;
+
+/** Tokens an agent spent on its own work; cache reads are left out, they dwarf the rest and cost little. */
+export const workflowAgentTokens = (agent: WorkflowAgent): number | null => (
+  agent.usage ? agent.usage.input + agent.usage.output + agent.usage.reasoning + agent.usage.cacheWrite : null
+);
+
+type WorkflowRunTotals = { tokens: number; cost: number; measured: number };
+
+/** What these agents spent, over those whose session was read; replayed answers cost nothing this attempt. */
+export const workflowAgentsTotals = (agents: readonly WorkflowAgent[]): WorkflowRunTotals => {
+  let tokens = 0;
+  let cost = 0;
+  let measured = 0;
+  for (const agent of agents) {
+    if (agent.replayed || !agent.usage) continue;
+    tokens += workflowAgentTokens(agent) ?? 0;
+    cost += agent.usage.cost;
+    measured += 1;
+  }
+  return { tokens, cost, measured };
+};
+
+/** The whole run's spend, the same way. */
+export const workflowRunTotals = (run: WorkflowRun): WorkflowRunTotals => workflowAgentsTotals(run.agents);
 
 /** A run that is still going or still waiting for the user. */
 export const isWorkflowRunOpen = (run: WorkflowRun): boolean => run.state === 'running' || run.state === 'awaiting-approval';

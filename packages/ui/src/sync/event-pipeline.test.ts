@@ -238,10 +238,12 @@ describe("createEventPipeline", () => {
       [
         { type: "openchamber:workflow-run", properties: { run: { ...run, state: "exploded" } } },
         { type: "openchamber:workflow-run", properties: { run } },
+        { type: "openchamber:workflow-run-removed", properties: { runId: "wf_one", parentSessionId: "ses_1" } },
       ],
-      1,
+      2,
     )
     expect(events[0]).toEqual({ type: "openchamber.workflow-run", properties: { run } })
+    expect(events[1]).toEqual({ type: "openchamber.workflow-run-removed", properties: { runId: "wf_one", parentSessionId: "ses_1" } })
   })
 
   test("ignores payloads that are neither wire events nor bridge events", async () => {

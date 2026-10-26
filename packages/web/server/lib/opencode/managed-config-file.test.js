@@ -275,6 +275,8 @@ describe('managed OpenCode config file', () => {
     const present = await createHarness({ settings: toolsOff, workflowAvailable: true });
     await present.runtime.buildManagedChildEnv();
     expect(present.agentToolRuntime.materializePlugin).toHaveBeenCalledWith(expect.objectContaining({ includeWorkflow: true }));
+    // The answer tool is denied everywhere; a workflow agent's session allows it.
+    expect((await present.readConfigFile()).permissions).toEqual([{ action: 'openchamber_workflow_answer', resource: '*', effect: 'deny' }]);
 
     present.current.settings = { ...toolsOff, agentWorkflowToolEnabled: false };
     await present.runtime.refreshManagedConfigFile();

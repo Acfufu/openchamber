@@ -192,6 +192,12 @@ const openchamberWorkflowRunSchema = z.object({
   properties: z.object({ run: workflowRunSchema }),
 })
 
+// The user deleted a finished workflow run.
+const openchamberWorkflowRunRemovedSchema = z.object({
+  type: z.literal("openchamber:workflow-run-removed"),
+  properties: z.object({ runId: z.string().min(1), parentSessionId: z.string().min(1) }),
+})
+
 // The host's announcement of an isolated space's event connection. It is not an event of any
 // session, so it never enters a directory queue; the pipeline hands it to its owner.
 const openchamberSpaceStreamSchema = z.object({
@@ -331,6 +337,10 @@ function translateOpenchamberEvent(type: string, payload: unknown): SyncEvent | 
     case "openchamber:workflow-run": {
       const parsed = openchamberWorkflowRunSchema.safeParse(payload)
       return parsed.success ? { type: "openchamber.workflow-run", properties: parsed.data.properties } : null
+    }
+    case "openchamber:workflow-run-removed": {
+      const parsed = openchamberWorkflowRunRemovedSchema.safeParse(payload)
+      return parsed.success ? { type: "openchamber.workflow-run-removed", properties: parsed.data.properties } : null
     }
     default:
       return null

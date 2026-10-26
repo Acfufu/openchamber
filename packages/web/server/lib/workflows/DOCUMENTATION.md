@@ -23,15 +23,33 @@ the tool is on unless the user switches it off (`agentWorkflowToolEnabled`).
   only `agent()`, `parallel()`, `pipeline()`, `phase()`, `log()` and `args`.
 - `agent-session.js`: one workflow agent is one OpenCode child session of the
   proposing session (`parentID`), prompted once and awaited until its turn
-  ends; a schema correction is a follow-up prompt in the same session. Also
-  posts the report as a synthetic message.
+  ends; a schema correction is a follow-up prompt in the same session. An
+  agent asked for a schema answer gets its parent's permission rules plus an
+  allow for `openchamber_workflow_answer`. Also posts the report as a synthetic
+  message.
 - `json-schema.js`: the small part of JSON Schema `agent({ schema })` checks.
 - `store.js`: run files under `<data-dir>/workflow-runs/`, one per run.
 - `runtime.js`: the run lifecycle, the limits, replay, the report, and the
   agent tool's `workflow.*` actions (`executeAction`).
-- `routes.js`: the user's side for the chat card and the work-status panel:
-  `GET /api/openchamber/workflows?sessionId=` and
-  `POST /api/openchamber/workflows/:runId/{approve,decline,stop,resume}`.
+- `routes.js`: the user's side for the chat card, the work-status panel and
+  the Workflows panel: `GET /api/openchamber/workflows?sessionId=` or
+  `?directory=` (run summaries of a session or of every session in a
+  directory), `GET /api/openchamber/workflows/saved?directory=` (the project's
+  saved workflows), `POST /api/openchamber/workflows/start` (the user runs a
+  saved workflow: in the given session, or a new one made for it, started at
+  once since the click is the approval, reported back and waking that session
+  like a run its agent proposed), `GET /api/openchamber/workflows/:runId` (the last 200 log lines, the
+  script, args and result), `GET /api/openchamber/workflows/:runId/agents/:key`
+  (one agent's prompt and full answer),
+  `POST /api/openchamber/workflows/:runId/{approve,decline,stop,resume}` and
+  `DELETE /api/openchamber/workflows/:runId`. Delete takes only a finished
+  run (a running or waiting one is stopped or declined first), removes its
+  file and an undelivered report with it, and broadcasts
+  `openchamber:workflow-run-removed`; the agents' sessions stay. The agent tool
+  has no delete action: removing a run is the user's call.
+- Each agent's model and spend (`modelUsed`, `usage`: cost and tokens) are read
+  from its session once its call settles and kept on the run, so the panel
+  shows them after the sessions are gone; a failed read leaves them out.
 
 The tool declaration (description, parameters, the scripting guide on
 `script`) lives with the other managed tools in `../agent-tool/runtime.js`;
@@ -47,8 +65,11 @@ workflow in `../session-knowledge/runtime.js` (`WORKFLOW_GUIDANCE`).
    it as `declined`.
 3. Running: the sandbox calls `agent()`, each call waits for a slot
    (`MAX_CONCURRENT_AGENTS`), creates its child session and waits for its turn.
-   Every change is saved and broadcast as `openchamber:workflow-run`
-   (throttled per run) with the run's summary.
+   Every change is broadcast as `openchamber:workflow-run` (throttled per run)
+   with the run's summary. The file is saved at each state change and when an
+   agent starts, gets its session and ends, so a restart loses at most the log
+   lines and phase moves since, and an agent that was working shows as stopped
+   with its session, counted against the limit.
 4. The script returns (`completed`), throws (`failed`), or is stopped
    (`stopped`). Agents still running are interrupted and counted as stopped.
 5. The report, a synthetic message `<openchamber-workflow …>` with metadata
@@ -64,15 +85,46 @@ session proposed. `workflow.save` writes a script to
 
 ## Invariants
 
-- No run starts without the user's approval through the route; the agent tool
-  has no approve action.
+- No run starts for the first time without the user's approval through the
+  route; the agent tool has no approve action. `workflow.resume` restarts a
+  `failed` or `stopped` run without asking again: it is the plan the user
+  already approved, the same script and args, and the agent limit below still
+  counts the agents of every attempt.
 - An agent of a running workflow cannot propose another workflow: one level of
   fan-out only.
-- A run starts at most `MAX_AGENTS_PER_RUN` agents; further `agent()` calls
-  resolve to null with a log line. At most `MAX_CONCURRENT_AGENTS` work at once.
+- A run starts at most `MAX_AGENTS_PER_RUN` agents across all its attempts
+  (`agentsStarted`; replayed answers do not count); further `agent()` calls
+  resolve to null, show as failed and leave a log line. At most `MAX_CONCURRENT_AGENTS` work at once.
 - `agent()` resolves to the answer text, the parsed JSON when a schema was
-  given, or null when the agent failed or was stopped. It never rejects into
-  the script.
+  given, or null when the agent failed, was stopped, or gave no answer matching
+  the schema in three tries. The only rejection is a `TypeError` for a prompt
+  that is not a non-empty string, a bug in the script itself.
+- `parallel(tasks)` starts every task at once (the agent slots do the
+  queueing) and waits for all of them, takes at most 4096, and turns a task
+  that throws into null with a log line. `pipeline(items, ...stages)` runs each
+  item through the stages on its own, each stage called as
+  `(previous, item, index)`, with no wait between stages; a stage that throws
+  or gives null (a failed agent) ends that item as null and the others go on.
+- An agent with a phase moves `currentPhase` there when it starts, and a phase
+  not in `meta.phases` joins `phases`, so a pipeline that files agents under
+  phases shows its progress like a script that calls `phase()`.
+- The agent limit counts agents when they start (after their slot), so calls
+  still queued when a run stopped do not use up the limit for its resume.
+- An answer the answer tool accepted stands even if the agent's turn then
+  ends in an error; only a stop of the run discards it.
+- An agent's phase is the `phase` option of its `agent()` call, else the last
+  `phase()`: inside parallel branches the global one may belong to another
+  branch. The phase is presentation only and not part of the replay key.
+- A schema answer is the last value `openchamber_workflow_answer` accepted
+  during the agent's turn; only without one is the final text parsed, with up
+  to two follow-ups asking for the tool or bare JSON. The tool answers only the
+  session of an agent whose call asked for a schema, and only while that call
+  runs.
+- The schema check covers `type`, `properties`, `required`,
+  `additionalProperties: false`, `items` and `enum`; other keywords pass
+  unchecked (`json-schema.js`).
+- A script is at most 100 000 characters and its `args` at most 50 000 as JSON;
+  a run without `args` reads `{}`.
 - A report is minted with its message id before the first delivery attempt
   and saved, so a retry never delivers twice (409 counts as delivered).
 - A run that was `running` when the server stopped is marked `stopped` with
@@ -132,6 +184,20 @@ between attempts; keying by position would rerun finished agents or, worse,
 hand an answer to the wrong call. `Math.random()`, `Date.now()` and `new
 Date()` throw in the sandbox so a prompt cannot differ between attempts by
 accident.
+
+### Why a schema answer goes through a tool and not the final text
+
+Asking for "only JSON" and parsing the last reply depends on the model
+complying; each miss costs a whole extra turn, and a model that wraps its
+answer in prose misses often. A tool checks the value when it is called and
+returns the mismatch as an error, so the agent fixes it in the same turn.
+OpenCode 2 has no per-prompt structured output (1.x's `format: json_schema` is
+gone), and no per-prompt tool switch either, so the tool is denied in every
+session by the managed config and allowed in the agent's session through
+`session.create`'s `permissions`. Putting it behind Code Mode instead was
+weighed: every session would still list it in the catalog, and an agent would
+need an `execute` round trip to answer. The text path stays as the fallback
+for an OpenCode the managed config does not reach.
 
 ### Why approval is a stored state and not a held tool call
 

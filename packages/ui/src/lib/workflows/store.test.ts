@@ -41,6 +41,32 @@ describe('workflow runs store', () => {
     expect(held?.runs.map((entry) => [entry.id, entry.state])).toEqual([['wf_one', 'running'], ['wf_two', 'awaiting-approval']]);
   });
 
+  test('keeps a deleted run out, even from a read or an event that was on its way', async () => {
+    const reply = deferred<WorkflowRun[]>();
+    const store = createWorkflowRunsStore(() => reply.promise);
+    store.getState().apply(run({ state: 'completed' }));
+    const loading = store.getState().load('ses_parent');
+    store.getState().remove('ses_parent', 'wf_one');
+    store.getState().apply(run({ state: 'completed', attempt: 2 }));
+    reply.resolve([run({ state: 'completed' })]);
+    await loading;
+    expect(store.getState().bySession.ses_parent?.runs).toEqual([]);
+  });
+
+  test("reads a directory's runs of every session into their sessions, keeping deleted ones out", async () => {
+    const store = createWorkflowRunsStore(async () => [], async () => [
+      run({ id: 'wf_a', parentSessionId: 'ses_a', state: 'completed' }),
+      run({ id: 'wf_b', parentSessionId: 'ses_b', state: 'running' }),
+      run({ id: 'wf_gone', parentSessionId: 'ses_b', state: 'completed' }),
+    ]);
+    store.getState().remove('ses_b', 'wf_gone');
+    await store.getState().loadDirectory(['/repo']);
+    const state = store.getState();
+    expect(state.byDirectory['/repo']).toBe('ready');
+    expect(state.bySession.ses_a?.runs.map((entry) => entry.id)).toEqual(['wf_a']);
+    expect(state.bySession.ses_b?.runs.map((entry) => entry.id)).toEqual(['wf_b']);
+  });
+
   test('keeps a run an event changed while a read was on its way', async () => {
     const reply = deferred<WorkflowRun[]>();
     const store = createWorkflowRunsStore(() => reply.promise);
