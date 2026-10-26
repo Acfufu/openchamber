@@ -115,11 +115,11 @@ export function ProjectLabel({ project, theme }: { project: DraftTargetProject; 
     const projectIconName = project.icon ? PROJECT_ICON_MAP[project.icon] : null;
     const iconColor = getProjectIconColor(project.color);
     const fallbackIcon = project.kind === 'chat' ? (
-        <Icon name="chat-4" className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+        <Icon name="chat-4" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
     ) : projectIconName ? (
         <Icon name={projectIconName} className="h-3.5 w-3.5 shrink-0" style={iconColor ? { color: iconColor } : undefined} />
     ) : (
-        <Icon name="folder" className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" style={iconColor ? { color: iconColor } : undefined} />
+        <Icon name="folder" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" style={iconColor ? { color: iconColor } : undefined} />
     );
 
     return (

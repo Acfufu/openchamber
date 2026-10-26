@@ -41,7 +41,7 @@ export function SpacesView(): React.ReactNode {
             ) : null}
             {journey === null && !error ? <p className="typography-meta text-muted-foreground">{t('spaces.page.loading')}</p> : null}
             {/* A read that failed says so and leaves the last list; it never says there are none. */}
-            {journey !== null && !error && spaces.length === 0 ? <p className="typography-meta text-muted-foreground/70">{t('spaces.page.empty')}</p> : null}
+            {journey !== null && !error && spaces.length === 0 ? <p className="typography-meta text-muted-foreground">{t('spaces.page.empty')}</p> : null}
             {spaces.length > 0 ? (
               <div className="space-y-1">
                 {spaces.map((entry) => <SpaceRow key={entry.id} entry={entry} actions="menu" />)}
