@@ -80,6 +80,7 @@ import { subscribeSessionFoldersSync } from "./session-folders-sync"
 import { subscribeSessionDraftsSync } from "./session-drafts-sync"
 import { subscribePermissionPolicySync, subscribeSpacePermissionModes } from "./permission-mode-sync"
 import { spaceFoldersOfProject, subscribeSpaceCatalogs } from "./space-catalog-sync"
+import { subscribeSpaceSessionProject } from "./space-session-project"
 import {
   processVSCodePermissionAutoAccept,
   processVSCodeReconciledPermissionAutoAccept,
@@ -3160,6 +3161,7 @@ export function SyncProvider(props: {
       (event) => handleEvent("global", event, childStores, routingIndex, runtimeKey),
     )
     const unsubscribeSpaceCatalogs = subscribeSpaceCatalogs(runtimeKey)
+    const unsubscribeSpaceSessionProject = subscribeSpaceSessionProject(runtimeKey)
     const resyncAfterStreamGap = (reason: SessionMaterializationReason) => {
       // Cached transcripts may have missed events too; each revalidates its
       // tail the next time it is opened. Mark first so the active sessions'
@@ -3302,6 +3304,7 @@ export function SyncProvider(props: {
       unsubscribeSpaceModes()
       unsubscribePermissionPolicy()
       unsubscribeSpaceCatalogs()
+      unsubscribeSpaceSessionProject()
     }
   }, [props.sdk, childStores, messageLoader, routingIndex, messageStreamTransport, runtimeKey, triggerDirectoryResync])
 

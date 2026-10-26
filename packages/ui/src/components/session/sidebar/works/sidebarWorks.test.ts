@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { Session } from '@/lib/opencode/model';
 import type { SessionGroup, SessionNode } from '../types';
 import type { ProjectSection } from '../projects/sessionProjectRender';
-import { buildSidebarWorkIndex, buildWorktreeArchiveAnchors, orderSidebarWorks } from './sidebarWorks';
+import { buildSidebarWorkIndex, buildWorktreeArchiveAnchors, isGroupWork, orderSidebarWorks } from './sidebarWorks';
 import { pickWorkSessionToOpen } from './workActions';
 
 // SAFETY: works read only ids, forks and metadata.
@@ -28,7 +28,22 @@ describe('sidebar works', () => {
     const index = buildSidebarWorkIndex([section]);
     expect(index.bySessionId.get('review')?.key).toBe('session:root');
     expect(index.bySessionId.get('w2')?.key).toBe('p:wt');
-    expect(index.worktreeWorks.map((ref) => ref.key)).toEqual(['p:wt', 'p:empty-wt']);
+    expect(index.groupWorks.map((ref) => ref.key)).toEqual(['p:wt', 'p:empty-wt']);
+  });
+
+  test('an isolated space is one work with every session in it, like a worktree', () => {
+    const space: SessionGroup = {
+      id: 'space:abc', label: 'quick-falcon', branch: null, description: null, isMain: false, directory: '/spaces/abc/repo', worktree: null,
+      space: { id: 'abc', name: 'quick-falcon', state: 'complete', projectDirectory: '/repo', directory: '/spaces/abc/repo' },
+      sessions: [node('s1', [node('s1-review')]), node('s2')],
+    };
+    const archive: SessionGroup = { ...group('archived', [node('gone')], false), isMain: false, isArchivedBucket: true };
+    expect(isGroupWork(space)).toBe(true);
+    expect(isGroupWork(archive)).toBe(false);
+    const index = buildSidebarWorkIndex([{ ...section, groups: [...section.groups, space, archive] }]);
+    expect(index.bySessionId.get('s1-review')?.key).toBe('p:space:abc');
+    expect(index.bySessionId.get('s2')?.key).toBe('p:space:abc');
+    expect(index.groupWorks.map((ref) => ref.key)).toEqual(['p:wt', 'p:empty-wt', 'p:space:abc']);
   });
 
   test('works come once each, in the order of their first matching session', () => {
@@ -45,7 +60,7 @@ describe('sidebar works', () => {
     const values = new Map([['lonely', 30], ['archived', 25], ['w1', 20], ['root', 10], ['old', 5]]);
     const order = ['lonely', 'w1', 'root'].map((id) => session(id));
     const anchors = buildWorktreeArchiveAnchors({
-      worktreeWorks: index.worktreeWorks,
+      groupWorks: index.groupWorks,
       archivedSessions: [
         session('archived', { directory: '/wt' }),
         session('old', { directory: '/empty-wt' }),

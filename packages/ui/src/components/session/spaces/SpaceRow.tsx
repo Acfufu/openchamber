@@ -1,8 +1,8 @@
 /**
  * One isolated space as the lists of spaces show it (journey step 9): the project's
  * spaces page, the spaces without a project in Settings, and the phone's project editor. Its name,
- * its network, the status line its group in the sidebar has, and the same two actions as the group:
- * the grant dialog's key and the actions, a menu on the desktop and the sheet on the phone. A space
+ * its network, its state written out (the sidebar row has it behind a mark), and the same actions
+ * as its row in the sidebar, a menu on the desktop and the sheet on the phone. A space
  * whose project is no longer registered also names the folder it was made for.
  */
 
@@ -15,7 +15,7 @@ import { useSpacesStore } from '@/lib/spaces/spaces-store';
 import { cn, formatPathForDisplay } from '@/lib/utils';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { SpaceActionsMenu } from './SpaceActions';
-import { SpaceGroupStatus } from './SpaceGroupStatus';
+import { SpaceStatusLines } from './SpaceStatus';
 
 const ACTION_BUTTON_CLASS = 'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-interactive-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -70,18 +70,9 @@ export const SpaceRow: React.FC<{
           <NetworkBadge network={entry.network} />
         </div>
         {showFolder ? <FolderLine folder={entry.projectFolder} /> : null}
-        <SpaceGroupStatus spaceId={entry.id} className="pt-1" />
+        <SpaceStatusLines spaceId={entry.id} className="pt-1" />
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
-        <button
-          type="button"
-          className={ACTION_BUTTON_CLASS}
-          onClick={() => useSpacesStore.getState().openAccessDialog(entry.id)}
-          aria-label={t('spaces.group.access.giveAria', { label: entry.name })}
-          title={t('spaces.group.access.give')}
-        >
-          <Icon name="key" className="h-4 w-4" />
-        </button>
         {actions === 'menu' ? (
           <SpaceActionsMenu spaceId={entry.id} label={entry.name} className={ACTION_BUTTON_CLASS} />
         ) : (

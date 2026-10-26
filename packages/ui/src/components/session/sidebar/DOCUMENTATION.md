@@ -113,9 +113,9 @@ sessions count too (`buildWorktreeArchiveAnchors` in `works/sidebarWorks.ts`,
 so the worktree keeps the place that session gave it instead of falling to
 the next one's, and a worktree whose sessions are all archived stays where it
 was. A worktree spends one slot of the root's Show more limit, like a run; one
-that never had a session closes the list, the newest first (`useSessionGrouping`). Worktrees filed
-in a folder stay in the folder; spaces and the archive bucket follow the
-list. There is no worktree sort and no worktree dragging, on the phone either:
+that never had a session closes the list, the newest first (`useSessionGrouping`). An isolated
+space is listed the same way: it is a work of its own (see Works). Worktrees and spaces filed
+in a folder stay in the folder; the archive bucket follows the list. There is no worktree sort and no worktree dragging, on the phone either:
 its project editor lists the worktrees in the topology's order, with Delete.
 
 Every other list of projects shows them in the sidebar's order through
@@ -163,8 +163,9 @@ no Shift.
   Track or Done (top-level rows), delete (two taps), rename and Copy ID; a
   worktree work Done or Track, Rename, Archive worktree and Delete (its
   dialog); a run Done or Track, Open overview, Rename and Archive run; a draft
-  Discard, without asking; a project Remove (two taps) and Edit; a space its
-  access dialog and actions sheet. There is no long press: the swipe already
+  Discard, without asking; a project Remove (two taps) and Edit; a space work
+  Done or Track and its actions sheet, which also says what its state mark
+  stands for. There is no long press: the swipe already
   holds every action. The rows share their behaviour with the desktop's
   through `useWorktreeWork`, `useRunWork` and `useSessionDraftRow`.
 - A tap opens what the row stands for and closes the drawer. The chevron is
@@ -301,9 +302,9 @@ changes update rows. See `lib/multirun/DOCUMENTATION.md`.
 ## Works
 
 The desktop and web sidebar lists works, not sessions (`works/DOCUMENTATION.md`
-owns the details). A work is either a linked worktree with every session in
-it, or a root session of the project root (or of a space) with what nests
-under it. Nesting is display lineage (`lib/sessionWorkLineage.ts`,
+owns the details). A work is either a linked worktree or an isolated space
+with every session in it, or a root session of the project root with what
+nests under it. Nesting is display lineage (`lib/sessionWorkLineage.ts`,
 `resolveSessionNestingParentId`): a subagent under its run (`parentID`), and
 under the session it grew out of an auto-review (`originalSessionID`), and a
 `/btw` side conversation, promoted or not (`originalSessionID`, after
@@ -320,8 +321,9 @@ restore and the Archive page keep OpenCode's `parentID` only.
 their trees with it, so the collection's `nestedSessionIds` never lists a
 nested session as a root of its own.
 
-A worktree's group header is its work row (`works/WorktreeWorkRow.tsx`); spaces,
-the project root and archived buckets keep `SessionGroupSection`. The row
+A worktree's group header is its work row (`works/WorktreeWorkRow.tsx`), and
+so is a space's (see "Spaces" below); the project root and archived buckets
+keep `SessionGroupSection`. The row
 reads like a session row, its title where session titles start: the live
 state of its sessions in the slot (running, news, a waiting request), or
 while there is none the worktree mark tinted by the branch's PR; the chevron
@@ -354,9 +356,9 @@ collapsed groups. A root session row is in work when it or any nested non-subage
 session is, and Done marks all of those done (`collectSessionWorkInWork`).
 
 Only a row that is a work of its own offers Track / Done (`ownsWork` on the
-session row): a top-level session of the project root, a folder, a space or a
-zone. A session nested under one, a lane of a run and every session of a
-worktree work leave it to the work above them, on desktop, web and the phone.
+session row): a top-level session of the project root, a folder or a zone. A
+session nested under one, a lane of a run and every session of a worktree or
+a space work leave it to the work above them, on desktop, web and the phone.
 Btw sessions and auto-reviews carry their own work state, and with a
 Track / Done of their own one group mixed tracked and finished sessions that
 looked alike at rest (maintainer decision 2026-10-26). Their state still
@@ -395,6 +397,52 @@ its branch description, with the agent's copy beside it
 and records `metadata.openchamber.workTitle { title, by }`. A rename by the
 user (the row's Rename task, a session rename, AI rename) always wins: the
 agent's next call changes nothing and answers with the user's name.
+
+### Spaces
+
+An isolated space is a work like a worktree (`isGroupWork`, maintainer
+decision 2026-10-26): one row for the space and every session in it, with the
+same lineage under it, In work, Track / Done, folding (it starts folded) and
+the draft rows of its folder. The row is the worktree's (`WorktreeWorkRow`,
+`MobileWorktreeRow`), drawn for a space by `useWorktreeWork`:
+
+- The space's box where the worktree mark goes, and its name for the title.
+  It has no branch, pin, rename or archive.
+- Its state is one mark at the row's end (`spaces/SpaceStatus.tsx`): a
+  spinner while it is made, a setup command runs or an action is under way;
+  a stop while it is stopped; a warning or an error. The row is one line, so
+  the text is never on it. On the desktop the row's tooltip writes the state
+  out, each line with the action that moves it on (Start, Grant access,
+  Details, Remove); on the phone the actions sheet does, above the actions.
+- Its menu (and right-click menu) and the phone's actions sheet hold the
+  space's actions: Apply changes, Access and network, the repairs, Delete.
+  New chat is gone while a new session there would fail: the making failed,
+  the container is gone or the machine is out of reach.
+- Done marks its sessions done and leaves the work, as on a worktree; the
+  space itself stays. Applying or discarding its changes is the apply
+  dialog's and Delete's, never a side effect of Done.
+- A space nobody has chatted in yet leads its project's list (and the list by
+  time) while it is being made or runs (`liveSpaceIds`), where a worktree
+  without sessions closes it: it was made to be used now, and at the end it
+  fell under Show more and looked missing. One whose making failed or whose
+  container is gone closes the list like that worktree. While it is
+  made, the draft that waits for it sits on the project root and names the
+  space by its creation request (`spaceOfCreationRequest`); the row counts
+  that draft as begun there, so it is listed in In work and selected.
+- A space's session belongs to the project the space was made from:
+  `resolveProjectForSessionDirectory` maps a `/spaces/<id>/...` directory
+  through the space's mark, so the header tab's project icon, the session
+  switcher, the tray and the other places that name a session's project see
+  it. The places that would carry host data into the space or apply the host
+  project's config keep no project for it, visibly in their code: project
+  knowledge and agent memory (`useProjectContextOwner`), workflows, the
+  config store's project defaults, and a fork into a new worktree, which
+  would hold none of the space's changes. A render that names the project
+  subscribes to the space (`useSpaceProjectDirectory`), and the open session
+  makes its project active once the space list names it
+  (`sync/space-session-project.ts`), since the list can arrive after a
+  reload has opened the session. A new session opened from inside a space
+  stays in it, as from a worktree, unless the space can take none.
 
 ## One view
 
@@ -455,9 +503,9 @@ while In work is), Detailed rows, then Collapse all / Expand all.
   projects it lists nothing for (one loading line, one line per failed
   directory). Single-project mode keeps its project header and groups by
   project.
-- An isolated space without chats has no session row, so its group header
-  sits under its project until its first chat; it hides nothing and is not
-  dragged. Search leaves it out.
+- An isolated space without chats still has its work row: it leads its
+  project's list while it is made or runs, and closes it otherwise (see
+  Spaces). Search leaves it out.
 
 ## In work
 
@@ -726,11 +774,11 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   root's folders sit at level 0; worktree, space and archive headers sit at
   level 0 with their folders and sessions at level 1; a folder's sessions sit
   one level under the folder, and subsessions one level under their parent.
-  The slot holds the rotating chevron of a folder or a run. A space or
-  archive header holds its icon there (the space's box, the archive) and shows
-  its chevron in its place while the header is hovered or focused; touch
-  layouts keep the icon and toggle on a tap. A worktree's work row holds its
-  sessions' activity there instead, like a session row (see Works). Its
+  The slot holds the rotating chevron of a folder or a run. An archive
+  header holds its icon there and shows its chevron in its place while the
+  header is hovered or focused; touch layouts keep the icon and toggle on a
+  tap. A worktree's or a space's work row holds its sessions' activity there
+  instead, like a session row (see Works). Its
   label therefore starts where root session titles start, and its sessions
   sit one level in. On a session row it holds the live state (running kind, unread, or the
   move/rename spinner), so the state reads down the left edge with the titles,
@@ -751,8 +799,8 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   (`oc-title-rest`). Everything
   else on a row (time, branch, counts, icons, a PR's number) is metadata in the
   muted text colour at full strength, never a fraction of it. Only the mark of
-  a PR or an issue carries its state's colour; its number stays neutral. Session, run, worktree work
-  and draft rows take the same faint hover fill; space, archive and folder
+  a PR or an issue carries its state's colour; its number stays neutral. Session, run, worktree and space work
+  and draft rows take the same faint hover fill; archive and folder
   headers take none, so a pointer moving down the
   sidebar tells sessions from their containers. Show more, empty and
   status rows carry the level whose text they line up with.
@@ -894,7 +942,7 @@ canvas, so a fraction of it undoes that. Resting titles moved up a step so
 they stay above metadata that is now full muted. The step is a mix of the two
 colours, not body text at 80%: light themes keep body text soft, and at 80% it
 measured at most 0.11 above muted, and often below it, in every built-in
-light palette. Worktree, folder and space labels take `oc-group-label`, three
+light palette. Folder and archive labels take `oc-group-label`, three
 quarters of the way to body text, for the same reason: at 85% of body text
 they fell under the resting titles they contain in every light palette.
 

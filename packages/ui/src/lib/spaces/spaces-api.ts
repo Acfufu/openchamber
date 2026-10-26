@@ -137,8 +137,6 @@ const setupSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('interrupted'), total: z.number().int().min(1) }),
 ]);
 
-export type SpaceSetup = z.infer<typeof setupSchema>;
-
 const spaceEntrySchema = z.object({
   id: spaceIdSchema,
   name: z.string(),

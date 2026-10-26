@@ -5,25 +5,28 @@ import type { SessionGroup, SessionNode } from '../types';
 import type { ProjectSection } from '../projects/sessionProjectRender';
 
 /**
- * A work is what the sidebar lists as one entry: a linked worktree with all
- * its sessions, or a root session of the project root (or of a space) with
- * the sessions nested under it. See DOCUMENTATION.md next to this file.
+ * A work is what the sidebar lists as one entry: a linked worktree or an
+ * isolated space with all its sessions, or a root session of the project root
+ * with the sessions nested under it. See DOCUMENTATION.md next to this file.
  */
 export type SidebarWorkRef =
-  | { kind: 'worktree'; key: string; projectId: string; group: SessionGroup }
+  | { kind: 'group'; key: string; projectId: string; group: SessionGroup }
   | { kind: 'session'; key: string; projectId: string; rootSessionId: string };
 
-type SidebarWorktreeWorkRef = Extract<SidebarWorkRef, { kind: 'worktree' }>;
+type SidebarGroupWorkRef = Extract<SidebarWorkRef, { kind: 'group' }>;
 
 type SidebarWorkIndex = {
   bySessionId: ReadonlyMap<string, SidebarWorkRef>;
-  /** Every worktree work, in section and group order, sessions or not. */
-  worktreeWorks: readonly SidebarWorktreeWorkRef[];
+  /** Every worktree and space work, in section and group order, sessions or not. */
+  groupWorks: readonly SidebarGroupWorkRef[];
 };
 
-/** A linked worktree's group: the one kind of group that is a work of its own. */
-export const isWorktreeWorkGroup = (group: SessionGroup): boolean => (
-  !group.isMain && group.isArchivedBucket !== true && !group.space && group.worktree !== null
+/**
+ * A group that is a work of its own: a linked worktree's, or an isolated
+ * space's, which is a separate copy of the project the same way.
+ */
+export const isGroupWork = (group: SessionGroup): boolean => (
+  !group.isMain && group.isArchivedBucket !== true && (Boolean(group.space) || group.worktree !== null)
 );
 
 /**
@@ -60,7 +63,7 @@ const sessionWorkKey = (rootSessionId: string): string => `session:${rootSession
 /** Which work each listed session belongs to, from the project sections. */
 export const buildSidebarWorkIndex = (sections: readonly ProjectSection[]): SidebarWorkIndex => {
   const bySessionId = new Map<string, SidebarWorkRef>();
-  const worktreeWorks: SidebarWorktreeWorkRef[] = [];
+  const groupWorks: SidebarGroupWorkRef[] = [];
   const claim = (node: SessionNode, ref: SidebarWorkRef): void => {
     const stack = [node];
     while (stack.length > 0) {
@@ -74,9 +77,9 @@ export const buildSidebarWorkIndex = (sections: readonly ProjectSection[]): Side
     const projectId = section.project.id;
     for (const group of section.groups) {
       if (group.isArchivedBucket) continue;
-      if (isWorktreeWorkGroup(group)) {
-        const ref: SidebarWorktreeWorkRef = { kind: 'worktree', key: worktreeWorkGroupKey(projectId, group), projectId, group };
-        worktreeWorks.push(ref);
+      if (isGroupWork(group)) {
+        const ref: SidebarGroupWorkRef = { kind: 'group', key: worktreeWorkGroupKey(projectId, group), projectId, group };
+        groupWorks.push(ref);
         group.sessions.forEach((node) => claim(node, ref));
         continue;
       }
@@ -85,7 +88,7 @@ export const buildSidebarWorkIndex = (sections: readonly ProjectSection[]): Side
       }
     }
   }
-  return { bySessionId, worktreeWorks };
+  return { bySessionId, groupWorks };
 };
 
 /**
@@ -108,7 +111,7 @@ export const orderSidebarWorks = (
     if (ref && !rankByKey.has(ref.key)) rankByKey.set(ref.key, { ref, rank: position });
   });
   if (archiveAnchors.size === 0) return [...rankByKey.values()].map((entry) => entry.ref);
-  for (const ref of index.worktreeWorks) {
+  for (const ref of index.groupWorks) {
     const anchor = archiveAnchors.get(ref.key);
     if (anchor === undefined) continue;
     const listed = rankByKey.get(ref.key);
@@ -127,21 +130,21 @@ export const orderSidebarWorks = (
  * which is what makes the position well defined.
  */
 export const buildWorktreeArchiveAnchors = ({
-  worktreeWorks,
+  groupWorks,
   archivedSessions,
   orderedSessions,
   orderValueOf,
   isPinned,
 }: {
-  worktreeWorks: readonly SidebarWorktreeWorkRef[];
+  groupWorks: readonly SidebarGroupWorkRef[];
   archivedSessions: readonly Session[];
   orderedSessions: readonly Session[];
   /** A session's value in the lifecycle order, newer is higher. */
   orderValueOf: (session: Session) => number;
   isPinned: (session: Session) => boolean;
 }): ReadonlyMap<string, number> => {
-  if (worktreeWorks.length === 0 || archivedSessions.length === 0) return EMPTY_ANCHORS;
-  const keyByDirectory = new Map(worktreeWorks.flatMap((ref) => {
+  if (groupWorks.length === 0 || archivedSessions.length === 0) return EMPTY_ANCHORS;
+  const keyByDirectory = new Map(groupWorks.flatMap((ref) => {
     const directory = normalizePath(ref.group.directory ?? null);
     return directory ? [[directory, ref.key] as const] : [];
   }));

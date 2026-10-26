@@ -4,6 +4,7 @@ import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { isChatDirectoryForHome } from '@/lib/chatDirectories';
 import { PROJECT_ICON_MAP, resolveProjectColor, ProjectIconImage } from '@/lib/projectMeta';
 import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
+import { useSpaceProjectDirectory } from '@/lib/spaces/spaces-store';
 import { cn } from '@/lib/utils';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
@@ -21,10 +22,13 @@ export function SessionProjectIcon({ directory, className }: { directory: string
   const worktreesByProject = useSessionUIStore((state) => state.availableWorktreesByProject);
   const homeDirectory = useDirectoryStore((state) => state.homeDirectory);
 
+  // A space's session belongs to the project the space was made from, known once the space is;
+  // subscribed here so the icon appears when the space list arrives after the tabs.
+  const spaceProject = useSpaceProjectDirectory(directory);
   const isChat = isChatDirectoryForHome(directory, homeDirectory);
   const project = React.useMemo(
-    () => (isChat || !directory ? null : resolveProjectForSessionDirectory(projects, worktreesByProject, directory)),
-    [directory, isChat, projects, worktreesByProject],
+    () => (isChat || !directory ? null : resolveProjectForSessionDirectory(projects, worktreesByProject, directory, spaceProject)),
+    [directory, isChat, projects, spaceProject, worktreesByProject],
   );
 
   if (isChat) {

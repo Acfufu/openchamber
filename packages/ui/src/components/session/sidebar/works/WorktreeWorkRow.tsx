@@ -44,11 +44,13 @@ import type { SessionGroup } from '../types';
 import { normalizePath, renderHighlightedText } from '../utils';
 import { useWorktreeWork } from './useWorktreeWork';
 import { worktreeFolderMemberId } from './sidebarWorks';
+import { SpaceMenuItems } from '@/components/session/spaces/SpaceActions';
+import { SpaceStatusLines, SpaceStatusMark } from '@/components/session/spaces/SpaceStatus';
 
 const NO_FOLDERS: never[] = [];
 
 type WorkMenuSlots = {
-  Item: React.ComponentType<{ className?: string; onClick?: (event: React.MouseEvent) => void; children?: React.ReactNode }>;
+  Item: React.ComponentType<{ className?: string; disabled?: boolean; onClick?: (event: React.MouseEvent) => void; children?: React.ReactNode }>;
   Separator: React.ComponentType;
   Sub: React.ComponentType<{ children?: React.ReactNode }>;
   SubTrigger: React.ComponentType<{ children?: React.ReactNode }>;
@@ -98,6 +100,10 @@ type Props = {
  * not named yet shows its branch. With detailed zone rows it takes their two
  * lines: the second names the project, the branch and the reference, as a
  * detailed session row's does, while its sessions stay one-line rows under it.
+ *
+ * An isolated space is a work the same way and has this row too: its box
+ * where the worktree mark goes, its name for the title, its state as one mark
+ * at the end (`SpaceStatusMark`), and the space's actions for the menu.
  */
 export function WorktreeWorkRow(props: Props): React.ReactNode {
   const {
@@ -128,8 +134,8 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     },
   });
   const {
-    worktree, directory, worktreeRemoving, sessions, project, projectLabel, refs, selected,
-    title, branch, label, finishing, canArchive, pinned, canPin, workAction, inWork, activityState,
+    worktree, space, directory, worktreeRemoving, sessions, project, projectLabel, refs, selected,
+    title, branch, label, finishing, canArchive, canRename, canNewChat, pinned, canPin, workAction, inWork, activityState,
     runningSessionId, durationSessionId,
   } = work;
   // With the Pinned section shown a pinned work is listed there, whose header
@@ -177,6 +183,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     work.newChat();
   };
   const startRename = (): void => {
+    if (!canRename) return;
     setRenameDraft(title ?? '');
     setRenaming(true);
   };
@@ -203,16 +210,20 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   // do; the chevron takes its place while the row is hovered or focused, when
   // there is something to open. Touch layouts have no hover and keep the
   // chevron.
-  const slotMark = stateMark ?? (
+  // The worktree mark tinted by the branch's PR, or a space's box.
+  const workMark = (className: string) => space ? (
+    <Icon name="box-3" className={cn(className, 'flex-shrink-0 text-muted-foreground')} aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
+  ) : (
     <Icon
       name="git-branch"
-      className={cn('h-3.5 w-3.5 flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground')}
+      className={cn(className, 'flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground')}
       style={refs.prColor ? refTintStyle(refs.prColor) : undefined}
       aria-hidden={false}
       role="img"
       aria-label={t('sessions.sidebar.work.worktreeMark')}
     />
   );
+  const slotMark = stateMark ?? workMark('h-3.5 w-3.5');
   const chevron = expandable ? (
     <span
       role="button"
@@ -242,16 +253,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   // project's in a zone, else the worktree mark) while the row is hovered.
   const leadIcon = mixed && project
     ? <TimelineProjectIcon project={project} label={projectLabel} />
-    : (
-      <Icon
-        name="git-branch"
-        className={cn('h-3 w-3 flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground')}
-        style={refs.prColor ? refTintStyle(refs.prColor) : undefined}
-        aria-hidden={false}
-        role="img"
-        aria-label={t('sessions.sidebar.work.worktreeMark')}
-      />
-    );
+    : workMark('h-3 w-3');
   const lead = expandable ? (
     <span className="relative inline-flex size-3 flex-shrink-0 items-center justify-center">
       <span className={cn('inline-flex', alwaysShowActions ? 'opacity-0' : 'group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0')}>{leadIcon}</span>
@@ -331,10 +333,12 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   // One set of items for the "⋯" menu and the right-click menu.
   const renderMenuItems = (Slots: WorkMenuSlots): React.ReactNode => (
     <>
-      <Slots.Item onClick={startRename}>
-        <Icon name="edit" className="h-4 w-4" />
-        <span>{t('sessions.sidebar.work.menu.rename')}</span>
-      </Slots.Item>
+      {canRename ? (
+        <Slots.Item onClick={startRename}>
+          <Icon name="edit" className="h-4 w-4" />
+          <span>{t('sessions.sidebar.work.menu.rename')}</span>
+        </Slots.Item>
+      ) : null}
       {canPin ? (
         <Slots.Item onClick={() => { void work.togglePin(); }}>
           <Icon name={pinned ? 'unpin' : 'pushpin'} className="h-4 w-4" />
@@ -363,6 +367,10 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
           </Slots.SubContent>
         </Slots.Sub>
       ) : null}
+      {space ? <>
+        {projectFolders.length > 0 ? <Slots.Separator /> : null}
+        <SpaceMenuItems spaceId={space.id} slots={Slots} />
+      </> : null}
       {worktree && !worktreeRemoving ? <>
         <Slots.Separator />
         {canArchive ? (
@@ -484,6 +492,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                     <Icon name="alert" className="h-3 w-3" />
                   </span>
                 ) : null}
+                {space ? <SpaceStatusMark spaceId={space.id} /> : null}
                 {pinnedMark}
                 {detailed ? null : ref}
                 {group.directory ? <DirectoryActionIndicator directory={group.directory} /> : null}
@@ -512,6 +521,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                 </div>
               ) : null}
               {tooltipLinks.length > 0 ? <SidebarRefLinks items={tooltipLinks} directory={project?.path ?? group.directory ?? null} /> : null}
+              {space ? <SpaceStatusLines spaceId={space.id} /> : null}
             </div>
           </TooltipContent>
         </Tooltip>
@@ -522,6 +532,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
           // where it already is the title.
           <div className="flex h-4 w-full min-w-0 items-center gap-1">
             {lead}
+            {mixed && project && space ? workMark('h-3 w-3') : null}
             {mixed && project && branch && branch !== label ? (
               <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
             ) : null}
@@ -582,7 +593,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={6}>{t('sessions.sidebar.work.menu.archive')}</TooltipContent>
               </Tooltip>
-            ) : (
+            ) : canNewChat ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -598,7 +609,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={6}>{t('sessions.sidebar.project.actions.newDraftSession')}</TooltipContent>
               </Tooltip>
-            )}
+            ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

@@ -4032,6 +4032,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         selectedDraftDirectoryHasUncommittedChanges,
         projectRootBranchOption,
         worktreeBranchOptions,
+        spaceBranchOptions,
         draftBranchItems,
         shouldShowDraftBranchSelector,
         handleDraftProjectChange,
@@ -4564,6 +4565,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                             hasUncommittedChanges={selectedDraftDirectoryHasUncommittedChanges}
                             projectRootBranchOption={projectRootBranchOption}
                             worktreeBranchOptions={worktreeBranchOptions}
+                            spaceBranchOptions={spaceBranchOptions}
                             branchItems={draftBranchItems}
                             showBranchSelector={shouldShowDraftBranchSelector}
                             onProjectChange={handleDraftProjectChange}
@@ -5054,6 +5056,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 hasUncommittedChanges={selectedDraftDirectoryHasUncommittedChanges}
                 projectRootBranchOption={projectRootBranchOption}
                 worktreeBranchOptions={worktreeBranchOptions}
+                spaceBranchOptions={spaceBranchOptions}
                 branchItems={draftBranchItems}
                 showBranchSelector={shouldShowDraftBranchSelector}
                 onProjectChange={handleDraftProjectChange}

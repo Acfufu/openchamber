@@ -1,5 +1,5 @@
 import type { SessionSidebarRow } from './sessionSidebarRowModel';
-import { isWorktreeWorkGroup } from './works/sidebarWorks';
+import { isGroupWork } from './works/sidebarWorks';
 
 const INITIAL_ROW_LIMIT = 24;
 
@@ -73,5 +73,5 @@ export const sectionSpacingAfter = (row: SessionSidebarRow, nextRow: SessionSide
   // group of their own. A worktree is a work row among session rows and opens none.
   const startsSection = nextRow?.kind === 'activity-header' || nextRow?.kind === 'project-header';
   if (startsSection) return 'pb-2';
-  return nextRow?.kind === 'group-header' && !isWorktreeWorkGroup(nextRow.group) && row.kind !== 'project-header' ? 'pb-1.5' : undefined;
+  return nextRow?.kind === 'group-header' && !isGroupWork(nextRow.group) && row.kind !== 'project-header' ? 'pb-1.5' : undefined;
 };

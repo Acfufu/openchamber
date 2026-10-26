@@ -61,6 +61,7 @@ import { ActivityRowSkipContext, isActivityRowPart, isToolRowShown } from '../li
 import { LiveFinalActivityContext, LiveTurnHoistedPagesContext } from '../components/liveActivityContext';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
+import { useSpaceProjectDirectory } from '@/lib/spaces/spaces-store';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useI18n } from '@/lib/i18n';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
@@ -1374,13 +1375,14 @@ const AssistantMessageBody = React.memo(({
     const effectiveStreamPhase: StreamPhase = hasStopFinish ? 'completed' : streamPhase;
 
     const availableWorktreesByProject = useSessionUIStore((state) => state.availableWorktreesByProject);
+    const sessionDirectory = effectiveDirectory
+        ?? (currentSessionId ? getDirectoryForSession(currentSessionId) : null)
+        ?? '';
+    const spaceProjectDirectory = useSpaceProjectDirectory(sessionDirectory);
     const sessionProjectRef = React.useMemo(() => {
-        const directory = effectiveDirectory
-            ?? (currentSessionId ? getDirectoryForSession(currentSessionId) : null)
-            ?? '';
-        const resolved = resolveProjectForSessionDirectory(projects, availableWorktreesByProject, directory);
+        const resolved = resolveProjectForSessionDirectory(projects, availableWorktreesByProject, sessionDirectory, spaceProjectDirectory);
         return resolved ? { id: resolved.id, path: resolved.path } : null;
-    }, [availableWorktreesByProject, currentSessionId, effectiveDirectory, getDirectoryForSession, projects]);
+    }, [availableWorktreesByProject, projects, sessionDirectory, spaceProjectDirectory]);
     const currentProjectRef = canUseProjectPlanActions ? sessionProjectRef : null;
 
     const hasCopyableText = Boolean(hasTextContent) && !awaitingMessageCompletion;

@@ -13,15 +13,15 @@ import type { WorktreeMetadata } from '@/types/worktree';
 import type { SessionNode } from '../types';
 
 /**
- * Leave a worktree's work: close its sessions' tabs, and move off it when it
- * is on screen, as a session or as a draft in its folder.
+ * Leave a worktree's or a space's work: close its sessions' tabs, and move
+ * off it when it is on screen, as a session or as a draft in its folder.
  */
-const leaveWorktree = (sessions: readonly Session[], worktreePath: string, projectId: string): void => {
+const leaveWorkFolder = (sessions: readonly Session[], folder: string, projectId: string): void => {
   leaveFinishedSessions(sessions.map((session) => session.id), { projectId });
   const state = useSessionUIStore.getState();
   if (state.currentSessionId) return;
   const directory = state.newSessionDraft.open ? state.newSessionDraft.directoryOverride : useDirectoryStore.getState().currentDirectory;
-  if (isPathWithinProject(directory, worktreePath)) state.openNewSessionDraft({ selectedProjectId: projectId });
+  if (isPathWithinProject(directory, folder)) state.openNewSessionDraft({ selectedProjectId: projectId });
 };
 
 /** Every session of a work's trees, parents before their children. */
@@ -96,7 +96,7 @@ export async function finishWorktreeWork(input: {
   // Done work leaves the working set, as Mark done in the composer does: its
   // tabs close and the app moves off it, which also frees the worktree for
   // the clean-up below (it never removes one that is on screen).
-  leaveWorktree(input.sessions, input.worktree.path, input.project.id);
+  leaveWorkFolder(input.sessions, input.worktree.path, input.project.id);
   if (!input.archive) return { kind: 'done' };
   const use = await readWorktreeUse(input.worktree.path);
   if (use === 'unknown') return { kind: 'unknown' };
@@ -108,4 +108,22 @@ export async function finishWorktreeWork(input: {
   } catch (error) {
     return { kind: 'failed', error: error instanceof Error ? error : new Error(String(error)), doneFailed: 0 };
   }
+}
+
+/**
+ * Done on a space's work: its sessions in work are marked done and the work
+ * is left, as a worktree's is. The space itself stays: what happens to its
+ * changes is the apply dialog's question, never a side effect of Done.
+ */
+export async function finishSpaceWork(input: {
+  sessions: readonly Session[];
+  directory: string;
+  projectId: string;
+}): Promise<Extract<FinishWorktreeWorkOutcome, { kind: 'done' | 'failed' }>> {
+  const failed = await markOverviewSessionsDone(input.sessions.filter(isSessionInWork));
+  if (failed.length > 0) {
+    return { kind: 'failed', error: new Error(`Could not mark ${failed.length} session(s) done`), doneFailed: failed.length };
+  }
+  leaveWorkFolder(input.sessions, input.directory, input.projectId);
+  return { kind: 'done' };
 }

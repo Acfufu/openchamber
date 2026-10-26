@@ -658,7 +658,13 @@ and the send path reading the same grammar.
   in the project or worktree picker always applies and clears it, because a
   project without git never lists a branch and its pin never clears by itself.
   Re-picking what a pinned draft already shows changes nothing, so one click
-  cannot drop an unlisted space or worktree directory. Only a worktree still being created (`pendingWorktreeRequestId`,
+  cannot drop an unlisted space or worktree directory. The project's isolated
+  spaces are listed in a section of their own by name (`spaceBranchOptions`),
+  and a space's directory keeps its pin: picked from the list it is pinned at
+  once, and being listed never clears it, because it exists inside the space
+  only and the host's directory probe at send would call it missing and start
+  the chat in the project. The session store backs this up: a draft opened in
+  a space's directory starts pinned, and the probe never runs for one. Only a worktree still being created (`pendingWorktreeRequestId`,
   `bootstrapPendingDirectory`) keeps both pickers inert. The hook also owns the
   advisory dirty state for the selected directory, clearing it as soon as the
   target changes so a warning never names a previous branch. It re-reads the

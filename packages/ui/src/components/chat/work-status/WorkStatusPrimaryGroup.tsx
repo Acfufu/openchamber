@@ -11,6 +11,7 @@ import { useContextWindowLimits } from '@/hooks/useContextWindowLimits';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
+import { useSpaceProjectDirectory } from '@/lib/spaces/spaces-store';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { resolveUsageTone } from '@/lib/quota';
 import { sessionEvents } from '@/lib/sessionEvents';
@@ -162,18 +163,20 @@ export const WorkStatusPrimaryGroup: React.FC<Props> = ({ sessionId, directory, 
   // Worktrees normally sit beside rather than beneath their project directory,
   // so a prefix match alone cannot find their owning project. Reuse the shared
   // session-directory resolver, which consults the discovered worktree map.
+  const spaceProjectDirectory = useSpaceProjectDirectory(directory);
   const projectLabel = useProjectsStore(
     React.useCallback((state) => {
       const project = resolveProjectForSessionDirectory(
         state.projects,
         availableWorktreesByProject,
         directory,
+        spaceProjectDirectory,
       );
       if (!project) return null;
       return project.label?.trim()
         || project.path.split('/').filter(Boolean).pop()
         || project.path;
-    }, [availableWorktreesByProject, directory]),
+    }, [availableWorktreesByProject, directory, spaceProjectDirectory]),
   );
 
   // Read-only: PR watching is owned by the background tracker. Starting a watch

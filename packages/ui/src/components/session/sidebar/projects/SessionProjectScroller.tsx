@@ -37,7 +37,7 @@ import { resolveSessionSidebarStickyHeader, type SessionSidebarRow, type Session
 import { SortableProjectItem } from './sortableItems';
 import { WorktreeWorkRow } from '../works/WorktreeWorkRow';
 import { SessionDraftRow } from '../works/SessionDraftRow';
-import { isWorktreeWorkGroup } from '../works/sidebarWorks';
+import { isGroupWork } from '../works/sidebarWorks';
 import { SessionGroupSection, type SessionGroupSectionProps } from './SessionGroupSection';
 import type { ProjectSection } from './sessionProjectRender';
 import { CrossfadeZoneHeader, CrossfadeZoneHeaders } from './CrossfadeZoneHeaders';
@@ -345,9 +345,9 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
       />;
     }
     if (row.kind === 'group-header') {
-      // A worktree is a work of its own and reads like a session row; spaces
-      // and the archive keep their group header.
-      return isWorktreeWorkGroup(row.group)
+      // A worktree or a space is a work of its own and reads like a session
+      // row; the archive keeps its group header.
+      return isGroupWork(row.group)
         ? <WorktreeWorkRow
           group={row.group} groupKey={row.groupKey} projectId={row.projectId} depth={row.depth} detailed={row.detailed} mixed={row.mixed}
           collapsed={row.collapsed} forceExpanded={row.forceExpanded} empty={row.empty}
