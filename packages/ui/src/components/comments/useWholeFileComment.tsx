@@ -56,6 +56,7 @@ export function useWholeFileComment({ fileLabel, origin }: { fileLabel: string; 
         onCancel={cancel}
         fileLabel={fileLabel}
         isEditing={editingDraftId !== null}
+        band={false}
       />
     </div>
   ) : null;
