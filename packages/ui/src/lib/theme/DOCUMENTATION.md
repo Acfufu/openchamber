@@ -54,6 +54,12 @@ the canvas to remain visible. Mono keeps every role grayscale.
 Body, secondary and bold text retain the palette's neutral cast with distinct
 contrast levels; bold text is a stronger body color rather than a syntax accent.
 These authored choices apply to built-ins, not to existing custom theme files.
+Every built-in text role stays at 4.5:1 or more: body and secondary text on
+the canvas, sidebar and elevated surfaces, and markdown links, link hover and
+quote text on the canvas. `definition.test.ts` checks each palette. A colour
+under the floor moves toward black or white until it reaches 4.6:1, the import
+adapter's own floor, so it keeps its hue. Components draw these roles at full
+strength; a quieter step mixes toward the secondary text instead of fading it.
 
 Catppuccin Mocha keeps the official palette for its surfaces and revised text,
 tool and interaction roles. Body, bold and italic text use Text; secondary text
