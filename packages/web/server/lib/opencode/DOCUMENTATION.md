@@ -280,12 +280,24 @@ CLI use this server path. VS Code uses the same executor from its extension host
 Bundled Desktop, external URL connections, and unavailable CLIs remain
 unsupported at the host boundary.
 
-An upgrade leaves the current server running. The toast's Reload action restarts
-it using the installed version. Failed installations return an error and can be
+On macOS and Linux an upgrade leaves the current server running, and the toast's
+Reload action restarts it using the installed version. On Windows the managed
+server stops for the install and starts again afterwards, also when the install
+fails (`restartOpenCode(reason, { whileStopped })`; VS Code does the same with
+its own stop and start). Failed installations return an error and can be
 retried; installer output is not returned or logged because it can contain registry
 credentials. Requests from multiple clients share the in-flight operation. The
 executor supplies EOF and bounds captured output; installation has no fixed time
 limit, and the VS Code bridge does not apply its usual 30-second request timeout.
+
+### Why Windows stops the server for an upgrade and not lets OpenCode handle it
+
+Windows refuses to delete the last link of a running executable. OpenCode guards
+its own upgrade process and `serve --service` by holding a second link in its
+cache, but our `serve --stdio` server gets no such link. npm then cannot replace
+`opencode.exe` and leaves the package without it, so every later start fails
+until the user reinstalls OpenCode. Stopping the server costs a few seconds of
+downtime that the Reload action would cost anyway.
 
 ### Migrating an installed v1 CLI
 
