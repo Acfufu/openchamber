@@ -91,18 +91,11 @@
   }
 }
 
-/* A PR or issue reference coloured by its state (--oc-ref-tint). It is side
-   context, so it rests a little blended into the muted text, its state still
-   plain to read, and takes its full colour on hover or focus, its own or that
-   of an enclosing .oc-ref-tint-scope row. */
+/* A PR or issue mark coloured by its state (--oc-ref-tint). The mark alone
+   carries the state, its number stays neutral, so the colour shows at full
+   strength: blended into the muted text a 12px glyph read as grey. */
 @utility oc-ref-tint {
-  color: color-mix(in oklab, var(--oc-ref-tint) 75%, var(--muted-foreground));
-
-  &:hover,
-  &:focus-visible,
-  :where(.oc-ref-tint-scope:hover, .oc-ref-tint-scope:focus-within) & {
-    color: var(--oc-ref-tint);
-  }
+  color: var(--oc-ref-tint);
 }
 
 /* A list row's title at rest: halfway between body and muted text, so it stays

@@ -459,7 +459,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
         className={cn(
           // The same box as a session row in the same place: zone rows are a
           // little taller than tree rows.
-          'oc-ref-tint-scope group/work relative my-0.5 flex cursor-pointer select-none rounded-md pe-2.5',
+          'group/work relative my-0.5 flex cursor-pointer select-none rounded-md pe-2.5',
           'py-1.5',
           detailed ? 'flex-col gap-px' : 'items-center gap-1.5',
           selected ? 'bg-interactive-selection/70' : 'hover:bg-interactive-hover/60',

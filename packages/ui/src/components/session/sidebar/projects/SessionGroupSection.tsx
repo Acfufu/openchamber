@@ -967,7 +967,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     <><div className="oc-group">
       {/* No hover fill: only session rows take one, so a pointer moving
           down the sidebar tells sessions from their containers. */}
-      <div className={cn('oc-ref-tint-scope group/gh relative flex items-start justify-between gap-1 py-1 min-w-0 rounded-md', 'cursor-pointer')}>
+      <div className={cn('group/gh relative flex items-start justify-between gap-1 py-1 min-w-0 rounded-md', 'cursor-pointer')}>
       <Tooltip disabled={groupPrSummary ? !groupPrStatusLabel : !primaryGroupIssue}>
       <TooltipTrigger asChild closeDelay={SIDEBAR_REF_TOOLTIP_CLOSE_DELAY_MS}>
       <div
