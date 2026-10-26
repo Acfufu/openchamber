@@ -269,6 +269,8 @@ const SESSIONS_INITIAL_LIMIT = 7;
 const SESSIONS_INCREMENT = 7;
 
 const HEADER_ESTIMATE = 32;
+// Zone and project headers: their label is a size up from rows (`typography-ui-section`).
+const SECTION_HEADER_ESTIMATE = 35;
 const STATUS_ESTIMATE = 28;
 
 /**
@@ -848,7 +850,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
   const appendActivityHeader = (activityKey: SessionSidebarActivityKey): boolean => {
     const collapsed = !search && args.collapsedActivities.has(activityKey);
     const rowIndex = rows.length;
-    push({ kind: 'activity-header', key: `activity:${activityKey}:header`, estimateSize: HEADER_ESTIMATE, activityKey, collapsed, forceExpanded: search });
+    push({ kind: 'activity-header', key: `activity:${activityKey}:header`, estimateSize: SECTION_HEADER_ESTIMATE, activityKey, collapsed, forceExpanded: search });
     stickyHeaders.push(Object.freeze({ rowIndex, kind: 'activity', id: activityKey }));
     return collapsed;
   };
@@ -1075,7 +1077,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     const projectCollapsed = !search && !args.singleProjectMode && !args.showOnlyMainWorkspace && args.collapsedProjects.has(section.project.id);
     if (!args.showOnlyMainWorkspace) {
       const rowIndex = rows.length;
-      push({ kind: 'project-header', key: `project:${section.project.id}:header`, estimateSize: HEADER_ESTIMATE, section, collapsed: projectCollapsed, forceExpanded: search });
+      push({ kind: 'project-header', key: `project:${section.project.id}:header`, estimateSize: SECTION_HEADER_ESTIMATE, section, collapsed: projectCollapsed, forceExpanded: search });
       stickyHeaders.push(Object.freeze({ rowIndex, kind: 'project', id: section.project.id }));
     }
     if (projectCollapsed) continue;

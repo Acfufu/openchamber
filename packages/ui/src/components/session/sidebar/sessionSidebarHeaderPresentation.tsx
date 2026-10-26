@@ -32,7 +32,7 @@ export const SessionSidebarActivityHeader: React.FC<{
         </span> : null}
       </span>
       {/* The size of project headers: zones and projects are sections of equal weight. */}
-      <span className="typography-ui-header font-semibold text-foreground">
+      <span className="typography-ui-section font-bold text-foreground">
         {t(ACTIVITY_TITLE_KEY[activityKey])}
       </span>
     </button>

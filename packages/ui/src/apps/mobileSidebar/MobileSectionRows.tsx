@@ -51,7 +51,7 @@ export const MobileZoneHeader: React.FC<{
       <span className="flex size-6 shrink-0 items-center justify-center text-muted-foreground">
         <Icon name={ACTIVITY_ICON[row.activityKey]} className="size-5" />
       </span>
-      <span className="block min-w-0 flex-1 truncate typography-ui-header font-semibold text-foreground">{label}</span>
+      <span className="block min-w-0 flex-1 truncate typography-ui-section font-bold text-foreground">{label}</span>
     </button>
   );
 };
@@ -135,7 +135,7 @@ export const MobileProjectHeader: React.FC<{
           style={{ touchAction: 'manipulation' }}
         >
           <MobileProjectIcon project={project} />
-          <span className="block min-w-0 flex-1 truncate typography-ui-header font-semibold text-foreground">{label}</span>
+          <span className="block min-w-0 flex-1 truncate typography-ui-section font-bold text-foreground">{label}</span>
         </button>
         {isRepo ? <HeaderIconButton icon="node-tree" label={t('sessions.sidebar.project.actions.newWorktree')} onClick={() => actions.openNewWorktree(project.id)} /> : null}
         {/* Its edge on the drawer's gutter, as the header's New chat. */}

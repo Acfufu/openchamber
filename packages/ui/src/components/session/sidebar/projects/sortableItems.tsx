@@ -95,9 +95,9 @@ const ProjectHeaderIdentity: React.FC<ProjectHeaderIdentityProps> = ({
           <Icon name="folder" className={cn('h-3.5 w-3.5 text-muted-foreground', iconVisibilityClassName)} style={iconColor ? { color: iconColor } : undefined} />
         )}
       </span>
-      {/* One size up from rows: projects and zones are the top level of the
-          tree, above semibold-free worktree and folder headers. */}
-      <span className={cn('truncate typography-ui-header font-semibold text-foreground', labelClassName)}>{projectLabel}</span>
+      {/* A clear step up from rows, in size and weight: projects and zones
+          are the top level of the tree and must not read as one of its rows. */}
+      <span className={cn('truncate typography-ui-section font-bold text-foreground', labelClassName)}>{projectLabel}</span>
     </>
   );
 };

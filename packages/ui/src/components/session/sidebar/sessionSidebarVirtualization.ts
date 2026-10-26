@@ -69,7 +69,9 @@ export const estimateSessionSidebarRowSize = (
 // A hairline in the middle of the gap before a project: projects read apart
 // from each other and from the zones above them. It is drawn in the gap, so it
 // adds no height and the size estimates above hold (maintainer, 2026-10-26).
-const PROJECT_DIVIDER_CLASS = 'relative after:pointer-events-none after:absolute after:inset-x-2 after:bottom-1 after:h-px after:bg-border';
+// Plain `--border` nearly vanished on the light themes, so the line mixes in
+// some of the text colour and stays in each theme's tone.
+const PROJECT_DIVIDER_CLASS = 'relative after:pointer-events-none after:absolute after:inset-x-2 after:bottom-1 after:h-px after:bg-[color-mix(in_oklab,var(--border),var(--foreground)_22%)]';
 
 /** The classes of a row's wrapper: its trailing gap, and the divider before a project. */
 export const sectionWrapperClass = (row: SessionSidebarRow, nextRow: SessionSidebarRow | undefined): string => {
