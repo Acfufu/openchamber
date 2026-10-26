@@ -90,6 +90,7 @@ export const createSettingsHelpers = (dependencies) => {
   const SHORTCUT_OVERRIDE_VALUE_MAX_LENGTH = 128;
   const PWA_ORIENTATION_VALUES = new Set(['system', 'portrait', 'landscape']);
   const MOBILE_KEYBOARD_MODE_VALUES = new Set(['native', 'resize-content']);
+  const UI_FONT_WEIGHT_VALUES = new Set(['regular', 'balanced', 'strong']);
   const TERMINAL_SHELL_VALUES = new Set(['auto', 'bash', 'zsh', 'sh', 'fish', 'pwsh', 'powershell', 'cmd', 'dash', 'ksh', 'nu']);
   const SIDEBAR_PROJECT_DISPLAY_MODE_VALUES = new Set(['all', 'single']);
   const SIDEBAR_VIEW_MODE_VALUES = new Set(['projects', 'timeline']);
@@ -427,6 +428,9 @@ export const createSettingsHelpers = (dependencies) => {
     }
     if (typeof candidate.customMonoFont === 'string') {
       result.customMonoFont = candidate.customMonoFont.slice(0, 100);
+    }
+    if (UI_FONT_WEIGHT_VALUES.has(candidate.uiFontWeight)) {
+      result.uiFontWeight = candidate.uiFontWeight;
     }
     if (typeof candidate.githubClientId === 'string') {
       const trimmed = candidate.githubClientId.trim();

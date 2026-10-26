@@ -806,6 +806,9 @@ html[data-glass-redraw-guard] body::before {
 }
 
 @theme inline {
+  /* `font-normal` means regular text, so it follows the text weight setting. */
+  --font-weight-normal: var(--ui-regular-font-weight, 400);
+
   --radius-none: 0;
   --radius-sm: 0.25rem; /* 4px */
   --radius-md: 0.4375rem; /* 7px */
