@@ -1132,10 +1132,16 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     const isDesktopExpandedInput = isExpandedInput;
     const useCompactDraftLayout = isMobile || isVSCode || chatSurfaceMode === 'mini-chat';
     // Work-status panel: a borderless column to the right of the transcript.
-    // It yields to the context panel and to a narrow chat; `rowRef` goes on the
-    // row that holds both columns, so its width never depends on the panel's
-    // own visibility.
-    const { rowRef: workStatusRowRef, visible: workStatusVisible, fits: workStatusFits, roomy: workStatusRoomy } = useWorkStatusVisibility({
+    // It yields to a narrow chat, and to the context panel unless the chat area
+    // fits both beside the transcript; `rowRef` goes on the row that holds both
+    // columns, so its width never depends on the panel's own visibility.
+    const {
+        rowRef: workStatusRowRef,
+        visible: workStatusVisible,
+        fits: workStatusFits,
+        roomy: workStatusRoomy,
+        roomyBesidePanel: workStatusRoomyBesidePanel,
+    } = useWorkStatusVisibility({
         isMobile,
         isVSCode,
     });
@@ -2035,12 +2041,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         </ChatColumnActionsContext.Provider>
         </ChatColumnSessionContext.Provider>
         {/* Kept mounted while it could ever show, so it can fade out and back
-            in; `visible` drives that, and `reserved` keeps its column in the
-            right slot while the context panel covers it. */}
+            in; `visible` drives that, `reserved` keeps its column in the right
+            slot while the context panel covers it, and `besidePanel` keeps it
+            beside the open panel. */}
         {workStatusPanelMountable && workStatusHost ? createPortal(
             <WorkStatusPanel
                 visible={showWorkStatusPanel}
                 reserved={workStatusReserved}
+                besidePanel={workStatusRoomyBesidePanel}
                 sessionId={currentSessionId ?? null}
                 directory={workStatusDirectory ?? null}
                 repositoryEnabled={!isManagedChatContext}
