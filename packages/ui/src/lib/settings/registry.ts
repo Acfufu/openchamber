@@ -473,6 +473,7 @@ export const SETTINGS_REGISTRY = {
   openTrackerLinksOnBoard: field({ scope: 'profile', surfaces: ['web', 'desktop', 'mobile'], parse: parseBoolean, ui: uiStore('openTrackerLinksOnBoard', (v) => useUIStore.getState().setOpenTrackerLinksOnBoard(v)) }),
   autoCreateWorktree: field({ scope: 'profile', parse: parseBoolean }),
   sessionTabsEnabled: field({ scope: 'profile', surfaces: ['web', 'desktop', 'vscode'], parse: parseBoolean, ui: uiStore('sessionTabsEnabled', (v) => useUIStore.getState().setSessionTabsEnabled(v)) }),
+  sessionTabsPerWorkspace: field({ scope: 'profile', surfaces: ['web', 'desktop'], parse: parseBoolean, ui: uiStore('sessionTabsPerWorkspace', (v) => useUIStore.getState().setSessionTabsPerWorkspace(v)) }),
   allowPromptingSubagentSessions: field({ scope: 'profile', parse: parseBoolean, ui: uiStore('allowPromptingSubagentSessions', (v) => useUIStore.getState().setAllowPromptingSubagentSessions(v)) }),
 
   // ── Composer (profile) ──
