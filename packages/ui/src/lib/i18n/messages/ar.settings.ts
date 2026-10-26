@@ -1299,6 +1299,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': 'ملف مكوّن إضافي للمشروع',
   'settings.plugins.sidebar.kind.npm': 'حزمة npm',
   'settings.plugins.sidebar.kind.git': 'حزمة Git',
+  'settings.plugins.sidebar.kind.disableRule': 'قاعدة تعطيل',
+  'settings.plugins.sidebar.kind.enableRule': 'قاعدة تفعيل',
   'settings.plugins.sidebar.kind.path': 'مسار محلي',
   'settings.plugins.sidebar.kind.file': 'ملف مكوّن إضافي',
   'settings.plugins.sidebar.kind.package': 'حزمة مكوّن إضافي',

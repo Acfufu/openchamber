@@ -1300,6 +1300,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': 'プロジェクト Plugin ファイル',
   'settings.plugins.sidebar.kind.npm': 'npm パッケージ',
   'settings.plugins.sidebar.kind.git': 'Git パッケージ',
+  'settings.plugins.sidebar.kind.disableRule': '無効化ルール',
+  'settings.plugins.sidebar.kind.enableRule': '有効化ルール',
   'settings.plugins.sidebar.kind.path': 'ローカルパス',
   'settings.plugins.sidebar.kind.file': 'Plugin ファイル',
   'settings.plugins.sidebar.kind.package': 'プラグインパッケージ',

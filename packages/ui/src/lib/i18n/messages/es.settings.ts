@@ -1267,6 +1267,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': 'Archivo de plugin del proyecto',
   'settings.plugins.sidebar.kind.npm': 'paquete npm',
   'settings.plugins.sidebar.kind.git': 'paquete Git',
+  'settings.plugins.sidebar.kind.disableRule': 'regla de desactivación',
+  'settings.plugins.sidebar.kind.enableRule': 'regla de activación',
   'settings.plugins.sidebar.kind.path': 'Ruta local',
   'settings.plugins.sidebar.kind.file': 'Archivo de plugin',
   'settings.plugins.sidebar.kind.package': 'Paquete de plugin',

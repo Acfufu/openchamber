@@ -1299,6 +1299,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': 'קובץ תוסף של הפרויקט',
   'settings.plugins.sidebar.kind.npm': 'חבילת npm',
   'settings.plugins.sidebar.kind.git': 'חבילת Git',
+  'settings.plugins.sidebar.kind.disableRule': 'כלל השבתה',
+  'settings.plugins.sidebar.kind.enableRule': 'כלל הפעלה',
   'settings.plugins.sidebar.kind.path': 'נתיב מקומי',
   'settings.plugins.sidebar.kind.file': 'קובץ תוסף',
   'settings.plugins.sidebar.kind.package': 'חבילת תוסף',

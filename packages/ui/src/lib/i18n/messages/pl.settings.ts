@@ -624,6 +624,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': 'Plik pluginu projektu',
   'settings.plugins.sidebar.kind.npm': 'pakiet npm',
   'settings.plugins.sidebar.kind.git': 'pakiet Git',
+  'settings.plugins.sidebar.kind.disableRule': 'reguła wyłączania',
+  'settings.plugins.sidebar.kind.enableRule': 'reguła włączania',
   'settings.plugins.sidebar.kind.path': 'Ścieżka lokalna',
   'settings.plugins.sidebar.kind.file': 'Plik pluginu',
   'settings.plugins.sidebar.kind.package': 'Pakiet wtyczki',

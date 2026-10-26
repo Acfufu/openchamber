@@ -1267,6 +1267,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': '项目插件文件',
   'settings.plugins.sidebar.kind.npm': 'npm 包',
   'settings.plugins.sidebar.kind.git': 'Git 包',
+  'settings.plugins.sidebar.kind.disableRule': '禁用规则',
+  'settings.plugins.sidebar.kind.enableRule': '启用规则',
   'settings.plugins.sidebar.kind.path': '本地路径',
   'settings.plugins.sidebar.kind.file': '插件文件',
   'settings.plugins.sidebar.kind.package': '插件包',

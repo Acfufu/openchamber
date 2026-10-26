@@ -1267,6 +1267,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': 'Файл плагіна проєкту',
   'settings.plugins.sidebar.kind.npm': 'пакет npm',
   'settings.plugins.sidebar.kind.git': 'пакет Git',
+  'settings.plugins.sidebar.kind.disableRule': 'правило вимкнення',
+  'settings.plugins.sidebar.kind.enableRule': 'правило ввімкнення',
   'settings.plugins.sidebar.kind.path': 'Локальний шлях',
   'settings.plugins.sidebar.kind.file': 'Файл плагіна',
   'settings.plugins.sidebar.kind.package': 'Пакет плагіна',

@@ -1267,6 +1267,8 @@ export const settingsDict = {
   'settings.plugins.sidebar.group.projectFiles': '프로젝트 플러그인 파일',
   'settings.plugins.sidebar.kind.npm': 'npm 패키지',
   'settings.plugins.sidebar.kind.git': 'Git 패키지',
+  'settings.plugins.sidebar.kind.disableRule': '비활성화 규칙',
+  'settings.plugins.sidebar.kind.enableRule': '활성화 규칙',
   'settings.plugins.sidebar.kind.path': '로컬 경로',
   'settings.plugins.sidebar.kind.file': '플러그인 파일',
   'settings.plugins.sidebar.kind.package': '플러그인 패키지',
