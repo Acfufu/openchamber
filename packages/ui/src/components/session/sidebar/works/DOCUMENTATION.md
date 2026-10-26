@@ -6,7 +6,9 @@ view, In work, Drafts, Folders with worktrees) describes how they are laid out.
 
 - `sidebarWorks.ts`: which work each listed session belongs to
   (`buildSidebarWorkIndex`, from the project sections) and works in order
-  (`orderSidebarWorks`, by the first of their sessions in the lifecycle order).
+  (`orderSidebarWorks`, by the first of their sessions in the lifecycle order),
+  and where a worktree's archived sessions hold it in that order
+  (`buildWorktreeArchiveAnchors`), so archiving does not move a worktree.
   A work is a linked worktree's group (`isWorktreeWorkGroup`: not the root, not
   a space, not an archive) with every session in it, or a root session of the
   project root or a space with what nests under it. Work keys are

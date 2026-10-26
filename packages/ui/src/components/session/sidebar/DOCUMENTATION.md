@@ -106,9 +106,14 @@ A project lists its worktree works among the works of its root, not in a
 block after them: the row model (`mergeWorktreeEntries` in
 `sessionSidebarRowModel.ts`) puts each at the place of its most recent
 session in the shared lifecycle order (`sessionOrderIndex`), so a worktree
-someone just worked in leads the list as a session there would. A worktree
-spends one slot of the root's Show more limit, like a run; one with no session
-yet closes the list, the newest first (`useSessionGrouping`). Worktrees filed
+someone just worked in leads the list as a session there would. Its archived
+sessions count too (`buildWorktreeArchiveAnchors` in `works/sidebarWorks.ts`,
+`worktreeArchiveAnchors` on the row model, and the list by time through
+`orderSidebarWorks`): archiving the newest session in a worktree is not work,
+so the worktree keeps the place that session gave it instead of falling to
+the next one's, and a worktree whose sessions are all archived stays where it
+was. A worktree spends one slot of the root's Show more limit, like a run; one
+that never had a session closes the list, the newest first (`useSessionGrouping`). Worktrees filed
 in a folder stay in the folder; spaces and the archive bucket follow the
 list. There is no worktree sort and no worktree dragging, on the phone either:
 its project editor lists the worktrees in the topology's order, with Delete.
@@ -597,6 +602,20 @@ lists each of them once, in the zone (`zoneSessionIds` carries both zones' ids),
 and the rows follow the same render context. Its rows show no pin marker,
 because the header already says they are pinned; In work rows show it only
 while the zone is hidden, since otherwise no pinned session reaches In work.
+
+A worktree work is pinned too, from its row's menu (desktop, web) or its swipe
+actions (phone): Pinned lists it after the pinned sessions, the latest pin
+first (`pinnedWorktrees` on the row model), and it leaves its project, In work
+and the list by time (`movedGroupKeys`). With the zone hidden it stays in its
+project, leading the list as pinned sessions do, with the pin mark on its row.
+Manual worktree order is gone (see "Why a worktree is listed among the
+project's sessions"); pinning is how a worktree stays on top. The pin lives in
+the branch's config beside the task title (`branch.<name>.openchamberPinned`,
+`setWorktreePinned` in `web/server/lib/git`), so every client of the server
+sees it and a detached worktree, which has no branch, offers no pin. The row
+moves once the server's topology event lists the change, as a task rename
+does; there is no optimistic flip. VS Code has no worktree works, so no
+worktree pins.
 
 A pin lives in the session's metadata (`openchamber.pinned: { at }`,
 `lib/sessionPins.ts`), written through the metadata route like the work state,

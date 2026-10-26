@@ -1,6 +1,6 @@
 import React from 'react';
 import { toast } from '@/components/ui';
-import { canArchiveWorktrees, setGitWorktreeTitle } from '@/lib/gitApi';
+import { canArchiveWorktrees, setGitWorktreePinned, setGitWorktreeTitle } from '@/lib/gitApi';
 import { useI18n } from '@/lib/i18n';
 import { useWorktreeRemoving } from '@/lib/worktrees/worktreeRemovalState';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
@@ -93,6 +93,20 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
     prepare();
     useSessionUIStore.getState().setCurrentSession(session.id, session.directory ?? directory);
   };
+  // The pin lives in the branch's config, so a detached worktree has none.
+  // The row moves once the server's topology event lists the change.
+  const pinned = worktree?.pinnedAt !== undefined;
+  const canPin = Boolean(group.directory && worktree?.branch?.trim()) && !worktreeRemoving;
+  const togglePin = async (): Promise<void> => {
+    if (!group.directory || !canPin) return;
+    try {
+      await setGitWorktreePinned(group.directory, !pinned);
+    } catch (error) {
+      toast.error(pinned ? t('sessions.sidebar.work.unpin.failed') : t('sessions.sidebar.work.pin.failed'), {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
+  };
   const saveTitle = async (next: string): Promise<void> => {
     if (!group.directory || next.trim() === (title ?? '')) return;
     try {
@@ -175,6 +189,8 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
     label,
     finishing,
     canArchive,
+    pinned,
+    canPin,
     workAction,
     activityState,
     runningSessionId,
@@ -182,6 +198,7 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
     open,
     newChat,
     saveTitle,
+    togglePin,
     finish,
     toggleWork,
   };

@@ -28,6 +28,7 @@ import { CollapsedActivityIndicator } from './collapsedActivityIndicator';
 import { useCollapsedSessionActivityState } from './collapsedActivityState';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
 import { useRunWork } from './useRunWork';
+import { isRowBoxClick } from './rowBoxClick';
 import { sessionDetailedRowPaddingLeft, sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
 
 const MAX_LOGOS = 4;
@@ -276,8 +277,12 @@ function RunSidebarRowComponent({
           data-run-row={run.key}
           aria-current={isActive ? 'page' : undefined}
           style={{ paddingInlineStart: detailed ? sessionDetailedRowPaddingLeft(depth) : sessionTreeRowPaddingLeft(depth) }}
+          // The whole box opens the run, its paddings too.
+          onClick={(event) => {
+            if (isRowBoxClick(event)) openRun();
+          }}
           className={cn(
-            'group/run relative my-0.5 flex cursor-pointer items-center rounded-md py-1.5 pe-2.5',
+            'group/run relative my-0.5 flex cursor-pointer select-none items-center rounded-md py-1.5 pe-2.5',
             !detailed && 'gap-1.5',
             isActive ? 'bg-interactive-selection/70 text-interactive-selection-foreground' : 'hover:bg-interactive-hover/60',
           )}

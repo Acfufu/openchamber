@@ -91,21 +91,77 @@ export const buildSidebarWorkIndex = (sections: readonly ProjectSection[]): Side
 /**
  * The works of the sessions `include` accepts, each once, in the order of the
  * first of their sessions in `orderedSessions` (the sidebar's lifecycle order,
- * so a work moves up when any of its sessions does).
+ * so a work moves up when any of its sessions does). With `archiveAnchors`
+ * (`buildWorktreeArchiveAnchors`) a worktree work also stands where its
+ * archived sessions hold it, and is listed for them alone.
  */
 export const orderSidebarWorks = (
   orderedSessions: readonly Session[],
   index: SidebarWorkIndex,
   include: (session: Session) => boolean,
+  archiveAnchors: ReadonlyMap<string, number> = EMPTY_ANCHORS,
 ): SidebarWorkRef[] => {
-  const works: SidebarWorkRef[] = [];
-  const seen = new Set<string>();
-  for (const session of orderedSessions) {
-    if (!include(session)) continue;
+  const rankByKey = new Map<string, { ref: SidebarWorkRef; rank: number }>();
+  orderedSessions.forEach((session, position) => {
+    if (!include(session)) return;
     const ref = index.bySessionId.get(session.id);
-    if (!ref || seen.has(ref.key)) continue;
-    seen.add(ref.key);
-    works.push(ref);
+    if (ref && !rankByKey.has(ref.key)) rankByKey.set(ref.key, { ref, rank: position });
+  });
+  if (archiveAnchors.size === 0) return [...rankByKey.values()].map((entry) => entry.ref);
+  for (const ref of index.worktreeWorks) {
+    const anchor = archiveAnchors.get(ref.key);
+    if (anchor === undefined) continue;
+    const listed = rankByKey.get(ref.key);
+    rankByKey.set(ref.key, { ref, rank: Math.min(listed?.rank ?? anchor, anchor) });
   }
-  return works;
+  return [...rankByKey.values()].sort((left, right) => left.rank - right.rank).map((entry) => entry.ref);
 };
+
+/**
+ * Where each worktree work's archived sessions hold it in `orderedSessions`,
+ * by work key: a position between two listed sessions, before the first
+ * unpinned top-level session that was last active before the newest archived
+ * session of the worktree. Archiving a session is not work, so the worktree
+ * keeps the place its newest session gave it instead of falling to the next
+ * one's. Top-level sessions are listed newest first after the pinned ones,
+ * which is what makes the position well defined.
+ */
+export const buildWorktreeArchiveAnchors = ({
+  worktreeWorks,
+  archivedSessions,
+  orderedSessions,
+  orderValueOf,
+  isPinned,
+}: {
+  worktreeWorks: readonly SidebarWorktreeWorkRef[];
+  archivedSessions: readonly Session[];
+  orderedSessions: readonly Session[];
+  /** A session's value in the lifecycle order, newer is higher. */
+  orderValueOf: (session: Session) => number;
+  isPinned: (session: Session) => boolean;
+}): ReadonlyMap<string, number> => {
+  if (worktreeWorks.length === 0 || archivedSessions.length === 0) return EMPTY_ANCHORS;
+  const keyByDirectory = new Map(worktreeWorks.flatMap((ref) => {
+    const directory = normalizePath(ref.group.directory ?? null);
+    return directory ? [[directory, ref.key] as const] : [];
+  }));
+  const newestByKey = new Map<string, number>();
+  for (const session of archivedSessions) {
+    if (session.parentID) continue;
+    const key = keyByDirectory.get(normalizePath(session.directory ?? null) ?? '');
+    if (!key) continue;
+    newestByKey.set(key, Math.max(newestByKey.get(key) ?? Number.NEGATIVE_INFINITY, orderValueOf(session)));
+  }
+  if (newestByKey.size === 0) return EMPTY_ANCHORS;
+  const tops = orderedSessions.flatMap((session, index) => (
+    session.parentID || isPinned(session) ? [] : [{ index, value: orderValueOf(session) }]
+  ));
+  const anchors = new Map<string, number>();
+  for (const [key, newest] of newestByKey) {
+    const next = tops.find((entry) => entry.value < newest);
+    anchors.set(key, (next?.index ?? orderedSessions.length) - 0.5);
+  }
+  return anchors;
+};
+
+const EMPTY_ANCHORS: ReadonlyMap<string, number> = new Map();

@@ -57,7 +57,8 @@ import { deriveTimelineActivityItems, matchZoneSessionsForSidebarQuery, pruneSes
 import { resolveSidebarSessionLocations } from '../recent/sessionLocation';
 import { buildSessionSidebarRowModel, type SessionSidebarWorkEntry } from '../sessionSidebarRowModel';
 import { useRemovingWorktreePaths } from '@/lib/worktrees/worktreeRemovalState';
-import { buildSidebarWorkIndex, isWorktreeWorkGroup, orderSidebarWorks, type SidebarWorkRef } from '../works/sidebarWorks';
+import { buildSidebarWorkIndex, buildWorktreeArchiveAnchors, isWorktreeWorkGroup, orderSidebarWorks, type SidebarWorkRef } from '../works/sidebarWorks';
+import { getSessionLifecycleOrderValue } from '@/sync/session-ordering';
 import { useSessionDraftsStore, type SessionDraft } from '@/stores/useSessionDraftsStore';
 import { useSidebarGroupStatus } from './useSidebarGroupStatus';
 import { getSessionFolderOwnerKey, getSessionFolderScopes } from '../sessions/sessionFolderIdentity';
@@ -83,8 +84,8 @@ const EMPTY_WORK_ENTRIES: readonly SessionSidebarWorkEntry[] = [];
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const NO_DRAFTS: readonly SessionDraft[] = [];
 /** Pinned root sessions, and the works In work lists. */
-type ZoneWorks = { pinned: readonly Session[]; work: readonly SidebarWorkRef[] };
-const EMPTY_ZONE_WORKS: ZoneWorks = { pinned: [], work: [] };
+type ZoneWorks = { pinned: readonly Session[]; pinnedWorktrees: readonly SidebarWorkRef[]; work: readonly SidebarWorkRef[] };
+const EMPTY_ZONE_WORKS: ZoneWorks = { pinned: [], pinnedWorktrees: [], work: [] };
 
 type Project = {
   id: string;
@@ -404,6 +405,13 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   const showPinnedSection = useSessionDisplayStore((state) => state.showPinnedSection);
   const detailedZoneRows = useSessionDisplayStore((state) => state.detailedZoneRows);
   const workIndex = React.useMemo(() => buildSidebarWorkIndex(projectSections), [projectSections]);
+  const worktreeArchiveAnchors = React.useMemo(() => buildWorktreeArchiveAnchors({
+    worktreeWorks: workIndex.worktreeWorks,
+    archivedSessions: collection.archivedSessions,
+    orderedSessions: collection.orderedSessions,
+    orderValueOf: (session) => getSessionLifecycleOrderValue(session, collection.sessionOrderRanks),
+    isPinned: (session) => isSessionPinned(collection.pinnedSessionIds, session.directory, session.id),
+  }), [collection.archivedSessions, collection.orderedSessions, collection.pinnedSessionIds, collection.sessionOrderRanks, workIndex]);
   const rootSessionIds = React.useMemo(() => new Set(collection.rootSessions.map((session) => session.id)), [collection.rootSessions]);
   // Drafts of new sessions not sent yet, where their session would go: a
   // worktree's in its group, the project root's at the top of the project. The
@@ -452,17 +460,24 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
         && isSessionPinned(collection.pinnedSessionIds, session.directory, session.id))
       : [];
     const pinnedIds = new Set(pinned.map((session) => session.id));
+    // Pinned worktrees follow the pinned sessions, the latest pin first.
+    const pinnedWorktrees = showPinnedSection
+      ? workIndex.worktreeWorks
+        .filter((ref) => ref.group.worktree?.pinnedAt !== undefined)
+        .sort((left, right) => (right.group.worktree?.pinnedAt ?? 0) - (left.group.worktree?.pinnedAt ?? 0))
+      : [];
+    const pinnedKeys = new Set(pinnedWorktrees.map((ref) => ref.key));
     const work = showWork
       // A subagent's own work state never puts its run in work: the user works
       // in the sessions they started, as the Done button on a row reads it.
       ? orderSidebarWorks(collection.orderedSessions, workIndex, (session) => (
         !session.parentID && !session.time?.archived && !isChatDirectoryPath(session.directory) && isSessionInWork(session)
-      )).filter((ref) => ref.kind !== 'session' || !pinnedIds.has(ref.rootSessionId))
+      )).filter((ref) => (ref.kind === 'session' ? !pinnedIds.has(ref.rootSessionId) : !pinnedKeys.has(ref.key)))
       : [];
     // A worktree with no session yet is in work while a draft is begun there:
     // the user just made it for a task. It opens the block, as the newest.
     const begun = showWork
-      ? workIndex.worktreeWorks.filter((ref) => ref.group.sessions.length === 0 && !work.some((entry) => entry.key === ref.key) && (
+      ? workIndex.worktreeWorks.filter((ref) => ref.group.sessions.length === 0 && !pinnedKeys.has(ref.key) && !work.some((entry) => entry.key === ref.key) && (
         draftPlacement.byGroupKey.has(ref.key)
         || Boolean(openDraftDirectory && isPathWithinProject(openDraftDirectory, normalizePath(ref.group.directory ?? null)))
       ))
@@ -479,8 +494,8 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
         if (ref && path && removingWorktreePaths.has(path)) listed.splice(Math.min(index, listed.length), 0, ref);
       });
     }
-    if (pinned.length === 0 && listed.length === 0) return EMPTY_ZONE_WORKS;
-    return { pinned, work: listed };
+    if (pinned.length === 0 && pinnedWorktrees.length === 0 && listed.length === 0) return EMPTY_ZONE_WORKS;
+    return { pinned, pinnedWorktrees, work: listed };
   }, [collection.orderedSessions, collection.pinnedSessionIds, draftPlacement, openDraftDirectory, removingWorktreePaths, rootSessionIds, sessionWorkEnabled, showPinnedSection, showWorkSection, workIndex]);
   React.useEffect(() => {
     lastWorkKeysRef.current = zoneWorks.work.map((ref) => ref.key);
@@ -572,26 +587,30 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     });
   }, [buildZoneItems, collection.sessionById]);
   const pinnedItems = React.useMemo(() => buildZoneItems(zoneWorks.pinned), [buildZoneItems, zoneWorks.pinned]);
+  const pinnedWorktreeEntries = React.useMemo(() => toWorkEntries(zoneWorks.pinnedWorktrees), [toWorkEntries, zoneWorks.pinnedWorktrees]);
   const workEntries = React.useMemo(() => toWorkEntries(zoneWorks.work), [toWorkEntries, zoneWorks.work]);
   // Grouped by time: every other work of every project, most recent first,
   // then the worktrees nobody has started a session in yet.
   const timeEntries = React.useMemo((): readonly SessionSidebarWorkEntry[] | null => {
     if (!timeGrouping) return null;
-    const listedKeys = new Set(zoneWorks.work.map((ref) => ref.key));
+    const listedKeys = new Set([...zoneWorks.work, ...zoneWorks.pinnedWorktrees].map((ref) => ref.key));
     for (const session of zoneWorks.pinned) listedKeys.add(`session:${session.id}`);
     const refs = orderSidebarWorks(collection.orderedSessions, workIndex, (session) => (
       !session.time?.archived && !isChatDirectoryPath(session.directory)
-    )).filter((ref) => !listedKeys.has(ref.key));
+    ), worktreeArchiveAnchors).filter((ref) => !listedKeys.has(ref.key));
     const seen = new Set(refs.map((ref) => ref.key));
     for (const ref of workIndex.worktreeWorks) {
       if (!seen.has(ref.key) && !listedKeys.has(ref.key)) refs.push(ref);
     }
+    // A pinned worktree still listed here (the Pinned section is hidden)
+    // leads the list, as pinned sessions do in the lifecycle order.
+    const isPinnedWorktree = (ref: SidebarWorkRef): boolean => ref.kind === 'worktree' && ref.group.worktree?.pinnedAt !== undefined;
     // New works the user has only drafted open the list.
     return [
       ...draftPlacement.rootDrafts.map(({ draft, projectId }): SessionSidebarWorkEntry => ({ kind: 'draft', draft, projectId })),
-      ...toWorkEntries(refs),
+      ...toWorkEntries([...refs.filter(isPinnedWorktree), ...refs.filter((ref) => !isPinnedWorktree(ref))]),
     ];
-  }, [collection.orderedSessions, draftPlacement, timeGrouping, toWorkEntries, workIndex, zoneWorks]);
+  }, [collection.orderedSessions, draftPlacement, timeGrouping, toWorkEntries, workIndex, worktreeArchiveAnchors, zoneWorks]);
   // What leaves its project for the zones. A pinned work always does: the
   // Pinned zone is shown only by choice, and then the work is there. A work
   // in work leaves unless kept in place by choice, and still leaves during a
@@ -605,10 +624,12 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     return ids.length > 0 ? new Set(ids) : EMPTY_IDS;
   }, [movesWorkOut, zoneWorks]);
   const movedGroupKeys = React.useMemo(() => {
-    if (!movesWorkOut) return EMPTY_IDS;
-    const keys = zoneWorks.work.flatMap((ref) => ref.kind === 'worktree' ? [ref.key] : []);
+    const keys = zoneWorks.pinnedWorktrees.map((ref) => ref.key);
+    if (movesWorkOut) {
+      for (const ref of zoneWorks.work) if (ref.kind === 'worktree') keys.push(ref.key);
+    }
     return keys.length > 0 ? new Set(keys) : EMPTY_IDS;
-  }, [movesWorkOut, zoneWorks.work]);
+  }, [movesWorkOut, zoneWorks.pinnedWorktrees, zoneWorks.work]);
   // Branches whose PR badge is on screen: the works in Pinned and In work,
   // then the list by time or the expanded projects.
   const urlMatcher = useRepositoryUrlMatcher();
@@ -654,6 +675,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
       else if (entry.kind === 'worktree') addGroup(entry.group);
     };
     pinnedItems.forEach((item) => addNode(item.node));
+    pinnedWorktreeEntries.forEach(addEntry);
     if (!projectView.collapsedActivities.has('work')) workEntries.forEach(addEntry);
     if (timeEntries) {
       if (!projectView.collapsedActivities.has('timeline')) timeEntries.forEach(addEntry);
@@ -666,7 +688,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
       });
     });
     return { targets, repositoryRefs: [...repositoryRefs.values()], trackerItems: [...trackerItems.values()] };
-  }, [pinnedItems, projectSections, projectView.collapsedActivities, projectView.collapsedProjects, timeEntries, topology.gitBranches, topology.isVSCode, urlMatcher, workEntries]);
+  }, [pinnedItems, pinnedWorktreeEntries, projectSections, projectView.collapsedActivities, projectView.collapsedProjects, timeEntries, topology.gitBranches, topology.isVSCode, urlMatcher, workEntries]);
   const shownPrTargets = shownPrs.targets;
   // The discovery effect below subscribes to bindings and reads them; keep its
   // input stable while the shown branches are the same, so ordinary sidebar
@@ -981,6 +1003,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     // Hidden only from the list: folders and search keep the group.
     chatGroup: showChatsSection ? chatGroup : null,
     pinnedItems,
+    pinnedWorktrees: pinnedWorktreeEntries,
     workEntries,
     timeEntries,
     draftsByGroupKey: draftPlacement.byGroupKey,
@@ -999,6 +1022,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     visibleCountByContainer,
     pinnedSessionIds: collection.pinnedSessionIds,
     sessionOrderIndex,
+    worktreeArchiveAnchors,
     groupStatusByKey,
     folderAuthorityByOwner,
     activeProjectId: view.activeProjectId,
@@ -1008,7 +1032,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     hideDirectoryControls: view.hideDirectoryControls,
     sessionBatchSize: singleProjectMode && !view.useGroupedSections ? 20 : undefined,
     runIndex,
-  }), [runIndex, chatGroup, showChatsSection, projectView.collapsedActivities, pinnedItems, workEntries, timeEntries, draftPlacement, movedSessionIds, movedGroupKeys, zoneSessionIds, detailedZoneRows, collapsedFolderIds, collection.pinnedSessionIds, expandedParents, folderAuthorityByOwner, foldersMap, groupSearchDataByGroup, groupStatusByKey, orderedSectionsForRender, projectSections, collapsedGroups, projectView.collapsedProjects, selectedSingleProjectId, sessionOrderIndex, singleProjectMode, view.activeProjectId, view.hasSessionSearchQuery, view.hideDirectoryControls, view.normalizedSessionSearchQuery, view.showOnlyMainWorkspace, view.useGroupedSections, visibleCountByContainer]);
+  }), [runIndex, chatGroup, showChatsSection, projectView.collapsedActivities, pinnedItems, pinnedWorktreeEntries, workEntries, timeEntries, draftPlacement, movedSessionIds, movedGroupKeys, zoneSessionIds, detailedZoneRows, collapsedFolderIds, collection.pinnedSessionIds, expandedParents, folderAuthorityByOwner, foldersMap, groupSearchDataByGroup, groupStatusByKey, orderedSectionsForRender, projectSections, collapsedGroups, projectView.collapsedProjects, selectedSingleProjectId, sessionOrderIndex, singleProjectMode, view.activeProjectId, view.hasSessionSearchQuery, view.hideDirectoryControls, view.normalizedSessionSearchQuery, view.showOnlyMainWorkspace, view.useGroupedSections, visibleCountByContainer, worktreeArchiveAnchors]);
   React.useEffect(() => {
     onSearchMatchCountChange(sidebarRowModel.searchMatchCount);
   }, [onSearchMatchCountChange, sidebarRowModel.searchMatchCount]);

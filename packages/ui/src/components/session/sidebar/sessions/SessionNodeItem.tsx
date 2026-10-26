@@ -70,6 +70,7 @@ import { getSessionGoal } from '@/lib/sessionGoalMetadata';
 import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
 import { isDoneSuggested } from '@/lib/sessionWorkMetadata';
 import { collectSessionWorkInWork } from '../works/sidebarWorks';
+import { isRowBoxClick } from './rowBoxClick';
 import { SessionDirectoryMissingError, setSessionWorkState } from '@/sync/session-actions';
 import { toastSessionWorkFailure } from './sessionWorkFailure';
 import { useSessionWarmingStore, useSessionWarmUntil } from '@/stores/useSessionWarmingStore';
@@ -854,7 +855,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           data-session-row-box=""
           style={{ paddingInlineStart: sessionDetailedRowPaddingLeft(depth) }}
           className={cn(
-            'oc-ref-tint-scope group relative my-0.5 flex items-center rounded-md pe-2.5',
+            'group relative my-0.5 flex items-center rounded-md pe-2.5',
             'py-1.5',
             isActive && 'bg-interactive-selection/70 text-interactive-selection-foreground',
           )}
@@ -1130,11 +1131,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // that did not originate from an interactive child (title button, chevron,
   // action menu), so nothing double-fires.
   const handleRowBackgroundClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented) return;
-    // SAFETY: React click targets are DOM EventTargets; closest is valid only for HTMLElements.
-    const target = event.target instanceof HTMLElement ? event.target : null;
-    if (target?.closest('button, a, input, [data-session-row-main], [role="menuitem"], [role="menu"]')) return;
-    handleRowSelect(event);
+    if (isRowBoxClick(event)) handleRowSelect(event);
   };
 
   const handleRowMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -1760,7 +1757,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                 // then the slot and a 6px gap; a two-line row has no slot.
                 style={{ paddingInlineStart: isTwoLineRow ? sessionDetailedRowPaddingLeft(depth) : sessionTreeRowPaddingLeft(depth) }}
                 className={cn(
-                  'oc-ref-tint-scope group relative my-0.5 flex cursor-pointer items-center rounded-md pe-2.5',
+                  'group relative my-0.5 flex cursor-pointer items-center rounded-md pe-2.5',
                   !isTwoLineRow && 'gap-1.5',
                   'py-1.5',
                   !(isActive || isRowSelected) && 'hover:bg-interactive-hover/60',

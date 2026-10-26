@@ -15,6 +15,7 @@ import { refTintStyle } from '@/lib/source-control/prVisualState';
 import { cn } from '@/lib/utils';
 import { useGitBranchLabel } from '@/stores/useGitStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
+import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
 import { MobileProjectIcon } from '../MobileProjectIcon';
 import { MobileRunProviderLogos } from '../MobileRunProviderLogos';
 import { MobileSessionRenameForm } from '../MobileSessionRenameForm';
@@ -42,7 +43,7 @@ const MobileSlotMark: React.FC<{ slotLeft: number; children: React.ReactNode }> 
  * A worktree work in the phone's list: one row for the worktree and every
  * session in it, as on the desktop. A tap opens what was last worked on
  * there; the chevron opens its sessions. Swiping reveals Done or Track,
- * Rename, Archive worktree and Delete.
+ * Rename, Pin or Unpin, Archive worktree and Delete.
  */
 export const MobileWorktreeRow: React.FC<{
   row: Extract<SessionSidebarRow, { kind: 'group-header' }>;
@@ -133,6 +134,12 @@ export const MobileWorktreeRow: React.FC<{
     </span>
   ) : null;
   const directoryIndicator = row.group.directory ? <DirectoryActionIndicator directory={row.group.directory} /> : null;
+  // With the Pinned section shown a pinned work is listed there, whose header
+  // already says so; otherwise the row carries the mark, as a session's does.
+  const pinnedSectionShown = useSessionDisplayStore((state) => state.showPinnedSection);
+  const pinMark = work.pinned && !pinnedSectionShown
+    ? <Icon name="pushpin" className="size-3 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.session.status.pinned')} />
+    : null;
 
   let content: React.ReactNode;
   if (row.detailed) {
@@ -144,7 +151,7 @@ export const MobileWorktreeRow: React.FC<{
         chevron={toggle ? <MobileRowChevron expanded={expanded} kind="work" label={label} onToggle={toggle} /> : null}
         firstLine={renaming
           ? renameForm(0, 'h-[1lh] pe-0 typography-ui-label [&_button]:size-6 [&_button>svg]:size-3.5')
-          : <>{titleText}{missing}{directoryIndicator}{stateMark}{duration}</>}
+          : <>{titleText}{pinMark}{missing}{directoryIndicator}{stateMark}{duration}</>}
         secondLine={<>
           {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
           {branchMark}
@@ -167,6 +174,7 @@ export const MobileWorktreeRow: React.FC<{
           onClick={select}
         >
           {titleText}
+          {pinMark}
           {missing}
           {ref}
           {directoryIndicator}
@@ -177,7 +185,7 @@ export const MobileWorktreeRow: React.FC<{
     </>;
   }
 
-  const slots = (work.workAction ? 1 : 0) + 1 + (work.canArchive ? 1 : 0) + (worktree && !worktreeRemoving ? 1 : 0);
+  const slots = (work.workAction ? 1 : 0) + 1 + (work.canPin ? 1 : 0) + (work.canArchive ? 1 : 0) + (worktree && !worktreeRemoving ? 1 : 0);
   return (
     <MobileSwipeActionsRow
       actionsWidth={slots * ROW_ACTION_SLOT_WIDTH}
@@ -202,6 +210,14 @@ export const MobileWorktreeRow: React.FC<{
           revealed={revealed}
           onClick={() => useMobileSidebarRowsStore.getState().startRename(row.key)}
         />
+        {work.canPin ? (
+          <MobileSwipeAction
+            icon={work.pinned ? 'unpin' : 'pushpin'}
+            label={work.pinned ? t('sessions.sidebar.work.menu.unpin') : t('sessions.sidebar.work.menu.pin')}
+            revealed={revealed}
+            onClick={after(() => { void work.togglePin(); })}
+          />
+        ) : null}
         {work.canArchive ? (
           <MobileSwipeAction
             icon="archive"

@@ -8,6 +8,7 @@ import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useGitBranchLabel } from '@/stores/useGitStore';
 import { formatProjectLabel } from '../utils';
 import { TimelineProjectIcon } from '../sessions/SessionTimelineRowBody';
+import { isRowBoxClick } from '../sessions/rowBoxClick';
 import { sessionDetailedRowPaddingLeft, sessionTreeRowPaddingLeft } from '../sessions/sessionTreeGeometry';
 import { useSessionDraftRow } from './useSessionDraftRow';
 
@@ -50,8 +51,12 @@ export function SessionDraftRow({ draft, depth, detailed, mixed, alwaysShowActio
   return (
     <div
       style={{ paddingInlineStart: detailed ? sessionDetailedRowPaddingLeft(depth) : sessionTreeRowPaddingLeft(depth) }}
+      // The whole box opens the draft, its second line and paddings too.
+      onClick={(event) => {
+        if (isRowBoxClick(event)) open();
+      }}
       className={cn(
-        'group/draft relative my-0.5 flex cursor-pointer rounded-md py-1.5 pe-2.5',
+        'group/draft relative my-0.5 flex cursor-pointer select-none rounded-md py-1.5 pe-2.5',
         detailed ? 'flex-col gap-px' : 'items-center gap-1.5',
         isOpen ? 'bg-interactive-selection/70 text-interactive-selection-foreground' : 'hover:bg-interactive-hover/60',
       )}

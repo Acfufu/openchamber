@@ -129,6 +129,8 @@ export type SessionSidebarRowModelArgs = {
   chatGroup: SessionGroup | null;
   /** Pinned sessions, already ordered and search-filtered; they stay under their project too. */
   pinnedItems?: readonly SessionSidebarActivityItem[];
+  /** Pinned worktree works, listed after the pinned sessions, the latest pin first; they leave their project. */
+  pinnedWorktrees?: readonly SessionSidebarWorkEntry[];
   /** The works in the In work block, in lifecycle order. */
   workEntries?: readonly SessionSidebarWorkEntry[];
   /**
@@ -161,6 +163,11 @@ export type SessionSidebarRowModelArgs = {
   visibleCountByContainer: ReadonlyMap<string, number>;
   pinnedSessionIds: ReadonlySet<string>;
   sessionOrderIndex: ReadonlyMap<string, number>;
+  /**
+   * The place in `sessionOrderIndex` a worktree work's archived sessions hold
+   * it at, by group key (`buildWorktreeArchiveAnchors`).
+   */
+  worktreeArchiveAnchors?: ReadonlyMap<string, number>;
   groupStatusByKey: ReadonlyMap<string, SessionSidebarGroupStatus>;
   folderAuthorityByOwner: ReadonlyMap<string, SessionSidebarOwnerAuthority>;
   activeProjectId: string | null;
@@ -240,6 +247,7 @@ export const countSessionSearchMatches = (nodes: readonly SessionNode[], normali
 const EMPTY_FOLDERS: readonly SessionFolder[] = [];
 const EMPTY_ZONE_SESSION_IDS: ReadonlySet<string> = new Set();
 const EMPTY_DRAFTS: readonly SessionDraft[] = [];
+const EMPTY_ARCHIVE_ANCHORS: ReadonlyMap<string, number> = new Map();
 // One line: the 20px line, 6px above and below, and the 1px margin each side
 // the row renderer gives session rows (`my-px`).
 const SESSION_ESTIMATE = 34;
@@ -291,20 +299,25 @@ const compareNodes = (
 
 /**
  * The project root's entries with its worktree works merged in, each work at
- * the place of its most recent session, so a worktree someone just worked in
- * leads the list as a session there would. A worktree with no session yet
+ * the place of its most recent session, archived ones included, so a
+ * worktree someone just worked in leads the list as a session there would and
+ * archiving a session does not move it. A worktree that never had a session
  * closes it.
  */
 const mergeWorktreeEntries = (
   entries: readonly SidebarEntry[],
   worktrees: readonly WorktreeInFolder[],
   sessionOrderIndex: ReadonlyMap<string, number>,
+  archiveAnchors: ReadonlyMap<string, number>,
 ): ListedEntry[] => {
   if (worktrees.length === 0) return [...entries];
   const rankOfNode = (node: SessionNode): number => sessionOrderIndex.get(node.session.id) ?? Number.POSITIVE_INFINITY;
   const rankOfEntry = (entry: SidebarEntry): number => (isRunEntry(entry) ? Math.min(...entry.lanes.map(rankOfNode)) : rankOfNode(entry));
-  const rankOfWorktree = (group: SessionGroup): number => {
-    let best = Number.POSITIVE_INFINITY;
+  const rankOfWorktree = ({ group, groupKey }: WorktreeInFolder): number => {
+    // A pinned worktree still listed here (the Pinned section is hidden)
+    // leads the list, as pinned sessions do.
+    if (group.worktree?.pinnedAt !== undefined) return Number.NEGATIVE_INFINITY;
+    let best = archiveAnchors.get(groupKey) ?? Number.POSITIVE_INFINITY;
     const stack = [...group.sessions];
     while (stack.length > 0) {
       const node = stack.pop();
@@ -315,7 +328,7 @@ const mergeWorktreeEntries = (
     return best;
   };
   const ranked = worktrees
-    .map((worktree) => ({ worktree, rank: rankOfWorktree(worktree.group) }))
+    .map((worktree) => ({ worktree, rank: rankOfWorktree(worktree) }))
     .sort((left, right) => left.rank - right.rank);
   const merged: ListedEntry[] = [];
   let next = 0;
@@ -770,7 +783,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
       && isSessionPinned(pinned, entry.session.directory ?? group.directory, entry.session.id);
     // A run spends one slot of the reveal limit, whatever its lane count, and
     // so does a worktree work.
-    const ungroupedEntries = mergeWorktreeEntries(collapseRunEntries(ungrouped, runIndex, group.isArchivedBucket === true), listedWorktrees, args.sessionOrderIndex);
+    const ungroupedEntries = mergeWorktreeEntries(collapseRunEntries(ungrouped, runIndex, group.isArchivedBucket === true), listedWorktrees, args.sessionOrderIndex, args.worktreeArchiveAnchors ?? EMPTY_ARCHIVE_ANCHORS);
     const limitedNodes = ungroupedEntries.filter((entry) => !isPinnedNode(entry));
     let budget = requested;
     const visibleEntries = group.isArchivedBucket || search
@@ -981,16 +994,20 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
   // Pinned and then In work sit under Chats and above the projects. A tree
   // is listed for its matching subsession too; the ancestors around it are
   // context, so only real matches count.
-  const pinnedItems = args.pinnedItems ?? [];
-  if (pinnedItems.length > 0) {
-    const collapsed = appendActivityHeader('pinned');
-    if (!collapsed) appendActivityItems(pinnedItems, 'activity:pinned', zoneRenderContext);
-  }
   // A zone a search left empty shows no header: search filters the entries
   // the collection passes, and a worktree work's group may still match nothing.
   const matchesSearch = (entry: SessionSidebarWorkEntry): boolean => (
     !search || entry.kind === 'session' || (entry.kind === 'worktree' && groupSearchMatches(entry.group) > 0)
   );
+  const pinnedItems = args.pinnedItems ?? [];
+  const pinnedWorktrees = (args.pinnedWorktrees ?? []).filter(matchesSearch);
+  if (pinnedItems.length > 0 || pinnedWorktrees.length > 0) {
+    const collapsed = appendActivityHeader('pinned');
+    if (!collapsed) {
+      appendActivityItems(pinnedItems, 'activity:pinned', zoneRenderContext);
+      appendWorkEntries(pinnedWorktrees, 'activity:pinned');
+    }
+  }
   const workEntries = (args.workEntries ?? []).filter(matchesSearch);
   if (workEntries.length > 0) {
     const collapsed = appendActivityHeader('work');

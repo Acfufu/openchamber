@@ -30,12 +30,14 @@ import { useI18n } from '@/lib/i18n';
 import { sessionEvents } from '@/lib/sessionEvents';
 import { refTintStyle } from '@/lib/source-control/prVisualState';
 import { cn } from '@/lib/utils';
+import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
 import { useSessionFoldersStore } from '@/stores/useSessionFoldersStore';
 import { DirectoryActionIndicator } from '../sessions/DirectoryActionIndicator';
 import { CollapsedActivityIndicator } from '../sessions/collapsedActivityIndicator';
 import { SessionActivityDuration } from '@/components/session/SessionActivityDuration';
 import { SIDEBAR_REF_TOOLTIP_CLOSE_DELAY_MS, SidebarRefLinks } from '../sessions/SidebarRefLinks';
 import { RowMarkTooltip } from '../sessions/RowMarkTooltip';
+import { isRowBoxClick } from '../sessions/rowBoxClick';
 import { TimelineProjectIcon } from '../sessions/SessionTimelineRowBody';
 import { sessionDetailedRowPaddingLeft, sessionTreeRowPaddingLeft } from '../sessions/sessionTreeGeometry';
 import type { SessionGroup } from '../types';
@@ -127,9 +129,20 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   });
   const {
     worktree, directory, worktreeRemoving, sessions, project, projectLabel, refs, selected,
-    title, branch, label, finishing, canArchive, workAction, inWork, activityState,
+    title, branch, label, finishing, canArchive, pinned, canPin, workAction, inWork, activityState,
     runningSessionId, durationSessionId,
   } = work;
+  // With the Pinned section shown a pinned work is listed there, whose header
+  // already says so; otherwise the row carries the mark, as a session's does.
+  const pinnedSectionShown = useSessionDisplayStore((state) => state.showPinnedSection);
+  const pinnedLabel = t('sessions.sidebar.session.status.pinned');
+  const pinnedMark = pinned && !pinnedSectionShown ? (
+    <RowMarkTooltip label={pinnedLabel}>
+      <span className="inline-flex flex-shrink-0 items-center" aria-label={pinnedLabel}>
+        <Icon name="pushpin" className="h-3 w-3 text-primary" />
+      </span>
+    </RowMarkTooltip>
+  ) : null;
   // Folders of the project root can hold whole worktrees, filed by member id.
   const folderScopeKey = normalizePath(project?.path ?? null);
   const folderMemberId = worktreeFolderMemberId(directory);
@@ -322,6 +335,12 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
         <Icon name="edit" className="h-4 w-4" />
         <span>{t('sessions.sidebar.work.menu.rename')}</span>
       </Slots.Item>
+      {canPin ? (
+        <Slots.Item onClick={() => { void work.togglePin(); }}>
+          <Icon name={pinned ? 'unpin' : 'pushpin'} className="h-4 w-4" />
+          <span>{pinned ? t('sessions.sidebar.work.menu.unpin') : t('sessions.sidebar.work.menu.pin')}</span>
+        </Slots.Item>
+      ) : null}
       {projectFolders.length > 0 ? (
         <Slots.Sub>
           <Slots.SubTrigger>
@@ -425,10 +444,14 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     <ContextMenuTrigger render={<div className={cn(worktreeRemoving && 'opacity-60')} aria-busy={worktreeRemoving || undefined} />}>
       <div
         style={{ paddingInlineStart: detailed ? sessionDetailedRowPaddingLeft(depth) : sessionTreeRowPaddingLeft(depth) }}
+        // The whole box opens the work, its second line and paddings too.
+        onClick={(event) => {
+          if (isRowBoxClick(event)) openWork();
+        }}
         className={cn(
           // The same box as a session row in the same place: zone rows are a
           // little taller than tree rows.
-          'oc-ref-tint-scope group/work relative my-0.5 flex cursor-pointer rounded-md pe-2.5',
+          'oc-ref-tint-scope group/work relative my-0.5 flex cursor-pointer select-none rounded-md pe-2.5',
           'py-1.5',
           detailed ? 'flex-col gap-px' : 'items-center gap-1.5',
           selected ? 'bg-interactive-selection/70' : 'hover:bg-interactive-hover/60',
@@ -461,6 +484,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                     <Icon name="alert" className="h-3 w-3" />
                   </span>
                 ) : null}
+                {pinnedMark}
                 {detailed ? null : ref}
                 {group.directory ? <DirectoryActionIndicator directory={group.directory} /> : null}
                 {/* Touch layouts keep the chevron in the slot, and a detailed row has

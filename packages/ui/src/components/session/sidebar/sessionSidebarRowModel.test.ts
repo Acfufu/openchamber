@@ -585,6 +585,37 @@ describe('buildSessionSidebarRowModel', () => {
       ]);
     });
 
+    test('a worktree stands where its archived sessions hold it', () => {
+      const input = args([project([group([node('r0'), node('r1')]), worktree([node('wt-old')])])]);
+      input.sessionOrderIndex = new Map([['r0', 0], ['r1', 1], ['wt-old', 2]]);
+      input.worktreeArchiveAnchors = new Map([['project-a:worktree:/wt', 0.5]]);
+      input.collapsedGroups = new Set(['project-a:worktree:/wt']);
+      expect(listedOf(buildSessionSidebarRowModel(input).rows)).toEqual(['project:project-a', 'project:r0@0', 'work:worktree:/wt@0', 'project:r1@0']);
+    });
+
+    test('a pinned worktree is listed in Pinned after the pinned sessions, and leads its project while the section is hidden', () => {
+      const pinnedWork = group([node('a1')], {
+        id: 'worktree:/wt', label: 'wt', branch: 'feature/wt', isMain: false, directory: '/wt', folderScopeKey: '/wt',
+        worktree: { path: '/wt', projectDirectory: '/repo', branch: 'feature/wt', label: 'wt', pinnedAt: 1 },
+      });
+      const input = args([project([group([node('r0'), node('pinned')]), pinnedWork])]);
+      input.sessionOrderIndex = new Map([['r0', 0], ['a1', 1]]);
+      input.collapsedGroups = new Set(['project-a:worktree:/wt']);
+      input.pinnedItems = [timelineItem('pinned')];
+      input.pinnedWorktrees = [{ kind: 'worktree', groupKey: 'project-a:worktree:/wt', projectId: 'project-a', group: pinnedWork }];
+      input.movedSessionIds = new Set(['pinned']);
+      input.movedGroupKeys = new Set(['project-a:worktree:/wt']);
+      expect(listedOf(buildSessionSidebarRowModel(input).rows)).toEqual([
+        'zone:pinned', 'mixed-compact:pinned@0', 'work:worktree:/wt@0:mixed', 'project:project-a', 'project:r0@0',
+      ]);
+
+      input.pinnedItems = [];
+      input.pinnedWorktrees = [];
+      input.movedSessionIds = new Set();
+      input.movedGroupKeys = new Set();
+      expect(listedOf(buildSessionSidebarRowModel(input).rows).slice(0, 3)).toEqual(['project:project-a', 'work:worktree:/wt@0', 'project:r0@0']);
+    });
+
     test('a worktree with no session closes the project root list', () => {
       const input = args([project([group([node('root')]), worktree([])])]);
       input.sessionOrderIndex = new Map([['root', 0]]);
