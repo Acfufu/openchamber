@@ -202,15 +202,15 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     sessionEvents.requestDelete({ sessions, mode: 'worktree', worktree, skipDialogIfSafe: shiftHeld || event.shiftKey === true });
   };
 
+  // The live state sits on the right before the time, as on every row.
   const stateMark = worktreeRemoving || finishing
-    ? <Spinner className="h-3.5 w-3.5" />
+    ? <Spinner className="h-3 w-3" />
     : activityState ? <CollapsedActivityIndicator state={activityState} /> : null;
-  // The slot holds the live state while there is one, otherwise the worktree
-  // mark tinted by the branch's PR, so the title starts where session titles
-  // do; the chevron takes its place while the row is hovered or focused, when
-  // there is something to open. Touch layouts have no hover and keep the
-  // chevron.
-  // The worktree mark tinted by the branch's PR, or a space's box.
+  // The slot always says what the row is: the worktree mark tinted by the
+  // branch's PR, or a space's box, so the title starts where session titles
+  // do and a running work never reads as a chat; the chevron takes its place
+  // while the row is hovered or focused, when there is something to open.
+  // Touch layouts have no hover and keep the chevron.
   const workMark = (className: string) => space ? (
     <Icon name="box-3" className={cn(className, 'flex-shrink-0 text-muted-foreground')} aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
   ) : (
@@ -223,7 +223,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
       aria-label={t('sessions.sidebar.work.worktreeMark')}
     />
   );
-  const slotMark = stateMark ?? workMark('h-3.5 w-3.5');
+  const slotMark = workMark('h-3.5 w-3.5');
   const chevron = expandable ? (
     <span
       role="button"
@@ -496,9 +496,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                 {pinnedMark}
                 {detailed ? null : ref}
                 {group.directory ? <DirectoryActionIndicator directory={group.directory} /> : null}
-                {/* Touch layouts keep the chevron in the slot, and a detailed row has
-                    no slot, so the state moves here. */}
-                {(detailed || (alwaysShowActions && expandable)) && stateMark ? <span className="inline-flex">{stateMark}</span> : null}
+                {stateMark ? <span className="inline-flex">{stateMark}</span> : null}
                 {durationSessionId ? (
                   <SessionActivityDuration sessionId={durationSessionId} running={Boolean(runningSessionId)} className="typography-micro" />
                 ) : null}

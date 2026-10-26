@@ -171,8 +171,8 @@ no Shift.
 - A tap opens what the row stands for and closes the drawer. The chevron is
   always shown, since there is no hover to reveal it: in the slot of a
   one-line row, over the second line's first icon of a two-line row, in a
-  thumb-sized target. A one-line row with nothing to open shows its live state
-  in the slot; a parent shows it on the right. No row shows a date, as on the
+  thumb-sized target. The live state sits on the right before the time on
+  every row, as on the desktop. No row shows a date, as on the
   desktop: the list is ordered by recency; a turn's duration shows while it
   runs and until it is read.
 - Detailed rows are on by default on the phone (store v12; a phone that was on
@@ -267,9 +267,8 @@ unchanged so ordinary session updates do not invalidate project sections.
   worktree row otherwise showed the same run twice.
 - The run row is a work like a session or a worktree (`RunSidebarRow`), not a
   session: it never enters selection or the selection pool. It reads like
-  their rows: the lanes' state in the slot (aggregated by
-  `useCollapsedSessionActivityState`), else the run's mark; the title; the
-  lanes' model logos. It opens to its lanes everywhere, zones included
+  their rows: the run's mark in the slot; the title; the lanes' model logos,
+  then the lanes' state (aggregated by `useCollapsedSessionActivityState`). It opens to its lanes everywhere, zones included
   (`runExpansionKey`, same `expandedParents` store), as one-line session rows
   one level deeper; search forces it open. With Detailed rows it follows the
   two-line rows (`detailed`): no slot, the state on the right, the run's mark
@@ -324,11 +323,11 @@ nested session as a root of its own.
 A worktree's group header is its work row (`works/WorktreeWorkRow.tsx`), and
 so is a space's (see "Spaces" below); the project root and archived buckets
 keep `SessionGroupSection`. The row
-reads like a session row, its title where session titles start: the live
-state of its sessions in the slot (running, news, a waiting request), or
-while there is none the worktree mark tinted by the branch's PR; the chevron
-replaces either while the row is hovered or focused, when there is something
-to open (touch layouts keep the chevron and show the state at the end). The
+reads like a session row, its title where session titles start: the
+worktree mark tinted by the branch's PR in the slot, always, and the live
+state of its sessions (running, news, a waiting request) at the end before
+the time; the chevron replaces the mark while the row is hovered or focused,
+when there is something to open (touch layouts keep the chevron). The
 title carries the state as a session's does (semibold for news or a waiting
 request, full strength while running, a step below otherwise), and the end shows the
 running turn's duration, or the last turn's until it is read. The title is
@@ -467,7 +466,10 @@ while In work is), Detailed rows, then Collapse all / Expand all.
   display menu's Collapse all / Expand all set every project and the zones
   (`SIDEBAR_ACTIVITY_KEYS`: Chats, Pinned, In work and the list by time)
   together. Session folders keep their own collapse state. Zone and project
-  headers are sticky.
+  headers are sticky. A hairline sits in the middle of the gap before every
+  project header that has rows above it (`sectionWrapperClass`), so projects
+  read apart from each other and from the zones; it is drawn inside the gap
+  and adds no height.
 - Rows of zones that mix projects (Pinned, In work, the list by time) are
   `'mixed-compact'`: one line with no project icon (the room goes to the
   title; the whole-row tooltip names the project, branch and model), the PR
@@ -777,24 +779,24 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   The slot holds the rotating chevron of a folder or a run. An archive
   header holds its icon there and shows its chevron in its place while the
   header is hovered or focused; touch layouts keep the icon and toggle on a
-  tap. A worktree's or a space's work row holds its sessions' activity there
-  instead, like a session row (see Works). Its
-  label therefore starts where root session titles start, and its sessions
-  sit one level in. On a session row it holds the live state (running kind, unread, or the
-  move/rename spinner), so the state reads down the left edge with the titles,
-  and stays empty otherwise so titles line up. A session with subsessions shows
-  its state there at rest and its chevron while the row is hovered or focused;
-  touch layouts (`alwaysShowActions`) have no hover, so a parent keeps its
-  chevron and its state goes to the right. Session rows use the one-line form
-  of `SessionTimelineRowBody`: pin, done hint and, while a turn runs or
-  until it is read, the turn's duration on the right. No row shows a date:
+  tap. A worktree's work row holds its branch mark there, a space's its box
+  (see Works). Its label therefore starts where root session titles start,
+  and its sessions sit one level in. On a session row the slot holds the
+  chevron of a session with subsessions and stays empty otherwise, so titles
+  line up. The slot says what a row is and never its state: every row's live
+  state (running kind, unread, the move/rename spinner) sits on the right
+  before the time. With the state in the slot a running worktree read as a
+  chat, its branch mark gone (maintainer, 2026-10-26). Session rows use the
+  one-line form of `SessionTimelineRowBody`: pin, done hint, the live state
+  and, while a turn runs or until it is read, the turn's duration on the
+  right. No row shows a date:
   every list is ordered by recency and the whole-row tooltip has the time.
   One-line rows (sessions, runs, worktree works, drafts) are 34px: the 20px
   line, 6px above and below, a 1px margin each side (`SESSION_ESTIMATE`). The
   one-line Chats, Pinned, In work and list-by-time rows (`'tree-chat'`,
-  `'mixed-compact'`, session and run rows) take the same geometry at level 0
-  with the state in the slot, so it reads down one edge from the zones into
-  the projects. Detailed rows have no slot: their state is on the right and
+  `'mixed-compact'`, session and run rows) take the same geometry at level 0,
+  so titles read down one edge from the zones into the projects. Detailed
+  rows have no slot: their state is on the right too and
   their chevron swaps in for the second line's first icon. Session, run and draft titles rest a step below full strength
   (`oc-title-rest`). Everything
   else on a row (time, branch, counts, icons, a PR's number) is metadata in the

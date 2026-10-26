@@ -40,8 +40,8 @@ const collectDescendantIds = (node: SessionNode): string[] => node.children.flat
 
 /**
  * A session in the phone's list: the desktop row's content for a thumb. One
- * line is a tree row, its live state in the slot left of the title, or its
- * subsession chevron there with the state on the right. Two lines put the
+ * line is a tree row, its subsession chevron in the slot left of the title
+ * and its live state on the right before the time. Two lines put the
  * branch on the second, with the chevron as its first icon. Swiping reveals
  * archive, pin, Track or Done, delete, rename and Copy ID.
  */
@@ -197,15 +197,9 @@ export const MobileSessionRow: React.FC<{
       />
     );
   } else {
-    // The slot holds the live state, or the subsession chevron: a phone has no
-    // hover to trade one for the other, so a parent keeps its state on the right.
-    const stateInSlot = !toggle && liveState !== null;
+    // The slot holds the subsession chevron only; the live state sits on the
+    // right before the time, as on every row.
     content = <>
-      {stateInSlot ? (
-        <span className="pointer-events-none absolute z-10 flex w-3.5 items-center justify-center" style={{ insetInlineStart: geometry.slotLeft(depth), top: 0, bottom: 0 }}>
-          {liveState}
-        </span>
-      ) : null}
       {toggle ? (
         <MobileSlotChevron slotLeft={geometry.slotLeft(depth)}>
           <MobileRowChevron expanded={expanded} label={title} kind="session" onToggle={toggle} />
@@ -220,11 +214,11 @@ export const MobileSessionRow: React.FC<{
         >
           {titleText}
           {pinMarker}
-          {stateInSlot ? null : liveState}
           {doneHint}
           {refMark(false)}
           <MobileSessionGoalGlyph session={session} />
           <MobileSessionPendingBadges {...pendingRequests} />
+          {liveState}
           {timeSlot}
         </button>
       )}

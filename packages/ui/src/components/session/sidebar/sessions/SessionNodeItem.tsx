@@ -953,12 +953,10 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   );
   const liveStateMark = isSessionActionPending ? sessionActionSpinner : showStatusMarker ? statusMarkerContent : null;
   // Grouped rows are file tree rows: one indent per level, then a slot left
-  // of the title. The slot shows the live state, where the eye runs
-  // down the titles; a session with subsessions trades it for its chevron
-  // while the row is hovered or focused. Touch layouts have no hover, so there
-  // a parent keeps its chevron and its state stays on the right, where
-  // two-line rows, which have no slot, always show it.
-  const stateInSlot = !isTwoLineRow && liveStateMark !== null && !(hasChildren && alwaysShowActions);
+  // of the title. The slot says what a row is (a worktree's branch, a run's
+  // mark, a session's chevron when it has subsessions) and never its state:
+  // the live state sits on the right before the time on every row, so a
+  // running mark never hides a worktree's branch (maintainer, 2026-10-26).
   const treeChevron = hasChildren && !isTwoLineRow ? (
     <span
       role="button"
@@ -975,10 +973,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           toggleParent(expansionKey);
         }
       }}
-      className={cn(
-        'inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        stateInSlot && 'opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
-      )}
+      className="inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={isExpanded
         ? t('sessions.sidebar.session.subsessions.collapse')
         : t('sessions.sidebar.session.subsessions.expand')}
@@ -1018,18 +1013,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     </span>
   ) : null;
   const leadIconClassName = alwaysShowActions ? 'opacity-0' : 'group-hover:opacity-0 group-has-[:focus-visible]:opacity-0';
-  const treeSlot = isTwoLineRow ? null : stateInSlot ? (
-    <span className="relative inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center">
-      {treeChevron}
-      {treeChevron ? (
-        // Under the pointer the chevron takes over, so the mark passes the
-        // pointer through to it.
-        <span className="pointer-events-none absolute inset-0 inline-flex items-center justify-center group-hover:opacity-0 group-has-[:focus-visible]:opacity-0">
-          {liveStateMark}
-        </span>
-      ) : liveStateMark}
-    </span>
-  ) : treeChevron ?? <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />;
+  const treeSlot = isTwoLineRow ? null : treeChevron ?? <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />;
 
   const streamingIndicator = isZombie
     ? <Icon name="error-warning" className="h-4 w-4 text-status-warning" />
@@ -1644,7 +1628,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           : isStreaming ? 'text-foreground' : 'oc-title-rest'}
       branchLabel={tooltipBranchLabel}
       spaceMark={branchInSpace ? t('sessions.sidebar.group.space') : null}
-      statusDot={stateInSlot ? null : liveStateMark}
+      statusDot={liveStateMark}
       pinnedMarker={isPinnedSession && !isSessionActionPending && !hidePinnedMarker ? pinnedMarkerContent : null}
       // No date: the list is ordered by recency and the row's tooltip carries
       // the time. A turn's duration shows while it runs and until it is read.

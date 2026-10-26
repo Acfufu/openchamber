@@ -66,6 +66,18 @@ export const estimateSessionSidebarRowSize = (
   return (measured.height ?? row.estimateSize) + gap;
 };
 
+// A hairline in the middle of the gap before a project: projects read apart
+// from each other and from the zones above them. It is drawn in the gap, so it
+// adds no height and the size estimates above hold (maintainer, 2026-10-26).
+const PROJECT_DIVIDER_CLASS = 'relative after:pointer-events-none after:absolute after:inset-x-2 after:bottom-1 after:h-px after:bg-border';
+
+/** The classes of a row's wrapper: its trailing gap, and the divider before a project. */
+export const sectionWrapperClass = (row: SessionSidebarRow, nextRow: SessionSidebarRow | undefined): string => {
+  const spacing = sectionSpacingAfter(row, nextRow);
+  if (!spacing) return '';
+  return nextRow?.kind === 'project-header' ? `${spacing} ${PROJECT_DIVIDER_CLASS}` : spacing;
+};
+
 export const sectionSpacingAfter = (row: SessionSidebarRow, nextRow: SessionSidebarRow | undefined): SectionSpacing | undefined => {
   // Zones (Chats, Pinned, In work, the list by time) and projects are sections
   // of equal weight, so each opens with the same gap. A space or archive

@@ -187,12 +187,12 @@ function RunSidebarRowComponent({
   ) : null;
   // The run's mark, where a worktree shows its branch mark.
   const runMark = <ArrowsMerge className={cn(detailed ? 'h-3 w-3' : 'h-3.5 w-3.5', 'shrink-0 text-muted-foreground')} aria-hidden="true" />;
-  // One line: the slot holds the lanes' state, else the run's mark; the
-  // chevron takes its place on hover. Two lines have no slot: the chevron
-  // swaps in for the second line's first icon instead.
+  // One line: the slot holds the run's mark, which the chevron takes over on
+  // hover; the lanes' state sits on the right, as on every row. Two lines
+  // have no slot: the chevron swaps in for the second line's first icon.
   const slot = (
     <span className="relative inline-flex size-3.5 flex-shrink-0 items-center justify-center">
-      <span className={cn('inline-flex items-center justify-center', expandable && hoverOut)}>{activity ?? runMark}</span>
+      <span className={cn('inline-flex items-center justify-center', expandable && hoverOut)}>{runMark}</span>
       {chevron}
     </span>
   );
@@ -264,8 +264,9 @@ function RunSidebarRowComponent({
       {renaming ? title : (
         <span dir="auto" className={cn('oc-ui-start-align block min-w-0 flex-1 truncate typography-ui-label font-normal', isActive ? 'text-interactive-selection-foreground' : 'oc-title-rest', maskOnHover)}>{title}</span>
       )}
-      <span className={cn('ms-auto flex flex-shrink-0 items-center', renaming && 'hidden', alwaysShowActions ? (sessionWorkEnabled ? 'pe-14' : 'pe-7') : hoverOut)}>
+      <span className={cn('ms-auto flex flex-shrink-0 items-center gap-1', renaming && 'hidden', alwaysShowActions ? (sessionWorkEnabled ? 'pe-14' : 'pe-7') : hoverOut)}>
         <ProviderLogos providerIDs={run.providerIDs} ringClass="ring-sidebar" />
+        {activity}
       </span>
     </div>
   );

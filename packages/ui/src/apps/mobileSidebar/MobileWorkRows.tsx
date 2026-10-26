@@ -76,8 +76,9 @@ export const MobileWorktreeRow: React.FC<{
     work.open();
   };
   const stopRename = () => useMobileSidebarRowsStore.getState().stopRename();
+  // The live state sits on the right before the time; the slot says what the row is.
   const stateMark = worktreeRemoving || finishing
-    ? <Spinner className="size-3.5" />
+    ? <Spinner className="size-3" />
     : activityState ? <CollapsedActivityIndicator state={activityState} /> : null;
   const branchMark = space ? (
     <Icon name="box-3" className="size-3.5 shrink-0 text-muted-foreground" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
@@ -170,7 +171,7 @@ export const MobileWorktreeRow: React.FC<{
     content = <>
       {toggle
         ? <MobileSlotChevron slotLeft={geometry.slotLeft(row.depth)}><MobileRowChevron expanded={expanded} kind="work" label={label} onToggle={toggle} /></MobileSlotChevron>
-        : <MobileSlotMark slotLeft={geometry.slotLeft(row.depth)}>{stateMark ?? branchMark}</MobileSlotMark>}
+        : <MobileSlotMark slotLeft={geometry.slotLeft(row.depth)}>{branchMark}</MobileSlotMark>}
       {renaming ? renameForm(geometry.textLeft(row.depth)) : (
         <button
           type="button"
@@ -184,7 +185,7 @@ export const MobileWorktreeRow: React.FC<{
           {missing}
           {ref}
           {directoryIndicator}
-          {toggle ? stateMark : null}
+          {stateMark}
           {duration}
         </button>
       )}
@@ -344,7 +345,7 @@ export const MobileRunRow: React.FC<{
     content = <>
       {toggle
         ? <MobileSlotChevron slotLeft={geometry.slotLeft(row.depth)}><MobileRowChevron expanded={expanded} kind="run" label={run.title} onToggle={toggle} /></MobileSlotChevron>
-        : <MobileSlotMark slotLeft={geometry.slotLeft(row.depth)}>{activity ?? runMark}</MobileSlotMark>}
+        : <MobileSlotMark slotLeft={geometry.slotLeft(row.depth)}>{runMark}</MobileSlotMark>}
       {renaming ? renameForm(geometry.textLeft(row.depth)) : (
         <button
           type="button"
@@ -355,7 +356,7 @@ export const MobileRunRow: React.FC<{
         >
           {titleText}
           <MobileRunProviderLogos providerIDs={run.providerIDs} />
-          {toggle ? activity : null}
+          {activity}
         </button>
       )}
     </>;
