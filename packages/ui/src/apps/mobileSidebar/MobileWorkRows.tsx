@@ -46,7 +46,7 @@ const MobileSlotMark: React.FC<{ slotLeft: number; children: React.ReactNode }> 
  * session in it, as on the desktop. A tap opens what was last worked on
  * there; the chevron opens its sessions. Swiping reveals Done or Track,
  * Rename, Pin or Unpin, Archive worktree and Delete. An isolated space has
- * this row too, with its box, its state as a mark at the end, and Done or
+ * this row too, with its instance icon, its state as a mark at the end, and Done or
  * Track beside its actions sheet, which says what the mark stands for.
  */
 export const MobileWorktreeRow: React.FC<{
@@ -58,7 +58,7 @@ export const MobileWorktreeRow: React.FC<{
   const actions = useMobileSidebarActions();
   const { revealed, renaming } = useMobileRowSwipe(row.key);
   const work = useWorktreeWork({ group: row.group, projectId: row.projectId, collapsed: row.collapsed, onNavigate: actions.close });
-  const { worktree, space, project, refs, label, branch, title, inWork, selected, finishing, worktreeRemoving, activityState } = work;
+  const { worktree, space, spaceName, project, refs, label, branch, title, inWork, selected, finishing, worktreeRemoving, activityState } = work;
   const mixedProject = useMixedRowProject(row.projectId, row.mixed && row.detailed);
   const expandable = !row.empty;
   const expanded = row.forceExpanded || !row.collapsed;
@@ -81,7 +81,7 @@ export const MobileWorktreeRow: React.FC<{
     ? <Spinner className="size-3" />
     : activityState ? <CollapsedActivityIndicator state={activityState} /> : null;
   const branchMark = space ? (
-    <Icon name="box-3" className="size-3.5 shrink-0 text-muted-foreground" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
+    <Icon name="instance" className="size-3.5 shrink-0 text-muted-foreground" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
   ) : (
     <Icon
       name="git-branch"
@@ -127,7 +127,7 @@ export const MobileWorktreeRow: React.FC<{
       initialTitle={title ?? ''}
       indent={indent}
       className={className}
-      placeholder={branch ?? t('sessions.sidebar.work.rename.placeholder')}
+      placeholder={branch ?? spaceName ?? t('sessions.sidebar.work.rename.placeholder')}
       onSubmit={(next) => {
         stopRename();
         void work.saveTitle(next);
@@ -163,6 +163,7 @@ export const MobileWorktreeRow: React.FC<{
           {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
           {branchMark}
           {branch && branch !== label ? <span className="block min-w-0 truncate typography-micro">{branch}</span> : null}
+          {spaceName && spaceName !== label ? <span className="block min-w-0 truncate typography-micro">{spaceName}</span> : null}
           <span className="ms-auto flex shrink-0 items-center">{ref}</span>
         </>}
       />

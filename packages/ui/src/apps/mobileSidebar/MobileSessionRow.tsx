@@ -184,7 +184,7 @@ export const MobileSessionRow: React.FC<{
           {lead}
           {branch ? <>
             {inSpace
-              ? <Icon name="box-3" className="size-3.5 shrink-0" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
+              ? <Icon name="instance" className="size-3.5 shrink-0" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
               : <Icon name="git-branch" className="size-3.5 shrink-0" />}
             <span className="block min-w-0 truncate typography-micro">{branch}</span>
           </> : null}

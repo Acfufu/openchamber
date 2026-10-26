@@ -371,7 +371,7 @@ export function ArchiveSessionsView({ layout, onLeave, initialQuery = '' }: {
         onClick={onSelect}
         style={{ touchAction: 'manipulation' }}
       >
-        {fromDeletedSpace ? <Icon name="box-3" className="size-3.5" /> : null}
+        {fromDeletedSpace ? <Icon name="instance" className="size-3.5" /> : null}
         <span className="max-w-40 truncate">{label}</span>
         <span className="tabular-nums text-muted-foreground">{count}</span>
       </Button>
@@ -451,7 +451,7 @@ export function ArchiveSessionsView({ layout, onLeave, initialQuery = '' }: {
             : 'text-muted-foreground hover:bg-interactive-hover/50 hover:text-foreground',
         )}
       >
-        {fromDeletedSpace ? <Icon name="box-3" className="h-3.5 w-3.5 flex-shrink-0" /> : null}
+        {fromDeletedSpace ? <Icon name="instance" className="h-3.5 w-3.5 flex-shrink-0" /> : null}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <span className="flex-shrink-0 typography-micro text-muted-foreground">{count}</span>
       </button>

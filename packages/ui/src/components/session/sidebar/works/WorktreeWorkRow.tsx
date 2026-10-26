@@ -101,8 +101,9 @@ type Props = {
  * lines: the second names the project, the branch and the reference, as a
  * detailed session row's does, while its sessions stay one-line rows under it.
  *
- * An isolated space is a work the same way and has this row too: its box
- * where the worktree mark goes, its name for the title, its state as one mark
+ * An isolated space is a work the same way and has this row too: its instance
+ * icon where the worktree mark goes, its task's name for the title (its own
+ * name under it, where a worktree's branch goes), its state as one mark
  * at the end (`SpaceStatusMark`), and the space's actions for the menu.
  */
 export function WorktreeWorkRow(props: Props): React.ReactNode {
@@ -134,7 +135,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     },
   });
   const {
-    worktree, space, directory, worktreeRemoving, sessions, project, projectLabel, refs, selected,
+    worktree, space, spaceName, directory, worktreeRemoving, sessions, project, projectLabel, refs, selected,
     title, branch, label, finishing, canArchive, canRename, canNewChat, pinned, canPin, workAction, inWork, activityState,
     runningSessionId, durationSessionId,
   } = work;
@@ -207,12 +208,12 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     ? <Spinner className="h-3 w-3" />
     : activityState ? <CollapsedActivityIndicator state={activityState} /> : null;
   // The slot always says what the row is: the worktree mark tinted by the
-  // branch's PR, or a space's box, so the title starts where session titles
+  // branch's PR, or a space's instance icon, so the title starts where session titles
   // do and a running work never reads as a chat; the chevron takes its place
   // while the row is hovered or focused, when there is something to open.
   // Touch layouts have no hover and keep the chevron.
   const workMark = (className: string) => space ? (
-    <Icon name="box-3" className={cn(className, 'flex-shrink-0 text-muted-foreground')} aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
+    <Icon name="instance" className={cn(className, 'flex-shrink-0 text-muted-foreground')} aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
   ) : (
     <Icon
       name="git-branch"
@@ -406,7 +407,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
         onChange={(event) => setRenameDraft(event.target.value)}
         onKeyDown={(event) => handleSessionRenameKeyDown(event, () => setRenaming(false))}
         className="min-w-0 flex-1 bg-transparent typography-ui-label text-foreground outline-none placeholder:text-muted-foreground"
-        placeholder={branch ?? t('sessions.sidebar.work.rename.placeholder')}
+        placeholder={branch ?? spaceName ?? t('sessions.sidebar.work.rename.placeholder')}
         aria-label={t('sessions.sidebar.work.rename.aria')}
       />
       <button
@@ -518,6 +519,12 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
                   <span className="min-w-0 truncate">{branch}</span>
                 </div>
               ) : null}
+              {spaceName ? (
+                <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                  <Icon name="instance" className="h-3 w-3 flex-shrink-0" />
+                  <span className="min-w-0 truncate">{spaceName}</span>
+                </div>
+              ) : null}
               {tooltipLinks.length > 0 ? <SidebarRefLinks items={tooltipLinks} directory={project?.path ?? group.directory ?? null} /> : null}
               {space ? <SpaceStatusLines spaceId={space.id} /> : null}
             </div>
@@ -536,6 +543,9 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
             ) : null}
             {branch && branch !== label ? (
               <span className="min-w-0 truncate typography-micro text-muted-foreground">{branch}</span>
+            ) : null}
+            {spaceName && spaceName !== label ? (
+              <span className="min-w-0 truncate typography-micro text-muted-foreground">{spaceName}</span>
             ) : null}
             <span className="ms-auto flex flex-shrink-0 items-center gap-1">{ref}</span>
           </div>

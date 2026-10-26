@@ -8,6 +8,10 @@ import { setSessionWorkState } from '@/sync/session-actions';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { leaveFinishedSessions } from '@/lib/sessionTabs';
+import { isAgentWorkingInSpace } from '@/lib/spaces/space-apply';
+import { runSpaceAction } from '@/lib/spaces/space-repair';
+import { useSpacesStore } from '@/lib/spaces/spaces-store';
+import { useGlobalSessionStatusStore } from '@/sync/global-session-status';
 import { isPathWithinProject } from '../utils';
 import type { WorktreeMetadata } from '@/types/worktree';
 import type { SessionNode } from '../types';
@@ -112,11 +116,16 @@ export async function finishWorktreeWork(input: {
 
 /**
  * Done on a space's work: its sessions in work are marked done and the work
- * is left, as a worktree's is. The space itself stays: what happens to its
- * changes is the apply dialog's question, never a side effect of Done.
+ * is left, as a worktree's is, and the space is stopped. Stopping keeps every
+ * file and gives back its memory and processor; it starts again with the next
+ * message. A space an agent is still working in keeps running, so Done never
+ * cuts a turn short. The space itself stays: what happens to its changes is
+ * the apply dialog's question, never a side effect of Done (maintainer
+ * decision 2026-10-26).
  */
 export async function finishSpaceWork(input: {
   sessions: readonly Session[];
+  spaceId: string;
   directory: string;
   projectId: string;
 }): Promise<Extract<FinishWorktreeWorkOutcome, { kind: 'done' | 'failed' }>> {
@@ -125,5 +134,10 @@ export async function finishSpaceWork(input: {
     return { kind: 'failed', error: new Error(`Could not mark ${failed.length} session(s) done`), doneFailed: failed.length };
   }
   leaveWorkFolder(input.sessions, input.directory, input.projectId);
+  const running = useSpacesStore.getState().journey?.get(input.spaceId)?.state === 'running';
+  if (running && !isAgentWorkingInSpace(useGlobalSessionStatusStore.getState(), input.spaceId)) {
+    // Its progress and a failure show on the space's row, as from its menu.
+    void runSpaceAction(input.spaceId, 'stop');
+  }
   return { kind: 'done' };
 }

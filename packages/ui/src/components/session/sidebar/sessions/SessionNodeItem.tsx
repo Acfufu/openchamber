@@ -1817,7 +1817,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                     {tooltipBranchLabel ? (
                       <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                         {branchInSpace
-                          ? <Icon name="box-3" className="h-3 w-3 flex-shrink-0" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
+                          ? <Icon name="instance" className="h-3 w-3 flex-shrink-0" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />
                           : <Icon name="git-branch" className={cn('h-3 w-3 flex-shrink-0', branchPrIconColor && 'oc-ref-tint')} style={branchPrIconColor ? refTintStyle(branchPrIconColor) : undefined} />}
                         <span className="min-w-0 truncate">{tooltipBranchLabel}</span>
                       </div>

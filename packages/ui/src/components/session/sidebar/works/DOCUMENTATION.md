@@ -20,7 +20,8 @@ view, In work, Drafts, Folders with worktrees) describes how they are laid out.
   reviews and forks, newest first), Track, and Done on a worktree work
   (`finishWorktreeWork`: sessions done, the work left, and with `archive` the
   worktree archived with its sessions) or a space work (`finishSpaceWork`:
-  sessions done and the work left; the space stays).
+  sessions done, the work left and the space stopped unless an agent still
+  works in it; the space stays).
 - `useWorktreeWork.ts`, `useSessionDraftRow.ts`: what a worktree's or a
   space's work row and a draft's row know and do (the label, selection, open,
   Done, Archive, rename; open and discard), shared by the desktop's rows and

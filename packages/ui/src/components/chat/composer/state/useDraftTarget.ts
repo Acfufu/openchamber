@@ -34,7 +34,7 @@ import { normalizePath } from '../attachments/filePaths';
 import { CHAT_DRAFT_PROJECT_ID } from '@/lib/chatDirectories';
 import { useI18n } from '@/lib/i18n';
 import { getGitStatus } from '@/lib/gitApi';
-import { isSpaceCreationRequest, spaceOfCreationRequest } from '@/lib/spaces/space-creation-requests';
+import { draftSpaceTarget, isSpaceCreationRequest, spaceOfCreationRequest } from '@/lib/spaces/space-creation-requests';
 import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { spacesOfProject, useSpacesStore } from '@/lib/spaces/spaces-store';
 import { useUIStore } from '@/stores/useUIStore';
@@ -317,11 +317,17 @@ export function useDraftTarget(enabled: boolean) {
         });
     }, [isolatedSpacesEnabled, selectedDraftProjectPath, spacesJourney, t]);
 
+    // A draft waiting for a new space stays on the project's folder until its message is sent
+    // (`space-creation.ts`), but it is the space's draft: once the space runs, the picker shows
+    // and checks the space, and the dirty check reads the space's tree.
+    const draftSpace = draftSpaceTarget(newSessionDraft?.pendingWorktreeRequestId, spacesJourney);
+    const draftSpaceDirectory = draftSpace?.kind === 'ready' ? normalizePath(draftSpace.directory) : null;
     const selectedDraftDirectory = React.useMemo(
-        () => normalizePath(newSessionDraft?.bootstrapPendingDirectory ?? null)
+        () => draftSpaceDirectory
+            ?? normalizePath(newSessionDraft?.bootstrapPendingDirectory ?? null)
             ?? normalizePath(newSessionDraft?.directoryOverride ?? null)
             ?? selectedDraftProjectPath,
-        [newSessionDraft?.bootstrapPendingDirectory, newSessionDraft?.directoryOverride, selectedDraftProjectPath],
+        [draftSpaceDirectory, newSessionDraft?.bootstrapPendingDirectory, newSessionDraft?.directoryOverride, selectedDraftProjectPath],
     );
 
     // The draft's own pending flags clear once the directory exists, which is

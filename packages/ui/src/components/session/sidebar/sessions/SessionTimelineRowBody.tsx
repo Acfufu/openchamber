@@ -150,7 +150,7 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
   // branch's (or the space's) in front of its name.
   const branchIcon = spaceMark
     // `Icon` hides itself from assistive tech; the space's mark is the row's only word for "space", so it speaks.
-    ? <Icon name="box-3" className="h-3 w-3 flex-shrink-0 text-muted-foreground" aria-hidden={false} role="img" aria-label={spaceMark} />
+    ? <Icon name="instance" className="h-3 w-3 flex-shrink-0 text-muted-foreground" aria-hidden={false} role="img" aria-label={spaceMark} />
     : <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />;
   const branchText = <span className="min-w-0 truncate typography-micro text-muted-foreground">{branchLabel}</span>;
   const branchLine = metaLineLead ?? (branchLabel ? <>{branchIcon}{branchText}</> : null);

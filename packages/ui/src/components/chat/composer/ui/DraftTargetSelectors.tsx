@@ -456,7 +456,7 @@ function DraftTargetSelectorsView(props: DraftTargetProps) {
                                         aria-label={t('chat.draftDirtyNotice.indicatorAria')}
                                     />
                                 ) : null}
-                                {selectedIsSpace ? <Icon name="box-3" className="size-3.5 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.group.space')} /> : null}
+                                {selectedIsSpace ? <Icon name="instance" className="size-3.5 shrink-0 text-muted-foreground" aria-label={t('sessions.sidebar.group.space')} /> : null}
                                 <SelectValue>
                                     {selectedBranchLabel ?? t('chat.chatInput.branch')}
                                 </SelectValue>
@@ -505,7 +505,7 @@ function DraftTargetSelectorsView(props: DraftTargetProps) {
                                 {spaceBranchOptions.map((option) => (
                                     <SelectItem key={option.value} value={option.value} className="max-w-[24rem] truncate">
                                         <span className="inline-flex min-w-0 items-center gap-1.5">
-                                            <Icon name="box-3" className="size-3.5 shrink-0 text-muted-foreground" />
+                                            <Icon name="instance" className="size-3.5 shrink-0 text-muted-foreground" />
                                             <span className="truncate">{option.label}</span>
                                         </span>
                                     </SelectItem>
@@ -750,7 +750,7 @@ export function MobileDraftTargetSheets(
                                             </div>
                                             {rankByQuery(spaceBranchOptions, branchQuery, (option) => [option.label]).map((option) => renderRow(option.value, (
                                                 <span className="inline-flex min-w-0 items-center gap-1.5">
-                                                    <Icon name="box-3" className="size-3.5 shrink-0 text-muted-foreground" />
+                                                    <Icon name="instance" className="size-3.5 shrink-0 text-muted-foreground" />
                                                     <span className="truncate">{option.label}</span>
                                                 </span>
                                             )))}

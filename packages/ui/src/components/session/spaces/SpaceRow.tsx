@@ -14,8 +14,22 @@ import type { SpaceEntry } from '@/lib/spaces/spaces-api';
 import { useSpacesStore } from '@/lib/spaces/spaces-store';
 import { cn, formatPathForDisplay } from '@/lib/utils';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
+import { Button } from '@/components/ui/button';
+import type { I18nKey } from '@/lib/i18n';
+import { formatDiskSize, useSpaceDiskBytes } from '@/lib/spaces/space-disk';
 import { SpaceActionsMenu } from './SpaceActions';
+import { openSpaceApply, pickSpaceAction, useSpaceActions } from './spaceActionsState';
+import { SPACE_ACTION_TEXT } from './spaceActionText';
 import { SpaceStatusLines } from './SpaceStatus';
+
+const SPACE_STATE_TEXT = {
+  preparing: 'spaces.row.state.preparing',
+  running: 'spaces.row.state.running',
+  exited: 'spaces.row.state.stopped',
+  failed: 'spaces.row.state.failed',
+  missing: 'spaces.row.state.missing',
+  unreachable: 'spaces.row.state.unreachable',
+} satisfies Record<SpaceEntry['state'], I18nKey>;
 
 const ACTION_BUTTON_CLASS = 'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-interactive-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -59,22 +73,37 @@ export const SpaceRow: React.FC<{
   showFolder?: boolean;
 }> = ({ entry, actions, showFolder = false }) => {
   const { t } = useI18n();
+  const bytes = useSpaceDiskBytes(entry.placeId, entry.id);
+  const { actions: available, applicable, busy, unavailable } = useSpaceActions(entry.id);
+  // What a space is mostly opened here for stays in sight: its work back to the project, and
+  // Start or Stop. The rest, rarer, is in the menu beside them.
+  const toggle = available.find((action) => action === 'start' || action === 'stop') ?? null;
+  const meta = [t(SPACE_STATE_TEXT[entry.state]), ...(bytes !== null ? [formatDiskSize(bytes)] : [])].join(' · ');
   return (
     <div className="flex w-full items-start gap-2 py-1.5" data-space-row={entry.id}>
-      <Icon name="box-3" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <Icon name="instance" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1 space-y-0.5">
         {/* The badge wraps under a long name rather than cutting it: the name is what the user knows the space by. */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
           {/* A name from the label: text to show. */}
           <p className="typography-ui-label min-w-0 max-w-full truncate text-foreground">{entry.name}</p>
+          <span className="typography-meta text-muted-foreground">{meta}</span>
           <NetworkBadge network={entry.network} />
         </div>
         {showFolder ? <FolderLine folder={entry.projectFolder} /> : null}
-        <SpaceStatusLines spaceId={entry.id} className="pt-1" />
+        <SpaceStatusLines spaceId={entry.id} className="pt-1" hideStopped />
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-1">
         {actions === 'menu' ? (
-          <SpaceActionsMenu spaceId={entry.id} label={entry.name} className={ACTION_BUTTON_CLASS} />
+          <>
+            {applicable ? (
+              <Button variant="outline" size="xs" disabled={busy} onClick={() => openSpaceApply(entry.id)}>{t('spaces.actions.apply')}</Button>
+            ) : null}
+            {toggle ? (
+              <Button variant="outline" size="xs" disabled={busy || unavailable(toggle)} onClick={() => pickSpaceAction(entry.id, toggle)}>{t(SPACE_ACTION_TEXT[toggle])}</Button>
+            ) : null}
+            <SpaceActionsMenu spaceId={entry.id} label={entry.name} className={ACTION_BUTTON_CLASS} omit={['apply', 'start', 'stop']} />
+          </>
         ) : (
           <button
             type="button"

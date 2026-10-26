@@ -115,6 +115,8 @@ import { resolveChatPromptReadOnly } from './chatPromptReadOnly';
 import { PermissionDock } from './PermissionDock';
 import { FormDock } from './FormDock';
 import { ensureSpaceArchives, useSpaceArchiveOf } from '@/lib/spaces/space-archives';
+import { useSpaceDirectoryStopped } from '@/lib/spaces/spaces-store';
+import { SpaceChatPlaceholder } from '@/components/session/spaces/SpaceChatPlaceholder';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { isMobileSurfaceRuntime } from '@/lib/runtimeSurface';
 import { createFirstVisibleSessionPerformanceTracker } from '@/sync/session-load-performance';
@@ -985,6 +987,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         currentSessionId ?? '',
         effectiveSessionDirectory,
     );
+    // The messages of a space's session live inside the space: while it is stopped, gone or out
+    // of reach a load only waits for its timeout, so the chat holds it and says why instead.
+    const spaceStopped = useSpaceDirectoryStopped(effectiveSessionDirectory);
     const [firstVisiblePerformance] = React.useState(createFirstVisibleSessionPerformanceTracker);
 
     React.useEffect(() => {
@@ -1607,9 +1612,18 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
     React.useEffect(() => {
         if (!active || !currentSessionId) return;
-        if (hasRenderableSessionSnapshot) return;
+        if (hasRenderableSessionSnapshot || spaceStopped) return;
         void ensureSessionRenderable(currentSessionId);
-    }, [currentSessionId, ensureSessionRenderable, hasRenderableSessionSnapshot, active]);
+    }, [currentSessionId, ensureSessionRenderable, hasRenderableSessionSnapshot, active, spaceStopped]);
+
+    // A space that runs again answers the load the chat held, or the one that failed while it
+    // was going down: the user waiting on its start sees the chat without a retry.
+    const wasSpaceStoppedRef = React.useRef(spaceStopped);
+    React.useEffect(() => {
+        const wasStopped = wasSpaceStoppedRef.current;
+        wasSpaceStoppedRef.current = spaceStopped;
+        if (wasStopped && !spaceStopped && !hasRenderableSessionSnapshot) retrySessionLoad();
+    }, [hasRenderableSessionSnapshot, retrySessionLoad, spaceStopped]);
 
     const composerSlotRef = React.useRef<HTMLDivElement | null>(null);
     // The slot mounts after the first commit (behind the session gate), so
@@ -1751,6 +1765,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
         const showHydrationSkeleton = isSessionHydrating && sessionMessages.length === 0 && !sessionIsWorking;
         if (showHydrationSkeleton) {
+            if (spaceStopped && effectiveSessionDirectory) {
+                return <SpaceChatPlaceholder directory={effectiveSessionDirectory} />;
+            }
             if (sessionMessageLoadState.status === 'error') {
                 return (
                     <div className="flex min-h-0 flex-1 items-center justify-center px-6">

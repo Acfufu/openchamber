@@ -29,13 +29,16 @@ export function SpacesView(): React.ReactNode {
     <div className="absolute inset-0 z-10 flex flex-col bg-background">
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="mx-auto w-full max-w-4xl space-y-4">
-          <div className="flex items-center">
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Icon name="box-3" className="me-1 h-3.5 w-3.5" />
-              {t('spaces.page.new')}
-            </Button>
-          </div>
-          <SettingsSection title={t('spaces.page.listTitle')}>
+          {/* One header row: the list's title and the way to add to it. */}
+          <SettingsSection
+            title={t('spaces.page.listTitle')}
+            headerAction={(
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Icon name="instance" className="me-1 h-3.5 w-3.5" />
+                {t('spaces.page.new')}
+              </Button>
+            )}
+          >
             {error ? (
               <p className="typography-meta text-[var(--status-error)]">{t('spaces.page.loadFailed', { reason: spaceFailureText(t, failureOfError(error)) })}</p>
             ) : null}

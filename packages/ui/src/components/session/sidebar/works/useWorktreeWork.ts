@@ -16,6 +16,8 @@ import type { SessionGroup } from '../types';
 import { formatProjectLabel, isPathWithinProject, normalizePath } from '../utils';
 import { useSpaceTakesNoNewSession } from '@/lib/spaces/spaces-store';
 import { spaceOfCreationRequest } from '@/lib/spaces/space-creation-requests';
+import { hasWorkTitle } from '@/lib/sessionWorkTitle';
+import { updateSessionTitle } from '@/sync/session-actions';
 import { collectWorkSessions, finishSpaceWork, finishWorktreeWork, isWorkInWork, pickWorkSessionToOpen, trackWork } from './workActions';
 
 const CURRENT_SESSION = '\u0000session';
@@ -33,9 +35,9 @@ type Args = {
  * What a worktree's or a space's work row knows and does, whatever draws it:
  * the desktop row with hover actions and menus, the phone's with swipe
  * actions. The row reads like a session row (live state, the task's name, its
- * reference) and opens what the user last worked on there. A space is named
- * by its own name, has no branch, pin, rename or archive of its own, and its
- * Done leaves the space as it is.
+ * reference) and opens what the user last worked on there. A space's task
+ * name lives on its sessions, its own name stands where a branch would, it has
+ * no pin or archive, and its Done leaves the space as it is.
  */
 export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Args) {
   const { t } = useI18n();
@@ -78,14 +80,27 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
   const selected = isCurrent && (collapsed || (current !== CURRENT_SESSION && !openDraftHasRow));
   const [finishing, setFinishing] = React.useState(false);
 
-  const title = worktree?.title?.trim() || null;
+  // A space's task is named as a main-checkout task is: the agent's
+  // `work.name` from inside the space names the root session it works in, and
+  // the user's rename of it wins (`metadata.openchamber.workTitle`). Its most
+  // recent named session names the space's row, as a worktree's branch
+  // description names its own.
+  const namedSpaceSession = React.useMemo(
+    () => (space ? group.sessions.find((node) => hasWorkTitle(node.session.metadata))?.session ?? null : null),
+    [group.sessions, space],
+  );
+  const title = space ? namedSpaceSession?.title?.trim() || null : worktree?.title?.trim() || null;
   const branch = group.branch?.trim() || worktree?.branch?.trim() || null;
+  // The space's own name stands where a worktree's branch does: under the
+  // task's name, and the row's name until there is a task.
+  const spaceName = space ? group.label : null;
   // Until the task is named, the row reads as the session a click opens:
-  // the task in the user's words. The branch is the last resort. A space
-  // reads as its name, which the user gave it.
+  // the task in the user's words. The branch, or the space's name, is the last resort.
   const sessionToOpen = React.useMemo(() => pickWorkSessionToOpen(group.sessions), [group.sessions]);
-  const label = space ? group.label : title ?? (sessionToOpen?.title?.trim() || null) ?? branch ?? group.label;
-  const canRename = !space;
+  const label = title ?? (sessionToOpen?.title?.trim() || null) ?? branch ?? group.label;
+  // A space's task name lives on a session, so a space without one has nothing to rename.
+  const spaceTitleSession = namedSpaceSession ?? sessionToOpen;
+  const canRename = !space || spaceTitleSession !== null;
   const canNewChat = !spaceTakesNoNewSession;
 
   const prepare = (): void => {
@@ -124,8 +139,12 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
     }
   };
   const saveTitle = async (next: string): Promise<void> => {
-    if (!group.directory || next.trim() === (title ?? '')) return;
+    if (!group.directory || !next.trim() || next.trim() === (title ?? '')) return;
     try {
+      if (space) {
+        if (spaceTitleSession) await updateSessionTitle(spaceTitleSession.id, next.trim(), { directory: spaceTitleSession.directory ?? directory, byUser: true });
+        return;
+      }
       await setGitWorktreeTitle(group.directory, next.trim());
     } catch (error) {
       toast.error(t('sessions.sidebar.work.rename.failed'), { description: error instanceof Error ? error.message : undefined });
@@ -139,7 +158,7 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
   const finishWork = (archive: boolean) => {
     if (!project) return null;
     if (worktree) return finishWorktreeWork({ sessions, worktree, project: { id: project.id, path: project.path }, title: label, archive: archive && canArchive });
-    if (space && directory) return finishSpaceWork({ sessions, directory, projectId: project.id });
+    if (space && directory) return finishSpaceWork({ sessions, spaceId: space.id, directory, projectId: project.id });
     return null;
   };
   const finish = async (archive: boolean): Promise<void> => {
@@ -200,6 +219,7 @@ export function useWorktreeWork({ group, projectId, collapsed, onNavigate }: Arg
   return {
     worktree,
     space,
+    spaceName,
     canRename,
     canNewChat,
     directory,

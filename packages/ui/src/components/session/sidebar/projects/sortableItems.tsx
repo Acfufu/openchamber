@@ -208,7 +208,7 @@ export const SortableProjectItem: React.FC<SortableProjectItemProps> = ({
       )}
       {isRepo && !hideDirectoryControls && onManageSpaces && (
         <Item onClick={onManageSpaces}>
-          <Icon name="box-3" className="me-1.5 h-4 w-4" />
+          <Icon name="instance" className="me-1.5 h-4 w-4" />
           {t('spaces.page.menuItem')}
         </Item>
       )}

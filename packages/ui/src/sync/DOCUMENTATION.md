@@ -442,7 +442,11 @@ watchdog skips that space's directories, status poll, stale resync and child
 discovery alike, because every request would be the dispatcher's refusal
 and a log line on the host; the sessions keep the status they last reported,
 and the polls resume with the list that says the space runs. The browser
-panel's dev-server look pauses on the same rule. The active-session snapshot that
+panel's dev-server look pauses on the same rule, and so do the sidebar's
+speculative message loads and the chat's load of a session it opens: the
+chat shows `SpaceChatPlaceholder` (the space's state, with Start for a
+stopped one) instead of waiting for a load's timeout, and loads the session
+once the list says the space runs. The active-session snapshot that
 settles an unfinished turn is the host's, global, and never covers a space, so
 `getActiveSessionStatuses` asks a space directory's own server for it; the
 host's empty answer would otherwise mark a turn running inside as interrupted.

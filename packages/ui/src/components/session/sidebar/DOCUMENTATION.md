@@ -405,11 +405,18 @@ same lineage under it, In work, Track / Done, folding (it starts folded) and
 the draft rows of its folder. The row is the worktree's (`WorktreeWorkRow`,
 `MobileWorktreeRow`), drawn for a space by `useWorktreeWork`:
 
-- The space's box where the worktree mark goes, and its name for the title.
-  It has no branch, pin, rename or archive.
+- The space's instance icon where the worktree mark goes. Its title is its
+  task's name, named as a main-checkout task is: the agent's `work.name` from
+  inside the space names the root session it works in, and the user's rename
+  of that session wins (`metadata.openchamber.workTitle`); the most recent
+  named session names the row. Until then the row reads as the session a
+  click opens, and with no session as the space's own name, which otherwise
+  stands where a worktree's branch does (the tooltip, a detailed row's second
+  line). Rename task renames that session. It has no branch, pin or archive.
 - Its state is one mark at the row's end (`spaces/SpaceStatus.tsx`): a
   spinner while it is made, a setup command runs or an action is under way;
-  a stop while it is stopped; a warning or an error. The row is one line, so
+  the word "Stopped" where a row's time goes while it is stopped (a square
+  there read as a Stop button); a warning or an error. The row is one line, so
   the text is never on it. On the desktop the row's tooltip writes the state
   out, each line with the action that moves it on (Start, Grant access,
   Details, Remove); on the phone the actions sheet does, above the actions.
@@ -417,7 +424,9 @@ the draft rows of its folder. The row is the worktree's (`WorktreeWorkRow`,
   space's actions: Apply changes, Access and network, the repairs, Delete.
   New chat is gone while a new session there would fail: the making failed,
   the container is gone or the machine is out of reach.
-- Done marks its sessions done and leaves the work, as on a worktree; the
+- Done marks its sessions done and leaves the work, as on a worktree, and
+  stops the space unless an agent still works in it: its files stay, its
+  memory and processor come back, and the next message starts it. The
   space itself stays. Applying or discarding its changes is the apply
   dialog's and Delete's, never a side effect of Done.
 - A space nobody has chatted in yet leads its project's list (and the list by
@@ -779,8 +788,8 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   The slot holds the rotating chevron of a folder or a run. An archive
   header holds its icon there and shows its chevron in its place while the
   header is hovered or focused; touch layouts keep the icon and toggle on a
-  tap. A worktree's work row holds its branch mark there, a space's its box
-  (see Works). Its label therefore starts where root session titles start,
+  tap. A worktree's work row holds its branch mark there, a space's its instance
+  icon (see Works). Its label therefore starts where root session titles start,
   and its sessions sit one level in. On a session row the slot holds the
   chevron of a session with subsessions and stays empty otherwise, so titles
   line up. The slot says what a row is and never its state: every row's live

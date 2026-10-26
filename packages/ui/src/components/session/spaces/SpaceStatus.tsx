@@ -195,8 +195,15 @@ const TONE_CLASS = {
  * on the phone's actions sheet, and in the lists of spaces, which have the room. `onAction` runs
  * before a line's action, for a surface that closes first.
  */
-export const SpaceStatusLines: React.FC<{ spaceId: string; className?: string; onAction?: () => void }> = ({ spaceId, className, onAction }) => {
-  const lines = useSpaceStatusLines(spaceId);
+export const SpaceStatusLines: React.FC<{
+  spaceId: string;
+  className?: string;
+  onAction?: () => void;
+  /** Leaves out the stopped line, for a row that names the state and offers Start itself. */
+  hideStopped?: boolean;
+}> = ({ spaceId, className, onAction, hideStopped = false }) => {
+  const all = useSpaceStatusLines(spaceId);
+  const lines = hideStopped ? all.filter((line) => line.tone !== 'stopped') : all;
   if (lines.length === 0) return null;
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -231,9 +238,15 @@ export const SpaceStatusLines: React.FC<{ spaceId: string; className?: string; o
  * while there is nothing to say. The row's tooltip and the phone's sheet say the rest.
  */
 export const SpaceStatusMark: React.FC<{ spaceId: string; className?: string }> = ({ spaceId, className }) => {
+  const { t } = useI18n();
   const lines = useSpaceStatusLines(spaceId);
   if (lines.length === 0) return null;
   const tone = lines.reduce<StatusTone>((top, line) => (TONE_RANK[line.tone] > TONE_RANK[top] ? line.tone : top), 'note');
+  // A stopped space is a resting state, not a fault: a word where a row's time goes. A square
+  // there read as a Stop button (maintainer, 2026-10-26).
+  if (tone === 'stopped') {
+    return <span className={cn('flex-shrink-0 typography-micro text-muted-foreground', className)}>{t('spaces.row.state.stopped')}</span>;
+  }
   return (
     <span role="img" aria-label={lines[0]?.text} className={cn('inline-flex flex-shrink-0 items-center', TONE_CLASS[tone], className)}>
       <LineIcon tone={tone} className="size-3" />
