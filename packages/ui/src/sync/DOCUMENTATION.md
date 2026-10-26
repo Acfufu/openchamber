@@ -1063,7 +1063,8 @@ During streaming, `message.part.delta` fires ~60 times/sec. Eagerly cloning all 
 ## Event → field mapping
 
 Queue recovery is independent of the directory-bootstrap debounce. The sync
-provider subscribes to `message-queue-sync.ts` for control-stream updates and
+provider subscribes to `message-queue-sync.ts` (and to `auto-review-sync.ts`,
+which follows the same triggers for auto-review runs) for control-stream updates and
 requests a queue refresh on every main-stream connection or transport switch,
 including the first connection. The queue store coalesces these requests with
 bootstrap and owns snapshot ordering and legacy-upload lifetime.

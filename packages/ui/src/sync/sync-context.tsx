@@ -74,7 +74,9 @@ import { usePermissionStore } from "@/stores/permissionStore"
 import { policySnapshotFromWire } from "@/stores/utils/permissionAutoAccept"
 import { selectSafetyNetAvailable, useRoutingStore } from "@/stores/useRoutingStore"
 import { useMessageQueueStore } from "@/stores/messageQueueStore"
+import { isAutoReviewAvailable, useAutoReviewStore } from "@/stores/useAutoReviewStore"
 import { subscribeMessageQueueSync } from "./message-queue-sync"
+import { subscribeAutoReviewSync } from "./auto-review-sync"
 import { subscribeSessionWarmingSync } from "./session-warming-sync"
 import { subscribeSessionFoldersSync } from "./session-folders-sync"
 import { subscribeSessionDraftsSync } from "./session-drafts-sync"
@@ -2965,6 +2967,7 @@ export function SyncProvider(props: {
   useEffect(() => {
     void usePermissionStore.getState().hydrate().catch(() => undefined)
     void useMessageQueueStore.getState().hydrate().catch(() => undefined)
+    if (isAutoReviewAvailable()) void useAutoReviewStore.getState().hydrate().catch(() => undefined)
   }, [props.sdk])
 
   useEffect(() => {
@@ -3194,6 +3197,7 @@ export function SyncProvider(props: {
   // Abort controller owned by the pipeline closure. Cleanup aborts + flushes.
   useEffect(() => {
     const unsubscribeQueueEvents = subscribeMessageQueueSync(runtimeKey)
+    const unsubscribeAutoReviewEvents = subscribeAutoReviewSync(runtimeKey)
     const unsubscribeSessionWarming = subscribeSessionWarmingSync(runtimeKey)
     const unsubscribeFolderEvents = subscribeSessionFoldersSync(runtimeKey)
     const unsubscribeDraftEvents = subscribeSessionDraftsSync(runtimeKey)
@@ -3340,6 +3344,7 @@ export function SyncProvider(props: {
       }
       pipeline.cleanup()
       unsubscribeQueueEvents()
+      unsubscribeAutoReviewEvents()
       unsubscribeSessionWarming()
       unsubscribeFolderEvents()
       unsubscribeDraftEvents()

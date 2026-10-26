@@ -1,0 +1,160 @@
+# Auto-review
+
+## Ownership
+
+Owns the automatic review loop: a review session and the session it reviews
+pass the review, the fixes and the re-review between them until the reviewer
+has nothing left, without the user carrying the messages. The loop runs in the
+web server, so a closed tab, a locked phone or a dropped connection does not
+stop it halfway.
+
+The UI (`packages/ui/src/lib/reviewFlow.ts`) owns the start: it creates or
+reuses the review session (title, metadata link, model, agent, permission mode)
+and renders every prompt the run will send from the magic prompts, with the
+`{{handoff}}`, `{{review_feedback}}` and `{{implementation_response}}`
+placeholders left in. From `POST /api/auto-review/runs` on, this module does
+every send. The manual review (no auto-review) and the "send to the other
+session" buttons stay in the UI and never touch this module.
+
+Wiring: created in `server/index.js` before the message queue, routes in
+`opencode/feature-routes-runtime.js` (JSON bodies in `opencode/core-routes.js`),
+stopped by `opencode/shutdown-runtime.js`.
+
+## Run
+
+`{ originalSessionID, reviewSessionID, directory, status, step, round, prompts,
+send, awaiting, error?, startedAt, updatedAt }`, keyed by the reviewed session,
+at most one per session. `status` is `running`, or how it ended: `clean`
+(nothing left, the reviewer's last word was delivered to the implementer),
+`disputed` (only declines the reviewer still contests), `limit` (15 re-reviews
+without an end), `failed` (with `error`). A stop by the user removes the run
+instead of keeping a status, and so does a user abort of the turn the run waits
+on. `step` is what the run is getting: the implementer's `handoff`, the
+reviewer's `review`, the implementer's answer in `implement`.
+
+Persisted in `<data-dir>/auto-review.json`, written atomically through a
+serialized write chain, owner-readable only (prompts and handoffs are
+conversation content). A missing file is no runs; a malformed one is moved
+aside as `auto-review.json.corrupt-<timestamp>`; a failed read keeps writes off
+until a load succeeds. One malformed run fails alone: when it still names its
+sessions and directory it comes back as `failed` ("could not be read after a
+restart"), so its user sees why the review stopped, otherwise it is dropped.
+At most 100 runs, the oldest finished ones dropped first. Only the start input
+is capped (100 000 characters per prompt); the text a run builds from a reply
+is stored whole, however long the reply. `error` is cut to 500 characters, one
+line in the result row. Timers and failure counts are memory only; a restart
+re-arms every running run.
+
+## Loop
+
+Each step is one send and the end of the turn it starts.
+
+1. A send waits until its session's turn is over: not in
+   `/api/session/active`, no running subagent
+   (`../opencode/session-activity.js`), so a prompt never steers into a live
+   turn. Unknown is never idle: a failed read retries with backoff.
+2. Before the first attempt the send gets its baseline, the session's newest
+   `idle` record, and ids in OpenCode's `msg_` format for every record it
+   admits (context first, prompt last, one millisecond apart so they sort in
+   that order), and both are saved. A retry reuses them, and OpenCode answers
+   409 to a second admission of an id, which counts as delivered. So a crash
+   or a lost response never sends twice.
+3. A session on the Auto model is routed first: this module posts to OpenCode
+   directly, past the proxy's routing rewrite, so `routeSend` (the routing
+   runtime's, wired in `server/index.js` for sessions it has marked Auto)
+   picks the model for this prompt's text and switches the session onto it.
+   A routing failure fails the attempt before anything is admitted. Then the
+   session's project knowledge is synced, as for a UI send, the context goes
+   as synthetic messages with `resume: false`, and the prompt last. Any other
+   session keeps the model and agent it holds. The UI puts the dialog's model
+   and agent on a review session it reuses from an earlier review, since a new
+   one is created on them.
+4. The turn is over when the session is idle and OpenCode has appended an
+   `idle` record newer than the baseline (`readDispatchOutcome` of
+   `../dispatch-results`, with `withText`: the text comes from the newest reply
+   of the turn that has any). `interrupted` removes the run, `failed` settles
+   it as failed with OpenCode's message, a turn with no text fails it too.
+5. The reply decides the next send. The handoff fills `{{handoff}}` of the
+   reviewer's first prompt, which carries the review rules and the loop rules
+   as context. A review ending in `FINAL_REVIEW_STATUS: disputed` settles as
+   disputed; one ending in `FINAL_REVIEW_STATUS: no_remaining_findings` sends
+   what came before the marker to the implementer and settles as clean (with
+   nothing before it, it settles at once); anything else goes to the
+   implementer. The implementer's answer goes back to the reviewer with the
+   loop rules, until 15 re-reviews (`MAX_ROUNDS`) settle as `limit`.
+
+The loop rules (`LOOP_RULES`) and their markers live here, since only this
+module reads them. A send that fails five times in a row settles as failed; a
+404 settles at once (the session is gone). Status events (`session.status`
+idle) arm a 500 ms quiet timer for the session a run watches; a hub reconnect
+and startup re-arm every running run; after a send the run checks once on its
+own, so a turn that ends inside the send is still read. `session.deleted` of
+the reviewed session removes its run.
+
+## Message queue
+
+A running run holds the reviewed session's queue (`isDeliveryHeld` of
+`../message-queue`, answered by `holdsDelivery`), because the session goes idle
+between steps and a queued follow-up would land in the middle of the review.
+Settling or removing a run calls `release`, which delivers what waited. After
+a start, every session counts as held until this module's first load settles
+(`startupLoad`, the queue's `deliveryHoldReady`): the two files load
+independently, and a queue that loaded first would otherwise deliver into a
+run it did not know about yet. A failed load releases the hold rather than
+keep every queue waiting.
+
+## Routes and events
+
+| Route | Purpose |
+|---|---|
+| `GET /api/auto-review` | `{ revision, runs[] }` without the prompts |
+| `POST /api/auto-review/runs` | Start: `{ originalSessionID, reviewSessionID, directory, handoff?: { text, instructions }, prompts: { reviewStart, reviewRules, feedbackToImplementer, responseToReviewer } }`; 409 while a run of that session is running |
+| `DELETE /api/auto-review/runs/:originalSessionID` | Stop a running run or dismiss a finished one |
+
+Every change broadcasts `openchamber:auto-review.updated`
+`{ revision, originalSessionID, directory, run | null }` on the control stream
+(`/api/openchamber/events`) and the WS fan-out. `revision` is one counter per
+server; the UI projection (`packages/ui/src/stores/useAutoReviewStore.ts`)
+orders by it per owner.
+
+A session in an isolated space has its run in the server inside the space,
+which sees that space's OpenCode: the UI addresses the request by the
+session's directory. The host forwards the space's changes from the same
+control-stream connection it opens for the space's queue, marked with
+`spaceId`, only when the space speaks for both sessions of the run
+(`../spaces/space-events.js`); an over-long `error` is cut there rather than
+the update dropped. A space's own snapshot reaches the browser through the
+proxy unfiltered, so the UI keys every run by its owner and a chat reads under
+the owner of its own directory: a space that names a host session lands its
+run under itself, where no host chat looks.
+
+## Runtime parity
+
+Web, desktop and both mobile clients start and see runs on the server they are
+connected to, and the result row shows on every client of that server. VS Code
+has no OpenChamber server: the review dialog offers no auto-review there, and
+the manual review works as before.
+
+## Decisions
+
+### Why the loop runs on the server and not in the window that started it
+
+The loop used to poll the browser's session stores. Closing the tab, locking
+the phone or switching the runtime stopped it, and the message queue needed a
+hold the UI re-asserted every two minutes, which expired when the UI was gone.
+On the server the loop sees OpenCode directly, survives the window, and holds
+the queue by asking the run itself.
+
+### Why the UI renders the prompts and the server fills the placeholders
+
+Magic prompt defaults live in the client (`packages/ui/src/lib/magicPrompts.ts`),
+and the server only stores overrides. Rendering at start with the placeholders
+kept means one read of the overrides for the whole run, the same text a manual
+review sends, and no second copy of the defaults on the server.
+
+### Why the reviewer can end on a dispute
+
+With one marker, a finding the implementer declined and the reviewer kept
+contesting went round until the limit, and the run ended looking the same as a
+manual stop. The second marker ends the run as soon as only contested declines
+are left, and the result row tells the user it is their call.

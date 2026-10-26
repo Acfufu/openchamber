@@ -115,6 +115,7 @@ import { createApnsRuntime } from './lib/notifications/apns-runtime.js';
 import { createNotificationTemplateRuntime } from './lib/notifications/template-runtime.js';
 import { createPermissionAutoAcceptRuntime } from './lib/permission-auto-accept/runtime.js';
 import { createMessageQueueRuntime } from './lib/message-queue/runtime.js';
+import { createAutoReviewRuntime } from './lib/auto-review/runtime.js';
 import { createDispatchResultsRuntime } from './lib/dispatch-results/runtime.js';
 import { isWorkflowFeatureAvailable } from './lib/workflows/feature-flag.js';
 import { createWorkflowAgentSessions } from './lib/workflows/agent-session.js';
@@ -1230,6 +1231,23 @@ notificationTriggerRuntime.setGetIsSessionAutoAccepting(
   (sessionId, directory, permissionId) => permissionAutoAcceptRuntime.isPermissionAutoAnswered(sessionId, directory, permissionId),
 );
 
+// Auto-review runs its loop here, so a closed tab or a locked phone does not
+// stop it; while a run goes, the reviewed session's queue waits for it.
+const autoReviewRuntime = createAutoReviewRuntime({
+  globalEventHub: globalMessageStreamHub,
+  buildOpenCodeUrl,
+  getOpenCodeAuthHeaders,
+  sessionKnowledgeRuntime,
+  broadcastUiEvent: broadcastOpenChamberUiEvent,
+  // Declared right below; only called once a run ends.
+  onRunSettled: (sessionId) => messageQueueRuntime.release(sessionId),
+  routeSend: ({ sessionId, directory, text }) => (
+    routingRuntime.isAutoSession(sessionId) ? routingRuntime.routeSend({ sessionId, directory, body: { text } }) : null
+  ),
+  dataDir: OPENCHAMBER_DATA_DIR,
+});
+autoReviewRuntime.start();
+
 // Queued follow-up messages are delivered by the server so a closed tab or a
 // dropped connection no longer strands them (VS Code keeps its UI-side queue).
 const messageQueueRuntime = createMessageQueueRuntime({
@@ -1243,6 +1261,8 @@ const messageQueueRuntime = createMessageQueueRuntime({
   resolveAutoSelection: (send) => routingRuntime.resolveAutoSelection(send),
   persistSessionGoal: (sessionID, directory, goal) =>
     persistSessionMetadataPatch(sessionID, { openchamber: { goal } }, { directory }),
+  isDeliveryHeld: (sessionId) => autoReviewRuntime.holdsDelivery(sessionId),
+  deliveryHoldReady: autoReviewRuntime.startupLoad,
   beforeScheduledTaskSend: (...args) => scheduledTasksRuntime.beforeScheduledTaskSend(...args),
   validateScheduledTaskTarget: (...args) => scheduledTasksRuntime.validateTarget(...args),
   onScheduledTaskResult: (...args) => scheduledTasksRuntime.onScheduledTaskResult(...args),
@@ -2133,6 +2153,7 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   sessionGoalRuntime,
   contextObligatoryRuntime,
   sessionWarmingRuntime,
+  autoReviewRuntime,
   messageQueueRuntime,
   dispatchResultsRuntime,
   workflowRuntime,
@@ -2833,6 +2854,7 @@ async function main(options = {}) {
     permissionAutoAcceptRuntime,
     worktreeBootstrapStore,
     messageQueueRuntime,
+    autoReviewRuntime,
     routingRuntime,
     workflowRuntime,
   });

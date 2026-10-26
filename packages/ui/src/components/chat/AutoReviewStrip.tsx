@@ -1,35 +1,43 @@
 import React, { memo } from 'react';
 
+import { Icon } from '@/components/icon/Icon';
+import type { IconName } from '@/components/icon/icons';
+import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { useI18n } from '@/lib/i18n';
-import { getRuntimeKey } from '@/lib/runtime-switch';
-import { useAutoReviewStore } from '@/stores/useAutoReviewStore';
+import { useI18n, type I18nKey } from '@/lib/i18n';
+import { selectAutoReviewRun, useAutoReviewStore, type AutoReviewRun } from '@/stores/useAutoReviewStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useChatSessionSelection } from './chatColumnSession';
 
+type SettledStatus = Exclude<AutoReviewRun['status'], 'running'>;
+
+const RESULT = {
+  clean: { icon: 'checkbox-circle', className: 'text-status-success', labelKey: 'chat.autoReview.result.clean' },
+  disputed: { icon: 'error-warning', className: 'text-status-warning', labelKey: 'chat.autoReview.result.disputed' },
+  limit: { icon: 'error-warning', className: 'text-status-warning', labelKey: 'chat.autoReview.result.limit' },
+  failed: { icon: 'close-circle', className: 'text-status-error', labelKey: 'chat.autoReview.result.failed' },
+} satisfies Record<SettledStatus, { icon: IconName; className: string; labelKey: I18nKey }>;
+
 /**
- * A running review loop, as a top row of the composer next to the background
- * commands: what it waits for, Open for the read-only review session, Stop.
+ * The session's review loop as a top row of the composer. While it runs: what
+ * it waits for, Open for the read-only review session, Stop. Once it ends, the
+ * row stays with the result until dismissed, so a finished, contested or
+ * failed review is never just a row that disappeared.
  */
 export const AutoReviewStrip = memo(() => {
   const { t } = useI18n();
-  const currentSessionId = useChatSessionSelection().sessionId;
-  const run = useAutoReviewStore(React.useCallback((state) => {
-    if (!currentSessionId) return null;
-    const run = state.runsByOriginalSessionID[currentSessionId] ?? null;
-    return run?.runtimeKey === getRuntimeKey() ? run : null;
-  }, [currentSessionId]));
-  const stopRun = useAutoReviewStore((state) => state.stopRun);
+  const { sessionId: currentSessionId, directory: currentDirectory } = useChatSessionSelection();
+  const run = useAutoReviewStore(React.useMemo(
+    () => selectAutoReviewRun(currentSessionId, currentDirectory),
+    [currentSessionId, currentDirectory],
+  ));
+  const removeRun = useAutoReviewStore((state) => state.removeRun);
   const openContextPanelTab = useUIStore((state) => state.openContextPanelTab);
 
-  if (!currentSessionId || !run || run.status !== 'running') {
+  if (!currentSessionId || !run) {
     return null;
   }
-
-  const statusLabel = run.phase === 'waiting_for_reviewer'
-    ? t('chat.autoReview.status.waitingForReviewer')
-    : t('chat.autoReview.status.waitingForImplementer');
 
   const handleOpenReviewSession = () => {
     openContextPanelTab(run.directory, {
@@ -40,32 +48,74 @@ export const AutoReviewStrip = memo(() => {
     });
   };
 
+  const handleRemove = () => {
+    void removeRun(run.originalSessionID, run.directory).catch((error) => {
+      console.warn('[auto-review] failed to stop or dismiss the review', error);
+      toast.error(t('chat.autoReview.toast.removeFailed'));
+    });
+  };
+
+  const openButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={handleOpenReviewSession}
+      onMouseDown={(event) => event.preventDefault()}
+      className="shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+    >
+      {t('chat.autoReview.actions.open')}
+    </Button>
+  );
+
+  if (run.status === 'running') {
+    const statusLabel = run.step === 'review'
+      ? t('chat.autoReview.status.waitingForReviewer')
+      : t('chat.autoReview.status.waitingForImplementer');
+    return (
+      <div role="status" className="flex oc-composer-row min-w-0 items-center gap-2 border-b border-border/60 ps-3 pe-1.5">
+        <Spinner className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+          {t('chat.autoReview.title')}
+          <span className="text-muted-foreground"> · {statusLabel}</span>
+        </span>
+        {openButton}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleRemove}
+          onMouseDown={(event) => event.preventDefault()}
+          className="shrink-0 text-status-error/80 hover:bg-transparent hover:text-status-error"
+        >
+          {t('chat.autoReview.actions.stop')}
+        </Button>
+      </div>
+    );
+  }
+
+  const result = RESULT[run.status];
   return (
-    <div role="status" className="flex oc-composer-row min-w-0 items-center gap-2 border-b border-border/60 ps-3 pe-1.5">
-      <Spinner className="size-3.5 text-muted-foreground" aria-hidden="true" />
+    <div
+      role="status"
+      className="flex oc-composer-row min-w-0 items-center gap-2 border-b border-border/60 ps-3 pe-1.5"
+      title={run.error}
+    >
+      <Icon name={result.icon} className={`size-3.5 flex-shrink-0 ${result.className}`} aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-        {t('chat.autoReview.title')}
-        <span className="text-muted-foreground"> · {statusLabel}</span>
+        {t(result.labelKey)}
+        {run.error ? <span className="text-muted-foreground"> · {run.error}</span> : null}
       </span>
+      {openButton}
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        onClick={handleOpenReviewSession}
+        onClick={handleRemove}
         onMouseDown={(event) => event.preventDefault()}
         className="shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
       >
-        {t('chat.autoReview.actions.open')}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => stopRun(currentSessionId)}
-        onMouseDown={(event) => event.preventDefault()}
-        className="shrink-0 text-status-error/80 hover:bg-transparent hover:text-status-error"
-      >
-        {t('chat.autoReview.actions.stop')}
+        {t('chat.autoReview.actions.dismiss')}
       </Button>
     </div>
   );
