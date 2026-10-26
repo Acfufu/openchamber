@@ -1,7 +1,8 @@
 # Small Model
 
 Background LLM calls for OpenChamber's own features — session titles, goal
-distillation, session assist, the changes walkthrough. Every call goes to the
+distillation, session assist, the changes walkthrough, the dictation
+correction pass. Every call goes to the
 running OpenCode through `POST /api/experimental/generate`; OpenChamber never talks to a
 provider directly and never handles a provider credential.
 
@@ -50,6 +51,8 @@ login `generateSmallModelText` throws `404`. What happens next is per feature:
   is also allowed when Jev checks it instead (`../session-goal`).
 - Session assist is server-side and simply does nothing when
   `describeSmallModel` answers null.
+- The dictation correction pass (`../dictation/transcript-correction.js`)
+  inserts the text as heard; Settings → Voice says so under the option.
 - Notes summarization and spoken summaries keep the original text and silence
   the 404.
 

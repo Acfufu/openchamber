@@ -253,6 +253,9 @@
     "sttLanguage": {
       "scope": "profile"
     },
+    "sttCorrectTranscript": {
+      "scope": "profile"
+    },
     "tunnelProvider": {
       "scope": "instance"
     },

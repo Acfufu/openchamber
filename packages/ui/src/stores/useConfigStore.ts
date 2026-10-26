@@ -64,6 +64,7 @@ interface OpenChamberDefaults {
     sttModel?: string;
     sttLocalModel?: string;
     sttLanguage?: string;
+    sttCorrectTranscript?: boolean;
 }
 
 // Directory activation re-reads the OpenChamber defaults, which are global,
@@ -148,6 +149,7 @@ const toOpenChamberDefaults = (data: DesktopSettings): OpenChamberDefaults => {
         sttModel: data.sttModel,
         sttLocalModel: data.sttLocalModel,
         sttLanguage: data.sttLanguage,
+        sttCorrectTranscript: data.sttCorrectTranscript,
     };
 };
 
@@ -1524,6 +1526,7 @@ interface ConfigStore {
     sttModel: string;
     sttLocalModel: string;
     sttLanguage: string;
+    sttCorrectTranscript: boolean;
     showMessageTTSButtons: boolean;
     autoReadAloudEnabled: boolean;
     ttsInputMode: 'sanitized' | 'raw' | 'summarized';
@@ -1558,6 +1561,7 @@ interface ConfigStore {
     setSttModel: (model: string) => void;
     setSttLocalModel: (model: string) => void;
     setSttLanguage: (lang: string) => void;
+    setSttCorrectTranscript: (enabled: boolean) => void;
     setShowMessageTTSButtons: (show: boolean) => void;
     setAutoReadAloudEnabled: (enabled: boolean) => void;
     setTtsInputMode: (mode: 'sanitized' | 'raw' | 'summarized') => void;
@@ -1946,7 +1950,9 @@ export const useConfigStore = create<ConfigStore>()(
                         const saved = localStorage.getItem('sttLocalModel');
                         if (saved) return saved;
                     }
-                    return 'parakeet-tdt-0.6b-v2-int8';
+                    // Not picked yet: the server chooses the model, see the
+                    // dictation service's resolveLocalModelId.
+                    return '';
                 })(),
                 sttLanguage: (() => {
                     if (typeof window !== 'undefined') {
@@ -1955,6 +1961,8 @@ export const useConfigStore = create<ConfigStore>()(
                     }
                     return '';
                 })(),
+                // Fix misheard words with the Small Model after dictation - off by default
+                sttCorrectTranscript: globalThis.localStorage?.getItem('sttCorrectTranscript') === 'true',
                 // Show TTS buttons on messages - disabled by default until user enables it
                 showMessageTTSButtons: (() => {
                     if (typeof window !== 'undefined') {
@@ -2799,6 +2807,7 @@ export const useConfigStore = create<ConfigStore>()(
                             sttModel: defaults.sttModel ?? state.sttModel,
                             sttLocalModel: defaults.sttLocalModel ?? state.sttLocalModel,
                             sttLanguage: defaults.sttLanguage ?? state.sttLanguage,
+                            sttCorrectTranscript: defaults.sttCorrectTranscript ?? state.sttCorrectTranscript,
                         };
                         if (!useSessionUIStore.getState().currentSessionId && state.selectionSource === 'auto' && state.agentSelectionSource === 'auto' && next.settingsDefaultAgent) {
                             next.currentAgentName = next.settingsDefaultAgent;
@@ -3991,6 +4000,12 @@ export const useConfigStore = create<ConfigStore>()(
                         localStorage.setItem('dictationEnabled', String(enabled));
                     }
                     updateDesktopSettings({ dictationEnabled: enabled }).catch(() => {});
+                },
+
+                setSttCorrectTranscript: (enabled: boolean) => {
+                    set({ sttCorrectTranscript: enabled });
+                    globalThis.localStorage?.setItem('sttCorrectTranscript', String(enabled));
+                    updateDesktopSettings({ sttCorrectTranscript: enabled }).catch(() => {});
                 },
 
                 setSttProvider: (provider: 'local' | 'openai-compatible') => {

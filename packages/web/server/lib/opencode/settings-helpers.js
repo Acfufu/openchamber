@@ -1154,6 +1154,9 @@ export const createSettingsHelpers = (dependencies) => {
         result.sttLanguage = trimmed;
       }
     }
+    if (candidate.sttCorrectTranscript === true || candidate.sttCorrectTranscript === false) {
+      result.sttCorrectTranscript = candidate.sttCorrectTranscript;
+    }
 
     // The registry is the last word on what a client may persist: a key the
     // code above still names but the registry no longer lists is dropped here,
