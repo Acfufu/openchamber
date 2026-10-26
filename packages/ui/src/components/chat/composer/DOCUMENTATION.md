@@ -388,7 +388,12 @@ copy.
   holds commands only. Emoji open on a typed `:` plus two letters of a name
   after whitespace (`matchEmojiTrigger` in `lib/emoji/shortcodes.ts`), never on
   a paste, so `12:30`, `http://` and `:)` stay text; choosing one writes the
-  emoji itself, so the agent gets the character, not a shortcode. Only typing and pasting open a picker: text the app sets
+  emoji itself, so the agent gets the character, not a shortcode. A space
+  ends an `@` query, because paths and agent names hold none, except while
+  the whole query still matches a session title (`mentionContinuesPastSpace`,
+  `hasSessionMention`); the picker then lists sessions alone and closes on the
+  first word no title holds, so `@release notes are done` turns back into
+  prose. Only typing and pasting open a picker: text the app sets
   through the editor's `value` prop (a restored draft, a git conflict prompt)
   arrives with `ComposerChange.fromValueProp` and closes any open picker.
 - `tokenize.ts` — one pass producing every highlight range. Adding a construct
