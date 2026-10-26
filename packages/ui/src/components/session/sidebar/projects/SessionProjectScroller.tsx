@@ -449,7 +449,7 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
       ? FLAT_TEXT_INSET_PX
       : sessionTreeTextInset(row.kind === 'show-control' || row.kind === 'empty' ? row.depth ?? 0 : 0);
     if (row.kind === 'show-control') {
-      return <div><button type="button" className="mt-0.5 flex items-center justify-start rounded-md pe-1.5 py-0.5 text-start text-xs text-muted-foreground/70 leading-tight hover:text-foreground hover:underline" style={{ paddingInlineStart: rowTextInset }} onClick={() => applyShowControl(row, { model, actions })}>{t(row.control === 'more' ? 'sessions.sidebar.group.showMore' : 'sessions.sidebar.group.showFewer')}</button></div>;
+      return <div><button type="button" className="mt-0.5 flex items-center justify-start rounded-md pe-1.5 py-0.5 text-start text-xs text-muted-foreground leading-tight hover:text-foreground hover:underline" style={{ paddingInlineStart: rowTextInset }} onClick={() => applyShowControl(row, { model, actions })}>{t(row.control === 'more' ? 'sessions.sidebar.group.showMore' : 'sessions.sidebar.group.showFewer')}</button></div>;
     }
     if (row.kind === 'status') return renderStatus(row);
     if (row.emptyKind === 'sidebar') return model.emptyState;

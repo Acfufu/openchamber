@@ -176,7 +176,7 @@ export const MobileGroupHeader: React.FC<{
       {row.empty ? <span aria-hidden className="size-3.5 shrink-0" /> : <FileTreeChevron expanded={expanded} />}
       <Icon name={space ? 'box-3' : 'folder'} className="mx-px size-3 shrink-0 text-muted-foreground" />
       {/* A step below full strength, as on the desktop sidebar. */}
-      <span className="block min-w-0 flex-1 truncate typography-ui-label font-medium text-foreground/85">{label}</span>
+      <span className="block min-w-0 flex-1 truncate typography-ui-label font-medium oc-group-label">{label}</span>
     </button>
   );
   if (!space) return header;
@@ -238,7 +238,7 @@ export const MobileFolderRow: React.FC<{
     >
       {row.empty ? <span aria-hidden className="size-3.5 shrink-0" /> : <FileTreeChevron expanded={expanded} />}
       <Icon name={expanded && !row.empty ? 'folder-open' : 'folder'} className="mx-px size-3 shrink-0 text-muted-foreground" />
-      <span className="block min-w-0 flex-1 truncate typography-ui-label font-medium text-foreground/85">{row.displayName}</span>
+      <span className="block min-w-0 flex-1 truncate typography-ui-label font-medium oc-group-label">{row.displayName}</span>
     </button>
   );
 };

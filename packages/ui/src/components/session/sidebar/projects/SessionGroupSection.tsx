@@ -803,7 +803,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
   ) : null;
   // A space's group carries the grant dialog's key and its actions menu beside its new-draft button.
   const hasSpaceActions = Boolean(group.space);
-  // Permanent actions take room; hover-revealed ones cross-fade over the
+  // Permanent actions take room; hover-revealed ones swap in over the
   // header's right end (`oc-actions-mask`), so nothing moves. The reserve is
   // how far they reach in past the 8px right padding: one 24px button 2px
   // from the edge, the next ones 26px apart.
@@ -811,7 +811,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     ? (hasSpaceActions ? 'pe-20' : 'pe-7')
     : cn('pe-2', hasSpaceActions ? '[--oc-actions-reserve:4.25rem]' : '[--oc-actions-reserve:1.125rem]');
   const headerActionsMaskClass = alwaysShowActions ? undefined : 'group-hover/gh:oc-actions-mask group-has-[:focus-visible]/gh:oc-actions-mask';
-  const headerCoveredFadeClass = alwaysShowActions ? undefined : 'transition-opacity group-hover/gh:opacity-0 group-has-[:focus-visible]/gh:opacity-0';
+  const headerCoveredFadeClass = alwaysShowActions ? undefined : 'group-hover/gh:opacity-0 group-has-[:focus-visible]/gh:opacity-0';
   // An empty group keeps the chevron's place, so its label stays in line.
   const headerChevron = isEmpty
     ? <span aria-hidden className="size-3.5 flex-shrink-0" />
@@ -826,8 +826,8 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
     // 6px to the label, like a session row's slot.
     <span className="relative me-1 inline-flex size-3.5 flex-shrink-0 items-center justify-center">
       {isEmpty || alwaysShowActions ? icon : <>
-        <span className="inline-flex items-center justify-center transition-opacity group-hover/gh:opacity-0 group-has-[:focus-visible]/gh:opacity-0">{icon}</span>
-        <span className="absolute inset-0 inline-flex items-center justify-center text-muted-foreground opacity-0 transition-opacity group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100">
+        <span className="inline-flex items-center justify-center group-hover/gh:opacity-0 group-has-[:focus-visible]/gh:opacity-0">{icon}</span>
+        <span className="absolute inset-0 inline-flex items-center justify-center text-muted-foreground opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100">
           {headerChevron}
         </span>
       </>}
@@ -921,7 +921,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
         // ps-[26px] lines the text up with the worktree sub-header label
         // (gutter + icon + gap).
         !group.isArchivedBucket && !bootstrapLoading && !bootstrapFailureNotice && group.directory && !group.emptyMessage ? (
-          <Button variant="link" size="xs" className="w-full justify-start ps-[26px] text-start font-normal normal-case text-muted-foreground/70 underline-offset-auto hover:text-foreground hover:underline" onClick={() => {
+          <Button variant="link" size="xs" className="w-full justify-start ps-[26px] text-start font-normal normal-case text-muted-foreground underline-offset-auto hover:text-foreground hover:underline" onClick={() => {
               if (projectId && projectId !== activeProjectId) setActiveProjectIdOnly(projectId);
               if (mobileVariant) setSessionSwitcherOpen(false);
               openNewSessionDraft({ selectedProjectId: projectId, directoryOverride: group.directory, target: group.draftTarget });
@@ -950,7 +950,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
         <button
           type="button"
           onClick={() => showMoreGroupSessions(groupKey, visibleSessions.length, sessionBatchSize ?? 7)}
-          className="mt-0.5 flex items-center justify-start rounded-md ps-[26px] pe-1.5 py-0.5 text-start text-xs text-muted-foreground/70 leading-tight hover:text-foreground hover:underline"
+          className="mt-0.5 flex items-center justify-start rounded-md ps-[26px] pe-1.5 py-0.5 text-start text-xs text-muted-foreground leading-tight hover:text-foreground hover:underline"
         >
           {t('sessions.sidebar.group.showMore')}
         </button>
@@ -959,7 +959,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
         <button
           type="button"
           onClick={() => resetGroupSessionLimit(groupKey)}
-          className="mt-0.5 flex items-center justify-start rounded-md ps-[26px] pe-1.5 py-0.5 text-start text-xs text-muted-foreground/70 leading-tight hover:text-foreground hover:underline"
+          className="mt-0.5 flex items-center justify-start rounded-md ps-[26px] pe-1.5 py-0.5 text-start text-xs text-muted-foreground leading-tight hover:text-foreground hover:underline"
         >
           {t('sessions.sidebar.group.showFewer')}
         </button>
@@ -1044,8 +1044,8 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                     />,
                   )}
                   {/* Medium weight a step down from full strength: above the
-                      muted session titles at rest, below the project header. */}
-                  <span className="min-w-0 truncate typography-ui-label font-medium text-foreground/85">
+                      session titles at rest, below the project header. */}
+                  <span className="min-w-0 truncate typography-ui-label font-medium oc-group-label">
                     {renderHighlightedText(group.label, normalizedSessionSearchQuery)}
                   </span>
                   {spaceStaleIndicator}
@@ -1055,8 +1055,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                     // drag handle, so it keeps its pointer and keys to itself.
                     <button
                       type="button"
-                      className={cn('ms-auto flex-shrink-0 rounded text-[0.72rem] font-medium leading-none hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline', groupPrColor && 'oc-ref-tint', headerCoveredFadeClass)}
-                      style={groupPrColor ? refTintStyle(groupPrColor) : undefined}
+                      className={cn('ms-auto flex-shrink-0 rounded text-[0.72rem] font-medium leading-none text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline', headerCoveredFadeClass)}
                       disabled={!groupPrSummary.url}
                       aria-label={groupPrLabel}
                       onPointerDown={(event) => event.stopPropagation()}
@@ -1075,10 +1074,9 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                       type="button"
                       className={cn(
                         'ms-auto inline-flex flex-shrink-0 items-center gap-1 rounded text-[0.72rem] font-medium leading-none hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        primaryGroupIssue.color ? 'oc-ref-tint' : 'text-muted-foreground',
+                        'text-muted-foreground',
                         headerCoveredFadeClass,
                       )}
-                      style={primaryGroupIssue.color ? refTintStyle(primaryGroupIssue.color) : undefined}
                       aria-label={groupIssueItems.map((item) => item.text).join(', ')}
                       onPointerDown={(event) => event.stopPropagation()}
                       onKeyDown={(event) => event.stopPropagation()}
@@ -1089,7 +1087,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                         openTrackerItem(primaryGroupIssue.url, boardDirectory, event);
                       }}
                     >
-                      <Icon name={primaryGroupIssue.icon} className="h-3 w-3" />
+                      <Icon name={primaryGroupIssue.icon} className={cn('h-3 w-3', primaryGroupIssue.color && 'oc-ref-tint')} style={primaryGroupIssue.color ? refTintStyle(primaryGroupIssue.color) : undefined} />
                       {primaryGroupIssue.label}
                       {groupIssueItems.length > 1 ? <span data-ref-more className="text-muted-foreground">+{groupIssueItems.length - 1}</span> : null}
                     </button>
@@ -1110,7 +1108,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                 ) : (
                   <Icon name="git-branch" className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                 )}
-                <span className="min-w-0 truncate text-[0.6875rem] font-medium text-muted-foreground/80">
+                <span className="min-w-0 truncate text-[0.6875rem] font-medium text-muted-foreground">
                   {statusLine.label}
                 </span>
               </span>
@@ -1135,7 +1133,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
             would replace on the spot. */}
         <TooltipProvider delayDuration={400}>
         {group.isArchivedBucket && allGroupSessions.length > 0 ? (
-          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -1158,7 +1156,7 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
           </div>
         ) : null}
         {group.space ? (
-          <div className={cn('absolute inset-e-7 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-7 top-1/2 -translate-y-1/2 z-10', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -1178,12 +1176,12 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
           </div>
         ) : null}
         {group.space ? (
-          <div className={cn('absolute inset-e-[3.25rem] top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100 has-[[data-popup-open]]:opacity-100')}>
+          <div className={cn('absolute inset-e-[3.25rem] top-1/2 -translate-y-1/2 z-10', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100 has-[[data-popup-open]]:opacity-100')}>
             <SpaceActionsMenu spaceId={group.space.id} label={group.label} />
           </div>
         ) : null}
         {group.directory ? (
-          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10 transition-opacity', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
+          <div className={cn('absolute inset-e-0.5 top-1/2 -translate-y-1/2 z-10', alwaysShowActions ? 'opacity-100' : 'opacity-0 group-hover/gh:opacity-100 group-has-[:focus-visible]/gh:opacity-100')}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

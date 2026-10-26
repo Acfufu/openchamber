@@ -193,7 +193,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   const slotMark = stateMark ?? (
     <Icon
       name="git-branch"
-      className={cn('h-3.5 w-3.5 flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground/70')}
+      className={cn('h-3.5 w-3.5 flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground')}
       style={refs.prColor ? refTintStyle(refs.prColor) : undefined}
       aria-hidden={false}
       role="img"
@@ -206,7 +206,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
       tabIndex={0}
       className={cn(
         'inline-flex h-3.5 w-3.5 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        !alwaysShowActions && 'absolute inset-0 opacity-0 transition-opacity group-hover/work:opacity-100 group-has-[:focus-visible]/work:opacity-100',
+        !alwaysShowActions && 'absolute inset-0 opacity-0 group-hover/work:opacity-100 group-has-[:focus-visible]/work:opacity-100',
       )}
       aria-label={expanded ? t('sessions.sidebar.group.collapseAria', { label }) : t('sessions.sidebar.group.expandAria', { label })}
       aria-expanded={expanded}
@@ -232,7 +232,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     : (
       <Icon
         name="git-branch"
-        className={cn('h-3 w-3 flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground/40')}
+        className={cn('h-3 w-3 flex-shrink-0', refs.prColor ? 'oc-ref-tint' : 'text-muted-foreground')}
         style={refs.prColor ? refTintStyle(refs.prColor) : undefined}
         aria-hidden={false}
         role="img"
@@ -241,13 +241,13 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     );
   const lead = expandable ? (
     <span className="relative inline-flex size-3 flex-shrink-0 items-center justify-center">
-      <span className={cn('inline-flex transition-opacity', alwaysShowActions ? 'opacity-0' : 'group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0')}>{leadIcon}</span>
+      <span className={cn('inline-flex', alwaysShowActions ? 'opacity-0' : 'group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0')}>{leadIcon}</span>
       <span
         role="button"
         tabIndex={0}
         className={cn(
           'absolute inset-0 inline-flex items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none',
-          !alwaysShowActions && 'opacity-0 transition-opacity group-hover/work:opacity-100 group-has-[:focus-visible]/work:opacity-100',
+          !alwaysShowActions && 'opacity-0 group-hover/work:opacity-100 group-has-[:focus-visible]/work:opacity-100',
         )}
         aria-label={expanded ? t('sessions.sidebar.group.collapseAria', { label }) : t('sessions.sidebar.group.expandAria', { label })}
         aria-expanded={expanded}
@@ -269,14 +269,15 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   const slot = (
     <span className="relative inline-flex size-3.5 flex-shrink-0 items-center justify-center">
       {alwaysShowActions ? chevron ?? slotMark : <>
-        <span className={cn('inline-flex items-center justify-center', expandable && 'transition-opacity group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0')}>{slotMark}</span>
+        <span className={cn('inline-flex items-center justify-center', expandable && 'group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0')}>{slotMark}</span>
         {chevron}
       </>}
     </span>
   );
   // One line leaves no room for a reference's text: its mark alone, in the
   // state's colour, named by its tooltip; a click opens it.
-  // The second line of a detailed row has room for its number too.
+  // The second line of a detailed row has room for its number too, which
+  // stays neutral: the mark alone carries the state.
   const refMark = refs.prSummary
     ? { icon: 'git-pull-request' as const, color: refs.prColor, label: refs.prLabel ?? refs.prReference, text: refs.prReference, url: refs.prSummary.url }
     : refs.primaryIssue
@@ -286,8 +287,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
     <RowMarkTooltip label={refMark.label}>
       <button
         type="button"
-        className={cn('inline-flex flex-shrink-0 items-center gap-0.5 rounded typography-micro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default', refMark.color ? 'oc-ref-tint' : 'text-muted-foreground')}
-        style={refMark.color ? refTintStyle(refMark.color) : undefined}
+        className="inline-flex flex-shrink-0 items-center gap-0.5 rounded typography-micro text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
         disabled={!refMark.url}
         aria-label={refMark.label}
         onPointerDown={(event) => event.stopPropagation()}
@@ -297,17 +297,17 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
           if (refMark.url) openTrackerItem(refMark.url, project?.path ?? group.directory ?? null, event);
         }}
       >
-        <Icon name={refMark.icon} className="h-3 w-3" />
+        <Icon name={refMark.icon} className={cn('h-3 w-3', refMark.color && 'oc-ref-tint')} style={refMark.color ? refTintStyle(refMark.color) : undefined} />
         {detailed && refMark.text ? <span className="leading-none tabular-nums">{refMark.text}</span> : null}
       </button>
     </RowMarkTooltip>
   ) : null;
   const tooltipLinks = refs.prSummary ? refs.prLinks : refs.issueItems;
-  // Hover actions cross-fade over the meta at the row's end; the title's
+  // Hover actions swap in over the meta at the row's end; the title's
   // tail fades under them (`oc-actions-mask`), so nothing moves.
   const hasWorkAction = workAction;
   const actionsReserve = hasWorkAction ? '[--oc-actions-reserve:2.875rem]' : '[--oc-actions-reserve:1.75rem]';
-  const hideOnHover = alwaysShowActions ? undefined : 'transition-opacity group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0';
+  const hideOnHover = alwaysShowActions ? undefined : 'group-hover/work:opacity-0 group-has-[:focus-visible]/work:opacity-0';
   const maskOnHover = alwaysShowActions ? undefined : 'group-hover/work:oc-actions-mask group-has-[:focus-visible]/work:oc-actions-mask';
   const actionButtonClass = cn(
     'inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -412,7 +412,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
           ? 'text-interactive-selection-foreground'
           : activityState === 'unread' || activityState === 'permission' || activityState === 'form'
             ? 'font-semibold text-foreground'
-            : activityState === 'active' ? 'text-foreground' : 'text-muted-foreground',
+            : activityState === 'active' ? 'text-foreground' : 'oc-title-rest',
         maskOnHover,
       )}
     >
@@ -499,17 +499,17 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
           <div className="flex h-4 w-full min-w-0 items-center gap-1">
             {lead}
             {mixed && project && branch && branch !== label ? (
-              <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" />
+              <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
             ) : null}
             {branch && branch !== label ? (
-              <span className="min-w-0 truncate typography-micro text-muted-foreground/50">{branch}</span>
+              <span className="min-w-0 truncate typography-micro text-muted-foreground">{branch}</span>
             ) : null}
             <span className="ms-auto flex flex-shrink-0 items-center gap-1">{ref}</span>
           </div>
         ) : null}
         {/* Renaming has its own save and cancel at the row's end. */}
         <div className={cn(
-          'absolute inset-e-1 z-10 flex items-center gap-0.5 transition-opacity',
+          'absolute inset-e-1 z-10 flex items-center gap-0.5',
           // On the first line: a detailed row's second line has none.
           detailed ? 'top-1.5 h-5' : 'top-1/2 -translate-y-1/2',
           renaming && 'hidden',

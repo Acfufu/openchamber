@@ -67,7 +67,7 @@ even when the OS requests reduced motion; the unread icon stays. Permission/ques
 elapsed counters retain their existing precedence and behavior. A session
 row's title carries its state too: semibold at full strength while a finished
 turn is unseen or a permission or question waits on the user, full strength
-while it runs, muted otherwise; the active row keeps the selection colors. The display
+while it runs, a step below otherwise (`oc-title-rest`); the active row keeps the selection colors. The display
 store is at version 10 (v10 dropped the Recent toggle): missing preferences inherit the default during hydration,
 while an explicitly saved choice survives reload.
 
@@ -323,15 +323,15 @@ while there is none the worktree mark tinted by the branch's PR; the chevron
 replaces either while the row is hovered or focused, when there is something
 to open (touch layouts keep the chevron and show the state at the end). The
 title carries the state as a session's does (semibold for news or a waiting
-request, full strength while running, muted otherwise), and the end shows the
+request, full strength while running, a step below otherwise), and the end shows the
 running turn's duration, or the last turn's until it is read. The title is
 the task title (the branch description,
 `WorktreeMetadata.title`; a worktree made for a pull request or an issue
 starts with that item's title, the agent's until replaced), until it has one
 the title of the session a click
 opens, and only for a worktree without sessions the branch; the tooltip
-always names the branch. At the end sits the PR or the issue its sessions follow as a tinted mark without its
-number (one line has no room for it; the mark's tooltip names it and a click
+always names the branch. At the end sits the PR or the issue its sessions follow as a mark in its state's
+colour without its number (one line has no room for it; the mark's tooltip names it and a click
 opens it). It shows no date and no session
 count, like the rows around it: the room goes to the title. Every icon before a one-line title
 moves the hover mask in by its width (`--oc-actions-inset`), or the title's
@@ -694,8 +694,8 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   the tree and break every line. The lines draw over the row, so they show on
   its hover and selection fills, inside a box that contains the row's margins
   so neighbouring rows' lines meet.
-  Worktree and folder labels are medium weight a step below full strength,
-  between the project header and the muted session titles at rest. Tree session rows are a little
+  Worktree and folder labels are medium weight a step below full strength
+  (`oc-group-label`), between the project header and the session titles at rest. Tree session rows are a little
   tighter than zone rows.
   An empty worktree group or folder (no sessions, no folders, nothing loading)
   shows no chevron, does not toggle, lists nothing under its header, and is
@@ -728,7 +728,11 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   `'mixed-compact'`, session and run rows) take the same geometry at level 0
   with the state in the slot, so it reads down one edge from the zones into
   the projects. Detailed rows have no slot: their state is on the right and
-  their chevron swaps in for the second line's first icon. Session and run titles are muted at rest. Session, run, worktree work
+  their chevron swaps in for the second line's first icon. Session, run and draft titles rest a step below full strength
+  (`oc-title-rest`). Everything
+  else on a row (time, branch, counts, icons, a PR's number) is metadata in the
+  muted text colour at full strength, never a fraction of it. Only the mark of
+  a PR or an issue carries its state's colour; its number stays neutral. Session, run, worktree work
   and draft rows take the same faint hover fill; space, archive and folder
   headers take none, so a pointer moving down the
   sidebar tells sessions from their containers. Show more, empty and
@@ -831,8 +835,8 @@ matching and ordering. Search does not fetch sessions or broaden list membership
 - List loading and workspace initialization have separate states. The spinner follows only the list queue; config, MCP, LSP, and live-state recovery cannot keep a successful empty list spinning. A core initialization failure has a separate localized notice and reuses the retry/native-access actions without clearing loaded sessions.
 - Directory permission failures remain visible even when stale sessions are retained. Flat groups inspect every represented root/worktree directory; local Desktop may open the native picker for the exact failed directory, while other runtimes keep the ordinary Retry action.
 - Pins and folder assignments are not pruned from the first startup snapshot or from optimistic mutations. Confirmed local deletion and routed external deletion clean immediately; a later authoritative omission after an established baseline covers missed external delete events.
-- Pending-permission/question row badges ride in the meta cluster at the row's end with the time and status, and fade with it on hover or while the row menu is open, except on non-VS Code always-visible-actions rows, which reserve permanent padding and keep the cluster shown. VS Code hover-reveals its actions over the row's right edge even under `alwaysShowActions`, so its cluster keeps fading.
-- Hover-revealed actions on session rows, worktree headers and project headers cross-fade over the row's end (the right, or the left in a right-to-left layout); they do not re-lay the row out. What they cover (date, branch, badges, indicators) fades with opacity, and the title or label's tail fades away under them through the `oc-actions-mask` utility (`index.css`): the row's text line is an `@container`, `--oc-actions-reserve` says how far the actions reach in from its end edge, `--oc-actions-inset` how far the masked text starts from its start edge. A title whose own direction differs from the interface (`dir="auto"`) starts under the actions, so it takes `padding-inline-start` of the reserve instead of the fade. Reserves, insets and the mask's own gradient stops are rem so they track the interface font size, and the mask multiplies reserves and insets by `--padding-scale` because the buttons and offsets they describe are spacing tokens that grow with the density setting; a pixel reserve would stop short of the buttons at larger sizes and let the title show through. Change a reserve whenever an action's size, count or offset changes. Only permanently shown actions (`alwaysShowActions`) take layout room.
+- Pending-permission/question row badges ride in the meta cluster at the row's end with the time and status, and hide with it on hover or while the row menu is open, except on non-VS Code always-visible-actions rows, which reserve permanent padding and keep the cluster shown. VS Code hover-reveals its actions over the row's right edge even under `alwaysShowActions`, so its cluster keeps hiding.
+- Hover-revealed actions on session rows, worktree headers and project headers swap in over the row's end (the right, or the left in a right-to-left layout) at once, without a fade; they do not re-lay the row out. What they cover (date, branch, badges, indicators) hides in the same step, and the title or label's tail fades away under them through the `oc-actions-mask` utility (`index.css`): the row's text line is an `@container`, `--oc-actions-reserve` says how far the actions reach in from its end edge, `--oc-actions-inset` how far the masked text starts from its start edge. A title whose own direction differs from the interface (`dir="auto"`) starts under the actions, so it takes `padding-inline-start` of the reserve instead of the fade. Reserves, insets and the mask's own gradient stops are rem so they track the interface font size, and the mask multiplies reserves and insets by `--padding-scale` because the buttons and offsets they describe are spacing tokens that grow with the density setting; a pixel reserve would stop short of the buttons at larger sizes and let the title show through. Change a reserve whenever an action's size, count or offset changes. Only permanently shown actions (`alwaysShowActions`) take layout room.
 - Tooltips that list PRs or issues (session rows, timeline PR badges, worktree headers) render them as links through `sessions/SidebarRefLinks.tsx`. The PR badge and header tooltips close 750 ms after the pointer leaves, so the pointer can travel in; the whole-row tooltip closes at once and relies on the popup staying open while the pointer heads into it. The row and header action buttons sit in their own `TooltipProvider`: the pointer crosses them on the way, and a same-group tooltip would replace the open one at once. Every row but VS Code's has the whole-row tooltip, opening to the right (title, time, project, branch, links, recap); every other tooltip on a row, a header's folder name included, opens above its element (`sessions/RowMarkTooltip.tsx` for status marks), so it never covers the neighbouring marks and actions. A session menu item that opens a submenu explains itself only while disabled: the hint would cover the open submenu.
 
 
@@ -858,6 +862,28 @@ indicators. Indicators stay inside the existing row/header action-padding bounda
 hover, keyboard focus, and always-visible action buttons move them left without hiding them.
 
 ## Decisions
+
+### Why row text has three levels and metadata is never faded
+
+A row's text takes three levels: a title that needs the user (full strength,
+semibold for news), a title at rest (`oc-title-rest`, halfway between body and
+muted text), and metadata (the theme's muted text colour). Metadata used to stack opacity on top of the muted
+colour (`/40` to `/80`, eight levels across the sidebar); at `/50` the time and
+branch measured 2.4:1 in OpenChamber Dark and 2:1 in Light, under the 4.5:1
+readable minimum. Themes already keep the muted colour readable on their
+canvas, so a fraction of it undoes that. Resting titles moved up a step so
+they stay above metadata that is now full muted. The step is a mix of the two
+colours, not body text at 80%: light themes keep body text soft, and at 80% it
+measured at most 0.11 above muted, and often below it, in every built-in
+light palette. Worktree, folder and space labels take `oc-group-label`, three
+quarters of the way to body text, for the same reason: at 85% of body text
+they fell under the resting titles they contain in every light palette.
+
+### Why hover actions appear without a fade
+
+The actions and what they cover swap in one step. A fade on every pointer
+pass over a list reads as lag, and the mask under the title already keeps the
+swap from jumping.
 
 ### Why every project list follows the sidebar's sort and has no sort of its own
 

@@ -92,10 +92,9 @@ export const MobileWorktreeRow: React.FC<{
     : refs.primaryIssue ? { icon: refs.primaryIssue.icon, color: refs.primaryIssue.color, text: refs.primaryIssue.label } : null;
   const ref = refMark ? (
     <span
-      className={cn('inline-flex shrink-0 items-center gap-0.5 typography-micro', refMark.color ? 'oc-ref-tint' : 'text-muted-foreground')}
-      style={refMark.color ? refTintStyle(refMark.color) : undefined}
+      className="inline-flex shrink-0 items-center gap-0.5 typography-micro text-muted-foreground"
     >
-      <Icon name={refMark.icon} className="size-3" />
+      <Icon name={refMark.icon} className={cn('size-3', refMark.color && 'oc-ref-tint')} style={refMark.color ? refTintStyle(refMark.color) : undefined} />
       {row.detailed && refMark.text ? <span className="leading-none tabular-nums">{refMark.text}</span> : null}
     </span>
   ) : null;
@@ -109,7 +108,7 @@ export const MobileWorktreeRow: React.FC<{
           ? MOBILE_ACTIVE_TITLE_CLASS
           : activityState === 'unread' || activityState === 'permission' || activityState === 'form'
             ? 'font-semibold text-foreground'
-            : activityState === 'active' ? 'text-foreground' : 'text-muted-foreground',
+            : activityState === 'active' ? 'text-foreground' : 'oc-title-rest',
       )}
     >
       {label}
@@ -268,7 +267,7 @@ export const MobileRunRow: React.FC<{
   const runMark = <ArrowsMerge className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />;
   const titleText = (
     // Muted like an idle session title; the run's state shows in its mark.
-    <span dir="auto" className={cn('block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label', work.isActive ? MOBILE_ACTIVE_TITLE_CLASS : 'text-muted-foreground')}>
+    <span dir="auto" className={cn('block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label', work.isActive ? MOBILE_ACTIVE_TITLE_CLASS : 'oc-title-rest')}>
       {run.title}
     </span>
   );
@@ -386,7 +385,7 @@ export const MobileDraftRow: React.FC<{
   const pen = <Icon name="edit" className="size-3 shrink-0 text-muted-foreground" />;
   const attachment = firstLine && attachmentCount > 0 ? <Icon name="attachment-2" className="size-3 shrink-0 text-muted-foreground" /> : null;
   const titleText = (
-    <span dir="auto" className={cn('block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label italic', isOpen ? MOBILE_ACTIVE_TITLE_CLASS : 'text-muted-foreground')}>
+    <span dir="auto" className={cn('block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label italic', isOpen ? MOBILE_ACTIVE_TITLE_CLASS : 'oc-title-rest')}>
       {label}
     </span>
   );

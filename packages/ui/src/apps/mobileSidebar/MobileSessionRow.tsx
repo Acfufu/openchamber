@@ -108,10 +108,9 @@ export const MobileSessionRow: React.FC<{
     <span
       role="img"
       aria-label={refLines.map((line) => line.text).join(', ')}
-      className={cn('inline-flex shrink-0 items-center gap-0.5 typography-micro', primaryRef.color ? 'oc-ref-tint' : 'text-muted-foreground')}
-      style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined}
+      className="inline-flex shrink-0 items-center gap-0.5 typography-micro text-muted-foreground"
     >
-      <Icon name={primaryRef.icon} className="size-3" />
+      <Icon name={primaryRef.icon} className={cn('size-3', primaryRef.color && 'oc-ref-tint')} style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined} />
       {withLabel ? <span className="leading-none tabular-nums">{primaryRef.label}</span> : null}
       {withLabel && moreRefCount > 0 ? <span className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
     </span>

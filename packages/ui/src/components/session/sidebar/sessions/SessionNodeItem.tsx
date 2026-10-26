@@ -270,7 +270,7 @@ const QuickSessionAction = React.memo(function QuickSessionAction({
         <button
           type="button"
           className={cn(
-            'inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-opacity',
+            'inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             shiftHeld
               ? 'text-destructive hover:text-destructive'
               : 'text-muted-foreground hover:text-foreground',
@@ -873,10 +873,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             directoryIndicator={null}
             prBadge={primaryRef ? (
               <span
-                className={cn('inline-flex flex-shrink-0 items-center gap-1 typography-micro', primaryRef.color ? 'oc-ref-tint' : 'text-muted-foreground')}
-                style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined}
+                className="inline-flex flex-shrink-0 items-center gap-1 typography-micro text-muted-foreground"
               >
-                <Icon name={primaryRef.icon} className="h-3 w-3" />
+                <Icon name={primaryRef.icon} className={cn('h-3 w-3', primaryRef.color && 'oc-ref-tint')} style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined} />
                 {isOneLineTimelineRow ? null : <>
                   <span className="leading-none tabular-nums">{primaryRef.label}</span>
                   {moreRefCount > 0 ? <span className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
@@ -917,8 +916,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // The settled duration lives exactly as long as the unread marker does, so a
   // session read (or watched) while it finishes never keeps a stale total.
   const showActivityDuration = (isStreaming || showUnreadStatus) && hasActivityDuration;
-  // Hover-revealed actions cross-fade over the row's right end instead of
-  // pushing the title: the meta they cover fades out and the title's tail
+  // Hover-revealed actions swap in over the row's right end instead of
+  // pushing the title: the meta they cover hides and the title's tail
   // fades away under them (`oc-actions-mask`), so nothing moves. The reserve
   // is how far the actions reach in from the row content's right edge: their
   // width less the 6px they sit nearer the row edge (16px buttons, 20px on
@@ -977,7 +976,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       }}
       className={cn(
         'inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        stateInSlot && 'opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
+        stateInSlot && 'opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
       )}
       aria-label={isExpanded
         ? t('sessions.sidebar.session.subsessions.collapse')
@@ -1007,7 +1006,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       }}
       className={cn(
         'absolute inset-0 inline-flex items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none',
-        !alwaysShowActions && 'opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
+        !alwaysShowActions && 'opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
       )}
       aria-label={isExpanded
         ? t('sessions.sidebar.session.subsessions.collapse')
@@ -1024,7 +1023,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       {treeChevron ? (
         // Under the pointer the chevron takes over, so the mark passes the
         // pointer through to it.
-        <span className="pointer-events-none absolute inset-0 inline-flex items-center justify-center transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0">
+        <span className="pointer-events-none absolute inset-0 inline-flex items-center justify-center group-hover:opacity-0 group-has-[:focus-visible]:opacity-0">
           {liveStateMark}
         </span>
       ) : liveStateMark}
@@ -1565,7 +1564,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const doneHintLabel = t('sessions.sidebar.session.work.doneSuggested');
   const doneHintBadge = (className?: string) => (showDoneHint ? (
     <RowMarkTooltip label={doneHintLabel}>
-      <span className={cn('inline-flex flex-shrink-0 items-center text-muted-foreground/75', className)} aria-label={doneHintLabel}>
+      <span className={cn('inline-flex flex-shrink-0 items-center text-muted-foreground', className)} aria-label={doneHintLabel}>
         <Icon name="check" className="h-3.5 w-3.5" />
       </span>
     </RowMarkTooltip>
@@ -1598,10 +1597,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         <button
           type="button"
           className={cn(
-            'inline-flex flex-shrink-0 items-center gap-1 rounded typography-micro hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline',
-            primaryRef.color ? 'oc-ref-tint' : 'text-muted-foreground',
+            'inline-flex flex-shrink-0 items-center gap-1 rounded typography-micro text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:no-underline',
           )}
-          style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined}
           disabled={!primaryRef.url}
           aria-label={refBadgeLabel}
           onPointerDown={handleRowActionPointerDown}
@@ -1615,7 +1612,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           }}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <Icon name={primaryRef.icon} className="h-3 w-3" />
+          {/* The state's colour is on the mark alone; the number stays neutral. */}
+          <Icon name={primaryRef.icon} className={cn('h-3 w-3', primaryRef.color && 'oc-ref-tint')} style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined} />
           {/* One-line rows keep the coloured mark only; its tooltip lists every link. */}
           {isOneLineTimelineRow ? null : <>
             <span className="leading-none tabular-nums">{primaryRef.label}</span>
@@ -1646,7 +1644,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         ? 'text-interactive-selection-foreground'
         : showUnreadStatus || hasPendingPermission || hasPendingForm
           ? 'font-semibold text-foreground'
-          : isStreaming ? 'text-foreground' : 'text-muted-foreground'}
+          : isStreaming ? 'text-foreground' : 'oc-title-rest'}
       branchLabel={tooltipBranchLabel}
       spaceMark={branchInSpace ? t('sessions.sidebar.group.space') : null}
       statusDot={stateInSlot ? null : liveStateMark}
@@ -1861,7 +1859,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           ) : null}
 
           <div className={cn(
-            'absolute inset-e-1 z-10 flex items-center gap-0.5 transition-opacity',
+            'absolute inset-e-1 z-10 flex items-center gap-0.5',
             // Timeline actions overlay the first line's right cluster, not the
             // row's vertical centre.
             // Two-line rows: the row's 6px top padding plus the fixed 20px
@@ -1883,7 +1881,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                   <button
                     type="button"
                     className={cn(
-                      'inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-opacity',
+                      'inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       actionButtonSizeClass,
                       isInWork ? 'text-status-success' : 'text-muted-foreground hover:text-foreground',
                     )}
@@ -1921,7 +1919,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                   <button
                     type="button"
                     className={cn(
-                      'inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-opacity',
+                      'inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       actionButtonSizeClass,
                     )}
                     aria-label={t('sessions.sidebar.session.actions.openInEditor')}
@@ -1943,7 +1941,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                 <button
                   type="button"
                   className={cn(
-                    'inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-opacity',
+                    'inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     !alwaysShowActions
                       ? (isSessionMenuOpen
                           ? 'h-4 w-4 opacity-100'
