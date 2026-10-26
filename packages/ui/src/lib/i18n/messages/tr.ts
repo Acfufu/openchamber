@@ -2417,8 +2417,6 @@ export const dict = {
   'chat.chatInput.actions.sendMessageAria': 'Mesaj gönder',
   'chat.chatInput.actions.queueMessageAria': 'Mesajı kuyruğa ekle',
   'chat.chatInput.actions.stopGeneratingAria': 'Üretmeyi durdur',
-  'chat.chatInput.focusMode.toggleAria': 'Odak modunu aç/kapat',
-  'chat.chatInput.focusMode.label': 'Odak modu',
   'chat.chatInput.linked.byAuthor': '{author} tarafından',
   'chat.chatInput.linked.issue.openInBrowserAria': 'Issue\'ı tarayıcıda aç',
   'chat.chatInput.linked.issue.removeAria': 'Bağlı issue\'ı kaldır',

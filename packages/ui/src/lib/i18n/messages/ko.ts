@@ -2588,8 +2588,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.actions.sendMessageAria': '보내기 메시지',
   'chat.chatInput.actions.queueMessageAria': '메시지 대기열에 추가',
   'chat.chatInput.actions.stopGeneratingAria': '생성 중지',
-  'chat.chatInput.focusMode.toggleAria': '집중 모드 전환',
-  'chat.chatInput.focusMode.label': '집중 모드',
   'chat.chatInput.linked.byAuthor': '작성자: {author}',
   'chat.chatInput.linked.issue.openInBrowserAria': '브라우저에서 이슈 열기',
   'chat.chatInput.linked.issue.removeAria': '연결된 이슈 제거',

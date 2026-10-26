@@ -2520,8 +2520,6 @@ export const dict = {
   'chat.chatInput.actions.sendMessageAria': 'إرسال الرسالة',
   'chat.chatInput.actions.queueMessageAria': 'إضافة الرسالة إلى قائمة الانتظار',
   'chat.chatInput.actions.stopGeneratingAria': 'إيقاف التوليد',
-  'chat.chatInput.focusMode.toggleAria': 'تبديل وضع التركيز',
-  'chat.chatInput.focusMode.label': 'وضع التركيز',
   'chat.chatInput.linked.byAuthor': 'بواسطة {author}',
   'chat.chatInput.linked.issue.openInBrowserAria': 'فتح المشكلة في المتصفح',
   'chat.chatInput.linked.issue.removeAria': 'إزالة المشكلة المرتبطة',

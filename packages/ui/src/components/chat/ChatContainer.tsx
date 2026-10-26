@@ -9,11 +9,9 @@ import { ChatInput } from './ChatInput';
 import { CHAT_INPUT_EDITOR_SELECTOR } from './composer/editor/dom';
 import {
     ChatColumnActionsContext,
-    ChatColumnExpandedInputContext,
     ChatColumnSessionContext,
     useChatColumnActions,
     type ChatColumnActions,
-    type ChatColumnExpandedInput,
     type ChatColumnSession,
 } from './chatColumnSession';
 import { MobileCommentComposerContext, useMobileCommentComposerOwner } from './composer/comment/MobileCommentComposerContext';
@@ -936,13 +934,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
 
     // UI store
-    const globalExpandedInput = useUIStore((state) => (pinned ? false : state.isExpandedInput));
-    const [pinnedExpandedInput, setPinnedExpandedInput] = React.useState(false);
-    const isExpandedInput = pinned ? pinnedExpandedInput : globalExpandedInput;
-    const pinnedExpandedInputValue = React.useMemo<ChatColumnExpandedInput | null>(
-        () => (pinned ? { expanded: pinnedExpandedInput, setExpanded: setPinnedExpandedInput } : null),
-        [pinned, pinnedExpandedInput],
-    );
+    const isExpandedInput = useUIStore((state) => (pinned ? false : state.isExpandedInput));
     const stickyUserHeader = useUIStore((state) => state.stickyUserHeader);
     const promptNavigatorEnabled = useUIStore((state) => state.promptNavigatorEnabled);
     const allowPromptingSubagentSessions = useUIStore((state) => state.allowPromptingSubagentSessions);
@@ -1863,7 +1855,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 		>
 		<ChatColumnSessionContext.Provider value={chatColumnSession}>
 		<ChatColumnActionsContext.Provider value={columnActions}>
-		<ChatColumnExpandedInputContext.Provider value={pinnedExpandedInputValue}>
 		{/* One mobile comment controller per column: selections in this column
 		    comment into this column's composer, never a sibling's. */}
 		<MobileCommentComposerContext.Provider value={mobileCommentComposer}>
@@ -2041,7 +2032,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         </div>
         </ChatQuoteHighlightContext.Provider>
         </MobileCommentComposerContext.Provider>
-        </ChatColumnExpandedInputContext.Provider>
         </ChatColumnActionsContext.Provider>
         </ChatColumnSessionContext.Provider>
         {/* Kept mounted while it could ever show, so it can fade out and back

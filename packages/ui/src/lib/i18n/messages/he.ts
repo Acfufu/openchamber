@@ -2520,8 +2520,6 @@ export const dict = {
   'chat.chatInput.actions.sendMessageAria': 'שלח הודעה',
   'chat.chatInput.actions.queueMessageAria': 'הוסף הודעה לתור',
   'chat.chatInput.actions.stopGeneratingAria': 'עצור יצירה',
-  'chat.chatInput.focusMode.toggleAria': 'הפעל או כבה מצב מיקוד',
-  'chat.chatInput.focusMode.label': 'מצב מיקוד',
   'chat.chatInput.linked.byAuthor': 'מאת {author}',
   'chat.chatInput.linked.issue.openInBrowserAria': 'פתח את ה-issue בדפדפן',
   'chat.chatInput.linked.issue.removeAria': 'הסר את ה-issue המקושר',

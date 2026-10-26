@@ -2588,8 +2588,6 @@ export const dict = {
   'chat.chatInput.actions.sendMessageAria': 'Send message',
   'chat.chatInput.actions.queueMessageAria': 'Queue message',
   'chat.chatInput.actions.stopGeneratingAria': 'Stop generating',
-  'chat.chatInput.focusMode.toggleAria': 'Toggle focus mode',
-  'chat.chatInput.focusMode.label': 'Focus mode',
   'chat.chatInput.linked.byAuthor': 'by {author}',
   'chat.chatInput.linked.issue.openInBrowserAria': 'Open issue in browser',
   'chat.chatInput.linked.issue.removeAria': 'Remove linked issue',

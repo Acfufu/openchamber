@@ -2557,8 +2557,6 @@ export const dict: Record<I18nKey, string> = {
   "chat.chatInput.actions.sendMessageAria": "Enviar mensaje",
   "chat.chatInput.actions.queueMessageAria": "Poner mensaje en cola",
   "chat.chatInput.actions.stopGeneratingAria": "Detener generación",
-  "chat.chatInput.focusMode.toggleAria": "Activar o desactivar modo de enfoque",
-  "chat.chatInput.focusMode.label": "Modo de enfoque",
   "chat.chatInput.linked.byAuthor": "por {author}",
   "chat.chatInput.linked.issue.openInBrowserAria": "Abrir issue en el navegador",
   "chat.chatInput.linked.issue.removeAria": "Eliminar issue vinculado",

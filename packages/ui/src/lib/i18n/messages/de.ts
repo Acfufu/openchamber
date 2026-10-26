@@ -2302,8 +2302,6 @@ export const dict = {
   'chat.chatInput.actions.sendMessageAria': 'Nachricht senden',
   'chat.chatInput.actions.queueMessageAria': 'Nachricht in die Warteschlange stellen',
   'chat.chatInput.actions.stopGeneratingAria': 'Generierung stoppen',
-  'chat.chatInput.focusMode.toggleAria': 'Fokusmodus umschalten',
-  'chat.chatInput.focusMode.label': 'Fokusmodus',
   'chat.chatInput.linked.byAuthor': 'von {author}',
   'chat.chatInput.linked.issue.openInBrowserAria': 'Issue im Browser öffnen',
   'chat.chatInput.linked.issue.removeAria': 'Verknüpftes Issue entfernen',

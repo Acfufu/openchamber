@@ -1405,8 +1405,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.drop.attachFiles': 'Drop files here to attach',
   'chat.chatInput.drop.insertMention': 'Drop to insert as mention',
   'chat.chatInput.fileFallback': 'file',
-  'chat.chatInput.focusMode.label': 'Focus mode',
-  'chat.chatInput.focusMode.toggleAria': 'Toggle focus mode',
   'chat.chatInput.linked.byAuthor': 'by {author}',
   'chat.chatInput.linked.issue.openInBrowserAria': 'Otwórz zgłoszenie w przeglądarce',
   'chat.chatInput.linked.issue.removeAria': 'Usuń powiązane zgłoszenie',

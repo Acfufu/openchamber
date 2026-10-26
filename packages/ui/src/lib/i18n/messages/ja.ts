@@ -2584,8 +2584,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.actions.sendMessageAria': 'メッセージを送信',
   'chat.chatInput.actions.queueMessageAria': 'メッセージをキュー',
   'chat.chatInput.actions.stopGeneratingAria': '生成を停止',
-  'chat.chatInput.focusMode.toggleAria': 'フォーカスモードの切り替え',
-  'chat.chatInput.focusMode.label': 'フォーカスモード',
   'chat.chatInput.linked.byAuthor': '{author}による',
   'chat.chatInput.linked.issue.openInBrowserAria': 'ブラウザでIssueを開く',
   'chat.chatInput.linked.issue.removeAria': 'リンクされたIssueを削除',

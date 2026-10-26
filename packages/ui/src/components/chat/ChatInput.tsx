@@ -1710,11 +1710,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         setMobileControlsPanel('agent');
     }, []);
 
-    const handleToggleExpandedInput = React.useCallback(() => {
-        if (isBtwActive) return;
-        setExpandedInput(!isExpandedInput);
-    }, [isBtwActive, isExpandedInput, setExpandedInput]);
-
     const openGitHubPicker = React.useCallback(() => {
         setReferencePicker({ source: 'repository' });
     }, []);
@@ -4826,7 +4821,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         canSend={canSend}
                         canAbort={canAbort}
                         hasContent={Boolean(hasContent)}
-                        isExpandedInput={isExpandedInput}
                         permissionMode={shownPermissionMode}
                         isPermissionAutoAcceptInteractive={isPermissionAutoAcceptInteractive}
                         dictationActive={mobileShell.dictationActive}
@@ -4838,7 +4832,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         attachGuests={isMobile ? NO_ATTACH_GUESTS : guestAttachItems}
                         onOpenGuestAttach={openGuestAttach}
                         onOpenAttachSheet={openMobileAttachSheet}
-                        onToggleExpandedInput={handleToggleExpandedInput}
                         onCyclePermissionMode={handlePermissionModeCycle}
                         onPrimaryAction={handlePrimaryAction}
                         onAbort={handleAbort}
