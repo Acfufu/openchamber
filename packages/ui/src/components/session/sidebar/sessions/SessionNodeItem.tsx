@@ -68,7 +68,8 @@ import { useI18n } from '@/lib/i18n';
 import { useShiftKeyHeld } from '@/hooks/useShiftKeyHeld';
 import { getSessionGoal } from '@/lib/sessionGoalMetadata';
 import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
-import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
+import { isDoneSuggested } from '@/lib/sessionWorkMetadata';
+import { collectSessionWorkInWork } from '../works/sidebarWorks';
 import { SessionDirectoryMissingError, setSessionWorkState } from '@/sync/session-actions';
 import { toastSessionWorkFailure } from './sessionWorkFailure';
 import { useSessionWarmingStore, useSessionWarmUntil } from '@/stores/useSessionWarmingStore';
@@ -106,6 +107,8 @@ type SecondaryMeta = {
 export type SessionNodeItemProps = {
   node: SessionNode;
   depth?: number;
+  /** The row is a work of its own; a row inside one leaves Track / Done to it. */
+  ownsWork: boolean;
   groupDirectory?: string | null;
   projectId?: string | null;
   folderOwnerKey?: string | null;
@@ -295,6 +298,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const {
     node,
     depth = 0,
+    ownsWork,
     groupDirectory,
     projectId,
     folderOwnerKey,
@@ -351,11 +355,12 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const showQuickArchiveAction = !archivedBucket && !mobileVariant;
   const sessionWorkEnabled = useUIStore((state) => state.sessionWorkEnabled);
   const sessionRecapEnabled = useUIStore((state) => state.sessionRecapEnabled);
-  // Track / Done belongs to top-level project sessions: Chats are plain
-  // conversations, never work. Touch layouts keep their actions permanently
-  // visible, where an icon on every row would be noise: there it lives in the
-  // session menu only.
-  const canTrackWork = sessionWorkEnabled && !archivedBucket && !node.session.parentID && !isChatDirectoryPath(node.session.directory);
+  // Track / Done belongs to the rows that are works: Chats are plain
+  // conversations, never work, and a session nested in a work is tracked and
+  // finished with it, or one group would mix tracked and finished sessions.
+  // Touch layouts keep their actions permanently visible, where an icon on
+  // every row would be noise: there it lives in the session menu only.
+  const canTrackWork = sessionWorkEnabled && ownsWork && !archivedBucket && !node.session.parentID && !isChatDirectoryPath(node.session.directory);
   const showWorkAction = canTrackWork && !alwaysShowActions;
   // Hover-revealed actions besides the menu: work, quick archive, and in VS
   // Code open-in-editor.
@@ -520,21 +525,13 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const worktreeSubmenuOpenRef = React.useRef(false);
   const worktreeLoadSequenceRef = React.useRef(0);
   const sessionGoal = getSessionGoal(resolvedSession);
-  // A root row is its work: the session with the reviews, forks and
-  // dispatched sessions nested under it. It is in work when any of them is,
+  // A root row is its work: the session with the reviews and btw sessions
+  // nested under it. It is in work when any of them is,
   // and Done closes all of them.
-  const workSessionsInWork = React.useMemo(() => {
-    if (!canTrackWork) return [];
-    const inWork: Session[] = [];
-    const stack: SessionNode[] = [node];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (!current) continue;
-      if (isSessionInWork(current.session)) inWork.push(current.session);
-      for (const child of current.children) if (!child.session.parentID) stack.push(child);
-    }
-    return inWork;
-  }, [canTrackWork, node]);
+  const workSessionsInWork = React.useMemo(
+    () => (canTrackWork ? collectSessionWorkInWork(node) : []),
+    [canTrackWork, node],
+  );
   const isInWork = workSessionsInWork.length > 0;
   const showDoneHint = isInWork && !isStreaming && isDoneSuggested(resolvedSession);
   const workActionLabel = isInWork ? t('sessions.sidebar.session.work.markDone') : t('sessions.sidebar.session.work.track');
@@ -2115,6 +2112,7 @@ const sessionNodeItemPropsChange = (prev: SessionNodeItemProps, next: SessionNod
   if (!areSessionRenderSemanticsEqual(prev.node.session, next.node.session)) return 'node';
   if (!areNodeWorktreeRenderSemanticsEqual(prev.node, next.node)) return 'node';
   if (prev.depth !== next.depth) return 'depth';
+  if (prev.ownsWork !== next.ownsWork) return 'ownsWork';
   if (prev.groupDirectory !== next.groupDirectory) return 'groupDirectory';
   if (prev.projectId !== next.projectId) return 'projectId';
   if (prev.archivedBucket !== next.archivedBucket) return 'archivedBucket';

@@ -11,7 +11,8 @@ import type { SessionNode } from '@/components/session/sidebar/types';
 import { isChatDirectoryPath } from '@/lib/chatDirectories';
 import { useI18n } from '@/lib/i18n';
 import { isSessionPinned } from '@/lib/sessionPins';
-import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
+import { isDoneSuggested } from '@/lib/sessionWorkMetadata';
+import { collectSessionWorkInWork } from '@/components/session/sidebar/works/sidebarWorks';
 import { cn } from '@/lib/utils';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
@@ -77,9 +78,12 @@ export const MobileSessionRow: React.FC<{
   const pendingRequests = usePendingRequests(familyIds);
   const topLevel = !session.parentID;
   const sessionWorkEnabled = useUIStore((state) => state.sessionWorkEnabled);
-  const inWork = isSessionInWork(session);
-  const work = sessionWorkEnabled && topLevel && !isChatDirectoryPath(directory)
-    ? { inWork, onToggle: () => { void toggleMobileSessionWork(session, inWork, t); } }
+  // Only a work's own row tracks it, for every session of it: what nests in
+  // a work is tracked and finished with it.
+  const ownsWork = sessionWorkEnabled && row.ownsWork && topLevel && !isChatDirectoryPath(directory);
+  const sessionsInWork = React.useMemo(() => (ownsWork ? collectSessionWorkInWork(node) : []), [node, ownsWork]);
+  const work = ownsWork
+    ? { inWork: sessionsInWork.length > 0, onToggle: () => { void toggleMobileSessionWork(session, sessionsInWork, t); } }
     : undefined;
   const pinned = useSessionPinnedStore((state) => isSessionPinned(state.ids, directory || null, session.id));
   const pin = topLevel && directory ? { pinned, onToggle: () => toggleMobileSessionPin(session, pinned, t) } : undefined;

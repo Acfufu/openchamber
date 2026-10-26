@@ -559,6 +559,32 @@ describe('buildSessionSidebarRowModel', () => {
       expect(detailedOf).toEqual(['draft:true', 'root:true', 'child:false', 'work:true', 'wt-1:false']);
     });
 
+    test('only the rows that are works of their own own their work', () => {
+      const work = worktree([node('wt-1', [node('wt-child')])]);
+      const input = args([project([group([node('root', [node('child')]), node('lane-1'), node('lane-2')]), work])]);
+      input.runIndex = buildMultiRunIndex(['lane-1', 'lane-2'].map((id) => ({
+        ...session(id),
+        metadata: withMultiRunMembership({}, {
+          version: 1, sessionID: id, group: { kind: 'id', id: '9f512893-6e63-4e49-a534-5de733ca103e' },
+          groupSlug: 'fix-auth', role: 'run', providerID: 'anthropic', modelID: 'claude', title: 'Fix auth',
+        }),
+      })), () => '/repo');
+      const runKey = [...input.runIndex.runs.keys()][0] ?? '';
+      input.expandedParents = new Set(['mixed-compact:active:root', 'project:active:root', 'project:active:wt-1', runExpansionKey('project', runKey)]);
+      input.workEntries = sessionWorks([timelineItem('root', { node: node('root', [node('child')]) })]);
+      input.zoneSessionIds = new Set(['root', 'child']);
+
+      const owners = buildSessionSidebarRowModel(input).rows.flatMap((row) => (
+        row.kind === 'session' ? [`${row.renderContext}:${row.node.session.id}:${row.ownsWork}`] : []
+      ));
+      expect(owners).toEqual([
+        'mixed-compact:root:true', 'mixed-compact:child:false',
+        'project:lane-1:false', 'project:lane-2:false',
+        'project:root:true', 'project:child:false',
+        'project:wt-1:false', 'project:wt-child:false',
+      ]);
+    });
+
     test('a worktree with no session closes the project root list', () => {
       const input = args([project([group([node('root')]), worktree([])])]);
       input.sessionOrderIndex = new Map([['root', 0]]);

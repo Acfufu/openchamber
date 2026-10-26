@@ -301,7 +301,10 @@ it, or a root session of the project root (or of a space) with what nests
 under it. Nesting is display lineage (`lib/sessionWorkLineage.ts`,
 `resolveSessionNestingParentId`): a subagent under its run (`parentID`), and
 under the session it grew out of an auto-review (`originalSessionID`), and a
-fork or promoted `/btw` (`fork.sessionID`). A session another session's agent
+`/btw` side conversation, promoted or not (`originalSessionID`, after
+promotion `fork.sessionID`). A plain fork stays a root: it usually takes the
+task another way, so it is a work of its own (maintainer decision 2026-10-26).
+A session another session's agent
 started through the openchamber tool stays a root: it is the user's own
 conversation, and its prompt links back to the sender in the transcript
 (`metadata.openchamber.promptedBy`). The `originSessionID` older builds wrote
@@ -343,7 +346,17 @@ worktree just made), so the selection always shows. A worktree work starts folde
 `oc.sessions.workExpand`: what Expand all / Collapse all last set, plus the
 works toggled since), which the collection folds into the row model's
 collapsed groups. A root session row is in work when it or any nested non-subagent
-session is, and Done marks all of those done.
+session is, and Done marks all of those done (`collectSessionWorkInWork`).
+
+Only a row that is a work of its own offers Track / Done (`ownsWork` on the
+session row): a top-level session of the project root, a folder, a space or a
+zone. A session nested under one, a lane of a run and every session of a
+worktree work leave it to the work above them, on desktop, web and the phone.
+Btw sessions and auto-reviews carry their own work state, and with a
+Track / Done of their own one group mixed tracked and finished sessions that
+looked alike at rest (maintainer decision 2026-10-26). Their state still
+counts toward the work's, and the composer's Mark done still closes the open
+session alone.
 
 Work that is done or removed leaves the working set on every path (Done on a
 session row or a worktree row, Mark done in the composer, removing a
@@ -484,7 +497,7 @@ At rest a row in work shows a grey check only while Jev's done hint is
 current (`isDoneSuggested`); the composer shows the same hint as a top row
 (`components/chat/SessionDoneHintRow.tsx`). The phone's session swipe actions
 run left to right by how often they are used on a phone: archive, pin
-(top-level rows), Track / Done (top-level rows, feature on), delete, rename;
+(top-level rows), Track / Done (rows that are works, feature on), delete, rename;
 AI rename sits inside the rename editor. Phone rows also show the goal glyph and the permission/question badges
 (`apps/MobileSessionStateBadges.tsx`) from the cross-directory request index
 (`sync/global-blocking-requests.ts`). Row memoization compares `metadata` by
@@ -557,7 +570,7 @@ dragging a worktree onto a folder is not offered.
   root's sessions and drafts, in its folders as well (a session row's
   `detailed`, `detailedRoots` in the row model), and its worktree works (the
   group row's `detailed`). What nests inside a work stays one line: subagents,
-  reviews and forks under a session, and a worktree's own sessions and drafts,
+  reviews and btw sessions under a session, and a worktree's own sessions and drafts,
   since they share the work's branch and reference. Every detailed row,
   under a project or in a zone, is laid out the same way: no slot, its text
   10px in at the first level (`sessionDetailedRowPaddingLeft`), the state at

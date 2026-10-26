@@ -408,7 +408,7 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
       return <div onFocusCapture={() => setFocusedRowKey(row.key)} onBlurCapture={() => setFocusedRowKey((current) => current === row.key ? null : current)}>
         <SessionTreeItem
           {...model.groupProps}
-          node={row.node} depth={row.depth} groupDirectory={row.groupDirectory} projectId={row.projectId}
+          node={row.node} depth={row.depth} ownsWork={row.ownsWork} groupDirectory={row.groupDirectory} projectId={row.projectId}
           folderOwnerKey={row.ownerKey} selectionScopeKey={row.selectionScopeKey}
           archivedBucket={row.archived} renderContext={row.renderContext} detailed={row.detailed} rowKey={row.key} dragKey={row.key}
           secondaryMeta={row.secondaryMeta} renderChildren={false}

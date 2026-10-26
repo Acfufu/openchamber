@@ -78,7 +78,10 @@ export type SessionSidebarRow =
   // rows around it are.
   | (RowBase & { kind: 'group-header'; group: SessionGroup; groupKey: string; projectId: string | null; collapsed: boolean; forceExpanded: boolean; empty: boolean; allSessions: readonly Session[]; depth: number; mixed: boolean; detailed: boolean })
   | (RowBase & { kind: 'folder-header'; depth: number; group: SessionGroup; folder: SessionFolder; displayName: string; scopeKey: string; scopeDirectory: string | null; ownerKey: string | null; nodes: readonly SessionNode[]; activityNodes: readonly SessionNode[]; projectId: string | null; archived: boolean; collapsed: boolean; forceExpanded: boolean; empty: boolean; deleteSessions: readonly Session[]; subFolderCount: number; dropEnabled: boolean })
-  | (RowBase & { kind: 'session'; node: SessionNode; blockingBadgeSessionScopes?: readonly BlockingBadgeSessionScope[]; depth: number; projectId: string | null; groupDirectory: string | null; ownerKey: string | null; selectionScopeKey: string | null; archived: boolean; renderContext: SessionSidebarRenderContext; secondaryMeta: SessionSidebarActivityItem['secondaryMeta']; detailed?: boolean; expanded?: boolean; forceExpanded?: boolean })
+  // `ownsWork`: the row is a work of its own, so it offers Track / Done.
+  // What nests under a session, a lane of a run and a session of a worktree
+  // work belong to the work above them, which tracks and finishes them all.
+  | (RowBase & { kind: 'session'; node: SessionNode; blockingBadgeSessionScopes?: readonly BlockingBadgeSessionScope[]; depth: number; ownsWork: boolean; projectId: string | null; groupDirectory: string | null; ownerKey: string | null; selectionScopeKey: string | null; archived: boolean; renderContext: SessionSidebarRenderContext; secondaryMeta: SessionSidebarActivityItem['secondaryMeta']; detailed?: boolean; expanded?: boolean; forceExpanded?: boolean })
   // A multi-run: one derived parent row over its member sessions. It is not a
   // session, so it never enters selection, and its lanes render as session
   // rows one level deeper when it is expanded.
@@ -465,6 +468,9 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     // Nesting level of the container's top rows: 1 inside a folder, so its
     // sessions indent under the folder header like subagent children do.
     baseDepth?: number;
+    // The container's top rows belong to a work above them (a worktree work,
+    // a run), so none of the rows is a work of its own.
+    insideWork?: boolean;
   };
   const runIndex = args.runIndex ?? EMPTY_MULTI_RUN_INDEX;
   const appendRun = (entry: RunEntry, options: AppendOptions): void => {
@@ -502,6 +508,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     appendTrees(entry.lanes, (options.baseDepth ?? 0) + 1, {
       ...options,
       detailedRoots: false,
+      insideWork: true,
       renderContext: options.renderContext === 'timeline-mixed' ? 'mixed-compact' : options.renderContext,
     });
   };
@@ -540,6 +547,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
           ? options.getBlockingBadgeSessionScopes?.(current.node.session.id) ?? options.blockingBadgeSessionScopes
           : undefined,
         depth: current.depth,
+        ownsWork: options.insideWork !== true && current.depth === baseDepth,
         projectId: options.projectId,
         groupDirectory: current.directory,
         ownerKey: options.ownerKey,
@@ -632,6 +640,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     // Their second line names the branch as a zone row's does: the project
     // root's, which every session there shares.
     const detailedMeta = detailedWorks && group.branch ? { branchLabel: group.branch } : undefined;
+    const insideWork = isWorktreeWorkGroup(group);
     const empty = sourceNodes.length === 0
       && groupDrafts.length === 0
       && groupLoaded
@@ -741,7 +750,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
       });
       if (ownerKey) folderDropTargets.push(Object.freeze({ rowKey: folderKey, scopeKey: entry.scopeKey, folderId: entry.folder.id, ownerKey, enabled: dropEnabled }));
       if (folderCollapsed) return;
-      appendSessions({ nodes: entry.nodes, containerKey: folderKey, projectId, groupDirectory: entry.scopeDirectory ?? group.directory, ownerKey, selectionScopeKey: ownerKey, archived: group.isArchivedBucket === true, renderContext: 'project', indexedNodes: indexed, selectionPoolOffset, baseDepth: contentDepth + 1, detailedRoots: detailedWorks, secondaryMeta: detailedMeta });
+      appendSessions({ nodes: entry.nodes, containerKey: folderKey, projectId, groupDirectory: entry.scopeDirectory ?? group.directory, ownerKey, selectionScopeKey: ownerKey, archived: group.isArchivedBucket === true, renderContext: 'project', indexedNodes: indexed, selectionPoolOffset, baseDepth: contentDepth + 1, detailedRoots: detailedWorks, secondaryMeta: detailedMeta, insideWork });
       for (const worktree of folderWorktrees) {
         appendGroup(worktree.group, worktree.groupKey, projectId, false, undefined, {
           keyPrefix: '', depth: contentDepth + 1, mixed: false,
@@ -778,7 +787,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     let pendingNodes: SessionNode[] = [];
     const flushSessions = (): void => {
       if (pendingNodes.length === 0) return;
-      appendSessions({ nodes: pendingNodes, containerKey: rowKeyBase, projectId, groupDirectory: group.directory, ownerKey, selectionScopeKey: ownerKey, archived: group.isArchivedBucket === true, renderContext: limits?.renderContext ?? 'project', indexedNodes: indexed, selectionPoolOffset, baseDepth: contentDepth, detailedRoots: detailedWorks, secondaryMeta: detailedMeta });
+      appendSessions({ nodes: pendingNodes, containerKey: rowKeyBase, projectId, groupDirectory: group.directory, ownerKey, selectionScopeKey: ownerKey, archived: group.isArchivedBucket === true, renderContext: limits?.renderContext ?? 'project', indexedNodes: indexed, selectionPoolOffset, baseDepth: contentDepth, detailedRoots: detailedWorks, secondaryMeta: detailedMeta, insideWork });
       pendingNodes = [];
     };
     for (const entry of visibleEntries) {

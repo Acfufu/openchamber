@@ -1,5 +1,6 @@
 import type { Session } from '@/lib/opencode/model';
 import { normalizePath } from '@/lib/pathNormalization';
+import { isSessionInWork } from '@/lib/sessionWorkMetadata';
 import type { SessionGroup, SessionNode } from '../types';
 import type { ProjectSection } from '../projects/sessionProjectRender';
 
@@ -24,6 +25,23 @@ type SidebarWorkIndex = {
 export const isWorktreeWorkGroup = (group: SessionGroup): boolean => (
   !group.isMain && group.isArchivedBucket !== true && !group.space && group.worktree !== null
 );
+
+/**
+ * The sessions in work of a root session's work: the root and what nests
+ * under it, past subagents, whose own state never counts. The work is in work
+ * while any of them is, and Done closes all of them.
+ */
+export const collectSessionWorkInWork = (root: SessionNode): Session[] => {
+  const inWork: Session[] = [];
+  const stack: SessionNode[] = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    if (isSessionInWork(current.session)) inWork.push(current.session);
+    for (const child of current.children) if (!child.session.parentID) stack.push(child);
+  }
+  return inWork;
+};
 
 const worktreeWorkGroupKey = (projectId: string, group: SessionGroup): string => `${projectId}:${group.id}`;
 
