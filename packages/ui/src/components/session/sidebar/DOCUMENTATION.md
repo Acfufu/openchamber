@@ -620,6 +620,16 @@ that folder kept under the old per-folder key
 and opens the same drafts. VS Code has no shared drafts: it keeps the
 per-folder key, where a new draft finds the text left in that folder.
 
+Every way into a new session opens a fresh, empty draft, so several drafts can
+wait in one folder. The draft's project and branch row ends with a "N drafts"
+control while other drafts wait in its exact folder
+(`components/chat/composer/ui/DraftsHerePicker.tsx`): a menu on desktop, a
+bottom sheet on the phone, each entry opening the draft as its row does. It
+sits in a row that is already there, so it takes no height and the centred
+composer never moves for it; a list on the draft screen was tried and matched
+none of the widths around it. A new Chat has one draft kept in its composer
+and none stored, so it shows none.
+
 ## Folders with worktrees
 
 A folder of the project root can hold whole worktrees: the member id is
