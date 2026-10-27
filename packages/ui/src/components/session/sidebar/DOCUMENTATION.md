@@ -886,7 +886,13 @@ matching and ordering. Search does not fetch sessions or broaden list membership
 - Folder drops carry occurrence drag keys and owner-scoped targets. A drop is
   accepted only when the current model marks every owner scope complete and
   the source and target owner match. Archived rows and archived targets never
-  accept drops.
+  accept drops. A session lands in the folder whose header is under the
+  pointer at release, and nowhere otherwise (`sessionFolderCollision`); the
+  nearest-target rule stays for the project header sort, where it picked a
+  folder the pointer never reached. A row drags only when its owner has a
+  folder that accepts drops (`SessionFolderOwnersProvider`): a drag with
+  nowhere to land swallowed the click that started it when the mouse moved
+  8 px during the press.
 - Session rows allow vertical touch panning before the long-press drag activates.
   The TouchSensor owns movement only after activation; disabling touch panning on
   the whole row prevents quick swipes from scrolling even when no drag starts.

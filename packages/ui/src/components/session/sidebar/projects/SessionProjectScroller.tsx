@@ -4,7 +4,6 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
-  closestCenter,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -27,7 +26,8 @@ import { SessionSidebarFolderItem } from '../folders/SessionSidebarFolderItem';
 import { SessionTreeItem } from '../sessions/SessionTreeItem';
 import { RunSidebarRow } from '../sessions/RunSidebarRow';
 import { computeNodeStructureKey, nodeContainsSessionId } from '../sessions/sessionNodeItemUtils';
-import { DroppableFolderWrapper } from '../folders/sessionFolderDnd';
+import { DroppableFolderWrapper, SessionFolderOwnersProvider } from '../folders/sessionFolderDnd';
+import { sessionFolderCollision } from '../folders/sessionFolderCollision';
 import { FolderDeleteConfirmDialog, type DeleteFolderConfirmState } from '../shell/ConfirmDialogs';
 import type { SessionGroup } from '../types';
 import { SessionSidebarRows } from '../SessionSidebarRows';
@@ -463,6 +463,8 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
     row.kind === 'project-header' ? [row.section.project.id] : []
   )), [model.rowModel.rows]);
   const projectDragIds = React.useMemo(() => new Set(model.sectionsForRender.map((section) => section.project.id)), [model.sectionsForRender]);
+  const folderDropOwnerKeys = React.useMemo(() => model.rowModel.folderDropTargets
+    .flatMap((target) => (target.enabled ? [target.ownerKey] : [])), [model.rowModel.folderDropTargets]);
   const zoneLayoutKey = React.useMemo(() => model.rowModel.stickyHeaders
     .map(({ kind, id, rowIndex }) => `${kind}:${id}:${rowIndex}`)
     .join('\u0001'), [model.rowModel.stickyHeaders]);
@@ -478,7 +480,8 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
         ref={setScrollContainer} useScrollShadow hideTopScrollShadow scrollShadowSize={40}
         outerClassName="flex-1 min-h-0" className="oc-sidebar-scroller pb-1 ps-2.5 pe-2 [overflow-anchor:none]"
       >
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(event) => {
+        <SessionFolderOwnersProvider ownerKeys={folderDropOwnerKeys}>
+        <DndContext sensors={sensors} collisionDetection={sessionFolderCollision} onDragStart={(event) => {
           // Session rows drag into folders and take no part in the header sort.
           setProjectDragging(projectDragIds.has(String(event.active.id)));
         }} onDragCancel={() => setProjectDragging(false)} onDragEnd={(event) => {
@@ -513,6 +516,7 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
             <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} />
           </SortableContext>
         </DndContext>
+        </SessionFolderOwnersProvider>
       </ScrollableOverlay>
     </CrossfadeZoneHeaders>
     <FolderDeleteConfirmDialog value={folderDeleteConfirm} setValue={setFolderDeleteConfirm} onConfirm={() => {
