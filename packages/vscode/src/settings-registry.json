@@ -497,6 +497,14 @@
         "mobile"
       ]
     },
+    "terminalCloseOnExit": {
+      "scope": "profile",
+      "surfaces": [
+        "web",
+        "desktop",
+        "mobile"
+      ]
+    },
     "autoCreateWorktree": {
       "scope": "profile"
     },

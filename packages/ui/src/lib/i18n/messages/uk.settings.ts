@@ -2295,6 +2295,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'Перемкнути окремі вкладки для кожного проєкту, worktree і простору',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'Кожен проєкт, worktree та ізольований простір має свої вкладки, а заголовок показує вкладки того, де ви зараз. Коли ви вперше відкриваєте worktree чи простір, сесії, які ви там почали, відкриваються вкладками.',
   "settings.openchamber.visual.field.terminalQuickKeysTooltip": "Показати Esc, Ctrl, стрілки в поданні терміналу",
+  "settings.openchamber.visual.field.terminalCloseOnExit": "Закривати вкладку, коли шел завершується",
+  "settings.openchamber.visual.field.terminalCloseOnExitInfo": "Діє для терміналів і дій проєкту. Коли вимкнено, вкладка зберігає свій вивід, наприклад лог dev-сервера після його зупинки.",
   "settings.openchamber.visual.field.fileEditorKeymap": "Розкладка клавіш редактора файлів",
   "settings.openchamber.visual.option.fileEditorKeymap.default": "Типова",
   "settings.openchamber.visual.option.fileEditorKeymap.vim": "Vim",

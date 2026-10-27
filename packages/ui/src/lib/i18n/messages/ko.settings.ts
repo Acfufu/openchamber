@@ -2295,6 +2295,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': '프로젝트, worktree, 공간마다 별도의 탭 켜기/끄기',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': '각 프로젝트, worktree, 격리 공간은 자기만의 탭을 유지하고, 헤더에는 지금 있는 곳의 탭이 표시됩니다. worktree나 공간을 처음 열면 그곳에서 시작한 세션이 탭으로 열립니다.',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': '터미널 보기에서 Esc, Ctrl, 화살표를 표시합니다',
+  'settings.openchamber.visual.field.terminalCloseOnExit': '셸이 종료되면 탭 닫기',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': '터미널과 프로젝트 작업에 적용됩니다. 끄면 개발 서버가 멈춘 뒤의 로그처럼 탭에 출력이 남습니다.',
   'settings.openchamber.visual.field.fileEditorKeymap': '파일 편집기 키맵',
   'settings.openchamber.visual.option.fileEditorKeymap.default': '기본값',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

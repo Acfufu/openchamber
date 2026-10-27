@@ -422,3 +422,15 @@ sessions, as on the desktop. Restore and a worktree's Delete are always shown,
 as nothing hovers; rows name their group only in the lists that mix groups.
 Deleting a session stays on the desktop, whose confirmation dialog the mobile
 shell does not mount.
+
+## Terminal tabs whose shell exits
+
+When the process of a terminal tab exits (`exit`, Ctrl-D, a project action that
+ends or is stopped), `TerminalView` closes the tab and releases its server
+session, the same as clicking its close button; the last tab closes the panel.
+The `terminalCloseOnExit` setting turns this off, and the tab then stays with
+its output and the exit line, which is how a dev server's log stays readable
+after it stops. The check runs on the live `exit` event and on a snapshot that
+reports `exited`, so a tab whose process ended while the panel was closed goes
+away when it is shown. VS Code has neither tabs nor the setting and keeps the
+exited terminal.

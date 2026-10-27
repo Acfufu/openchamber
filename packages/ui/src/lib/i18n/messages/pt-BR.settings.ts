@@ -2295,6 +2295,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'Ativar abas separadas para cada projeto, worktree e espaço',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'Cada projeto, worktree e espaço isolado mantém suas próprias abas, e o cabeçalho mostra as do lugar em que você está. Na primeira vez que você abre um worktree ou um espaço, as sessões que você começou ali abrem como abas.',
   "settings.openchamber.visual.field.terminalQuickKeysTooltip": "Mostrar Esc, Ctrl e flechas na vista do terminal",
+  "settings.openchamber.visual.field.terminalCloseOnExit": "Fechar a aba quando o shell encerrar",
+  "settings.openchamber.visual.field.terminalCloseOnExitInfo": "Vale para terminais e ações do projeto. Desativado, a aba mantém a saída, como o log de um servidor de desenvolvimento depois que ele para.",
   "settings.openchamber.visual.field.fileEditorKeymap": "Mapa de teclas do editor de arquivos",
   "settings.openchamber.visual.option.fileEditorKeymap.default": "Padrão",
   "settings.openchamber.visual.option.fileEditorKeymap.vim": "Vim",

@@ -2187,6 +2187,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'Activer des onglets séparés pour chaque projet, worktree et espace',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'Chaque projet, worktree et espace isolé garde ses propres onglets, et l’en-tête affiche ceux de l’endroit où vous êtes. La première fois que vous ouvrez un worktree ou un espace, les sessions que vous y avez commencées s’ouvrent en onglets.',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'Afficher Esc, Ctrl, Flèches dans la vue du terminal',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Fermer l\'onglet quand le shell se termine',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'S\'applique aux terminaux et aux actions de projet. Désactivé, l\'onglet garde sa sortie, comme le journal d\'un serveur de dev après son arrêt.',
   'settings.openchamber.visual.field.activityDefaultModeAria': 'Mode d\'activité par défaut : {option}',
   'settings.openchamber.visual.field.userMessageRenderingAria': 'Rendu du message utilisateur : {option}',
   'settings.openchamber.visual.field.mermaidRenderingAria': 'Rendu Mermaid : {option}',

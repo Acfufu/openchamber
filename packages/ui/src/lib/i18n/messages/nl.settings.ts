@@ -2318,6 +2318,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'Aparte tabbladen voor elk project, elke worktree en elke space in- of uitschakelen',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'Elk project, elke worktree en elke geïsoleerde space houdt eigen tabbladen, en de koptekst toont die van de plek waar u bent. De eerste keer dat u een worktree of space opent, openen de sessies die u daar begon als tabbladen.',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'Toon Esc, Ctrl en pijltjestoetsen in de terminalweergave',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Tabblad sluiten wanneer de shell stopt',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'Geldt voor terminals en projectacties. Uitgeschakeld houdt het tabblad zijn uitvoer, zoals het log van een devserver nadat die stopt.',
   'settings.openchamber.visual.field.fileEditorKeymap': 'Sneltoetsenkaart van de bestandseditor',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'Standaard',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

@@ -2295,6 +2295,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': '切换每个项目、worktree 和空间的单独标签页',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': '每个项目、worktree 和隔离空间都保留自己的标签页，顶部显示你当前所在位置的标签页。第一次打开某个 worktree 或空间时，你在那里开始的会话会以标签页打开。',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': '在终端视图显示 Esc、Ctrl、方向键',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Shell 退出时关闭标签页',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': '适用于终端和项目操作。关闭后，标签页会保留输出，例如开发服务器停止后的日志。',
   'settings.openchamber.visual.field.fileEditorKeymap': '文件编辑器键位映射',
   'settings.openchamber.visual.option.fileEditorKeymap.default': '默认',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

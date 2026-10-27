@@ -2333,6 +2333,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'Toggle separate tabs for each project, worktree and space',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'Each project, worktree and isolated space keeps its own tabs, and the header shows the tabs of the one you are in. The first time you open a worktree or a space, the sessions you started there open as tabs.',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'Show Esc, Ctrl, arrows in terminal view',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Close the tab when the shell exits',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'Applies to terminals and project actions. When off, the tab keeps its output, such as a dev server\'s log after it stops.',
   'settings.openchamber.visual.field.fileEditorKeymap': 'File editor keymap',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'Default',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

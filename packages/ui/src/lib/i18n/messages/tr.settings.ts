@@ -2220,6 +2220,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.terminalQuickKeysAria': 'Terminal hızlı tuşları',
   'settings.openchamber.visual.field.terminalQuickKeys': 'Terminal Hızlı Tuşları',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'Terminal görünümünde Esc, Ctrl ve Ok tuşlarını göster',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Kabuk kapandığında sekmeyi kapat',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'Terminallere ve proje eylemlerine uygulanır. Kapalıyken sekme, durduktan sonra bir geliştirme sunucusunun günlüğü gibi çıktısını korur.',
   'settings.openchamber.visual.field.fileEditorKeymap': 'Dosya editörü tuş düzeni',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'Varsayılan',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

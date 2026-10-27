@@ -1048,6 +1048,8 @@ interface UIStore {
   terminalFontSize: number;
   terminalShell: TerminalShell;
   terminalLoginShells: TerminalShell[];
+  /** A terminal or project action tab closes when its process exits; off keeps the exited output. */
+  terminalCloseOnExit: boolean;
   editorFontSize: number;
   uiFont: UiFontOption;
   monoFont: MonoFontOption;
@@ -1354,6 +1356,7 @@ interface UIStore {
   setTerminalFontSize: (size: number) => void;
   setTerminalShell: (shell: TerminalShell) => void;
   setTerminalLoginShells: (shells: TerminalShell[]) => void;
+  setTerminalCloseOnExit: (value: boolean) => void;
   setEditorFontSize: (size: number) => void;
   setUiFont: (font: UiFontOption) => void;
   setMonoFont: (font: MonoFontOption) => void;
@@ -1606,6 +1609,7 @@ export const useUIStore = create<UIStore>()(
         terminalFontSize: 14,
         terminalShell: 'auto',
         terminalLoginShells: [],
+        terminalCloseOnExit: true,
         editorFontSize: 13,
         uiFont: DEFAULT_UI_FONT,
         monoFont: DEFAULT_MONO_FONT,
@@ -2795,6 +2799,10 @@ export const useUIStore = create<UIStore>()(
           set({ terminalLoginShells: [...new Set(shells)] });
         },
 
+        setTerminalCloseOnExit: (value) => {
+          set({ terminalCloseOnExit: value });
+        },
+
         setEditorFontSize: (size) => {
           const rounded = Math.round(size);
           const clamped = Math.max(9, Math.min(32, rounded));
@@ -3804,6 +3812,7 @@ export const useUIStore = create<UIStore>()(
           terminalFontSize: state.terminalFontSize,
           terminalShell: state.terminalShell,
           terminalLoginShells: state.terminalLoginShells,
+          terminalCloseOnExit: state.terminalCloseOnExit,
           editorFontSize: state.editorFontSize,
           uiFont: state.uiFont,
           monoFont: state.monoFont,

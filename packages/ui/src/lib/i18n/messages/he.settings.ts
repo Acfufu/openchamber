@@ -2316,6 +2316,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'הפעלה או כיבוי של לשוניות נפרדות לכל פרויקט, worktree ומרחב',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'כל פרויקט, worktree ומרחב מבודד שומרים על הלשוניות שלהם, והכותרת מציגה את הלשוניות של המקום שבו אתה נמצא. כשפותחים worktree או מרחב בפעם הראשונה, ההפעלות שהתחלת שם נפתחות כלשוניות.',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'הצגת Esc, Ctrl וחיצים בתצוגת המסוף',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'סגירת הלשונית כשהמעטפת יוצאת',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'חל על מסופים ועל פעולות פרויקט. כשהאפשרות כבויה, הלשונית שומרת את הפלט שלה, למשל יומן של שרת פיתוח אחרי שעצר.',
   'settings.openchamber.visual.field.fileEditorKeymap': 'מיפוי מקשים בעורך הקבצים',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'ברירת מחדל',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

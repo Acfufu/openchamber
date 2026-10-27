@@ -1353,6 +1353,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'Każdy projekt, worktree i izolowana przestrzeń ma własne karty, a nagłówek pokazuje karty miejsca, w którym jesteś. Gdy pierwszy raz otwierasz worktree lub przestrzeń, sesje, które tam rozpocząłeś, otwierają się jako karty.',
   'settings.openchamber.visual.field.terminalQuickKeysAria': 'Szybkie klawisze terminala',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'Pokaż Esc, Ctrl i strzałki w widoku terminala',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Zamknij kartę, gdy powłoka się zakończy',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'Dotyczy terminali i akcji projektu. Po wyłączeniu karta zachowuje swój wynik, np. log serwera deweloperskiego po jego zatrzymaniu.',
   'settings.openchamber.visual.field.fileEditorKeymap': 'Mapa klawiszy edytora plików',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'Domyślna',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

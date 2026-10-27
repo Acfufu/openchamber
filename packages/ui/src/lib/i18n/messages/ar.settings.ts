@@ -2316,6 +2316,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'تبديل علامات التبويب المنفصلة لكل مشروع وworktree ومساحة',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'يحتفظ كل مشروع وworktree ومساحة معزولة بعلامات تبويب خاصة به، ويعرض الشريط العلوي علامات تبويب المكان الذي أنت فيه. عند فتح worktree أو مساحة لأول مرة، تُفتح الجلسات التي بدأتها هناك كعلامات تبويب.',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'إظهار Esc وCtrl والأسهم في عرض الطرفية',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'إغلاق علامة التبويب عند خروج الصدفة',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'ينطبق على الطرفيات وإجراءات المشروع. عند إيقافه، تحتفظ علامة التبويب بمخرجاتها، مثل سجل خادم التطوير بعد توقفه.',
   'settings.openchamber.visual.field.fileEditorKeymap': 'اختصارات لوحة المفاتيح في محرر الملفات',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'افتراضي',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

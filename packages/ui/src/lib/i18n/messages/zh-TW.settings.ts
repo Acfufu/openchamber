@@ -2180,6 +2180,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': '切換每個專案、worktree 和空間各自的分頁',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': '每個專案、worktree 和隔離空間都保有自己的分頁，頂部會顯示你目前所在位置的分頁。第一次開啟某個 worktree 或空間時，你在那裡開始的工作階段會以分頁開啟。',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': '在終端機檢視顯示 Esc、Ctrl、方向鍵',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'Shell 結束時關閉分頁',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': '適用於終端機和專案動作。關閉後，分頁會保留輸出，例如開發伺服器停止後的日誌。',
   'settings.openchamber.visual.field.fileEditorKeymap': '檔案編輯器鍵位映射',
   'settings.openchamber.visual.option.fileEditorKeymap.default': '預設',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',

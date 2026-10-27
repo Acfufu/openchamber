@@ -2328,6 +2328,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceAria': 'プロジェクト、worktree、スペースごとの別々のタブを切り替え',
   'settings.openchamber.visual.field.sessionTabsPerWorkspaceInfo': 'プロジェクト、worktree、隔離スペースはそれぞれ自分のタブを持ち、ヘッダーには今いる場所のタブが表示されます。worktree やスペースを初めて開くと、そこで始めたセッションがタブとして開きます。',
   'settings.openchamber.visual.field.terminalQuickKeysTooltip': 'ターミナルビューに Esc、Ctrl、矢印を表示',
+  'settings.openchamber.visual.field.terminalCloseOnExit': 'シェル終了時にタブを閉じる',
+  'settings.openchamber.visual.field.terminalCloseOnExitInfo': 'ターミナルとプロジェクトアクションに適用されます。オフにすると、開発サーバー停止後のログなど、タブに出力が残ります。',
   'settings.openchamber.visual.field.fileEditorKeymap': 'ファイルエディターキーマップ',
   'settings.openchamber.visual.option.fileEditorKeymap.default': 'デフォルト',
   'settings.openchamber.visual.option.fileEditorKeymap.vim': 'Vim',
