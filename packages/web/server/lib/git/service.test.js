@@ -6537,22 +6537,28 @@ describe('worktree task titles', () => {
     expect(await readRenameableGeneratedBranch(linked)).toBe('feature/task');
   });
 
-  it('keeps the recorded prefix of an issue branch when renaming it', async () => {
+  const renameItemBranch = async (placeholder, prefix, requested) => {
     const { repo, linked } = createLinkedWorktree();
-    runGit(linked, ['branch', '-m', 'feature/task', 'issue-180-merry-salamander']);
-    await markGeneratedBranchName(repo, 'issue-180-merry-salamander', 'issue-180-');
+    runGit(linked, ['branch', '-m', 'feature/task', placeholder]);
+    await markGeneratedBranchName(repo, placeholder, prefix);
+    return (await renameGeneratedWorktreeBranch(linked, requested))?.to;
+  };
 
-    expect(await renameGeneratedWorktreeBranch(linked, 'fix/documentation-catalog'))
-      .toEqual({ from: 'issue-180-merry-salamander', to: 'issue-180-documentation-catalog' });
+  it('puts the item key of an issue branch in front of the last segment of the agent\'s name', async () => {
+    expect(await renameItemBranch('issue-180-merry-salamander', 'issue-180-', 'fix/documentation-catalog'))
+      .toBe('fix/180-documentation-catalog');
+    expect(await renameItemBranch('issue-ENG-12-merry-salamander', 'issue-ENG-12-', 'fix/docs-catalog'))
+      .toBe('fix/eng-12-docs-catalog');
+    expect(await renameItemBranch('discussion-12-merry-salamander', 'discussion-12-', 'docs-catalog'))
+      .toBe('discussion-12-docs-catalog');
   });
 
-  it('takes a name that already carries the prefix as it is', async () => {
-    const { repo, linked } = createLinkedWorktree();
-    runGit(linked, ['branch', '-m', 'feature/task', 'issue-180-merry-salamander']);
-    await markGeneratedBranchName(repo, 'issue-180-merry-salamander', 'issue-180-');
-
-    expect(await renameGeneratedWorktreeBranch(linked, 'issue-180-docs-catalog'))
-      .toEqual({ from: 'issue-180-merry-salamander', to: 'issue-180-docs-catalog' });
+  it('takes a name that already carries the item key as it is', async () => {
+    expect(await renameItemBranch('issue-180-merry-salamander', 'issue-180-', 'issue-180-docs-catalog')).toBe('issue-180-docs-catalog');
+    expect(await renameItemBranch('issue-180-merry-salamander', 'issue-180-', 'fix/180-docs-catalog')).toBe('fix/180-docs-catalog');
+    expect(await renameItemBranch('issue-ENG-12-merry-salamander', 'issue-ENG-12-', 'fix/ENG-12-docs')).toBe('fix/ENG-12-docs');
+    // 1800 is not 180.
+    expect(await renameItemBranch('issue-180-merry-salamander', 'issue-180-', 'fix/1800-docs')).toBe('fix/180-1800-docs');
   });
 
   it('refuses a detached worktree, which has no branch to hold a title', async () => {
