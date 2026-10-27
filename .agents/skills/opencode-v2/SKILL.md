@@ -95,6 +95,19 @@ name itself to a provider (today some plugins overwrite provider-level
 headers). Dropped: an import route for missing 1.x
 sessions (the top-up workaround is enough). Check the newest tag before re-asking.
 
+Watched upstream issues, checked on every new tag (status with
+`gh issue view <n> --repo anomalyco/opencode`, then the tag's diff):
+
+- **#59605**: `generate/*` runs in the `~/.config/opencode` location since
+  #44773, so each call starts a second copy of every local MCP server. Until
+  it is fixed, Jev stays off OpenCode's `generate/decisions`; once it is,
+  the Zen free source comes back through that route
+  (`routing/DOCUMENTATION.md`, `ZEN_JEV_PROMOTION_ACTIVE`).
+- **#59606**: `PredicateQuestion` has no `criteria`, so the Jev features that
+  ask noul questions with true/false criteria (`session-work/questions.js`,
+  `session-goal/audit.js`) cannot move to `generate/decisions` without
+  re-measured wording.
+
 ## Behaviour to expect
 
 Verified against live 2.x servers; re-check on a newer tag before relying on a
@@ -161,8 +174,9 @@ tag and the newest tag is classified.
    **breaks us** (name the consuming OpenChamber file), **fixes a workaround**
    (name the one above that can go and what the user gains), **closes an open
    ask**, or **neutral**.
-3. Report in that order with the maintainer's decisions explicit: remove,
-   adopt, still ask.
+3. Check every watched upstream issue above against the new tag.
+4. Report in that order with the maintainer's decisions explicit: remove,
+   adopt, still ask, and which watched issue the tag closes.
 
 ## Bumping the pinned OpenCode
 

@@ -42,11 +42,17 @@ export const ZEN_JEV_MODEL = 'jev-1.13-free';
 export const ZEN_CLIENT_ID = 'openchamber';
 
 /**
- * Whether the free promotion is still on. When OpenCode ends it, flip this and
- * the promotion stops being offered; users keep Jev through a Zen or TypeSafe
- * key, or lose the safety net and Auto until they add one.
+ * Whether the free promotion can be used. While false it is not offered; users
+ * keep Jev through a key, or lose the safety net and Auto until they add one.
+ *
+ * Off since 2026-10-27: zen answers the free model with 429
+ * FreeUsageLimitError ("Free models work in OpenCode") to Node and curl
+ * clients, and only Bun clients such as OpenCode itself get through. The way
+ * back is calling it through OpenCode's `generate/decisions`, once that route
+ * stops starting a second copy of every MCP server (anomalyco/opencode#59605,
+ * see DOCUMENTATION.md).
  */
-export const ZEN_JEV_PROMOTION_ACTIVE = true;
+export const ZEN_JEV_PROMOTION_ACTIVE = false;
 
 /**
  * The paid model behind a Zen API key, same endpoint. Not verified live: an

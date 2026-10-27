@@ -136,12 +136,25 @@ Classification providers:
 - `off`: no Jev at all. Every Jev feature takes its no-provider path.
 - `zen-promo`: `opencode.ai/zen/v1/systemone` as `jev-1.13-free`, which OpenCode
   Zen answers with no credential at all. Usable while
-  `ZEN_JEV_PROMOTION_ACTIVE` is true; flip it when OpenCode ends the promotion.
+  `ZEN_JEV_PROMOTION_ACTIVE` is true. It is false since 2026-10-27: zen
+  answers the free model with 429 `FreeUsageLimitError` ("Free models work in
+  OpenCode") to Node and curl clients, whatever the headers, and lets Bun
+  clients such as OpenCode through (checked from two networks). The server runs
+  on Node. A user who had picked it sees it disabled as temporarily unavailable
+  and falls back like any unusable pick. The way back is OpenCode 2.2's
+  `POST /api/experimental/generate/decisions` with the `opencode` provider,
+  which serves `jev-1.13-free` without a login and takes
+  `x-opencode-client` from `provider.opencode.options.headers`. That route
+  waits on upstream changes, because in 2.2.0 it always runs in the
+  `~/.config/opencode` location and so starts a second copy of every local
+  MCP server (anomalyco/opencode#59605); its predicate questions also take no
+  `criteria` (anomalyco/opencode#59606).
 - `zen-key`: the same endpoint as `jev-1.13` with a Zen API key read from
   OpenCode's credentials (`opencode/auth.js`, entry `opencode`, type `api`).
   An OpenCode account sign-in is an OAuth credential, and zen rejects it as a
-  key ("Invalid API key", checked 2026-09-27), so it does not count. The paid
-  call itself is not verified live yet.
+  key ("Invalid API key", checked 2026-09-27), so it does not count. A paid
+  call from Node with a Zen API key answers (checked 2026-10-27, billed to the
+  Zen balance); the client check that blocks the free model does not apply.
 - `openrouter`: `openrouter.ai/api/v1/systemone` as `jev-latest` (OpenRouter's
   `~typesafe/jev-latest` alias) with the OpenRouter API key saved in OpenCode
   (entry `openrouter`, type `api`), billed to that OpenRouter account.
