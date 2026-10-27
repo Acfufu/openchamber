@@ -1,9 +1,10 @@
 // An agent waiting on its pull request.
 //
 // The agent opens a pull request (or a merge request), asks to watch it with
-// the `openchamber` tool's `pr.watch`, and ends its turn. From then on this
-// runtime follows the pull request through the tracked-items service, whether
-// or not any window is open, and wakes the session with one synthetic message
+// the `openchamber` tool's `pr.watch`, and goes on with whatever it does,
+// ending its turn when it has nothing else. From then on this runtime follows
+// the pull request through the tracked-items service, whether or not any
+// window is open, and wakes the session with one synthetic message
 // when something the agent has to act on happens: a check failed, every check
 // passed, someone commented or reviewed, it conflicts with or fell behind its
 // base, it was merged or closed. A wake ends the watch; the agent watches
@@ -519,7 +520,7 @@ export function createPrWatchRuntime({
     await commit(sessionID);
     return {
       watching: toPublicWatch(record),
-      next: 'End your turn now. A message wakes this session when a check fails, every check passes, someone comments or reviews, the branch conflicts or falls behind, or the pull request is merged or closed.',
+      next: 'A message arrives in this session when a check fails, every check passes, someone comments or reviews, the branch conflicts or falls behind, or the pull request is merged or closed.',
     };
   };
 

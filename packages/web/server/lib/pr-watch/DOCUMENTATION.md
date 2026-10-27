@@ -4,10 +4,12 @@
 
 Owns an agent waiting on its pull request. The agent opens a pull request (or
 a GitLab merge request), calls the `openchamber` tool's `pr.watch` with its
-address and ends its turn. This module follows the pull request whether or not
+address, and goes on with its work or ends its turn, whichever the task needs:
+the call only subscribes. This module follows the pull request whether or not
 any window is open and wakes the session with one synthetic message when
-something the agent has to act on happens. The agent never polls and never
-holds a turn open to wait.
+something the agent has to act on happens; a message that arrives while the
+session runs waits for that turn to end. The agent never polls and never holds
+a turn open to wait.
 
 Wiring: created in `server/index.js` after `../dispatch-results`, handed to the
 control service as `prWatch` (`../openchamber-control/service.js`, actions
