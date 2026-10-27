@@ -101,8 +101,7 @@ Watched upstream issues, checked on every new tag (status with
 - **#59605**: `generate/*` runs in the `~/.config/opencode` location since
   #44773, so each call starts a second copy of every local MCP server. Until
   it is fixed, Jev stays off OpenCode's `generate/decisions`; once it is,
-  the Zen free source comes back through that route
-  (`routing/DOCUMENTATION.md`, `ZEN_JEV_PROMOTION_ACTIVE`).
+  Jev calls can move to that route (`routing/DOCUMENTATION.md`).
 - **#59606**: `PredicateQuestion` has no `criteria`, so the Jev features that
   ask noul questions with true/false criteria (`session-work/questions.js`,
   `session-goal/audit.js`) cannot move to `generate/decisions` without

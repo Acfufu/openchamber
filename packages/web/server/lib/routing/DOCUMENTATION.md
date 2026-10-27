@@ -136,19 +136,20 @@ Classification providers:
 - `off`: no Jev at all. Every Jev feature takes its no-provider path.
 - `zen-promo`: `opencode.ai/zen/v1/systemone` as `jev-1.13-free`, which OpenCode
   Zen answers with no credential at all. Usable while
-  `ZEN_JEV_PROMOTION_ACTIVE` is true. It is false since 2026-10-27: zen
-  answers the free model with 429 `FreeUsageLimitError` ("Free models work in
-  OpenCode") to Node and curl clients, whatever the headers, and lets Bun
-  clients such as OpenCode through (checked from two networks). The server runs
-  on Node. A user who had picked it sees it disabled as temporarily unavailable
-  and falls back like any unusable pick. The way back is OpenCode 2.2's
-  `POST /api/experimental/generate/decisions` with the `opencode` provider,
-  which serves `jev-1.13-free` without a login and takes
-  `x-opencode-client` from `provider.opencode.options.headers`. That route
-  waits on upstream changes, because in 2.2.0 it always runs in the
-  `~/.config/opencode` location and so starts a second copy of every local
-  MCP server (anomalyco/opencode#59605); its predicate questions also take no
-  `criteria` (anomalyco/opencode#59606).
+  `ZEN_JEV_PROMOTION_ACTIVE` is true. While it is false, a user who had picked
+  it sees it disabled as temporarily unavailable and falls back like any
+  unusable pick.
+  On 2026-10-27 zen's anti-fraud client check answered the free model with
+  429 `FreeUsageLimitError` ("Free models work in OpenCode") to Node and curl
+  clients whatever the headers, while Bun clients such as OpenCode got
+  through. The server runs on Node, so the promotion was off for a few hours
+  until Dax exempted Jev. If that 429 comes back, compare one call from Node
+  and one from Bun before anything else, and ask OpenCode in Slack. The other
+  route is OpenCode 2.2's `POST /api/experimental/generate/decisions` with the
+  `opencode` provider, which serves `jev-1.13-free` without a login and takes
+  `x-opencode-client` from `provider.opencode.options.headers`; in 2.2.0 it
+  starts a second copy of every local MCP server (anomalyco/opencode#59605)
+  and its predicate questions take no `criteria` (anomalyco/opencode#59606).
 - `zen-key`: the same endpoint as `jev-1.13` with a Zen API key read from
   OpenCode's credentials (`opencode/auth.js`, entry `opencode`, type `api`).
   An OpenCode account sign-in is an OAuth credential, and zen rejects it as a
