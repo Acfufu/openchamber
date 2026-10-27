@@ -9,6 +9,7 @@ import {
   LOOP_RULES,
   MAX_ROUNDS,
   createAutoReviewRuntime,
+  readDisputeSummary,
   readReviewVerdict,
 } from './runtime.js';
 
@@ -166,6 +167,14 @@ describe('readReviewVerdict', () => {
   });
 });
 
+describe('readDisputeSummary', () => {
+  it('takes what follows the last heading, else the whole review cut short', () => {
+    expect(readDisputeSummary('Intro.\n## Disputed findings: 3 is wrong\nbecause X')).toBe('3 is wrong\nbecause X');
+    expect(readDisputeSummary('No heading here.')).toBe('No heading here.');
+    expect(readDisputeSummary('x'.repeat(3_000))).toHaveLength(2_000);
+  });
+});
+
 describe('createAutoReviewRuntime', () => {
   it('carries a handoff, the review, the fixes and the re-review until nothing is left', async () => {
     const { runtime, openCode, settled } = await createRuntime();
@@ -193,17 +202,21 @@ describe('createAutoReviewRuntime', () => {
     const [rules, loop] = openCode.state.synthetic.slice(1, 3);
     expect([rules.id, loop.id, reviewStart.id]).toEqual([rules.id, loop.id, reviewStart.id].sort());
     expect(runOf(runtime)).toMatchObject({ status: 'clean', round: 1, maxRounds: MAX_ROUNDS });
+    // The queue is released once the settled run is on disk.
+    expect(await until(() => settled.length > 0)).toBe(true);
     expect(settled).toEqual([ORIGINAL]);
   });
 
   it('settles as disputed and sends nothing more when only contested declines are left', async () => {
     const { runtime, openCode } = await createRuntime();
-    openCode.state.replies[REVIEW].push(`Finding 2 is still wrong.\n${FINAL_MARKER_DISPUTED}`);
+    openCode.state.replies[REVIEW].push(`Finding 1 is fixed.\n\n**Disputed findings:**\n2. Implementer: the guard is dead code.\nMine: it runs on Windows.\n${FINAL_MARKER_DISPUTED}`);
     runtime.start();
     await runtime.startRun(startInput({ handoff: undefined, prompts: { ...prompts, reviewStart: 'Review the diff.' } }));
 
     expect(await until(() => runOf(runtime)?.status === 'disputed')).toBe(true);
     expect(openCode.state.prompts.map((prompt) => prompt.sessionID)).toEqual([REVIEW]);
+    // The row unfolds what the two sides disagree on, not the whole review.
+    expect(runOf(runtime).dispute).toBe('2. Implementer: the guard is dead code.\nMine: it runs on Windows.');
   });
 
   it('stops at the round limit with its own status', async () => {
@@ -240,6 +253,7 @@ describe('createAutoReviewRuntime', () => {
     await runtime.startRun(startInput());
 
     expect(await until(() => runtime.snapshot().runs.length === 0)).toBe(true);
+    expect(await until(() => settled.length > 0)).toBe(true);
     expect(settled).toEqual([ORIGINAL]);
     expect(openCode.state.prompts).toHaveLength(1);
   });

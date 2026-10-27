@@ -34,6 +34,9 @@ export const AutoReviewStrip = memo(() => {
   ));
   const removeRun = useAutoReviewStore((state) => state.removeRun);
   const openContextPanelTab = useUIStore((state) => state.openContextPanelTab);
+  // Which run's dispute is unfolded, so another chat or a new run starts folded.
+  const [unfoldedRun, setUnfoldedRun] = React.useState<string | null>(null);
+  const disputeId = React.useId();
 
   if (!currentSessionId || !run) {
     return null;
@@ -95,28 +98,52 @@ export const AutoReviewStrip = memo(() => {
   }
 
   const result = RESULT[run.status];
+  const label = (
+    <span className="min-w-0 flex-1 truncate text-start text-sm text-foreground">
+      {t(result.labelKey)}
+      {run.error ? <span className="text-muted-foreground"> · {run.error}</span> : null}
+    </span>
+  );
+  // A dispute unfolds in place, as the queue does: both positions, without
+  // opening two sessions to find out what the disagreement is about.
+  const runId = `${run.originalSessionID}:${run.startedAt}`;
+  const unfolded = Boolean(run.dispute) && unfoldedRun === runId;
   return (
-    <div
-      role="status"
-      className="flex oc-composer-row min-w-0 items-center gap-2 border-b border-border/60 ps-3 pe-1.5"
-      title={run.error}
-    >
-      <Icon name={result.icon} className={`size-3.5 flex-shrink-0 ${result.className}`} aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-        {t(result.labelKey)}
-        {run.error ? <span className="text-muted-foreground"> · {run.error}</span> : null}
-      </span>
-      {openButton}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleRemove}
-        onMouseDown={(event) => event.preventDefault()}
-        className="shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-      >
-        {t('chat.autoReview.actions.dismiss')}
-      </Button>
+    <div role="status" className="border-b border-border/60" title={run.error}>
+      <div className="flex oc-composer-row min-w-0 items-center gap-2 ps-3 pe-1.5">
+        <Icon name={result.icon} className={`size-3.5 flex-shrink-0 ${result.className}`} aria-hidden="true" />
+        {run.dispute ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setUnfoldedRun(unfolded ? null : runId)}
+            onMouseDown={(event) => event.preventDefault()}
+            aria-expanded={unfolded}
+            aria-controls={unfolded ? disputeId : undefined}
+            className="min-w-0 flex-1 shrink justify-start gap-2 px-0 font-normal normal-case hover:!bg-transparent has-[>svg]:px-0"
+          >
+            {label}
+            <Icon name={unfolded ? 'arrow-up-s' : 'arrow-down-s'} className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </Button>
+        ) : label}
+        {openButton}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleRemove}
+          onMouseDown={(event) => event.preventDefault()}
+          className="shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        >
+          {t('chat.autoReview.actions.dismiss')}
+        </Button>
+      </div>
+      {unfolded ? (
+        <div id={disputeId} className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words ps-8 pe-3 pb-2 text-sm text-muted-foreground">
+          {run.dispute}
+        </div>
+      ) : null}
     </div>
   );
 });

@@ -81,6 +81,7 @@ const autoReviewRunSchema = z.object({
   // Cut, not refused: an update dropped for a long error would leave the run
   // showing as running in the browsers.
   error: z.string().transform((error) => error.slice(0, 2_000)).optional(),
+  dispute: z.string().transform((dispute) => dispute.slice(0, 2_000)).optional(),
 });
 const autoReviewUpdateSchema = z.object({
   type: z.literal(AUTO_REVIEW_UPDATED),

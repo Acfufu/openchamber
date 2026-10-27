@@ -23,11 +23,11 @@ stopped by `opencode/shutdown-runtime.js`.
 ## Run
 
 `{ originalSessionID, reviewSessionID, directory, status, step, round, prompts,
-send, awaiting, error?, startedAt, updatedAt }`, keyed by the reviewed session,
-at most one per session. `status` is `running`, or how it ended: `clean`
-(nothing left, the reviewer's last word was delivered to the implementer),
-`disputed` (only declines the reviewer still contests), `limit` (15 re-reviews
-without an end), `failed` (with `error`). A stop by the user removes the run
+send, awaiting, error?, dispute?, startedAt, updatedAt }`, keyed by the
+reviewed session, at most one per session. `status` is `running`, or how it
+ended: `clean` (nothing left, the reviewer's last word was delivered to the
+implementer), `disputed` (only declines the reviewer still contests, with
+`dispute`), `limit` (5 re-reviews without an end), `failed` (with `error`). A stop by the user removes the run
 instead of keeping a status, and so does a user abort of the turn the run waits
 on. `step` is what the run is getting: the implementer's `handoff`, the
 reviewer's `review`, the implementer's answer in `implement`.
@@ -42,7 +42,7 @@ restart"), so its user sees why the review stopped, otherwise it is dropped.
 At most 100 runs, the oldest finished ones dropped first. Only the start input
 is capped (100 000 characters per prompt); the text a run builds from a reply
 is stored whole, however long the reply. `error` is cut to 500 characters, one
-line in the result row. Timers and failure counts are memory only; a restart
+line in the result row; `dispute` to 2 000, what the row unfolds. Timers and failure counts are memory only; a restart
 re-arms every running run.
 
 ## Loop
@@ -77,11 +77,16 @@ Each step is one send and the end of the turn it starts.
 5. The reply decides the next send. The handoff fills `{{handoff}}` of the
    reviewer's first prompt, which carries the review rules and the loop rules
    as context. A review ending in `FINAL_REVIEW_STATUS: disputed` settles as
-   disputed; one ending in `FINAL_REVIEW_STATUS: no_remaining_findings` sends
+   disputed; the loop rules ask the reviewer to put a `Disputed findings:` line
+   above the marker with both positions in two or three lines each, and
+   `readDisputeSummary` keeps what follows the last such line (the whole review
+   when there is none) as `dispute`. One ending in `FINAL_REVIEW_STATUS: no_remaining_findings` sends
    what came before the marker to the implementer and settles as clean (with
    nothing before it, it settles at once); anything else goes to the
    implementer. The implementer's answer goes back to the reviewer with the
-   loop rules, until 15 re-reviews (`MAX_ROUNDS`) settle as `limit`.
+   loop rules, until 5 re-reviews (`MAX_ROUNDS`) settle as `limit`. Five is
+   on purpose: a loop that has not settled by then is going in circles, and
+   each further round mostly grows the change.
 
 The loop rules (`LOOP_RULES`) and their markers live here, since only this
 module reads them. A send that fails five times in a row settles as failed; a
@@ -157,4 +162,6 @@ review sends, and no second copy of the defaults on the server.
 With one marker, a finding the implementer declined and the reviewer kept
 contesting went round until the limit, and the run ended looking the same as a
 manual stop. The second marker ends the run as soon as only contested declines
-are left, and the result row tells the user it is their call.
+are left, and the result row tells the user it is their call. The row unfolds
+the reviewer's summary of both positions, so deciding does not start with
+reading two sessions.

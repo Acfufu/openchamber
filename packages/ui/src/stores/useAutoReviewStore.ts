@@ -23,6 +23,8 @@ const runSchema = z.object({
   startedAt: z.number(),
   updatedAt: z.number(),
   error: z.string().optional(),
+  // A disputed run: both positions, as the reviewer summed them up.
+  dispute: z.string().optional(),
 });
 
 export type AutoReviewRun = z.infer<typeof runSchema>;

@@ -24,7 +24,9 @@ import { createMessageId, readDispatchOutcome } from '../dispatch-results/runtim
 const FILE_NAME = 'auto-review.json';
 const FILE_VERSION = 1;
 const MAX_RUNS = 100;
-export const MAX_ROUNDS = 15;
+// Re-reviews after the first. A loop that has not settled by then is going in
+// circles, and more rounds mostly grow the change.
+export const MAX_ROUNDS = 5;
 // Idle events arrive in bursts around a turn boundary.
 const QUIET_MS = 500;
 const SUBAGENT_RECHECK_MS = 5_000;
@@ -43,16 +45,19 @@ const MESSAGE_PAGE_LIMIT = 50;
 const PROMPT_CHAR_LIMIT = 100_000;
 // A provider error can be a whole response body; the row shows one line.
 const ERROR_CHAR_LIMIT = 500;
+// The dispute the result row unfolds: both positions in a few lines each.
+const DISPUTE_CHAR_LIMIT = 2_000;
 
 export const FINAL_MARKER_CLEAN = 'FINAL_REVIEW_STATUS: no_remaining_findings';
 export const FINAL_MARKER_DISPUTED = 'FINAL_REVIEW_STATUS: disputed';
+const DISPUTE_HEADING = 'Disputed findings:';
 
 /** Sent ahead of every reviewer prompt; the loop reads its final line. */
 export const LOOP_RULES = `This review is part of an automatic review loop. End your response with one of these exact final lines when it applies:
 ${FINAL_MARKER_CLEAN}
 when no blocker or non-blocker finding remains open. Nits never keep the loop going: list them if useful and still end with that line.
 ${FINAL_MARKER_DISPUTED}
-when every finding still open is one the implementer declined, you already answered that decline once, and you still disagree. The user decides those.
+when every finding still open is one the implementer declined, you already answered that decline once, and you still disagree. The user decides those, and reads only this part: just above that line, write a line "${DISPUTE_HEADING}" and then, for each such finding, the implementer's position and yours in two or three plain lines each.
 While a blocker or non-blocker remains open for any other reason, leave the final line out.`;
 
 // Boundary schemas: the only place raw JSON (the file, client bodies,
@@ -105,6 +110,7 @@ const runSchema = z.object({
   send: sendSchema.nullable(),
   awaiting: z.object({ sessionID: sessionIdSchema, afterIdleID: z.string().min(1).nullable() }).nullable(),
   error: z.string().optional(),
+  dispute: z.string().optional(),
   startedAt: timeSchema,
   updatedAt: timeSchema,
 });
@@ -155,6 +161,25 @@ export const readReviewVerdict = (text) => {
   return { kind, feedback: lines.join('\n').trim() };
 };
 
+const cut = (text, limit) => (text.length > limit ? `${text.slice(0, limit - 1)}…` : text);
+
+/**
+ * The part of a disputed review the user reads: what follows the reviewer's
+ * last "Disputed findings:" line (markdown emphasis or a heading mark around
+ * it allowed), else the whole review, cut for the result row.
+ */
+export const readDisputeSummary = (feedback) => {
+  const heading = DISPUTE_HEADING.toLowerCase();
+  const lines = feedback.split('\n');
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const bare = lines[index].replace(/[#*_`>]/g, '').trim();
+    if (!bare.toLowerCase().startsWith(heading)) continue;
+    const rest = [bare.slice(heading.length), ...lines.slice(index + 1)].join('\n').trim();
+    if (rest) return cut(rest, DISPUTE_CHAR_LIMIT);
+  }
+  return cut(feedback, DISPUTE_CHAR_LIMIT);
+};
+
 /** What clients see: the run without the prompts it carries. */
 const toPublicRun = (run) => {
   const publicRun = {
@@ -169,6 +194,7 @@ const toPublicRun = (run) => {
     updatedAt: run.updatedAt,
   };
   if (run.error) publicRun.error = run.error;
+  if (run.dispute) publicRun.dispute = run.dispute;
   return publicRun;
 };
 
@@ -405,7 +431,7 @@ export function createAutoReviewRuntime({
     run.status = status;
     run.send = null;
     run.awaiting = null;
-    if (error) run.error = error.length > ERROR_CHAR_LIMIT ? `${error.slice(0, ERROR_CHAR_LIMIT - 1)}…` : error;
+    if (error) run.error = cut(error, ERROR_CHAR_LIMIT);
     run.updatedAt = now();
     forgetLoopState(run.originalSessionID);
     await commit(run.originalSessionID, run.directory);
@@ -466,7 +492,10 @@ export function createAutoReviewRuntime({
       };
     } else if (run.step === 'review') {
       const verdict = readReviewVerdict(reply);
-      if (verdict.kind === 'disputed') return settle(run, 'disputed');
+      if (verdict.kind === 'disputed') {
+        if (verdict.feedback) run.dispute = readDisputeSummary(verdict.feedback);
+        return settle(run, 'disputed');
+      }
       if (verdict.kind === 'clean' && !verdict.feedback) return settle(run, 'clean');
       run.step = 'implement';
       run.send = {
