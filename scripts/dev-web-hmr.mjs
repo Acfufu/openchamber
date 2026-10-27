@@ -23,7 +23,7 @@ function run(label, command, args, env = {}, options = {}) {
     detached: useDetachedChildren,
     windowsHide: true,
   }).on('error', (error) => {
-    console.error(`[dev:web:hmr] Failed to start ${label}:`, error);
+    console.error(`[dev] Failed to start ${label}:`, error);
   });
 }
 
@@ -144,19 +144,20 @@ const vite = run(
   { cwd: webRoot },
 );
 
-console.log(`[dev:web:hmr] UI with HMR: http://127.0.0.1:${uiPort}`);
+console.log(`[dev] UI with HMR: http://127.0.0.1:${uiPort}`);
+console.log(`[dev] Mobile UI with HMR: http://127.0.0.1:${uiPort}/mobile.html`);
 if (hmrHost === '0.0.0.0' || hmrHost === '::') {
   const lanAddresses = getLanAddresses();
   if (lanAddresses.length > 0) {
     for (const address of lanAddresses) {
-      console.log(`[dev:web:hmr] LAN/mobile UI: http://${address}:${uiPort}`);
+      console.log(`[dev] LAN/mobile UI: http://${address}:${uiPort}`);
     }
   } else {
-    console.log('[dev:web:hmr] LAN/mobile UI: no LAN IPv4 address found');
+    console.log('[dev] LAN/mobile UI: no LAN IPv4 address found');
   }
 }
-console.log(`[dev:web:hmr] API: http://127.0.0.1:${backendPort}`);
-console.log('[dev:web:hmr] IMPORTANT: open UI URL above for HMR; backend URL has no HMR');
+console.log(`[dev] API: http://127.0.0.1:${backendPort}`);
+console.log('[dev] IMPORTANT: open UI URL above for HMR; backend URL has no HMR');
 
 let shuttingDown = false;
 
@@ -172,7 +173,7 @@ function onChildExit(label) {
     if (shuttingDown) return;
 
     if (code !== 0 || signal) {
-      console.error(`[dev:web:hmr] ${label} exited unexpectedly (code=${code ?? 'null'} signal=${signal ?? 'none'})`);
+      console.error(`[dev] ${label} exited unexpectedly (code=${code ?? 'null'} signal=${signal ?? 'none'})`);
       shutdown(typeof code === 'number' ? code : 1).catch(() => process.exit(1));
       return;
     }

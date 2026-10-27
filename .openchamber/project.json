@@ -7,7 +7,7 @@
     {
       "id": "5525a5ee-9c03-44d1-a401-1e4b9397765c",
       "name": "DevHMR",
-      "command": "bun run dev:web:hmr",
+      "command": "bun run dev",
       "icon": "rocket"
     },
     {
