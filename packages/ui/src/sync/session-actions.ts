@@ -9,6 +9,7 @@ import { readSubagentRun } from "@/lib/opencode/subagent-run"
 import { readDispatchedSessionResult } from "@/lib/opencode/dispatched-session"
 import { readWorkflowReport } from "@/lib/workflows/report"
 import { Binary } from "./binary"
+import { dropSessionCaches } from "./session-cache"
 import { useSessionUIStore } from "./session-ui-store"
 import { useInputStore } from "./input-store"
 import type { ChildStoreManager } from "./child-store"
@@ -358,13 +359,6 @@ export function adoptSessionMove(sessionId: string, sourceDirectory: string, des
   relocateSession(session, sourceDirectory, destinationDirectory)
 }
 
-function withoutKeys<T>(record: Record<string, T>, keys: readonly string[]) {
-  if (!keys.some((key) => Object.prototype.hasOwnProperty.call(record, key))) return record
-  const next = { ...record }
-  for (const key of keys) delete next[key]
-  return next
-}
-
 function withNewRequests<T extends { id: string }>(current: T[], incoming: T[] | undefined) {
   const added = incoming?.filter((request) => !current.some((existing) => existing.id === request.id)) ?? []
   return added.length > 0 ? [...current, ...added] : current
@@ -386,22 +380,22 @@ function dropSessionLiveStateOutside(sessionId: string, ownerDirectory: string):
   for (const store of stores.children.values()) {
     if (store === owner) continue
     const state = store.getState()
+    // A part can land before its message, so parts count on their own.
+    const holdsSession = [state.message, state.session_status, state.permission, state.form]
+      .some((record) => Object.prototype.hasOwnProperty.call(record, sessionId))
+      || Object.values(state.part).some((parts) => parts?.some((part) => part.sessionID === sessionId))
+    if (!holdsSession) continue
     permissions = withNewRequests(permissions, state.permission[sessionId])
     forms = withNewRequests(forms, state.form[sessionId])
-    const messageIds = state.message[sessionId]?.map((message) => message.id) ?? []
-    const next = {
-      session_status: withoutKeys(state.session_status, [sessionId]),
-      permission: withoutKeys(state.permission, [sessionId]),
-      form: withoutKeys(state.form, [sessionId]),
-      message: withoutKeys(state.message, [sessionId]),
-      part: withoutKeys(state.part, messageIds),
+    const draft = {
+      message: { ...state.message },
+      part: { ...state.part },
+      session_status: { ...state.session_status },
+      permission: { ...state.permission },
+      form: { ...state.form },
     }
-    const unchanged = next.session_status === state.session_status
-      && next.permission === state.permission
-      && next.form === state.form
-      && next.message === state.message
-      && next.part === state.part
-    if (!unchanged) store.setState(next)
+    dropSessionCaches(draft, [sessionId])
+    store.setState(draft)
   }
   const ownerState = owner.getState()
   if (permissions.length > 0 && permissions !== ownerState.permission[sessionId]) {

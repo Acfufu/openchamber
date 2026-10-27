@@ -505,6 +505,13 @@ function enqueueSessionMaterialization(
       return
     }
     try {
+      // The gap the event saw went with the transcript the move carried:
+      // recover it where the session lives now.
+      const movedTo = directorySessionMovedTo(store.getState(), directory, sessionID)
+      if (movedTo) {
+        if (childStores.getChild(movedTo)) enqueueSessionMaterialization(movedTo, sessionID, childStores, request)
+        return
+      }
       if (!isSessionMaterializationStillNeeded(store.getState(), sessionID, request)) {
         countSyncPerformance("materializationPreflightSkips")
         return
@@ -1257,6 +1264,21 @@ const isBlockingRequestEvent = (payload: SyncEvent): boolean => (
   || payload.type === "form.settled"
 )
 
+/**
+ * Where the session went when it left this directory: the store removed it and
+ * no longer lists it, and the global list names another directory. Null while
+ * it still belongs here. Events about the move itself still name the directory
+ * it left, and reading the session back there leaves a copy that later
+ * location-less events are routed to.
+ */
+const directorySessionMovedTo = (state: State, directory: string, sessionID: string): string | null => {
+  if (state.sessionDeletedRevision?.[sessionID] === undefined) return null
+  if (state.session.some((session) => session.id === sessionID)) return null
+  const ownDirectory = resolveCachedSessionDirectory(sessionID)
+  if (ownDirectory === null) return null
+  return normalizeEventDirectory(ownDirectory) === normalizeEventDirectory(directory) ? null : ownDirectory
+}
+
 const resolveDirectoryFromRoutingIndex = (
   routingIndex: EventRoutingIndex,
   rawDirectory: string,
@@ -1278,10 +1300,10 @@ const resolveDirectoryFromRoutingIndex = (
     }
 
     // The chat reads a session's permissions and forms from the store of the
-    // directory it lives in. OpenCode sends `permission.asked` without a
-    // location, and holding the session proves little: after a move the store
-    // it left keeps a copy (the chat re-reads it there while it switches over),
-    // and re-reading that store points the index back at it.
+    // directory it lives in. OpenCode can send `permission.asked` without a
+    // location, and holding the session proves little: a store the session
+    // moved out of gets a copy back when that directory is read again later
+    // (a stream reconnect, opening it), and that read points the index at it.
     if (isBlockingRequestEvent(payload) && (!normalizedDirectory || normalizedDirectory === "global")) {
       const ownDirectory = resolveCachedSessionDirectory(sessionID)
       if (ownDirectory && childStores.getChild(ownDirectory)) {

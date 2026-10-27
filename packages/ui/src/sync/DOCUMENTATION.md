@@ -897,7 +897,7 @@ Examples of global-store updates performed in `session-actions.ts`:
 - `unarchiveSession()` / `unarchiveSessions()` -> wait for server confirmation, then upsert each restored session. Restoring a top-level session brings its archived subsessions back with it. A subsession under an archived or unknown parent comes back only with that parent, and its id alone fails. A subsession archived on its own while its parent stays active restores alone and brings its own archived subsessions; `isRestorableOnItsOwn` (`session-restore-rule.ts`) is the one rule, shared with the Archive page and the chat header's session menu. `undo` still puts back exactly what an archive just moved.
 - `deleteSession()` / `deleteSessions()` -> wait for server confirmation or `404`, then remove the session and its persisted state
 - `moveSessionToDirectory()` -> move the session between directory stores and update the global directory index
-- `session.moved` (an agent's `session_move`, another client, or the echo of our own move) -> `adoptSessionMove()` does the same store move, routing registration and open-chat directory switch. A move the event already applied is kept when the request's response lands later. Without this the chat kept reading the source store while sends went to the destination, so a new prompt never appeared until the session was reopened. A chat pinned in the side panel (a subagent opened from the parent) is not the open chat; it reads the directory its session record names (`usePinnedSessionDirectory`), so it follows the move too instead of freezing at the move step. In a flushed batch the move runs after the stores publish, so the batch cannot write the session back into the source. The move also drops the session's transcript and status from every other store and moves any pending permission or form they held into the destination; their session lists keep it, because a parent repository lists its worktrees' sessions.
+- `session.moved` (an agent's `session_move`, another client, or the echo of our own move) -> `adoptSessionMove()` does the same store move, routing registration and open-chat directory switch. A move the event already applied is kept when the request's response lands later. Without this the chat kept reading the source store while sends went to the destination, so a new prompt never appeared until the session was reopened. A chat pinned in the side panel (a subagent opened from the parent) is not the open chat; it reads the directory its session record names (`usePinnedSessionDirectory`), so it follows the move too instead of freezing at the move step. In a flushed batch the move runs after the stores publish, so the batch cannot write the session back into the source. The move also drops the session's transcript and status from every other store and moves any pending permission or form they held into the destination; their session lists keep it, because a parent repository lists its worktrees' sessions. OpenCode reports the move's own steps (the delivered move notice) in the source directory in that same flush, and the transcript recovery they ask for runs after the move. A recovery for a session the store removed, no longer lists, and the global list places in another directory goes to that directory's store instead: read in the source, it put the transcript back into the store the session left, and the gap stayed in the one the chat reads.
 
 ### Blocking-request (form/permission) reply routing
 
@@ -1095,7 +1095,7 @@ These are `SyncEvent`s from `packages/ui/src/lib/opencode/events.ts`, not OpenCo
 
 ### Directory-less session events
 
-The global stream can omit a directory for a session-addressed event. OpenCode 2.1.4 sends `permission.asked` without a location. A permission or form event without a directory goes to the directory the global session list records for its session, when that store exists: the chat reads a session's requests from that store, and holding the session proves nothing, since a store the session left can still hold a copy (the chat re-reads the session there while it switches after a move) and re-reading that store points the index at it. Other events resolve through the session routing index first. If the index is briefly stale during a session transition, route only when the event session matches the active session and that directory store exists; otherwise leave it un-routed rather than updating another directory.
+The global stream can omit a directory for a session-addressed event. OpenCode 2.1.4 can send `permission.asked` without a location. A permission or form event without a directory goes to the directory the global session list records for its session, when that store exists: the chat reads a session's requests from that store, and holding the session proves nothing, since a store the session moved out of gets a copy back when that directory is read again later (a stream reconnect, opening it) and that read points the index at it. Other events resolve through the session routing index first. If the index is briefly stale during a session transition, route only when the event session matches the active session and that directory store exists; otherwise leave it un-routed rather than updating another directory.
 
 ## Adding a new event type
 
@@ -1135,7 +1135,14 @@ the deferred one still names the previous session for one commit. A selection
 arriving from nothing (a draft just submitted, an empty chat) is not deferred:
 there is no previous conversation to keep, and a deferred `null` beside the
 already-closed draft rendered the empty state for a commit, remounting the
-whole column, composer and work-status card included.
+whole column, composer and work-status card included. The same session in
+another directory is not deferred either, whatever changed it: the old
+directory no longer holds the session or was only a guess (the directory
+adopted at startup, a runtime switch, following the chat to its archive, a
+new worktree session), so reading the session there is wrong. A move is the
+main case: it already took the session out of the old directory's store, and a
+commit still naming that directory had the chat's load effect read the session
+and its transcript back into it.
 
 A session whose messages are not in memory at the click keeps the previous
 timeline on screen while they load (up to 400ms), then swaps straight to the
