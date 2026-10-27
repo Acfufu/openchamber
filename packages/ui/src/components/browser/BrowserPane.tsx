@@ -1006,6 +1006,11 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory: tab
             src={initialSrc}
             partition={browserPartitionOf(directory)}
             allowpopups
+            // An agent's tab is mostly out of sight while the agent works it:
+            // a hidden page's timers would run about once a second, and the
+            // app took a minute to start in it. The user's own hidden tabs
+            // stay throttled. Read once, when the view attaches.
+            webpreferences={ownerSessionId !== null ? 'backgroundThrottling=no' : undefined}
             style={layout
               ? {
                 // Laid out at the chosen size and scaled visually: the page must
