@@ -21,6 +21,16 @@ These steps are mandatory. Before editing, you **MUST**:
 If these sources materially conflict, stop and resolve the conflict instead of silently choosing one.
 Do not start editing before every matching skill and required reference is read.
 
+## Working a Change
+
+Every fix and feature goes through these steps, in order. What counts as proof, and where to run each kind of change, is in `openchamber-change-discipline` (*Proof*, *Where to run it*).
+
+1. **Reproduce.** Make the failure happen the way a user hits it, in the runtime that runs the code; for a feature, see what that runtime does today where the feature goes. Unreproduced goes to the report before any fix.
+2. **Fix the cause.** The smallest change that removes it. A correctness problem you trip over in code you touch is fixed in the same change; one elsewhere goes to the report or its own pull request.
+3. **Prove it.** Run the same reproduction and watch it pass. Report what the proof covered and what it did not.
+4. **Second look.** The `review` agent on the diff (`.opencode/agent/review.md`), or a reviewer on another model where your tool has no such agent; one-line and text-only edits go without. Fix what is real, answer the rest with evidence.
+5. **Hand off.** The working tree for the person you work with, or a pull request (*Pull Request Handoff*).
+
 ## Runtime Boundaries
 
 - `packages/ui`: shared React UI, state, sync, and runtime contracts.
