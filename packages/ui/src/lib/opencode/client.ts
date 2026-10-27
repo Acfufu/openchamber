@@ -1405,6 +1405,12 @@ class OpencodeService {
     directory?: string | null
     /** Skills named inline; attached to the prompt so OpenCode loads them with it. */
     skills?: SkillMentions
+    /**
+     * Runs right before the prompt request leaves, after the context ahead of
+     * it was admitted: from here on a later send to the session lands after
+     * this one.
+     */
+    beforeSend?: () => void
   }): Promise<string> {
     this.assertRuntimeUnchanged(params.runtimeKey)
 
@@ -1444,6 +1450,7 @@ class OpencodeService {
     }
     const prompt = (skills: readonly SkillAttachmentRef[]) => {
       this.assertRuntimeUnchanged(params.runtimeKey)
+      params.beforeSend?.()
       return call("session.prompt", () =>
         this.clientFor(params.directory).session.prompt({
           sessionID: params.id,
@@ -1508,6 +1515,8 @@ class OpencodeService {
     context?: SyntheticContextInput[]
     delivery?: SessionInboxDelivery
     directory?: string | null
+    /** As `sendMessage`'s: runs right before the command request leaves. */
+    beforeSend?: () => void
   }): Promise<void> {
     this.assertRuntimeUnchanged(params.runtimeKey)
     const files = await Promise.all((params.files ?? []).map((file) => this.toPromptFile(file)))
@@ -1528,6 +1537,7 @@ class OpencodeService {
       )
     }
     this.assertRuntimeUnchanged(params.runtimeKey)
+    params.beforeSend?.()
     await call("session.command", () =>
       this.clientFor(params.directory).session.command({
         sessionID: params.id,

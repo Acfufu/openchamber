@@ -94,14 +94,25 @@ request and never drops the newest session first (session ids descend with
 time; the reducer trims by creation time).
 
 The composer's top rows render inside the box and inside the mobile pill, so
-the surface stays one shape. Top to bottom: worktree setup and a message
-waiting for its space (`ComposerStatusStrip`), the goal (`SessionGoalRow`), a
+the surface stays one shape. Top to bottom: worktree setup, the session still
+being created from a draft's first message, and a message waiting for its
+space (`ComposerStatusStrip`; the creating line yields to the worktree line,
+so one wait shows one line), the goal (`SessionGoalRow`), a
 review loop and, once it ends, its result until dismissed, a dispute unfolding in place (`AutoReviewStrip`), the pull request the agent waits on with Stop watching (`PullRequestWatchStrip`), background commands, a staged revert
 (`RevertedMessagesStrip`), the queue (`QueuedMessagesStrip`),
 the "looks done" hint or the review offer, the suggestion
 (`SessionSuggestionChip`). BTW hides all of them. A pending form, a nonempty
 queue, composer content and a new-session draft hide the suggestion; a
 new-session draft also hides the queue.
+
+While a session's first send is pending (`pendingDraftSends` in
+`session-ui-store`, from Enter in the draft until the request that starts the
+turn has left), the composer keeps what is typed and sends nothing: Send is
+disabled, Stop is not offered, Enter and the pill's arrow do nothing, and
+nothing is queued. A first send that fails restores its text under the
+identity `DraftSendError` names: the created session's composer, or the
+reopened draft's, with the text typed meanwhile kept above the sent text
+(*A draft's first send* in `sync/DOCUMENTATION.md`).
 
 `RevertedMessagesStrip` lists the user messages a staged revert hides (see
 "Committing a revert" in `sync/DOCUMENTATION.md`). Its one action is Restore,

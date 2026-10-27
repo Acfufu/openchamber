@@ -3888,6 +3888,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.moveChatToProject.success': 'Czat przeniesiono do projektu',
   'sessions.moveChatToProject.failed': 'Nie udało się przenieść czatu',
   'chat.worktreeSetup.running': 'Przygotowywanie worktree: uruchamianie poleceń konfiguracyjnych projektu…',
+  'chat.draft.creatingSession': 'Tworzenie sesji…',
   'desktopHostSwitcher.startup.fellBackToLocal': 'Nie udało się nawiązać połączenia, więc OpenChamber uruchomił się na Local. Połącz się z przełącznika instancji, gdy będzie dostępna.',
   'desktopSafeStart.title': 'OpenChamber wielokrotnie uległ awarii',
   'desktopSafeStart.description': 'Panele są zamknięte, a foldery zwinięte.',

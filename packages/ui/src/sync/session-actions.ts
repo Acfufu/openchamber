@@ -354,7 +354,10 @@ export async function moveSessionToDirectory(
  * The global list already took the directory from the same event.
  */
 export function adoptSessionMove(sessionId: string, sourceDirectory: string, destinationDirectory: string): void {
+  // A session created under a path the server then canonicalized has its
+  // record in the destination already and only its first message at the source.
   const session = _childStores?.getChild(sourceDirectory)?.getState().session.find((candidate) => candidate.id === sessionId)
+    ?? _childStores?.getChild(destinationDirectory)?.getState().session.find((candidate) => candidate.id === sessionId)
   if (!session) return
   relocateSession(session, sourceDirectory, destinationDirectory)
 }
@@ -1048,6 +1051,8 @@ export async function createSession(
   selectionTransition?: "submitted-draft",
   selection?: SessionCreateSelection,
   navigation: "open" | "preserve" = "open",
+  /** An id this client minted (`ascendingId("ses")`), so records keyed by it before the response stay valid. */
+  id?: string,
 ): Promise<Session | null> {
   const runtimeKey = getRuntimeKey()
   const runtimeClient = opencodeClient.getSdkClient()
@@ -1059,7 +1064,7 @@ export async function createSession(
     // wrong project (closes #1637, #2270).
     const effectiveDirectory = directoryOverride ?? dir()
     const session = await opencodeClient.createSession(
-      { title, metadata, model: selection?.model, agent: selection?.agent },
+      { id, title, metadata, model: selection?.model, agent: selection?.agent },
       effectiveDirectory,
     )
 
@@ -1088,6 +1093,18 @@ export async function createSession(
     console.error("[session-actions] createSession failed", error)
     return null
   }
+}
+
+/**
+ * Opens an empty transcript for a session this client is about to create
+ * under `sessionId` in `directory`: events for it route to that store, and
+ * its first message can be shown there before the server answers. The
+ * create response then finds the transcript and leaves it alone.
+ */
+export function openPendingSessionTranscript(sessionId: string, directory: string): void {
+  registerSessionDirectory(sessionId, directory)
+  _childStores?.ensureChild(directory, { bootstrap: false })
+  getImperativeSessionMessageLoader()?.initializeCreatedSession({ directory, sessionID: sessionId })
 }
 
 /**
@@ -2041,9 +2058,10 @@ export async function optimisticSend(input: {
   /** Context admitted ahead of the prompt; shown in the optimistic message until the server echoes it. */
   context?: SyntheticContextInput[]
   /**
-   * Work the request waits for (the session's project knowledge being written
-   * into it). The user message is inserted without waiting for it. Must not
-   * reject.
+   * Work the request waits for: the session being created, its project
+   * knowledge being written into it. The user message is inserted without
+   * waiting for it. A rejection is a definite failure of the send and rolls
+   * the message back.
    */
   ready?: Promise<void>
   appendSubmissions?: () => void
@@ -2181,13 +2199,16 @@ export async function optimisticSend(input: {
   })
 
   const releasePrompt = trackPromptInFlight(input.sessionId)
+  // Only a request that left can have been accepted; a failure before it is certain.
+  let requestSent = false
   try {
     await input.ready
     assertRuntimeUnchanged()
+    requestSent = true
     await input.send(messageID, context)
   } catch (error) {
     const status = getErrorStatus(error)
-    const ambiguousFailure = isAmbiguousSendFailure(error)
+    const ambiguousFailure = requestSent && isAmbiguousSendFailure(error)
     const acceptedRecords = ambiguousFailure
       ? await fetchRecentSendConfirmationRecords(input.sessionId, messageID, targetDirectory)
       : null
@@ -2223,15 +2244,19 @@ export async function optimisticSend(input: {
     console.warn("[session-actions] prompt send rejected; rolling back optimistic message", failureRecord)
 
     // Rollback via optimistic infrastructure. Context the server admitted
-    // before the failure comes back with the next history read.
+    // before the failure comes back with the next history read. The records
+    // are where the session lives now: a session created from a draft can
+    // have moved to another directory than the one its message was shown in.
+    const rollbackDirectory = getSessionDirectory(input.sessionId) ?? targetDirectory
+    const rollbackStore = rollbackDirectory && rollbackDirectory !== targetDirectory ? dirStoreForDirectory(rollbackDirectory) : store
     for (const optimisticID of optimisticIDs) {
       optimisticRemove({
         sessionID: input.sessionId,
-        directory: targetDirectory,
+        directory: rollbackDirectory,
         messageID: optimisticID,
       })
     }
-    const rollbackState = store.getState()
+    const rollbackState = rollbackStore.getState()
     let session = rollbackState.session
     let message = rollbackState.message
     let part = rollbackState.part
@@ -2250,7 +2275,7 @@ export async function optimisticSend(input: {
       }
     }
 
-    store.setState({
+    rollbackStore.setState({
       session,
       message,
       part,

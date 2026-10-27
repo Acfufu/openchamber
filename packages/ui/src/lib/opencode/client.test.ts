@@ -407,6 +407,30 @@ describe("sendMessage", () => {
     expect(requests.every((r) => r.headers.get("x-opencode-directory") === encodeURIComponent("/repo/app"))).toBe(true)
   })
 
+  test("beforeSend runs once every context part was admitted and right before the prompt leaves", async () => {
+    const seen: string[] = []
+    responses.push(
+      json({ id: "syn_1" }),
+      // The second context part answers late: beforeSend must still wait for it.
+      async () => { await new Promise((resolve) => setTimeout(resolve, 20)); seen.push("context admitted"); return json({ id: "syn_2" }) },
+      () => { seen.push("prompt request"); return json({ id: "msg_1" }) },
+    )
+    await opencodeClient.sendMessage({
+      id: "ses_1",
+      providerID: "openai",
+      text: "hello",
+      messageId: "msg_1",
+      context: [{ text: "first" }, { text: "second" }],
+      beforeSend: () => { seen.push("beforeSend") },
+    })
+    expect(seen).toEqual(["context admitted", "beforeSend", "prompt request"])
+    expect(requests.map((r) => r.url.pathname)).toEqual([
+      "/api/session/ses_1/synthetic",
+      "/api/session/ses_1/synthetic",
+      "/api/session/ses_1/prompt",
+    ])
+  })
+
   test("context ids travel with the synthetic messages and sort below the prompt id", async () => {
     responses.push(json({ id: "a" }), json({ id: "b" }), json({ id: "c" }))
     const id = await opencodeClient.sendMessage({
