@@ -4,26 +4,11 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { resolveBunExecutable } from '../../../scripts/lib/bun-executable.mjs';
-import { injectedEnvKeys } from '../server/lib/injected-env.js';
+import { withoutInjectedEnv } from '../server/lib/injected-env.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const webRoot = path.resolve(__dirname, '..');
-
-/**
- * The environment without what an OpenChamber app put into it. A shell an
- * agent or the integrated terminal opens inherits the app's own server
- * settings (its UI password, `OPENCHAMBER_RUNTIME=desktop`, its web assets);
- * a dev server started there would ask for that password and half act as the
- * desktop. What the user exported is not in the record and stays. The record
- * holds names only, so an inline override of a recorded name in such a shell
- * goes too; that fails closed (with `OPENCHAMBER_HOST` gone the server stays
- * on loopback), and `env -u OPENCHAMBER_INJECTED_ENV` keeps everything.
- */
-function withoutInjectedEnv(env) {
-  const injected = injectedEnvKeys(env);
-  return Object.fromEntries(Object.entries(env).filter(([key]) => !injected.has(key)));
-}
 
 export function createDevServerWatchCommand(options = {}) {
   const platform = options.platform ?? process.platform;
@@ -53,6 +38,13 @@ export function createDevServerWatchCommand(options = {}) {
     spawnOptions: {
       cwd: webRoot,
       stdio: 'inherit',
+      // A shell an agent or the integrated terminal opens carries the app's
+      // own server settings (its UI password, `OPENCHAMBER_RUNTIME=desktop`,
+      // its web assets); the dev server would ask for that password and half
+      // act as the desktop. The record holds names only, so an inline
+      // override of a recorded name goes too; that fails closed (without
+      // `OPENCHAMBER_HOST` it stays on loopback), and
+      // `env -u OPENCHAMBER_INJECTED_ENV` keeps everything.
       env: {
         ...withoutInjectedEnv(env),
         OPENCHAMBER_RELAY_HOST: env.OPENCHAMBER_RELAY_HOST || 'off',
