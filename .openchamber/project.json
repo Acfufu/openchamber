@@ -13,16 +13,22 @@
     {
       "id": "acd3f2c9-eae2-4956-88e3-80633a9e38df",
       "name": "Mobile",
-      "command": "bun run mobile:sim:dev",
+      "command": "bun run dev",
       "icon": "stack",
       "autoOpenUrl": true,
-      "openUrl": "http://127.0.0.1:3100"
+      "openUrl": "http://127.0.0.1:5180/mobile.html"
     },
     {
       "id": "oc-deploy-testing",
       "name": "Deploy testing",
       "command": "bun run oc-dev build-deploy-web --deployment-mode testing",
       "icon": "server"
+    },
+    {
+      "id": "oc-electron-build",
+      "name": "Build Electron app",
+      "command": "bun run oc-dev build-electron-app",
+      "icon": "build"
     },
     {
       "id": "oc-ios-device-debug",
@@ -35,8 +41,8 @@
     },
     {
       "id": "oc-android-run",
-      "name": "Android run APK",
-      "command": "bun run oc-dev mobile-tools --mobile-task android-run",
+      "name": "Android build + run",
+      "command": "bun run oc-dev mobile-tools --mobile-task android-deploy-usb",
       "icon": "play"
     },
     {
