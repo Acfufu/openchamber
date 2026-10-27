@@ -1250,6 +1250,13 @@ const resolveCachedSessionDirectory = (sessionID: string): string | null => {
   return session ? resolveGlobalSessionDirectory(session) : null
 }
 
+const isBlockingRequestEvent = (payload: SyncEvent): boolean => (
+  payload.type === "permission.asked"
+  || payload.type === "permission.replied"
+  || payload.type === "form.created"
+  || payload.type === "form.settled"
+)
+
 const resolveDirectoryFromRoutingIndex = (
   routingIndex: EventRoutingIndex,
   rawDirectory: string,
@@ -1268,6 +1275,19 @@ const resolveDirectoryFromRoutingIndex = (
     if (normalizedDirectory && normalizedDirectory !== "global" && childStoreHasSessionState(childStores, normalizedDirectory, sessionID, batch)) {
       setIndexedSessionDirectory(routingIndex, sessionID, normalizedDirectory)
       return normalizedDirectory
+    }
+
+    // The chat reads a session's permissions and forms from the store of the
+    // directory it lives in. OpenCode sends `permission.asked` without a
+    // location, and holding the session proves little: after a move the store
+    // it left keeps a copy (the chat re-reads it there while it switches over),
+    // and re-reading that store points the index back at it.
+    if (isBlockingRequestEvent(payload) && (!normalizedDirectory || normalizedDirectory === "global")) {
+      const ownDirectory = resolveCachedSessionDirectory(sessionID)
+      if (ownDirectory && childStores.getChild(ownDirectory)) {
+        setIndexedSessionDirectory(routingIndex, sessionID, ownDirectory)
+        return ownDirectory
+      }
     }
 
     const indexedDirectory = routingIndex.sessionDirectoryById.get(sessionID)

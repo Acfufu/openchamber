@@ -358,9 +358,64 @@ export function adoptSessionMove(sessionId: string, sourceDirectory: string, des
   relocateSession(session, sourceDirectory, destinationDirectory)
 }
 
+function withoutKeys<T>(record: Record<string, T>, keys: readonly string[]) {
+  if (!keys.some((key) => Object.prototype.hasOwnProperty.call(record, key))) return record
+  const next = { ...record }
+  for (const key of keys) delete next[key]
+  return next
+}
+
+function withNewRequests<T extends { id: string }>(current: T[], incoming: T[] | undefined) {
+  const added = incoming?.filter((request) => !current.some((existing) => existing.id === request.id)) ?? []
+  return added.length > 0 ? [...current, ...added] : current
+}
+
+/**
+ * A session's transcript, status and pending requests are read from the store
+ * of the directory it lives in. A store it passed through earlier can still
+ * hold a copy, and events without a location would be routed to it: the copy
+ * goes, and a pending permission or form in it joins the owner's. The session
+ * lists stay: a parent repository lists its worktrees' sessions.
+ */
+function dropSessionLiveStateOutside(sessionId: string, ownerDirectory: string): void {
+  const stores = _childStores
+  const owner = stores?.getChild(ownerDirectory)
+  if (!stores || !owner) return
+  let permissions = owner.getState().permission[sessionId] ?? []
+  let forms = owner.getState().form[sessionId] ?? []
+  for (const store of stores.children.values()) {
+    if (store === owner) continue
+    const state = store.getState()
+    permissions = withNewRequests(permissions, state.permission[sessionId])
+    forms = withNewRequests(forms, state.form[sessionId])
+    const messageIds = state.message[sessionId]?.map((message) => message.id) ?? []
+    const next = {
+      session_status: withoutKeys(state.session_status, [sessionId]),
+      permission: withoutKeys(state.permission, [sessionId]),
+      form: withoutKeys(state.form, [sessionId]),
+      message: withoutKeys(state.message, [sessionId]),
+      part: withoutKeys(state.part, messageIds),
+    }
+    const unchanged = next.session_status === state.session_status
+      && next.permission === state.permission
+      && next.form === state.form
+      && next.message === state.message
+      && next.part === state.part
+    if (!unchanged) store.setState(next)
+  }
+  const ownerState = owner.getState()
+  if (permissions.length > 0 && permissions !== ownerState.permission[sessionId]) {
+    owner.setState({ permission: { ...ownerState.permission, [sessionId]: permissions } })
+  }
+  if (forms.length > 0 && forms !== ownerState.form[sessionId]) {
+    owner.setState({ form: { ...ownerState.form, [sessionId]: forms } })
+  }
+}
+
 function relocateSession(session: Session, sourceDirectory: string, destinationDirectory: string): Session {
   invalidateSessionLoads(session.id, [sourceDirectory, destinationDirectory])
   const moved = reconcileSessionMove(session, sourceDirectory, destinationDirectory)
+  dropSessionLiveStateOutside(session.id, destinationDirectory)
   registerSessionDirectory(session.id, destinationDirectory)
   useSessionUIStore.getState().setSessionDirectory(session.id, destinationDirectory)
   return moved
