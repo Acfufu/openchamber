@@ -204,6 +204,11 @@ Code copy/wrap buttons remain visible without hover. File navigation is enabled
 only for settled content with file references enabled; mobile keeps navigation
 while skipping filesystem probes. Selection-ending clicks are consumed without
 opening a file, and platform-specific Cmd/Ctrl clicks retain external opening.
+A `file:` link the click rules do not take as a file, usually a folder, opens
+through the runtime's `files.revealPath` (the system file manager), on the same
+runtimes where the Files tree shows its reveal action: the desktop app. A
+browser client keeps the plain link, since the folder lives on the server's
+machine, and so does VS Code, which mounts no Files tree.
 
 #### Why KaTeX is pinned by an override
 
