@@ -18,6 +18,7 @@ import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
+import { imageToolI18n } from './image-tool.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -3840,6 +3841,7 @@ export const dict = {
   ...sessionWarmingI18n.ar,
   ...heapSnapshotI18n.ar,
   ...consoleBudgetsI18n.ar,
+  ...imageToolI18n.ar,
   ...sidebarWorkI18n.ar,
   ...worktreeArchiveI18n.ar,
   ...overviewI18n.ar,

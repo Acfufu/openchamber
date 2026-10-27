@@ -1121,6 +1121,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
         || part.tool === 'openchamber_knowledge'
         || part.tool === 'openchamber_notify'
         || part.tool === 'openchamber_render'
+        || part.tool === 'openchamber_image'
         || part.tool === 'openchamber_workflow'
         || isPatchTool(part.tool)
         || isEditTool(part.tool)
@@ -1913,7 +1914,8 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
         shouldRenderExpandedContent || (presentation !== null && guestToolHeaderReadsOutput(presentation)),
     );
     // Shell and subagent rows carry their duration: live while they run, final once settled.
-    const showsDuration = isShellTool(normalizedPartTool) || isTaskTool;
+    // Image generation takes tens of seconds; the ticking time shows it is still at work.
+    const showsDuration = isShellTool(normalizedPartTool) || isTaskTool || part.tool === 'openchamber_image';
 
     if (!shouldTreatAsFinalized && !isActive && !isTaskTool) {
         return null;

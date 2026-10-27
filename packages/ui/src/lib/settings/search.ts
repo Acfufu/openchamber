@@ -846,6 +846,22 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
+    id: 'sessions.agent-image-tool',
+    page: 'general',
+    titleKey: 'settings.openchamber.tools.field.agentImageTool',
+    descriptionKey: 'settings.openchamber.tools.field.agentImageToolInfo',
+    keywords: ['agent', 'tool', 'image', 'picture', 'generate', 'draw', 'openchamber'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
+    id: 'sessions.agent-image-model',
+    page: 'general',
+    titleKey: 'settings.openchamber.tools.imageModel.label',
+    descriptionKey: 'settings.openchamber.tools.imageModel.info',
+    keywords: ['agent', 'image', 'model', 'picture', 'generate', 'draw'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
     id: 'sessions.agent-render-tool',
     page: 'general',
     titleKey: 'settings.openchamber.tools.field.agentRenderTool',

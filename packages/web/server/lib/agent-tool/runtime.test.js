@@ -655,6 +655,18 @@ describe('managed agent tool runtime', () => {
     expect(Object.keys(await loadTools(plainDir, 'nonotify'))).toEqual(['openchamber']);
   });
 
+  it('exposes image generation as its own tool only when switched on, never behind Code Mode', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    await prepareManagedEnv(runtime, { includeControl: true, includeWeb: false, includeMemory: false, includeImage: true, codeMode: true });
+    const tool = await loadTools(dataDir, 'image');
+
+    expect(Object.keys(tool)).toEqual(['openchamber', 'openchamber_image']);
+    expect(Object.keys(tool.openchamber_image.input.properties.parameters.properties).sort())
+      .toEqual(['aspect', 'count', 'images', 'path', 'prompt', 'resolution']);
+    expect(tool.openchamber_image.options).toEqual({ codemode: false });
+    expect(tool.openchamber_image.description.length).toBeLessThanOrEqual(2048);
+  });
+
   it('exposes render as its own tool carrying only the page and its title', async () => {
     const { runtime, dataDir } = await createRuntime();
     await prepareManagedEnv(runtime, { includeControl: true, includeWeb: false, includeMemory: false, includeRender: true });

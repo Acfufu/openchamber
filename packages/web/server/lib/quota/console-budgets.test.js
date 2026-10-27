@@ -18,11 +18,11 @@ const budget = (overrides = {}) => ({
 });
 
 const meter = { percent: 10, limited: false, resetsAt: 1_800_000_000_000 };
-const limits = (budgets, name = 'Acme', go = { rolling: meter, weekly: meter, monthly: meter }) => ({
-  workspace: { id: 'wrk', name, usageURL: 'https://opencode.ai/x' },
-  ...(go ? { go } : {}),
-  budgets,
-});
+const limits = (budgets, name = 'Acme', go = { rolling: meter, weekly: meter, monthly: meter }) => {
+  const info = { workspace: { id: 'wrk', name, usageURL: 'https://opencode.ai/x' }, budgets };
+  if (go) info.go = go;
+  return info;
+};
 
 describe('readConsoleBudgets', () => {
   it('orders budgets by what runs out first and names what each counts and who shares it', async () => {

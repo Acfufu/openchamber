@@ -789,6 +789,14 @@ export const createSettingsHelpers = (dependencies) => {
     if (candidate.agentRenderToolEnabled === true || candidate.agentRenderToolEnabled === false) {
       result.agentRenderToolEnabled = candidate.agentRenderToolEnabled;
     }
+    if (candidate.agentImageToolEnabled === true || candidate.agentImageToolEnabled === false) {
+      result.agentImageToolEnabled = candidate.agentImageToolEnabled;
+    }
+    // `provider/model`; the model id may hold slashes of its own (OpenRouter's `openai/gpt-image-2`).
+    const agentImageModel = asNonEmptyString(candidate.agentImageModel);
+    if (agentImageModel && /^[^/\s]+\/\S+$/.test(agentImageModel)) {
+      result.agentImageModel = agentImageModel;
+    }
     if (typeof candidate.agentToolsCodeMode === 'boolean') {
       result.agentToolsCodeMode = candidate.agentToolsCodeMode;
     }

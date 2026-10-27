@@ -1,6 +1,5 @@
 import React from 'react';
 
-import { isCapacitorMobileApp } from '@/apps/mobileNativeChrome';
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { toast } from '@/components/ui';
@@ -15,7 +14,6 @@ import { isVSCodeRuntime } from '@/lib/desktop';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/useUIStore';
-import { shareFileFromNativeApp } from '@/lib/nativeFileShare';
 import type { ToolPart } from '@/lib/opencode/model';
 import { renderedPage, type RenderedPageAsk } from '@/lib/opencode/tools';
 import { answerRenderedPage } from '@/lib/renderPageAnswer';
@@ -54,6 +52,7 @@ import {
     type HtmlRenderTheme,
 } from './htmlRender';
 import { useRenderPageHtml } from './renderPageImages';
+import { saveFile } from './saveFile';
 
 const DEFAULT_SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
 const DEFAULT_MONO = 'ui-monospace, "SFMono-Regular", Menlo, monospace';
@@ -391,7 +390,7 @@ interface HtmlRenderFrameProps {
 }
 
 /** A small quiet icon button in the row above a page, like the Files preview toolbar's. */
-function PageToolButton({ label, icon, pressed, onClick }: {
+export function PageToolButton({ label, icon, pressed, onClick }: {
     label: string;
     icon: IconName;
     /** Set for a toggle: it carries the selection fill while on. */
@@ -476,18 +475,7 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
         // same way outside the app.
         const file = new File([buildHtmlRenderDocument(pageHtml, theme)], fileName, { type: 'text/html' });
         try {
-            if (isCapacitorMobileApp()) {
-                await shareFileFromNativeApp(file);
-                return;
-            }
-            const url = URL.createObjectURL(file);
-            const link = document.createElement('a');
-            link.download = fileName;
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            await saveFile(file);
         } catch {
             toast.error(t('chat.htmlRender.downloadFailed'));
         }

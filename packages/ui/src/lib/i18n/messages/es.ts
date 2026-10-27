@@ -19,6 +19,7 @@ import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
+import { imageToolI18n } from './image-tool.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -178,6 +179,7 @@ export const dict: Record<I18nKey, string> = {
   ...sessionWarmingI18n.es,
   ...heapSnapshotI18n.es,
   ...consoleBudgetsI18n.es,
+  ...imageToolI18n.es,
   ...sidebarWorkI18n.es,
   ...worktreeArchiveI18n.es,
   ...overviewI18n.es,

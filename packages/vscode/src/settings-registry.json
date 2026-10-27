@@ -168,6 +168,12 @@
     "agentRenderToolEnabled": {
       "scope": "instance"
     },
+    "agentImageToolEnabled": {
+      "scope": "instance"
+    },
+    "agentImageModel": {
+      "scope": "instance"
+    },
     "agentToolsCodeMode": {
       "scope": "instance"
     },

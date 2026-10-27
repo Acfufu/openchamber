@@ -1740,7 +1740,7 @@ const AssistantMessageBody = React.memo(({
                 }
                 if (splitLiveActivity && !hasRenderedAnswerText) {
                     for (const pagePart of liveFinalActivity?.pages ?? []) {
-                        rendered.push(<ShownToolCard key={`page-${pagePart.id}`} part={pagePart} />);
+                        rendered.push(<ShownToolCard key={`page-${pagePart.id}`} part={pagePart} onShowPopup={onShowPopup} />);
                     }
                 }
                 hasRenderedAnswerText = true;
@@ -1831,7 +1831,7 @@ const AssistantMessageBody = React.memo(({
                 // answer draws it instead.
                 if (isShownInPlace(toolPart.tool, toolPart.state)) {
                     if (!hoistedPages?.has(toolPart.id)) {
-                        rendered.push(<ShownToolCard key={`page-${toolPart.id}`} part={toolPart} />);
+                        rendered.push(<ShownToolCard key={`page-${toolPart.id}`} part={toolPart} onShowPopup={onShowPopup} />);
                     }
                     i++;
                     continue;

@@ -1132,6 +1132,9 @@ interface UIStore {
   agentMemoryToolEnabled: boolean;
   agentKnowledgeToolEnabled: boolean;
   agentNotifyToolEnabled: boolean;
+  agentImageToolEnabled: boolean;
+  /** `provider/model` the image tool draws with; empty until the user picks one. */
+  agentImageModel: string;
   agentRenderToolEnabled: boolean;
   agentWorkflowToolEnabled: boolean;
   /** Whether OpenChamber's agent tools sit behind OpenCode's Code Mode instead of being direct tools. */
@@ -1428,6 +1431,8 @@ interface UIStore {
   setAgentMemoryToolEnabled: (value: boolean) => void;
   setAgentKnowledgeToolEnabled: (value: boolean) => void;
   setAgentNotifyToolEnabled: (value: boolean) => void;
+  setAgentImageToolEnabled: (value: boolean) => void;
+  setAgentImageModel: (value: string) => void;
   setAgentRenderToolEnabled: (value: boolean) => void;
   setAgentWorkflowToolEnabled: (value: boolean) => void;
   setAgentToolsCodeMode: (value: boolean) => void;
@@ -1669,6 +1674,8 @@ export const useUIStore = create<UIStore>()(
         agentMemoryToolEnabled: false,
         agentKnowledgeToolEnabled: true,
         agentNotifyToolEnabled: false,
+        agentImageToolEnabled: false,
+        agentImageModel: '',
         agentRenderToolEnabled: true,
         agentWorkflowToolEnabled: true,
         agentToolsCodeMode: false,
@@ -3294,6 +3301,12 @@ export const useUIStore = create<UIStore>()(
         setAgentNotifyToolEnabled: (value) => {
           set({ agentNotifyToolEnabled: value });
         },
+        setAgentImageToolEnabled: (value) => {
+          set({ agentImageToolEnabled: value });
+        },
+        setAgentImageModel: (value) => {
+          set({ agentImageModel: value });
+        },
         setAgentRenderToolEnabled: (value) => {
           set({ agentRenderToolEnabled: value });
         },
@@ -3843,6 +3856,8 @@ export const useUIStore = create<UIStore>()(
           agentMemoryToolEnabled: state.agentMemoryToolEnabled,
           agentKnowledgeToolEnabled: state.agentKnowledgeToolEnabled,
           agentNotifyToolEnabled: state.agentNotifyToolEnabled,
+          agentImageToolEnabled: state.agentImageToolEnabled,
+          agentImageModel: state.agentImageModel,
           agentRenderToolEnabled: state.agentRenderToolEnabled,
           agentWorkflowToolEnabled: state.agentWorkflowToolEnabled,
           agentToolsCodeMode: state.agentToolsCodeMode,

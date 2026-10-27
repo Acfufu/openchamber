@@ -893,6 +893,15 @@ class OpencodeService {
     await call("file.watch", () => this.clientFor(directory).file.watch({ path: relativePath }))
   }
 
+  /**
+   * The models that generate images (`type: "image"`, OpenCode 2.2), for the
+   * image tool's picker; chat models are left out. `value` is `provider/model`.
+   */
+  async listImageModels(): Promise<Array<{ value: string; name: string; providerID: string }>> {
+    const models = await call("model.list", () => this.clientFor(this.currentDirectory).model.list({ types: ["image"] }).then((r) => r.data))
+    return models.map((model) => ({ value: `${model.providerID}/${model.modelID}`, name: model.name, providerID: model.providerID }))
+  }
+
   async writeHeapSnapshot(): Promise<{ path: string }> {
     const result = await call("debug.heapDump", () => this.client.debug.heapDump())
     return { path: result.path }

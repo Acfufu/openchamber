@@ -1,11 +1,13 @@
 import { asNonEmptyString, isBoolean } from '../shared/guards.js';
 import path from 'node:path';
+import nodeFsPromises from 'node:fs/promises';
 import { OpenCode } from '@opencode/client';
 import { OpenChamberControlError, asControlError } from './error.js';
 import { OPENCHAMBER_ALL_ACTIONS, OPENCHAMBER_KNOWLEDGE_ACTIONS } from './actions.js';
 import { writeScreenshot } from './screenshots.js';
 import { createProjectKnowledgeActions } from './project-knowledge.js';
 import { createPageAnswers, createRenderPageAction } from './render-page.js';
+import { createImageGenerationAction } from './generate-image.js';
 import { createWorkNamer } from '../openchamber-sessions/work-naming.js';
 
 const DEFAULT_WAIT_TIMEOUT_SECONDS = 600;
@@ -249,6 +251,8 @@ export const createOpenChamberControlService = (dependencies) => {
     // Whether OpenCode may open a folder (../opencode-trust); absent opens every folder.
     isOpenCodeDirectoryTrusted = null,
     createClient = OpenCode.make,
+    // Reads an agent's reference images and writes the generated ones.
+    imageFsPromises = nodeFsPromises,
     sleep = (duration) => new Promise((resolve) => setTimeout(resolve, duration)),
     now = Date.now,
   } = dependencies;
@@ -355,6 +359,11 @@ export const createOpenChamberControlService = (dependencies) => {
 
   const pageAnswers = createPageAnswers({ onWaitChange: onPageWaitChange });
   const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled, pageAnswers });
+  const generateImage = createImageGenerationAction({
+    getClient,
+    readSettings: readSettingsFromDiskMigrated,
+    fsPromises: imageFsPromises,
+  });
 
   const models = async () => {
     const settings = await readSettingsFromDiskMigrated();
@@ -889,6 +898,9 @@ export const createOpenChamberControlService = (dependencies) => {
           directory: asNonEmptyString(contextDirectory),
           signal: options.signal,
         });
+      }
+      if (action === 'image.generate') {
+        return await generateImage(input, { directory: asNonEmptyString(contextDirectory), signal: options.signal });
       }
       if (action === 'file.open') {
         if (!fileOpen) {
