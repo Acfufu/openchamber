@@ -4,6 +4,7 @@ import { Window } from 'happy-dom';
 import {
   buildClickScript,
   buildInspectScript,
+  buildQuietScript,
   buildScrollScript,
   buildSelectScript,
   buildSnapshotScript,
@@ -110,6 +111,38 @@ describe('page action scripts', () => {
     const script = buildSnapshotScript({ selector: '#changelog' });
     expect(script).toContain('"#changelog"');
     expect(script).toContain('root.querySelectorAll');
+  });
+
+  test('waiting for quiet holds while the page keeps changing, then answers', async () => {
+    const win = new Window({ url: 'http://localhost:3000/' });
+    win.document.body.innerHTML = '<div id="root">Loading</div>';
+    const root = win.document.querySelector('#root');
+    if (!root) throw new Error('test root was not created');
+    const run = (script: string): Promise<{ ok: boolean; quiet: boolean }> => Promise.resolve(new Function(
+      'window', 'document', 'MutationObserver', 'PerformanceObserver', 'performance', 'setTimeout',
+      `return ${script}`,
+    )(win, win.document, win.MutationObserver, undefined, performance, setTimeout));
+
+    const startedAt = performance.now();
+    const ticker = setInterval(() => { root.textContent = String(performance.now()); }, 20);
+    const changing = await run(buildQuietScript({ quietMs: 100, maxMs: 300 }));
+    clearInterval(ticker);
+    expect(changing).toEqual({ ok: true, quiet: false });
+    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(290);
+
+    setTimeout(() => { root.textContent = 'App'; }, 50);
+    expect(await run(buildQuietScript({ quietMs: 100, maxMs: 2_000 }))).toEqual({ ok: true, quiet: true });
+    await win.happyDOM.close();
+  });
+
+  test('a scoped snapshot returns the text of its subtree only', () => {
+    const win = new Window({ url: 'http://localhost:3000/' });
+    win.document.body.innerHTML = '<nav>Sidebar session</nav><div role="dialog">Appearance settings</div>';
+
+    const result = JSON.parse(runInWindow(win, buildSnapshotScript({ selector: '[role=dialog]' })));
+
+    expect(result.text).toContain('Appearance settings');
+    expect(result.text).not.toContain('Sidebar session');
   });
 
   test('snapshots native select options in live DOM order with state metadata', () => {

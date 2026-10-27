@@ -98,6 +98,20 @@ itself; it can only ask and wait.
   Chromium composites a transparent webview but not a hidden or clipped one.
   A hidden page also gets no animation frames, so `browser.scroll` waits for
   two frames at most 100 ms (`pageActions.ts`) and then answers anyway.
+  `browser.open` reports `settled` only once the page has loaded and then gone
+  quiet: no new resource and no DOM tree or text change for 500 ms
+  (`buildQuietScript`), waited at most 5 s. The load event alone came while an
+  app was still fetching its lazy chunks behind its splash screen, so a capture
+  right after it showed the splash. An open without `tabId` on a driving host
+  waits for the new tab's view and asks it the same through the pane-only
+  `browser.settle`; the tab is open either way, so a failed wait answers
+  `settled: false`, never an error. `browser.capture` waits the same way for at
+  most 3 s, then shoots what is there. Attribute changes do not count, because
+  a finished page changes classes and styles on hover all the time. A page can
+  report a resource only once it has arrived, so a single chunk slower than
+  500 ms behind an unchanging splash still ends the wait early; the next
+  snapshot shows the splash, and nothing in the page can see a request in
+  flight.
   Agent work never takes keyboard focus from the user
   (`useWebviewFocusGuard` beside `BrowserPane`): a page may take focus only
   while the user can see it and no agent action is driving it, otherwise focus
