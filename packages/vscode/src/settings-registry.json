@@ -496,6 +496,13 @@
         "vscode"
       ]
     },
+    "sessionTabsPerWorkspace": {
+      "scope": "profile",
+      "surfaces": [
+        "web",
+        "desktop"
+      ]
+    },
     "allowPromptingSubagentSessions": {
       "scope": "profile"
     },
@@ -853,10 +860,6 @@
       "local": true
     },
     "contextEditorTreeWidth": {
-      "scope": "device",
-      "local": true
-    },
-    "contextZoneSizes": {
       "scope": "device",
       "local": true
     },
