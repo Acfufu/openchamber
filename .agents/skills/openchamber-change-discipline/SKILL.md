@@ -61,6 +61,17 @@ For persisted data, require a migration only when existing stored data needs con
 
 Do not hide a required architectural migration behind a local heuristic. Do not turn a local fix into a speculative rewrite.
 
+## Answering Review Findings
+
+When a reviewer (a subagent, a review session, a bot) reports on your change, you own the change and the reviewer advises. Review loops grow a change one cheap-looking fix at a time; hold it at the size its goal needs.
+
+- Weigh every finding yourself before acting. A problem the change neither causes nor set out to fix (another path, a rare case, a small cost that was there before) is a nit, whatever label it came with. A regression this change introduces is never a nit, however rare its case.
+- Fix what is wrong in the case the change is for, with the smallest fix. A fix that deletes or narrows code beats a new guard, helper, option, or test the goal does not need.
+- A finding you think is wrong stays unfixed, with evidence: file and line, a test, command output. Decline nits and out-of-scope items in one line each; a real problem outside the change goes to the report as a follow-up.
+- Never agree with a finding just to end the review.
+- A finding still disputed after you and the reviewer have each answered twice goes to the maintainer, with both positions in two or three lines each. Do not argue a third round.
+- After the fixes, compare the diff size with the one before review. If review grew it, cut first.
+
 ## Validation Matrix
 
 | Change | Minimum validation |
