@@ -8,7 +8,9 @@
       "id": "5525a5ee-9c03-44d1-a401-1e4b9397765c",
       "name": "DevHMR",
       "command": "bun run dev",
-      "icon": "rocket"
+      "icon": "rocket",
+      "autoOpenUrl": true,
+      "openUrl": "http://localhost:5180"
     },
     {
       "id": "acd3f2c9-eae2-4956-88e3-80633a9e38df",
@@ -16,7 +18,7 @@
       "command": "bun run dev",
       "icon": "stack",
       "autoOpenUrl": true,
-      "openUrl": "http://127.0.0.1:5180/mobile.html"
+      "openUrl": "http://localhost:5180/mobile.html"
     },
     {
       "id": "oc-deploy-testing",
