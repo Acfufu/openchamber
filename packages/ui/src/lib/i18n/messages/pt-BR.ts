@@ -1910,6 +1910,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': 'Revisão de código interrompida: o revisor discorda de uma correção recusada, a decisão é sua',
   'chat.autoReview.result.limit': 'Revisão de código interrompida no limite de rodadas com apontamentos em aberto',
   'chat.autoReview.result.failed': 'A revisão de código falhou',
+  'chat.autoReview.result.stopped': 'Revisão de código parada: você interrompeu um turno',
   'chat.autoReview.actions.dismiss': 'Dispensar',
   'chat.autoReview.toast.removeFailed': 'Não foi possível contatar o servidor para alterar a revisão de código. Tente novamente.',
   'chat.prWatch.title': 'Aguardando o pull request #{number}',

@@ -1873,6 +1873,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'توقفت مراجعة الكود: المراجع لا يوافق على إصلاح مرفوض، القرار لك',
   'chat.autoReview.result.limit': 'توقفت مراجعة الكود عند حد الجولات مع ملاحظات مفتوحة',
   'chat.autoReview.result.failed': 'فشلت مراجعة الكود',
+  'chat.autoReview.result.stopped': 'توقفت مراجعة الكود: تمت مقاطعة دور',
   'chat.autoReview.actions.dismiss': 'إغلاق',
   'chat.autoReview.toast.removeFailed': 'تعذر الوصول إلى الخادم لتغيير مراجعة الكود. حاول مرة أخرى.',
   'chat.prWatch.title': 'بانتظار طلب السحب #{number}',

@@ -2148,6 +2148,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': 'Przegląd kodu zatrzymany: recenzent nie zgadza się z odrzuconą poprawką, decyzja należy do Ciebie',
   'chat.autoReview.result.limit': 'Przegląd kodu zatrzymany na limicie rund, uwagi wciąż są otwarte',
   'chat.autoReview.result.failed': 'Przegląd kodu nie powiódł się',
+  'chat.autoReview.result.stopped': 'Przegląd kodu zatrzymany: przerwano turę',
   'chat.autoReview.actions.dismiss': 'Zamknij',
   'chat.autoReview.toast.removeFailed': 'Nie udało się połączyć z serwerem, aby zmienić przegląd kodu. Spróbuj ponownie.',
   'chat.prWatch.title': 'Czeka na pull request #{number}',

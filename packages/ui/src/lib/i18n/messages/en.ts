@@ -1941,6 +1941,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'Code review stopped: the reviewer still disagrees with a declined fix, your call',
   'chat.autoReview.result.limit': 'Code review stopped at the round limit with findings still open',
   'chat.autoReview.result.failed': 'Code review failed',
+  'chat.autoReview.result.stopped': 'Code review stopped: you interrupted a turn',
   'chat.autoReview.actions.dismiss': 'Dismiss',
   'chat.autoReview.toast.removeFailed': 'Could not reach the server to change the code review. Try again.',
   'chat.prWatch.title': 'Waiting on pull request #{number}',

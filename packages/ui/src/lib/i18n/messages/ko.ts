@@ -1941,6 +1941,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': '코드 리뷰 중단: 리뷰어가 거절된 수정에 동의하지 않습니다. 직접 결정하세요',
   'chat.autoReview.result.limit': '라운드 한도에서 코드 리뷰를 중단했습니다. 남은 지적이 있습니다',
   'chat.autoReview.result.failed': '코드 리뷰 실패',
+  'chat.autoReview.result.stopped': '코드 리뷰 중단됨: 턴을 중단했습니다',
   'chat.autoReview.actions.dismiss': '닫기',
   'chat.autoReview.toast.removeFailed': '코드 리뷰를 변경하려고 서버에 연결하지 못했습니다. 다시 시도하세요.',
   'chat.prWatch.title': '풀 리퀘스트 #{number} 대기 중',

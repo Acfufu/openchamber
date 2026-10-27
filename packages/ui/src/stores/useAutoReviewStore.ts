@@ -16,7 +16,7 @@ const runSchema = z.object({
   originalSessionID: z.string().min(1),
   reviewSessionID: z.string().min(1),
   directory: z.string().min(1),
-  status: z.enum(['running', 'clean', 'disputed', 'limit', 'failed']),
+  status: z.enum(['running', 'clean', 'disputed', 'limit', 'failed', 'stopped']),
   step: z.enum(['handoff', 'review', 'implement']),
   round: z.number(),
   maxRounds: z.number(),

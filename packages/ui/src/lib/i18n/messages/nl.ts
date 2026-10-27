@@ -1936,6 +1936,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'Codereview gestopt: de reviewer is het oneens met een afgewezen fix, jij beslist',
   'chat.autoReview.result.limit': 'Codereview gestopt bij de rondelimiet, er staan nog bevindingen open',
   'chat.autoReview.result.failed': 'Codereview mislukt',
+  'chat.autoReview.result.stopped': 'Codereview gestopt: je hebt een beurt onderbroken',
   'chat.autoReview.actions.dismiss': 'Sluiten',
   'chat.autoReview.toast.removeFailed': 'Kon de server niet bereiken om de codereview te wijzigen. Probeer het opnieuw.',
   'chat.prWatch.title': 'Wacht op pull request #{number}',

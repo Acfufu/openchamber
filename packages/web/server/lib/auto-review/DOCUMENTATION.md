@@ -27,9 +27,9 @@ send, awaiting, error?, dispute?, startedAt, updatedAt }`, keyed by the
 reviewed session, at most one per session. `status` is `running`, or how it
 ended: `clean` (nothing left, the reviewer's last word was delivered to the
 implementer), `disputed` (only declines the reviewer still contests, with
-`dispute`), `limit` (5 re-reviews without an end), `failed` (with `error`). A stop by the user removes the run
-instead of keeping a status, and so does a user abort of the turn the run waits
-on. `step` is what the run is getting: the implementer's `handoff`, the
+`dispute`), `limit` (5 re-reviews without an end), `failed` (with `error`),
+`stopped` (the user aborted the turn the run waited on). The row's Stop removes
+the run instead of keeping a status: the user asked for the row to go. `step` is what the run is getting: the implementer's `handoff`, the
 reviewer's `review`, the implementer's answer in `implement`.
 
 Persisted in `<data-dir>/auto-review.json`, written atomically through a
@@ -72,8 +72,9 @@ Each step is one send and the end of the turn it starts.
 4. The turn is over when the session is idle and OpenCode has appended an
    `idle` record newer than the baseline (`readDispatchOutcome` of
    `../dispatch-results`, with `withText`: the text comes from the newest reply
-   of the turn that has any). `interrupted` removes the run, `failed` settles
-   it as failed with OpenCode's message, a turn with no text fails it too.
+   of the turn that has any). `interrupted` settles it as `stopped`, `failed`
+   settles it as failed with OpenCode's message, a turn with no text fails it
+   too.
 5. The reply decides the next send. The handoff fills `{{handoff}}` of the
    reviewer's first prompt, which carries the review rules and the loop rules
    as context. A review ending in `FINAL_REVIEW_STATUS: disputed` settles as
@@ -107,6 +108,23 @@ a start, every session counts as held until this module's first load settles
 independently, and a queue that loaded first would otherwise deliver into a
 run it did not know about yet. A failed load releases the hold rather than
 keep every queue waiting.
+
+## Notification
+
+Every step ends a turn of one of the two sessions, and each would announce
+itself as a "ready" notification. `speaksFor(sessionID)` tells the
+notification runtime (`../notifications/runtime.js`, `isInAutoReview`) that a
+turn belongs to a run: either session of a running run, or of one that
+settled after that turn ended, since a run settles on the idle of its last
+step and may do so before the notification asks. A turn that ends after the
+run settled, such as a queued follow-up the end released, notifies as usual. Those turns announce nothing. A run
+that ends on its own (`clean`, `disputed`, `limit`, `failed`) calls
+`onRunEnded`, and the notification runtime sends one notification for the
+reviewed session (`notifyAutoReviewEnded`), under the completion toggle. A
+`stopped` run announces nothing: the user just stopped it. The host's
+notifications for a chat of an isolated space do not ask the space's runs
+(`spaceId` skips the check), so a review inside a space keeps its per-step
+"ready" notifications.
 
 ## Routes and events
 

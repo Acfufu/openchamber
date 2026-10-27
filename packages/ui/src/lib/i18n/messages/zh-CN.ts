@@ -1907,6 +1907,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': '代码审查已停止：审查者仍不同意被拒绝的修改，请你决定',
   'chat.autoReview.result.limit': '代码审查在轮次上限处停止，仍有未解决的问题',
   'chat.autoReview.result.failed': '代码审查失败',
+  'chat.autoReview.result.stopped': '代码审查已停止：你中断了一轮对话',
   'chat.autoReview.actions.dismiss': '关闭',
   'chat.autoReview.toast.removeFailed': '无法连接服务器来更改代码审查。请重试。',
   'chat.prWatch.title': '正在等待拉取请求 #{number}',

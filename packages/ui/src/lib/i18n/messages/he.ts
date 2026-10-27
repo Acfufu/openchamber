@@ -1873,6 +1873,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'סקירת הקוד נעצרה: הסוקר לא מסכים עם תיקון שנדחה, ההחלטה שלך',
   'chat.autoReview.result.limit': 'סקירת הקוד נעצרה במגבלת הסבבים, ונשארו הערות פתוחות',
   'chat.autoReview.result.failed': 'סקירת הקוד נכשלה',
+  'chat.autoReview.result.stopped': 'סקירת הקוד נעצרה: תור נקטע',
   'chat.autoReview.actions.dismiss': 'סגירה',
   'chat.autoReview.toast.removeFailed': 'לא ניתן היה להגיע לשרת כדי לשנות את סקירת הקוד. נסו שוב.',
   'chat.prWatch.title': 'ממתין לבקשת המשיכה #{number}',

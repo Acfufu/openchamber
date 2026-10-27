@@ -1802,6 +1802,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'Kod incelemesi durdu: inceleyen, reddedilen bir düzeltmeye hâlâ katılmıyor, karar sizin',
   'chat.autoReview.result.limit': 'Kod incelemesi tur sınırında durdu, açık bulgular var',
   'chat.autoReview.result.failed': 'Kod incelemesi başarısız oldu',
+  'chat.autoReview.result.stopped': 'Kod incelemesi durdu: bir turu yarıda kestin',
   'chat.autoReview.actions.dismiss': 'Kapat',
   'chat.autoReview.toast.removeFailed': 'Kod incelemesini değiştirmek için sunucuya ulaşılamadı. Tekrar deneyin.',
   'chat.prWatch.title': '#{number} numaralı pull request bekleniyor',

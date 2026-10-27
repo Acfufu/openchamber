@@ -1946,6 +1946,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': 'コードレビュー停止: 却下された修正にレビュアーが同意していません。判断してください',
   'chat.autoReview.result.limit': 'ラウンド上限でコードレビューを停止しました。未解決の指摘があります',
   'chat.autoReview.result.failed': 'コードレビューに失敗しました',
+  'chat.autoReview.result.stopped': 'コードレビューを停止しました：ターンが中断されました',
   'chat.autoReview.actions.dismiss': '閉じる',
   'chat.autoReview.toast.removeFailed': 'コードレビューを変更するためにサーバーに接続できませんでした。もう一度お試しください。',
   'chat.prWatch.title': 'プルリクエスト #{number} を待機中',

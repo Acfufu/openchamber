@@ -1010,6 +1010,8 @@ const notificationTriggerRuntime = createNotificationTriggerRuntime({
   readSessionMetadata: readStoredSessionMetadata,
   // Read at call time: the isolated-spaces switch turns the host on and off live.
   spaceFetchFor: (spaceId) => spacesHost?.openCodeFetchFor(spaceId) ?? null,
+  // Declared further down; only ever called after startup.
+  isInAutoReview: (sessionId, turnEndedAt) => autoReviewRuntime.speaksFor(sessionId, turnEndedAt),
 });
 
 const maybeSendPushForTrigger = (...args) => notificationTriggerRuntime.maybeSendPushForTrigger(...args);
@@ -1242,6 +1244,7 @@ const autoReviewRuntime = createAutoReviewRuntime({
   broadcastUiEvent: broadcastOpenChamberUiEvent,
   // Declared right below; only called once a run ends.
   onRunSettled: (sessionId) => messageQueueRuntime.release(sessionId),
+  onRunEnded: (ended) => notificationTriggerRuntime.notifyAutoReviewEnded(ended),
   routeSend: ({ sessionId, directory, text }) => (
     routingRuntime.isAutoSession(sessionId) ? routingRuntime.routeSend({ sessionId, directory, body: { text } }) : null
   ),

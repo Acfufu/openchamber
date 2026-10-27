@@ -67,7 +67,7 @@ const messageIdSchema = z.string().regex(/^msg_[A-Za-z0-9]{8,64}$/);
 const timeSchema = z.number().finite().nonnegative();
 const promptSchema = z.string().max(PROMPT_CHAR_LIMIT);
 
-const STATUSES = ['running', 'clean', 'disputed', 'limit', 'failed'];
+const STATUSES = ['running', 'clean', 'disputed', 'limit', 'failed', 'stopped'];
 const STEPS = ['handoff', 'review', 'implement'];
 
 const templatesSchema = z.object({
@@ -206,6 +206,9 @@ export function createAutoReviewRuntime({
   broadcastUiEvent,
   // A run holds the reviewed session's message queue; settling releases it.
   onRunSettled,
+  // Told when a run ends on its own (not `stopped`): the one notification
+  // the review sends, in place of the "ready" of each step.
+  onRunEnded = null,
   // Puts a session on Auto onto the model routing picks for this prompt, as
   // the proxy does for a UI send; this runtime posts to OpenCode directly.
   routeSend = null,
@@ -333,6 +336,21 @@ export function createAutoReviewRuntime({
 
   const isRunning = (sessionID) => runs.get(sessionID)?.status === 'running';
 
+  /**
+   * Whether a turn of `sessionID` that ended at `turnEndedAt` is a step of a
+   * run, either session of it: the run is running, or it settled after that
+   * turn ended, since a run settles on the idle of its last step and may do
+   * so before the notification asks. A turn that ends after the run settled
+   * (a queued follow-up the end released) is the user's own.
+   */
+  const speaksFor = (sessionID, turnEndedAt) => {
+    for (const run of runs.values()) {
+      if (run.originalSessionID !== sessionID && run.reviewSessionID !== sessionID) continue;
+      if (run.status === 'running' || run.updatedAt >= turnEndedAt) return true;
+    }
+    return false;
+  };
+
   // --- OpenCode access -----------------------------------------------------
 
   const openCodeRequest = async (fetchPath, { method = 'GET', body, query } = {}) => {
@@ -436,6 +454,10 @@ export function createAutoReviewRuntime({
     forgetLoopState(run.originalSessionID);
     await commit(run.originalSessionID, run.directory);
     Promise.resolve().then(() => onRunSettled?.(run.originalSessionID)).catch(() => undefined);
+    if (status !== 'stopped') {
+      const ended = { sessionId: run.originalSessionID, directory: run.directory, status, error: run.error };
+      Promise.resolve().then(() => onRunEnded?.(ended)).catch(() => undefined);
+    }
     console.log(`[auto-review] review of ${run.originalSessionID} ended: ${status}${error ? ` (${error})` : ''}`);
   };
 
@@ -574,8 +596,9 @@ export function createAutoReviewRuntime({
         return;
       }
       settleChecks.delete(originalSessionID);
-      // The user stopped the turn: that stops the review too.
-      if (outcome.state === 'cancelled') return remove(originalSessionID);
+      // The user stopped the turn: that stops the review too, and the row
+      // says so instead of vanishing.
+      if (outcome.state === 'cancelled') return settle(run, 'stopped');
       if (outcome.state === 'error') {
         return settle(run, 'failed', outcome.errorMessage ? `The ${WHO[run.step]}'s turn failed: ${outcome.errorMessage}` : `The ${WHO[run.step]}'s turn failed.`);
       }
@@ -731,6 +754,7 @@ export function createAutoReviewRuntime({
     startRun: start,
     removeRun: remove,
     isRunning,
+    speaksFor,
     /**
      * Whether the session's queue must wait: a run holds it, or the runs are
      * not loaded yet after a start. `startupLoad` resolves when they are.

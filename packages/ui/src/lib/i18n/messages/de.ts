@@ -1677,6 +1677,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'Code-Review angehalten: Der Reviewer widerspricht einer abgelehnten Korrektur, Sie entscheiden',
   'chat.autoReview.result.limit': 'Code-Review am Rundenlimit angehalten, Befunde sind noch offen',
   'chat.autoReview.result.failed': 'Code-Review fehlgeschlagen',
+  'chat.autoReview.result.stopped': 'Code-Review beendet: Du hast einen Durchlauf abgebrochen',
   'chat.autoReview.actions.dismiss': 'Schließen',
   'chat.autoReview.toast.removeFailed': 'Der Server war nicht erreichbar, um das Code-Review zu ändern. Versuchen Sie es erneut.',
   'chat.prWatch.title': 'Wartet auf Pull Request #{number}',

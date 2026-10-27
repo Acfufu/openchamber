@@ -1922,6 +1922,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': '程式碼審查已停止：審查者仍不同意被拒絕的修正，請你決定',
   'chat.autoReview.result.limit': '程式碼審查在輪次上限處停止，仍有未解決的問題',
   'chat.autoReview.result.failed': '程式碼審查失敗',
+  'chat.autoReview.result.stopped': '程式碼審查已停止：你中斷了一輪對話',
   'chat.autoReview.actions.dismiss': '關閉',
   'chat.autoReview.toast.removeFailed': '無法連線伺服器來變更程式碼審查。請再試一次。',
   'chat.prWatch.title': '正在等待拉取請求 #{number}',

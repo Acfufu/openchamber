@@ -105,6 +105,7 @@ const createRuntime = async ({ dataDir, openCode = createOpenCode(), retryDelayM
   let eventHandler = () => {};
   const broadcasts = [];
   const settled = [];
+  const ended = [];
   const runtime = createAutoReviewRuntime({
     globalEventHub: {
       subscribeEvent(handler) { eventHandler = handler; return () => {}; },
@@ -114,6 +115,7 @@ const createRuntime = async ({ dataDir, openCode = createOpenCode(), retryDelayM
     getOpenCodeAuthHeaders: () => ({}),
     broadcastUiEvent: (event) => broadcasts.push(event),
     onRunSettled: (sessionID) => settled.push(sessionID),
+    onRunEnded: (run) => ended.push(run),
     routeSend,
     dataDir: dataDir ?? await makeDataDir(),
     fetchImpl: openCode.fetchImpl,
@@ -128,6 +130,7 @@ const createRuntime = async ({ dataDir, openCode = createOpenCode(), retryDelayM
     openCode,
     broadcasts,
     settled,
+    ended,
     emit: (payload) => eventHandler({ payload, translated: () => [payload] }),
   };
 };
@@ -177,7 +180,7 @@ describe('readDisputeSummary', () => {
 
 describe('createAutoReviewRuntime', () => {
   it('carries a handoff, the review, the fixes and the re-review until nothing is left', async () => {
-    const { runtime, openCode, settled } = await createRuntime();
+    const { runtime, openCode, settled, ended } = await createRuntime();
     openCode.state.replies[ORIGINAL].push('The handoff.', 'Fixed the blocker.');
     openCode.state.replies[REVIEW].push('1. Blocker: X breaks.', `Nit: a name.\n${FINAL_MARKER_CLEAN}`);
     runtime.start();
@@ -205,6 +208,15 @@ describe('createAutoReviewRuntime', () => {
     // The queue is released once the settled run is on disk.
     expect(await until(() => settled.length > 0)).toBe(true);
     expect(settled).toEqual([ORIGINAL]);
+    // One notification for the whole review, and its steps are its own.
+    expect(await until(() => ended.length > 0)).toBe(true);
+    expect(ended).toEqual([{ sessionId: ORIGINAL, directory: DIRECTORY, status: 'clean', error: undefined }]);
+    // The last step ended before the run settled; a turn after it is the user's.
+    const settledAt = runOf(runtime).updatedAt;
+    expect(runtime.speaksFor(ORIGINAL, settledAt - 1)).toBe(true);
+    expect(runtime.speaksFor(REVIEW, settledAt - 1)).toBe(true);
+    expect(runtime.speaksFor(ORIGINAL, settledAt + 1)).toBe(false);
+    expect(runtime.speaksFor('ses_someone_else', settledAt - 1)).toBe(false);
   });
 
   it('settles as disputed and sends nothing more when only contested declines are left', async () => {
@@ -246,16 +258,18 @@ describe('createAutoReviewRuntime', () => {
     expect(await until(() => openCode.state.prompts.length === 1)).toBe(true);
   });
 
-  it('ends the run when the user stops the turn it waits on', async () => {
-    const { runtime, openCode, settled } = await createRuntime();
+  it('stops the run when the user stops the turn it waits on, and says so without notifying', async () => {
+    const { runtime, openCode, settled, ended } = await createRuntime();
     openCode.state.replies[ORIGINAL].push({ outcome: 'interrupted', text: 'Half a handoff' });
     runtime.start();
     await runtime.startRun(startInput());
 
-    expect(await until(() => runtime.snapshot().runs.length === 0)).toBe(true);
+    expect(await until(() => runOf(runtime)?.status === 'stopped')).toBe(true);
     expect(await until(() => settled.length > 0)).toBe(true);
     expect(settled).toEqual([ORIGINAL]);
     expect(openCode.state.prompts).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(ended).toEqual([]);
   });
 
   it('reports a failed turn with its error', async () => {

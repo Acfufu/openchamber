@@ -1696,6 +1696,7 @@ export const dict = {
   'chat.autoReview.result.disputed': 'Revue de code arrêtée : le relecteur conteste une correction refusée, à vous de trancher',
   'chat.autoReview.result.limit': 'Revue de code arrêtée à la limite de tours, des remarques restent ouvertes',
   'chat.autoReview.result.failed': 'La revue de code a échoué',
+  'chat.autoReview.result.stopped': 'Revue de code arrêtée : tu as interrompu un tour',
   'chat.autoReview.actions.dismiss': 'Fermer',
   'chat.autoReview.toast.removeFailed': 'Impossible de joindre le serveur pour modifier la revue de code. Réessayez.',
   'chat.prWatch.title': 'En attente de la pull request #{number}',

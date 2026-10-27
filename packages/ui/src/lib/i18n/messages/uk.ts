@@ -1910,6 +1910,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.autoReview.result.disputed': 'Код-ревʼю зупинено: ревʼювер не згоден із відхиленою правкою, вирішуєте ви',
   'chat.autoReview.result.limit': 'Код-ревʼю зупинено на ліміті кіл, зауваження лишились',
   'chat.autoReview.result.failed': 'Код-ревʼю не вдалося',
+  'chat.autoReview.result.stopped': 'Код-ревʼю зупинено: хід перервано',
   'chat.autoReview.actions.dismiss': 'Закрити',
   'chat.autoReview.toast.removeFailed': 'Не вдалося звʼязатися із сервером, щоб змінити код-ревʼю. Спробуйте ще раз.',
   'chat.prWatch.title': 'Чекає на PR #{number}',

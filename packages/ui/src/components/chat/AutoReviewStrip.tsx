@@ -17,6 +17,7 @@ const RESULT = {
   disputed: { icon: 'error-warning', className: 'text-status-warning', labelKey: 'chat.autoReview.result.disputed' },
   limit: { icon: 'error-warning', className: 'text-status-warning', labelKey: 'chat.autoReview.result.limit' },
   failed: { icon: 'close-circle', className: 'text-status-error', labelKey: 'chat.autoReview.result.failed' },
+  stopped: { icon: 'stop', className: 'text-muted-foreground', labelKey: 'chat.autoReview.result.stopped' },
 } satisfies Record<SettledStatus, { icon: IconName; className: string; labelKey: I18nKey }>;
 
 /**
