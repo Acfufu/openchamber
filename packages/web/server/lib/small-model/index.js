@@ -161,45 +161,47 @@ const noClientError = () => Object.assign(
 );
 
 /**
- * The model families that count as "small", most preferred first. The same
- * list OpenCode uses for its own session titles (`Catalog.model.small` in
+ * The tiers that count as "small", most preferred first. The tiers are the
+ * ones OpenCode uses for its own session titles (`Catalog.model.small` in
  * `packages/core/src/catalog.ts`); OpenCode does not expose that lookup over
- * HTTP, so the scan is repeated here on `GET /api/model`.
+ * HTTP, so the scan is repeated here on `GET /api/model`. A tier is a name,
+ * not one lab's family: every lab's flash (`deepseek-flash`, `glm-flash`,
+ * `mimo-v2.6-flash`) is a flash. Flash ranks before luna, unlike OpenCode's
+ * list: on gateways a flash is the open model with the larger allowance,
+ * where luna sends the content to OpenAI. `flash-lite` stays ahead of
+ * `flash`, which is also how `smallModelTierOf` tells the two apart.
  */
-export const SMALL_MODEL_FAMILY_PRIORITY = ['gpt-luna', 'gemini-flash-lite', 'gemini-flash', 'claude-haiku'];
+export const SMALL_MODEL_TIER_PRIORITY = ['flash-lite', 'flash', 'luna', 'haiku'];
 
 /**
- * A model's family: the catalog's `family` (models.dev) when it has one,
- * else read from the id. A custom provider or a subscription outside the
- * catalog has no `family`, yet its `gemini-3.6-flash` is still a flash.
+ * A model's small tier, read from the catalog's `family` (models.dev) and its
+ * id together: a catalog family can be a whole line (`mimo`, `qwen`) while
+ * the id names the flash, and a custom provider has no `family` at all.
  */
-export const familyOf = (model) => {
-  if (model?.family) return String(model.family);
-  const id = String(model?.id ?? '').toLowerCase();
-  if (id.includes('luna')) return 'gpt-luna';
-  if (id.includes('flash-lite') || id.includes('flash_lite')) return 'gemini-flash-lite';
-  if (id.includes('flash')) return 'gemini-flash';
-  if (id.includes('haiku')) return 'claude-haiku';
-  return null;
+export const smallModelTierOf = (model) => {
+  const name = `${model?.family ?? ''} ${model?.id ?? ''}`.toLowerCase().replaceAll('_', '-');
+  return SMALL_MODEL_TIER_PRIORITY.find((tier) => name.includes(tier)) ?? null;
 };
 
 /**
  * The small model within one provider: the newest enabled, active, text-in
- * text-out model of the first family in `SMALL_MODEL_FAMILY_PRIORITY` that the
- * provider has. Null when the provider has none of those families.
+ * text-out model of the first tier in `SMALL_MODEL_TIER_PRIORITY` that the
+ * provider has. Null when the provider has none of those tiers.
  */
 export const pickSmallModelInProvider = (models, providerID) => pickSmallModel(models, (model) => model.providerID === providerID);
 
+/** Enabled, active, text in and text out; a field OpenCode does not report counts as fine. */
+const isUsableTextModel = (model) => model.enabled !== false
+  && (model.status === undefined || model.status === 'active')
+  && (model.capabilities?.input ?? ['text']).some((item) => String(item).startsWith('text'))
+  && (model.capabilities?.output ?? ['text']).some((item) => String(item).startsWith('text'));
+
 const pickSmallModel = (models, accept) => {
   const candidates = models
-    .filter((model) => model && accept(model)
-      && model.enabled !== false
-      && (model.status === undefined || model.status === 'active')
-      && (model.capabilities?.input ?? ['text']).some((item) => String(item).startsWith('text'))
-      && (model.capabilities?.output ?? ['text']).some((item) => String(item).startsWith('text')))
+    .filter((model) => model && accept(model) && isUsableTextModel(model))
     .sort((a, b) => (Number(b.time?.released) || 0) - (Number(a.time?.released) || 0));
-  for (const family of SMALL_MODEL_FAMILY_PRIORITY) {
-    const found = candidates.find((model) => familyOf(model) === family);
+  for (const tier of SMALL_MODEL_TIER_PRIORITY) {
+    const found = candidates.find((model) => smallModelTierOf(model) === tier);
     if (found) return { providerID: found.providerID, modelID: found.id };
   }
   return null;
@@ -213,10 +215,11 @@ const pickSmallModel = (models, accept) => {
  *    including the thinking variant chosen beside the model.
  * 3. The small model configured for OpenCode itself: the `title` agent's
  *    model and variant (`agents.title.model`, or v1 `small_model`) — `config`.
- * 4. The small model of the caller's provider — the session's, or the one
- *    in the composer (family scan above) — `session-provider-small`. Without
- *    one the caller's own model (`session-model`): costlier, but never
- *    someone else's subscription.
+ * 4. The caller's own model when it is already a small one (`session-model`).
+ *    Otherwise the small model of the caller's provider — the session's, or
+ *    the one in the composer (tier scan above) — `session-provider-small`.
+ *    Without one the caller's own model (`session-model`): costlier, but
+ *    never someone else's subscription.
  * 5. `GET /api/model/default`: OpenCode's default model — `default`, only
  *    when the caller named no provider or it is on that provider. This is
  *    the chat default, not a small model; OpenCode's own family scan is not
@@ -248,7 +251,18 @@ const resolveSmallModel = async ({ client, directory, model, variant, preferredP
   }
 
   if (preferredProviderID) {
-    const small = pickSmallModelInProvider(await listModelInfos(client, directory), preferredProviderID);
+    const models = await listModelInfos(client, directory);
+    // A session already on a small model keeps the side work there: another
+    // small model of the same gateway can be another lab the user did not
+    // pick, with its own retention terms. One OpenCode reports unusable (its
+    // login gone, retired) falls through to the scan below.
+    if (preferredModelID) {
+      const sessionModel = findModelInfo(models, preferredProviderID, preferredModelID) ?? { id: preferredModelID };
+      if (smallModelTierOf(sessionModel) && isUsableTextModel(sessionModel)) {
+        return { providerID: preferredProviderID, modelID: preferredModelID, source: 'session-model' };
+      }
+    }
+    const small = pickSmallModelInProvider(models, preferredProviderID);
     if (small) return { ...small, source: 'session-provider-small' };
     // OpenCode's own titles end here too: the model the user works with.
     if (preferredModelID) return { providerID: preferredProviderID, modelID: preferredModelID, source: 'session-model' };

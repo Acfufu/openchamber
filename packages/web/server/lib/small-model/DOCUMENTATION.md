@@ -87,15 +87,16 @@ Five things are decided here, in order:
    session's, or the composer's for commit messages, PR descriptions, spoken
    summaries, the diff walkthrough and extensions) —
    `source: 'session-provider-small'` — found by `pickSmallModelInProvider`:
-   the newest enabled, active, text-in text-out model of the first family in
-   `SMALL_MODEL_FAMILY_PRIORITY` (`gpt-luna`, `gemini-flash-lite`,
-   `gemini-flash`, `claude-haiku`) that the provider has. This is
-   OpenCode's own list for its session titles (`Catalog.model.small`),
-   repeated here because OpenCode does not expose it over HTTP. Families are
-   models.dev `family` values, not model ids (`gpt-luna` is the family of
-   `gpt-5.6-luna`); a model without one — a custom provider, a subscription
-   outside the catalog — gets its family read from its id (`familyOf`:
-   luna / flash-lite / flash / haiku). A provider with none of these families
+   the newest enabled, active, text-in text-out model of the first tier in
+   `SMALL_MODEL_TIER_PRIORITY` (`flash-lite`, `flash`, `luna`, `haiku`) that
+   the provider has. When the caller's own model is already in one of these
+   tiers, it is used as is (`source: 'session-model'`) and the scan does not
+   run. The tiers are OpenCode's own for its session titles
+   (`Catalog.model.small`), repeated here because OpenCode does not expose
+   them over HTTP. A tier is matched as a name in the models.dev `family` and
+   the model id together (`smallModelTierOf`), so every lab's flash counts:
+   `deepseek-flash`, `glm-flash`, and `mimo-v2.6-flash`, whose catalog family
+   is just `mimo`. A provider with none of these tiers
    takes the caller's own model (`preferredModelID`) — `source:
    'session-model'`: costlier than a small model elsewhere, but never another
    provider's subscription. OpenCode's titles end the same way.
@@ -116,6 +117,14 @@ them, and the walkthrough and extensions reached it without even passing
 their provider. Content goes only to the provider the user works with, the
 model they picked, the small model they set for OpenCode, or the default they
 configured.
+
+Inside one provider the tier order differs from OpenCode's, which puts luna
+first. A gateway such as OpenCode Go sells many labs under one provider, with
+a monthly allowance per model: there luna has a small allowance and keeps
+requests at OpenAI for 30 days, while the flash models are open models with
+larger allowances and no retention. A session on DeepSeek V4.1 Flash had its
+goal checks sent to GPT 6 Luna; it now stays on its own model, and a session
+on a large model gets the provider's flash before its luna.
 
 ## Thinking variants
 

@@ -339,6 +339,45 @@ describe('generateSmallModelText', () => {
     expect(result).toMatchObject({ providerID: 'my-proxy', modelID: 'gemini-3.6-flash', source: 'session-provider-small' });
   });
 
+  it('counts every lab\'s flash as a flash, keeps a session already on a small model, and ranks flash before luna', async () => {
+    state.models = [
+      MODEL({ id: 'deepseek-v4-pro', modelID: 'deepseek-v4-pro', providerID: 'deepseek', family: 'deepseek-thinking' }),
+      MODEL({ id: 'deepseek-v4.1-flash', modelID: 'deepseek-v4.1-flash', providerID: 'deepseek', family: 'deepseek-flash' }),
+      MODEL({ id: 'glm-5.3', modelID: 'glm-5.3', providerID: 'zai', family: 'glm' }),
+      MODEL({ id: 'glm-5.3-flash', modelID: 'glm-5.3-flash', providerID: 'zai', family: 'glm-flash' }),
+      MODEL({ id: 'mimo-v2.6-pro', modelID: 'mimo-v2.6-pro', providerID: 'xiaomi', family: 'mimo' }),
+      MODEL({ id: 'mimo-v2.6-flash', modelID: 'mimo-v2.6-flash', providerID: 'xiaomi', family: 'mimo' }),
+      MODEL({ id: 'kimi-k3', modelID: 'kimi-k3', providerID: 'gateway', family: 'kimi-k3' }),
+      MODEL({ id: 'deepseek-v4.1-flash', modelID: 'deepseek-v4.1-flash', providerID: 'gateway', family: 'deepseek-flash' }),
+      MODEL({ id: 'glm-5.3-flash', modelID: 'glm-5.3-flash', providerID: 'gateway', family: 'glm-flash', time: { released: 2 } }),
+      MODEL({ id: 'gpt-6-luna', modelID: 'gpt-6-luna', providerID: 'gateway', family: 'gpt-luna', time: { released: 3 } }),
+      MODEL({ id: 'claude-sonnet-5', modelID: 'claude-sonnet-5', providerID: 'luna-only', family: 'claude-sonnet' }),
+      MODEL({ id: 'gpt-6-luna', modelID: 'gpt-6-luna', providerID: 'luna-only', family: 'gpt-luna' }),
+    ];
+
+    const pick = (providerID, modelID) => generateSmallModelText({ prompt: 'hi', directory: '/proj', preferredProviderID: providerID, preferredModelID: modelID });
+
+    expect(await pick('deepseek', 'deepseek-v4-pro')).toMatchObject({ modelID: 'deepseek-v4.1-flash', source: 'session-provider-small' });
+    expect(await pick('zai', 'glm-5.3')).toMatchObject({ modelID: 'glm-5.3-flash', source: 'session-provider-small' });
+    expect(await pick('xiaomi', 'mimo-v2.6-pro')).toMatchObject({ modelID: 'mimo-v2.6-flash', source: 'session-provider-small' });
+    expect(await pick('gateway', 'deepseek-v4.1-flash')).toMatchObject({ modelID: 'deepseek-v4.1-flash', source: 'session-model' });
+    expect(await pick('gateway', 'kimi-k3')).toMatchObject({ modelID: 'glm-5.3-flash', source: 'session-provider-small' });
+    expect(await pick('luna-only', 'claude-sonnet-5')).toMatchObject({ modelID: 'gpt-6-luna', source: 'session-provider-small' });
+  });
+
+  it('moves past a small session model that OpenCode reports unusable', async () => {
+    state.models = [
+      MODEL({ id: 'claude-haiku-4-5', modelID: 'claude-haiku-4-5', family: 'claude-haiku', enabled: false }),
+      MODEL({ id: 'claude-haiku-4-6', modelID: 'claude-haiku-4-6', family: 'claude-haiku', status: 'deprecated' }),
+      MODEL({ id: 'claude-haiku-5', modelID: 'claude-haiku-5', family: 'claude-haiku', capabilities: { input: ['image'], output: ['image'] } }),
+      MODEL({ id: 'claude-haiku-5-5', modelID: 'claude-haiku-5-5', family: 'claude-haiku' }),
+    ];
+    for (const modelID of ['claude-haiku-4-5', 'claude-haiku-4-6', 'claude-haiku-5']) {
+      expect(await generateSmallModelText({ prompt: 'hi', directory: '/proj', preferredProviderID: 'anthropic', preferredModelID: modelID }))
+        .toMatchObject({ modelID: 'claude-haiku-5-5', source: 'session-provider-small' });
+    }
+  });
+
   it('picks Claude Code haiku as the small model like any other provider', async () => {
     state.models = [MODEL({ id: 'haiku', modelID: 'haiku', providerID: 'claude-code', family: 'claude-haiku' })];
 
