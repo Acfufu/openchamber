@@ -370,7 +370,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // room for them there.
   const vscodeAlwaysActionPaddingClass = ['group-hover:pe-8', 'group-hover:pe-14', 'group-hover:pe-18', 'group-hover:pe-22'][extraHoverActions];
   const alwaysActionPaddingClass = showQuickArchiveAction ? 'pe-13' : 'pe-7';
-  const suppressNextSelectRef = React.useRef(false);
   const [isTouchPressed, setIsTouchPressed] = React.useState(false);
   const editingIdRef = React.useRef(editingId);
   editingIdRef.current = editingId;
@@ -1075,10 +1074,10 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   };
 
   const handleRowSelect = (event?: React.MouseEvent<HTMLElement>) => {
-    if (suppressNextSelectRef.current) {
-      suppressNextSelectRef.current = false;
-      return;
-    }
+    // Ctrl+click opens the context menu on macOS. Decided from the click
+    // itself: a right button press fires no click, so a flag set on press
+    // stayed set and swallowed the next real click.
+    if (event?.ctrlKey && !selectionModeEnabled) return;
     if (selectionModeEnabled) {
       event?.preventDefault();
       event?.stopPropagation();
@@ -1119,9 +1118,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   };
 
   const handleRowMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.button === 2 || (event.button === 0 && event.ctrlKey && !selectionModeEnabled)) {
-      suppressNextSelectRef.current = true;
-    }
     // Shift-click opens the session in the side panel; without this the
     // browser extends the text selection across the sidebar.
     if (event.button === 0 && event.shiftKey && !selectionModeEnabled) {
