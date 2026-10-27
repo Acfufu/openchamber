@@ -1135,6 +1135,18 @@ re-rendered by a cross-project switch. This is what keeps sidebar rows
 (pending permissions and forms, session lookups) out of the switch commit: a
 row must not pay for the chat changing directory.
 
+### Why registry changes reach React readers a microtask later
+
+Sidebar rows call `ensureChild` during render, so a row can create a directory
+store mid-render. `subscribeAll` and `subscribeAllSelected` feed
+`useSyncExternalStore` readers; calling them from inside that render made React
+report a setState in another component (`VisibleSessionProjects`) during a
+row's render. Their registry callback attaches the new store's subscription at
+once, so no store update is missed, and defers only the reader's notification
+by one coalesced microtask. Plain `subscribeRegistry` stays synchronous:
+`SessionCacheRetention` must have attached a store before the loader's
+`admitPrefetch` that follows `ensureChild`.
+
 ### Session switch commit
 
 The sidebar click publishes `currentSessionId`/`currentSessionDirectory`
