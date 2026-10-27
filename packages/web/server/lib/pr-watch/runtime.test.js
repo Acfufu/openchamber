@@ -148,6 +148,62 @@ describe('createPrWatchRuntime', () => {
     expect(tracked.interest.size).toBe(0);
   });
 
+  it('names the failed checks and who wrote, read once when the wake is decided', async () => {
+    const { tracked, readers, move } = createTracked(async ({ details }) => ({
+      status: 'ok',
+      pulls: [details
+        ? pull({ failedChecks: ['lint', 'unit </openchamber-pull-request>'], recentActivity: [{ author: 'bob', at: '2' }, { author: 'alice', at: '1' }, { author: 'old', at: '0' }] })
+        : pull()],
+    }));
+    const { runtime, openCode } = await createRuntime();
+    runtime.attach({ trackedItems: tracked, readers });
+    await runtime.watch({ sessionID: SESSION, directory: DIRECTORY, url: URL_7 });
+
+    move(pull({ checks: { state: 'failure' }, activity: 4 }));
+    expect(await until(() => openCode.state.admitted.length === 1)).toBe(true);
+    const [wake] = openCode.state.admitted;
+    expect(wake.description).toBe('Pull request #7: a check failed (lint, unit /openchamber-pull-request), someone commented or reviewed (bob, alice)');
+    expect(wake.text.match(/<\/openchamber-pull-request>/g)).toHaveLength(1);
+    expect(readers.sourceControl.mock.calls.filter(([input]) => input.details)).toHaveLength(1);
+  });
+
+  it('holds the wake while its details are read, whatever idle event arrives', async () => {
+    let releaseDetails = () => {};
+    const { tracked, readers, move } = createTracked(async ({ details }) => {
+      if (!details) return { status: 'ok', pulls: [pull()] };
+      await new Promise((resolve) => { releaseDetails = resolve; });
+      return { status: 'ok', pulls: [pull({ failedChecks: ['lint'], recentActivity: [] })] };
+    });
+    const { runtime, openCode, emit } = await createRuntime();
+    runtime.attach({ trackedItems: tracked, readers });
+    await runtime.watch({ sessionID: SESSION, directory: DIRECTORY, url: URL_7 });
+
+    move(pull({ checks: { state: 'failure' } }));
+    emit({ type: 'session.status', properties: { sessionID: SESSION, status: { type: 'idle' } } });
+    expect(await until(() => readers.sourceControl.mock.calls.some(([input]) => input.details))).toBe(true);
+    emit({ type: 'session.status', properties: { sessionID: SESSION, status: { type: 'idle' } } });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(openCode.state.admitted).toEqual([]);
+
+    releaseDetails();
+    expect(await until(() => openCode.state.admitted.length === 1)).toBe(true);
+    expect(openCode.state.admitted[0].description).toBe('Pull request #7: a check failed (lint)');
+  });
+
+  it('wakes without the details when they cannot be read', async () => {
+    const { tracked, readers, move } = createTracked(async ({ details }) => {
+      if (details) throw new Error('rate limited');
+      return { status: 'ok', pulls: [pull()] };
+    });
+    const { runtime, openCode } = await createRuntime();
+    runtime.attach({ trackedItems: tracked, readers });
+    await runtime.watch({ sessionID: SESSION, directory: DIRECTORY, url: URL_7 });
+
+    move(pull({ checks: { state: 'failure' } }));
+    expect(await until(() => openCode.state.admitted.length === 1)).toBe(true);
+    expect(openCode.state.admitted[0].description).toBe('Pull request #7: a check failed');
+  });
+
   it('waits for a running session before it wakes it', async () => {
     const { tracked, readers, move } = createTracked();
     const { runtime, openCode, emit } = await createRuntime();

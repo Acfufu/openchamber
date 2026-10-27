@@ -68,7 +68,17 @@ const watchSchema = z.object({
   // began earlier is older than the baseline and is dropped.
   baselineAt: z.number().finite().nonnegative().catch(0),
   last: snapshotSchema.nullable(),
-  wake: z.object({ events: z.array(z.enum(EVENTS)).min(1), messageID: z.string().nullable() }).nullable(),
+  wake: z.object({
+    events: z.array(z.enum(EVENTS)).min(1),
+    messageID: z.string().nullable(),
+    // Read when the wake was decided; a file from before them has none.
+    failedChecks: z.array(z.string()).catch([]),
+    authors: z.array(z.string()).catch([]),
+  }).nullable(),
+});
+const detailsSchema = z.object({
+  failedChecks: z.array(z.string()).catch([]),
+  recentActivity: z.array(z.object({ author: z.string() })).catch([]),
 });
 const storedFileSchema = z.object({ revision: z.number().int().nonnegative().optional(), watches: z.array(z.unknown()) });
 const errorCodeSchema = z.object({ code: z.string() });
@@ -162,10 +172,28 @@ export const changesBetween = (previous, next) => {
 
 const numberOf = (watch) => parse(z.object({ number: z.number().int().positive() }), watch.item)?.number ?? 0;
 
+const MAX_NAMES = 8;
+
+/**
+ * Names for the message: check names come from whoever wrote the workflow,
+ * so nothing in them may close the message's tag or break its line.
+ */
+const nameList = (names) => {
+  const clean = Array.from(new Set(names.map((name) => name.replace(/[<>\s]+/g, ' ').trim().slice(0, 80)).filter(Boolean)));
+  if (clean.length === 0) return '';
+  const shown = clean.slice(0, MAX_NAMES).join(', ');
+  return clean.length > MAX_NAMES ? `${shown} and ${clean.length - MAX_NAMES} more` : shown;
+};
+
+const describeEvent = (event, wake) => {
+  const names = event === 'checks-failed' ? nameList(wake.failedChecks) : event === 'activity' ? nameList(wake.authors) : '';
+  return names ? `${EVENT_TEXT[event]} (${names})` : EVENT_TEXT[event];
+};
+
 /** The synthetic message that wakes the agent. */
 const buildWakeMessage = (watch) => {
   const number = numberOf(watch);
-  const changes = watch.wake.events.map((event) => EVENT_TEXT[event]);
+  const changes = watch.wake.events.map((event) => describeEvent(event, watch.wake));
   const finished = watch.wake.events.some((event) => event === 'merged' || event === 'closed');
   const next = finished
     ? 'There is nothing more to wait for.'
@@ -229,6 +257,8 @@ export function createPrWatchRuntime({
   const delivering = new Set();
   // An attempt asked for while another one for the session was in flight.
   const deferred = new Set();
+  // sessionID → the watch whose wake is still reading its details; it is armed once they are in.
+  const enriching = new Map();
 
   // --- persistence ---------------------------------------------------------
 
@@ -387,7 +417,7 @@ export function createPrWatchRuntime({
       return;
     }
     const watch = watches.get(sessionID);
-    if (stopped || !watch?.wake) return;
+    if (stopped || !watch?.wake || enriching.get(sessionID) === watch) return;
     delivering.add(sessionID);
     try {
       await attemptWake(watch);
@@ -428,6 +458,33 @@ export function createPrWatchRuntime({
     return drop(watch);
   }
 
+  /**
+   * Which checks failed and who wrote, so the agent knows where to start
+   * without a read of its own. One read when the wake is decided; a failed
+   * read sends the wake without them. `newActivity` is how many comments and
+   * reviews are new: the authors are theirs, newest first.
+   */
+  async function addDetails(watch, newActivity) {
+    const { item } = watch;
+    const result = await readers.sourceControl({
+      provider: item.provider,
+      instance: threadInstance(item),
+      accountId: null,
+      pulls: [{ owner: item.owner, repo: item.repo, number: item.number }],
+      issues: [],
+      details: true,
+    }).catch(() => null);
+    const summary = result?.status === 'ok' ? (result.pulls ?? []).find((pull) => pull?.number === item.number) : null;
+    const details = parse(detailsSchema, summary);
+    if (!details || !isCurrent(watch) || !watch.wake || watch.wake.messageID) return;
+    if (watch.wake.events.includes('checks-failed')) watch.wake.failedChecks = details.failedChecks;
+    if (watch.wake.events.includes('activity')) {
+      watch.wake.authors = details.recentActivity.slice(0, Math.max(1, newActivity)).map((entry) => entry.author);
+    }
+    // In memory either way; a failed write only loses the names on a restart.
+    await persist().catch(() => undefined);
+  }
+
   /** Tracked-items changes: a moved pull request may wake its sessions. */
   const onStatesChanged = (states) => {
     void (async () => {
@@ -440,6 +497,7 @@ export function createPrWatchRuntime({
           // baseline: an earlier head's checks must not end the wait.
           if (requestedAt < watch.baselineAt) continue;
           const events = changesBetween(watch.last, next);
+          const newActivity = (next.activity ?? 0) - (watch.last?.activity ?? 0);
           watch.last = next;
           if (events.length === 0) {
             await commit(watch.sessionID);
@@ -455,9 +513,18 @@ export function createPrWatchRuntime({
               continue;
             }
           }
-          watch.wake = { events, messageID: null };
-          syncInterest();
-          await commit(watch.sessionID);
+          watch.wake = { events, messageID: null, failedChecks: [], authors: [] };
+          // Held from here on: an idle event during the write below must not
+          // deliver the wake before its details are in.
+          const withDetails = events.includes('checks-failed') || events.includes('activity');
+          if (withDetails) enriching.set(watch.sessionID, watch);
+          try {
+            syncInterest();
+            await commit(watch.sessionID);
+            if (withDetails) await addDetails(watch, newActivity);
+          } finally {
+            if (enriching.get(watch.sessionID) === watch) enriching.delete(watch.sessionID);
+          }
           arm(watch.sessionID, 0);
         }
       }

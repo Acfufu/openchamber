@@ -80,6 +80,15 @@ telling the agent the watch ended, `description` `Pull request #N: …` (the
 chat shows it as a notice row, `packages/ui/src/lib/opencode/session-notices.ts`)
 and `metadata.source: "openchamber-pr-watch"`.
 
+A failed check or new activity names what to start with: the failed checks
+(`a check failed (lint, tests)`) and the authors of the new comments and
+reviews, newest first, as many as the `activity` count grew
+(`someone commented or reviewed (alice, coderabbitai[bot])`). They come from
+one read with `details: true` when the wake is decided, saved on `wake`; the
+wake is not delivered until that read is over, and a read that fails sends it
+without names. At most eight names per event; check names are workflow
+authors' text, so `<`, `>` and line breaks are dropped from them.
+
 `session.deleted` ends the session's watch.
 
 ## Routes and events
@@ -115,3 +124,11 @@ when it waits again, with a fresh baseline after its own push or comment.
 It already reads pull requests in batches per host and account, honours
 GitHub's rate limits and backs off a failing provider. A second poller would
 spend the same budget twice.
+
+### Why the details are read at the wake and not carried in every summary
+
+The sidebar refreshes the same live summaries for every linked pull request.
+On GitHub the newest comments only widen the one GraphQL document, but on
+GitLab the failed jobs and the newest notes are two more calls per merge
+request. Asking for them once, for the one pull request that wakes someone,
+keeps the sidebar's cost where it was on both providers.
