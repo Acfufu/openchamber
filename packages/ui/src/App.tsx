@@ -4,6 +4,7 @@ import { startDiagnosticCapture } from '@/lib/diagnostics/capture';
 import { AppStartupOverlay } from '@/components/ui/AppStartupOverlay';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { AppLinkConfirmDialog } from '@/components/chat/AppLinkConfirmDialog';
+import { SnippetQuickCreateDialog } from '@/components/snippets/SnippetQuickCreateDialog';
 import { SharedTrustConfirmDialog } from '@/components/projects/SharedTrustConfirmDialog';
 import { OpenCodeTrustDialog } from '@/components/projects/OpenCodeTrustDialog';
 import { FireworksProvider } from '@/contexts/FireworksContext';
@@ -879,6 +880,7 @@ function App({ apis }: AppProps) {
                   {isDesktopRuntime ? <AppStartupOverlay ready={bootOutcomeKnown && bootViewIsMain} /> : null}
                   <Toaster />
                   <AppLinkConfirmDialog />
+                  <SnippetQuickCreateDialog />
                   <SharedTrustConfirmDialog />
                   <OpenCodeTrustDialog />
                   <ConfigUpdateOverlay />

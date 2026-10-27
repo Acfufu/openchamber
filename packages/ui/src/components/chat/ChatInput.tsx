@@ -64,6 +64,7 @@ import type { FileMentionHandle } from './FileMentionAutocomplete';
 import type { CommandAutocompleteHandle, CommandInfo } from './CommandAutocomplete';
 import type { SkillAutocompleteHandle } from './SkillAutocomplete';
 import type { SnippetAutocompleteHandle } from './SnippetAutocomplete';
+import { withoutSnippetToken } from '@/lib/snippetNames';
 import type { EmojiAutocompleteHandle } from '@/components/emoji/EmojiAutocomplete';
 import { cn } from "@/lib/utils";
 import { ModelControls } from './ModelControls';
@@ -3577,6 +3578,13 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         composerRef.current?.focus();
     });
 
+    // "Save draft as #name": the draft goes into the snippet without the
+    // `#name` being typed, and once saved that token leaves the composer.
+    const snippetDraftText = openAutocomplete === 'snippet' ? withoutSnippetToken(message, autocompleteQuery) : undefined;
+    const handleSnippetDraftSaved = useStableHandler((typedName: string) => {
+        setMessage(withoutSnippetToken(messageRef.current, typedName));
+    });
+
     const handleEmojiSelect = useStableHandler((emoji: string) => {
         const cursorPosition = composerRef.current?.getSelection().start ?? message.length;
         const startIndex = Math.max(0, cursorPosition - autocompleteQuery.length - 1);
@@ -4672,6 +4680,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onCommandSelect={handleCommandSelect}
                         onSkillSelect={handleSkillSelect}
                         onSnippetSelect={handleSnippetSelect}
+                        snippetDraftText={snippetDraftText}
+                        onSnippetDraftSaved={handleSnippetDraftSaved}
                         onFileSelect={handleFileSelect}
                         onAgentSelect={handleAgentSelect}
                         // VS Code shows no reference chips, so it cannot hold one.
