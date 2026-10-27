@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -176,6 +177,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n.es,
   ...sessionWarmingI18n.es,
   ...heapSnapshotI18n.es,
+  ...consoleBudgetsI18n.es,
   ...sidebarWorkI18n.es,
   ...worktreeArchiveI18n.es,
   ...overviewI18n.es,
@@ -717,7 +719,6 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Marcar como hecho",
   "sessions.sidebar.session.work.doneSuggested": "Parece terminado",
   "sessions.sidebar.session.work.updateFailed": "No se pudo actualizar la sesión",
-  "sessions.sidebar.session.work.folderDeleted": "Se eliminó la carpeta de esta sesión",
   "sessions.sidebar.session.pin.pinFailed": "No se pudo anclar la sesión",
   "sessions.sidebar.session.pin.unpinFailed": "No se pudo desanclar la sesión",
   "chat.work.doneHint.text": "Este trabajo parece terminado.",

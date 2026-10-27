@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -166,6 +167,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n.ja,
   ...sessionWarmingI18n.ja,
   ...heapSnapshotI18n.ja,
+  ...consoleBudgetsI18n.ja,
   ...sidebarWorkI18n.ja,
   ...worktreeArchiveI18n.ja,
   ...overviewI18n.ja,
@@ -713,7 +715,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '完了にする',
   'sessions.sidebar.session.work.doneSuggested': '完了したようです',
   'sessions.sidebar.session.work.updateFailed': 'セッションを更新できませんでした',
-  'sessions.sidebar.session.work.folderDeleted': 'このセッションのフォルダーは削除されました',
   'sessions.sidebar.session.pin.pinFailed': 'セッションをピン留めできませんでした',
   'sessions.sidebar.session.pin.unpinFailed': 'セッションのピン留めを解除できませんでした',
   'chat.work.doneHint.text': 'この作業は完了したようです。',

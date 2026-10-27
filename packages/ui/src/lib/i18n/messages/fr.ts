@@ -17,6 +17,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -165,6 +166,7 @@ export const dict = {
   ...webSearchI18n.fr,
   ...sessionWarmingI18n.fr,
   ...heapSnapshotI18n.fr,
+  ...consoleBudgetsI18n.fr,
   ...sidebarWorkI18n.fr,
   ...worktreeArchiveI18n.fr,
   ...overviewI18n.fr,
@@ -546,7 +548,6 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Marquer comme terminé',
   'sessions.sidebar.session.work.doneSuggested': 'Semble terminé',
   'sessions.sidebar.session.work.updateFailed': 'Impossible de mettre à jour la session',
-  'sessions.sidebar.session.work.folderDeleted': 'Le dossier de cette session a été supprimé',
   'sessions.sidebar.session.pin.pinFailed': 'Impossible d\'épingler la session',
   'sessions.sidebar.session.pin.unpinFailed': 'Impossible de désépingler la session',
   'chat.work.doneHint.text': 'Ce travail semble terminé.',

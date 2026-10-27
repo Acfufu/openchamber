@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -166,6 +167,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n.ko,
   ...sessionWarmingI18n.ko,
   ...heapSnapshotI18n.ko,
+  ...consoleBudgetsI18n.ko,
   ...sidebarWorkI18n.ko,
   ...worktreeArchiveI18n.ko,
   ...overviewI18n.ko,
@@ -713,7 +715,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '완료로 표시',
   'sessions.sidebar.session.work.doneSuggested': '완료된 것 같습니다',
   'sessions.sidebar.session.work.updateFailed': '세션을 업데이트할 수 없습니다',
-  'sessions.sidebar.session.work.folderDeleted': '이 세션의 폴더가 삭제되었습니다',
   'sessions.sidebar.session.pin.pinFailed': '세션을 고정할 수 없습니다',
   'sessions.sidebar.session.pin.unpinFailed': '세션 고정을 해제할 수 없습니다',
   'chat.work.doneHint.text': '이 작업은 완료된 것 같습니다.',

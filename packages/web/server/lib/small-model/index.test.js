@@ -28,7 +28,7 @@ const state = {
   generate: () => ({ text: 'generated' }),
   requests: [],
   generateErrors: [],
-  // Holds each /api/experimental/generate response open, so a client-side
+  // Holds each /api/experimental/generate/text response open, so a client-side
   // deadline can fire mid-request.
   generateDelayMs: 0,
 };
@@ -88,10 +88,10 @@ beforeAll(async () => {
       if (state.titleModel) agent.model = state.titleModel;
       return send({ location: LOCATION, data: agent });
     }
-    if (url.pathname === '/api/experimental/generate') {
+    if (url.pathname === '/api/experimental/generate/text') {
       const error = state.generateErrors.shift();
       if (error) {
-        res.writeHead(400, { 'content-type': 'application/json' });
+        res.writeHead({ ModelNotFoundError: 404, ServiceUnavailableError: 503 }[error._tag] ?? 400, { 'content-type': 'application/json' });
         return res.end(JSON.stringify(error));
       }
       if (state.generateDelayMs) await new Promise((resolve) => setTimeout(resolve, state.generateDelayMs));
@@ -125,10 +125,15 @@ beforeEach(() => {
   resetOpenCodeRuntimeProviders();
 });
 
-const lastGenerate = () => state.requests.filter((entry) => entry.path === '/api/experimental/generate').at(-1);
+const lastGenerate = () => state.requests.filter((entry) => entry.path === '/api/experimental/generate/text').at(-1);
 
 describe('generateSmallModelText', () => {
-  const unavailable = { _tag: 'InvalidRequestError', message: 'Model unavailable: zai-coding-plan/glm-5.3-flash' };
+  const unavailable = {
+    _tag: 'ModelNotFoundError',
+    providerID: 'zai-coding-plan',
+    modelID: 'glm-5.3-flash',
+    message: 'Model not found: zai-coding-plan/glm-5.3-flash',
+  };
   const options = { prompt: 'write a commit', model: 'zai-coding-plan/glm-5.3-flash' };
 
   beforeEach(() => setUnavailableRetryDelaysForTest([1, 1, 1]));
@@ -138,7 +143,7 @@ describe('generateSmallModelText', () => {
     state.generateErrors = [unavailable];
     const result = await generateSmallModelText(options);
     expect(result.text).toBe('generated');
-    const calls = state.requests.filter((entry) => entry.path === '/api/experimental/generate');
+    const calls = state.requests.filter((entry) => entry.path === '/api/experimental/generate/text');
     expect(calls).toHaveLength(2);
     expect(calls[0].body).toEqual(calls[1].body);
   });
@@ -147,27 +152,34 @@ describe('generateSmallModelText', () => {
     state.generateErrors = [unavailable, unavailable, unavailable];
     const result = await generateSmallModelText(options);
     expect(result.text).toBe('generated');
-    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(4);
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(4);
   });
 
   it('reports persistent model unavailability once the backoff runs out', async () => {
     state.generateErrors = [unavailable, unavailable, unavailable, unavailable];
     await expect(generateSmallModelText(options)).rejects.toMatchObject({
-      message: unavailable.message, statusCode: 503, code: 'small-model-unavailable',
+      message: 'Model unavailable: zai-coding-plan/glm-5.3-flash', statusCode: 503, code: 'small-model-unavailable',
     });
-    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(4);
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(4);
+  });
+
+  it('retries while the location plugins are still activating', async () => {
+    state.generateErrors = [{ _tag: 'ServiceUnavailableError', service: 'plugin', message: 'Location plugins did not finish activating' }];
+    const result = await generateSmallModelText(options);
+    expect(result.text).toBe('generated');
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(2);
   });
 
   it('does not retry other invalid requests', async () => {
     state.generateErrors = [{ _tag: 'InvalidRequestError', message: 'Invalid prompt' }];
     await expect(generateSmallModelText(options)).rejects.toMatchObject({ message: 'Invalid prompt' });
-    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(1);
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(1);
   });
 
   it('does not retry provider failures with the same message', async () => {
     state.generateErrors = [{ _tag: 'ServiceUnavailableError', message: unavailable.message }];
     await expect(generateSmallModelText(options)).rejects.toMatchObject({ _tag: 'ServiceUnavailableError' });
-    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(1);
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(1);
   });
 
   it('cancels without sending the retry', async () => {
@@ -178,7 +190,7 @@ describe('generateSmallModelText', () => {
     const timer = setTimeout(() => controller.abort(), 100);
     try {
       await expect(pending).rejects.toThrow();
-      expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(1);
+      expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(1);
     } finally {
       clearTimeout(timer);
     }
@@ -188,7 +200,7 @@ describe('generateSmallModelText', () => {
     setUnavailableRetryDelaysForTest();
     state.generateErrors = [unavailable];
     await expect(generateSmallModelText({ ...options, timeoutMs: 100 })).rejects.toThrow();
-    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(1);
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(1);
   });
 
   it('reports a blown deadline as a 504 generation-timeout naming the model and budget', async () => {
@@ -694,7 +706,7 @@ describe('structured output', () => {
     await expect(generateSmallModelText({ prompt: 'describe', directory: '/proj', responseSchema: schema }))
       .rejects.toMatchObject({ statusCode: 422, code: 'structured-output-unsupported' });
 
-    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate')).toHaveLength(2);
+    expect(state.requests.filter((entry) => entry.path === '/api/experimental/generate/text')).toHaveLength(2);
   });
 });
 
@@ -937,10 +949,13 @@ describe('small model failure response', () => {
       getSmallModelService: async () => ({ generateSmallModelText }),
     });
     setUnavailableRetryDelaysForTest([1]);
-    state.generateErrors = [
-      { _tag: 'InvalidRequestError', message: 'Model unavailable: zai-coding-plan/glm-5.3-flash' },
-      { _tag: 'InvalidRequestError', message: 'Model unavailable: zai-coding-plan/glm-5.3-flash' },
-    ];
+    const missing = {
+      _tag: 'ModelNotFoundError',
+      providerID: 'zai-coding-plan',
+      modelID: 'glm-5.3-flash',
+      message: 'Model not found: zai-coding-plan/glm-5.3-flash',
+    };
+    state.generateErrors = [missing, missing];
     let status;
     let payload;
     const response = {

@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -176,6 +177,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n['pt-BR'],
   ...sessionWarmingI18n['pt-BR'],
   ...heapSnapshotI18n['pt-BR'],
+  ...consoleBudgetsI18n['pt-BR'],
   ...sidebarWorkI18n['pt-BR'],
   ...worktreeArchiveI18n['pt-BR'],
   ...overviewI18n['pt-BR'],
@@ -717,7 +719,6 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Marcar como concluído",
   "sessions.sidebar.session.work.doneSuggested": "Parece concluído",
   "sessions.sidebar.session.work.updateFailed": "Não foi possível atualizar a sessão",
-  "sessions.sidebar.session.work.folderDeleted": "A pasta desta sessão foi excluída",
   "sessions.sidebar.session.pin.pinFailed": "Não foi possível fixar a sessão",
   "sessions.sidebar.session.pin.unpinFailed": "Não foi possível desafixar a sessão",
   "chat.work.doneHint.text": "Este trabalho parece concluído.",

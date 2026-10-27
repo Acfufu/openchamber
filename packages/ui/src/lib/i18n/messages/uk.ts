@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -176,6 +177,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n.uk,
   ...sessionWarmingI18n.uk,
   ...heapSnapshotI18n.uk,
+  ...consoleBudgetsI18n.uk,
   ...sidebarWorkI18n.uk,
   ...worktreeArchiveI18n.uk,
   ...overviewI18n.uk,
@@ -717,7 +719,6 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.work.markDone": "Позначити готовим",
   "sessions.sidebar.session.work.doneSuggested": "Схоже, готово",
   "sessions.sidebar.session.work.updateFailed": "Не вдалося оновити сесію",
-  "sessions.sidebar.session.work.folderDeleted": "Папку цієї сесії видалено",
   "sessions.sidebar.session.pin.pinFailed": "Не вдалося закріпити сесію",
   "sessions.sidebar.session.pin.unpinFailed": "Не вдалося відкріпити сесію",
   "chat.work.doneHint.text": "Схоже, тут усе готово.",

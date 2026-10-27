@@ -1929,7 +1929,6 @@ const openChamberSessionService = createOpenChamberSessionService({
   createChangeRequestWorktree: featureRoutesRuntime.createChangeRequestWorktree,
   // Holds the archive file (`session-archive.js`) beside the instance it describes.
   dataDir: OPENCHAMBER_DATA_DIR,
-  getDefaultOpenCodeDirectory: () => openCodeLifecycleRuntime.getDefaultOpenCodeDirectory(),
   sessionMetadataStore,
   persistSessionMetadata: persistSessionMetadataPatch,
   updateSessionMetadata: updateSessionMetadataWith,
@@ -2147,8 +2146,8 @@ const bootstrapOpenCodeAtStartup = async (...args) => {
   void waitForOpenCodeReady()
     .then(() => sessionMetadataStore.migrateLegacy())
     .catch((error) => console.warn('[openchamber-sessions] session metadata migration failed:', error?.message ?? error));
-  // Archive state written before OpenCode 2.1 held it moves to OpenCode in one
-  // pass that unloads the projects it had to start (`session-archive.js`).
+  // Archive state OpenChamber kept before OpenCode held it moves to OpenCode in
+  // one pass (`session-archive.js`).
   void waitForOpenCodeReady()
     .then(() => openChamberSessionService.sessionArchive.migrateLegacy())
     .catch((error) => console.warn('[openchamber-sessions] session archive migration failed:', error?.message ?? error));

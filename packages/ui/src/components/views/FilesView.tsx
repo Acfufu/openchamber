@@ -141,6 +141,7 @@ import { useI18n } from '@/lib/i18n';
 import { sessionEvents } from '@/lib/sessionEvents';
 import { syncScheduledTaskLoops } from '@/lib/scheduledTasksApi';
 import { useProjectsStore } from '@/stores/useProjectsStore';
+import { watchFileOnScreen } from '@/lib/watchedFiles';
 
 
 type FileNode = {
@@ -359,6 +360,8 @@ const isDirectoryReadError = (error: unknown): boolean => {
 };
 
 const MAX_CONTENT_POLL_BYTES = 200_000;
+/** The open file's check while OpenCode watches it: only for a watch lost on an OpenCode restart. */
+const WATCHED_FILE_POLL_MS = 30_000;
 
 const isMarkdownFile = (path: string): boolean => {
   if (!path) return false;
@@ -2425,8 +2428,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
     let cancelled = false;
     let polling = false;
+    // A change reported while a check runs gets a check of its own after it.
+    let pollAgain = false;
     const poll = () => {
-      if (document.hidden || polling) {
+      if (document.hidden) {
+        return;
+      }
+      if (polling) {
+        pollAgain = true;
         return;
       }
 
@@ -2498,17 +2507,35 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         })
         .finally(() => {
           polling = false;
+          if (pollAgain && !cancelled) {
+            pollAgain = false;
+            poll();
+          }
         });
     };
     poll();
-    const interval = window.setInterval(poll, 2000);
+    let interval = window.setInterval(poll, 2000);
+    // Once OpenCode watches the file, its change event starts the check and
+    // the poll only covers a watch OpenCode lost on a restart.
+    const watch = root ? watchFileOnScreen(root, selectedPath, poll) : null;
+    void watch?.watching.then((watching) => {
+      if (!watching || cancelled) return;
+      window.clearInterval(interval);
+      interval = window.setInterval(poll, WATCHED_FILE_POLL_MS);
+    });
+    const handleVisibilityChange = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       cancelled = true;
       contentPoller?.dispose();
       window.clearInterval(interval);
+      watch?.stop();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [applyLoadedTextContent, contentDetectedBinary, failedFilePath, loadedFilePath, readFile, readFileStat, selectedFile?.path, t, visible]);
+  }, [applyLoadedTextContent, contentDetectedBinary, failedFilePath, loadedFilePath, readFile, readFileStat, root, selectedFile?.path, t, visible]);
 
   // Closes `path` once nothing stands in the way (no unsaved edits, or the
   // prompt was answered), moving to `nextFile` when it was the one on screen.

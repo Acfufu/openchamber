@@ -71,8 +71,7 @@ import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
 import { isDoneSuggested } from '@/lib/sessionWorkMetadata';
 import { collectSessionWorkInWork } from '../works/sidebarWorks';
 import { isRowBoxClick } from './rowBoxClick';
-import { SessionDirectoryMissingError, setSessionWorkState } from '@/sync/session-actions';
-import { toastSessionWorkFailure } from './sessionWorkFailure';
+import { setSessionWorkState } from '@/sync/session-actions';
 import { useSessionWarmingStore, useSessionWarmUntil } from '@/stores/useSessionWarmingStore';
 import { isSpaceDirectory } from '@/lib/spaces/space-route';
 import { sessionGoalStatusColor, sessionGoalStatusLabelKey } from '@/lib/sessionGoalPresentation';
@@ -546,12 +545,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       }
       // Done work leaves the working set, as Mark done in the composer does.
       leaveFinishedSessions(workSessionsInWork.map((entry) => entry.id));
-    } catch (error) {
-      toastSessionWorkFailure(
-        error instanceof SessionDirectoryMissingError,
-        () => handleDeleteSession(session, { skipConfirm: true }),
-        t,
-      );
+    } catch {
+      toast.error(t('sessions.sidebar.session.work.updateFailed'));
     }
   };
   // Per-session warming is offered only while Settings chose it, for a root

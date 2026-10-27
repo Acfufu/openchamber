@@ -17,6 +17,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -668,7 +669,6 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'סמן כהושלם',
   'sessions.sidebar.session.work.doneSuggested': 'נראה שהושלם',
   'sessions.sidebar.session.work.updateFailed': 'לא ניתן היה לעדכן את ההפעלה',
-  'sessions.sidebar.session.work.folderDeleted': 'התיקייה של ההפעלה הזו נמחקה',
   'sessions.sidebar.session.pin.pinFailed': 'לא ניתן היה להצמיד את ההפעלה',
   'sessions.sidebar.session.pin.unpinFailed': 'לא ניתן היה לבטל את הצמדת ההפעלה',
   'chat.work.doneHint.text': 'נראה שהעבודה הזו הושלמה.',
@@ -3839,6 +3839,7 @@ export const dict = {
   ...webSearchI18n.he,
   ...sessionWarmingI18n.he,
   ...heapSnapshotI18n.he,
+  ...consoleBudgetsI18n.he,
   ...sidebarWorkI18n.he,
   ...worktreeArchiveI18n.he,
   ...overviewI18n.he,

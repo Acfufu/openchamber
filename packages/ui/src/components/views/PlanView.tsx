@@ -48,6 +48,10 @@ import { ContextPanelHeaderToolbar } from '@/components/layout/contextPanelHeade
 import { useInContextPanelHeader } from '@/components/layout/contextPanelHeaderSlotContext';
 import { cn } from '@/lib/utils';
 import { useMarkdownLocalAssets } from './files/previews/useMarkdownLocalAssets';
+import { watchFileOnScreen } from '@/lib/watchedFiles';
+
+/** The open plan's check while OpenCode watches its file: only for a watch lost on an OpenCode restart. */
+const WATCHED_PLAN_POLL_MS = 30_000;
 
 type PlanViewProps = {
   /** False while the panel holding the view is closed: nothing to keep fresh. */
@@ -505,8 +509,8 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
   // a later edit starts from it instead of writing the old document back over
   // it. Unsaved edits win: the next save replaces the agent's version, the way
   // typing in a note does. A save through the API announces itself; a file
-  // edit does not, so the open plan also checks for one every two seconds, as
-  // the file panel does for open files.
+  // edit does not, so the open plan also watches or polls its file, as the
+  // file panel does for open files.
   React.useEffect(() => {
     if (!visible || !savedPlanProjectRef || !savedPlanId || !savedPlanKey || loadedProjectPlanId !== savedPlanId) return;
     const doc = docRef.current;
@@ -528,23 +532,47 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
       },
     });
     let polling = false;
+    // A change reported while a check runs gets a check of its own after it.
+    let pollAgain = false;
     const poll = async () => {
-      if (polling || document.visibilityState === 'hidden') return;
+      if (document.visibilityState === 'hidden') return;
+      if (polling) {
+        pollAgain = true;
+        return;
+      }
       polling = true;
       try {
         await poller.poll();
       } finally {
         polling = false;
+        if (pollAgain) {
+          pollAgain = false;
+          void poll();
+        }
       }
     };
     const release = observeProjectContext(savedPlanProjectRef, poll);
-    const interval = window.setInterval(() => { void poll(); }, 2000);
-    return () => {
+    let interval = window.setInterval(() => { void poll(); }, 2000);
+    // A plan kept in the repository is watched by OpenCode, so its change
+    // event starts the check and the poll only covers a watch lost on an
+    // OpenCode restart. A plan in OpenChamber's own data folder keeps polling.
+    const watch = loadedProjectPlanPath
+      ? watchFileOnScreen(savedPlanProjectRef.path, loadedProjectPlanPath, () => { void poll(); })
+      : null;
+    let stopped = false;
+    void watch?.watching.then((watching) => {
+      if (!watching || stopped) return;
       window.clearInterval(interval);
+      interval = window.setInterval(() => { void poll(); }, WATCHED_PLAN_POLL_MS);
+    });
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      watch?.stop();
       release();
       poller.dispose();
     };
-  }, [loadedProjectPlanId, savedPlanId, savedPlanKey, savedPlanProjectRef, saveQueue, visible]);
+  }, [loadedProjectPlanId, loadedProjectPlanPath, savedPlanId, savedPlanKey, savedPlanProjectRef, saveQueue, visible]);
 
   // Synchronous buffer tracking: if an edit and an unmount land in the same
   // batch, the passive content effect would never run and a flush would save

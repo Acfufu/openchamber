@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -166,6 +167,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n.pl,
   ...sessionWarmingI18n.pl,
   ...heapSnapshotI18n.pl,
+  ...consoleBudgetsI18n.pl,
   ...sidebarWorkI18n.pl,
   ...worktreeArchiveI18n.pl,
   ...overviewI18n.pl,
@@ -536,7 +538,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': 'Oznacz jako gotowe',
   'sessions.sidebar.session.work.doneSuggested': 'Wygląda na gotowe',
   'sessions.sidebar.session.work.updateFailed': 'Nie udało się zaktualizować sesji',
-  'sessions.sidebar.session.work.folderDeleted': 'Folder tej sesji został usunięty',
   'sessions.sidebar.session.pin.pinFailed': 'Nie udało się przypiąć sesji',
   'sessions.sidebar.session.pin.unpinFailed': 'Nie udało się odpiąć sesji',
   'chat.work.doneHint.text': 'Ta praca wygląda na skończoną.',

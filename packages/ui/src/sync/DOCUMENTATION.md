@@ -574,7 +574,7 @@ In-app permission and form toasts for a directory without a store are shown from
 
 "Open session" on a permission or form toast opens the session and passes the request id to `request-reveal.ts`. The permission or form dock that holds that request expands, and the permission dock switches to it. Selecting the session alone would leave a dock the user collapsed collapsed when that session is already open. The id waits until a dock holds it, so a dock that mounts after the session switch still expands.
 
-An MCP elicitation arrives as a `form.created` whose `sessionID` is the `global` sentinel (`LOCATION_SCOPED_FORM_SESSION_ID` in `location-scoped-forms.ts`): no session record exists for it, so event routing does not treat it as a session address and it never enters the session routing index, otherwise a second directory's elicitation would land in the first one's store. OpenCode 2.0.27 through 2.1.3 publish these forms, `form.created` and `form.cancelled` alike, without a location, so the event names no directory either; 2.1.4 publishes them with their location, and the unlocated routing below goes once the minimum supported OpenCode reaches 2.1.4. `routeUnlocatedLocationScopedForm` handles such an event before routing: a settled form is handed to every store that holds its id, and a created form makes the stores whose directory may have asked it (a running turn, since an MCP server asks while one of its tools runs, plus the active directory) re-read their `global` forms, because filing it by guess would send the reply to a directory that answers "form not found". An event that does carry a directory is filed by that directory. The directory store keeps the form under `form["global"]`, bootstrap's directory-scoped `form.list` returns it like any pending form, `useScopedBlockingForms` surfaces it from every session of that directory, and reply/cancel resolve the directory from the store that holds it.
+An MCP elicitation arrives as a `form.created` whose `sessionID` is the `global` sentinel (`LOCATION_SCOPED_FORM_SESSION_ID` in `location-scoped-forms.ts`): no session record exists for it, so event routing does not treat it as a session address and it never enters the session routing index, otherwise a second directory's elicitation would land in the first one's store. Since 2.1.4 OpenCode publishes these forms, `form.created` and `form.cancelled` alike, with their location, so the event is filed by that directory. The directory store keeps the form under `form["global"]`, bootstrap's directory-scoped `form.list` returns it like any pending form, `useScopedBlockingForms` surfaces it from every session of that directory, and reply/cancel resolve the directory from the store that holds it.
 
 Error details for a failed turn (`notification-store.ts`, shown under the turn by `SessionErrorNotice`) are recorded before the directory-store lookup in `handleEvent`, so an unopened directory still keeps them. The subtask check reads the directory store when the directory is open and the global session cache otherwise. Event routing likewise consults the global session cache: a session-addressed event with no directory is routed to the directory the cache records for that session before any active-session or single-store fallback, so another project's events cannot land in the one open store.
 
@@ -925,12 +925,10 @@ OpenCode holds archive state since 2.1: archive and restore go through
 OpenChamber's batch routes (`session-archive-batch.ts`), which set it on
 OpenCode's record, and OpenCode announces `session.archived` /
 `session.unarchived` to every client, so a session archived in the TUI moves
-here too. A session whose directory was deleted cannot be changed on OpenCode
-where it is, so the server moves it to its project's main folder first
-(OpenCode announces `session.moved`); when archiving, its archive file marks
-the session archived before the move, so the sidebar never shows it as active
-under the project. The server folds that file onto the records it serves and
-announces its changes as `openchamber:session-archived`. Restore clears
+here too, and since 2.2 that works for a session whose directory was deleted.
+The server folds the archive file an older OpenChamber wrote onto the records
+it serves until its entries move to OpenCode, and announces the change as
+`openchamber:session-archived` when one leaves. Restore clears
 `time.archived`; every reader classifies archive state by its truthiness.
 
 OpenCode's `archived` list filter cannot see the sessions only that file

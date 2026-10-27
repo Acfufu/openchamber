@@ -17,6 +17,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -165,6 +166,7 @@ export const dict = {
   ...webSearchI18n.nl,
   ...sessionWarmingI18n.nl,
   ...heapSnapshotI18n.nl,
+  ...consoleBudgetsI18n.nl,
   ...sidebarWorkI18n.nl,
   ...worktreeArchiveI18n.nl,
   ...overviewI18n.nl,
@@ -707,7 +709,6 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Markeer als afgerond',
   'sessions.sidebar.session.work.doneSuggested': 'Lijkt afgerond',
   'sessions.sidebar.session.work.updateFailed': 'Sessie kon niet worden bijgewerkt',
-  'sessions.sidebar.session.work.folderDeleted': 'De map van deze sessie is verwijderd',
   'sessions.sidebar.session.pin.pinFailed': 'Sessie kon niet worden vastgezet',
   'sessions.sidebar.session.pin.unpinFailed': 'Sessie kon niet worden losgemaakt',
   'chat.work.doneHint.text': 'Dit werk lijkt afgerond.',

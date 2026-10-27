@@ -18,6 +18,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -166,6 +167,7 @@ export const dict: Record<I18nKey, string> = {
   ...webSearchI18n['zh-TW'],
   ...sessionWarmingI18n['zh-TW'],
   ...heapSnapshotI18n['zh-TW'],
+  ...consoleBudgetsI18n['zh-TW'],
   ...sidebarWorkI18n['zh-TW'],
   ...worktreeArchiveI18n['zh-TW'],
   ...overviewI18n['zh-TW'],
@@ -733,7 +735,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.work.markDone': '標記為完成',
   'sessions.sidebar.session.work.doneSuggested': '看起來已完成',
   'sessions.sidebar.session.work.updateFailed': '無法更新工作階段',
-  'sessions.sidebar.session.work.folderDeleted': '此工作階段的資料夾已被刪除',
   'sessions.sidebar.session.pin.pinFailed': '無法釘選工作階段',
   'sessions.sidebar.session.pin.unpinFailed': '無法取消釘選工作階段',
   'chat.work.doneHint.text': '這項工作看起來已完成。',

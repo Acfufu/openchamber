@@ -3,7 +3,7 @@
 Background LLM calls for OpenChamber's own features — session titles, goal
 distillation, session assist, the changes walkthrough, the dictation
 correction pass. Every call goes to the
-running OpenCode through `POST /api/experimental/generate`; OpenChamber never talks to a
+running OpenCode through `POST /api/experimental/generate/text`; OpenChamber never talks to a
 provider directly and never handles a provider credential.
 
 ## Security boundary
@@ -35,7 +35,7 @@ credentials, the provider dispatch and the token refresh. Routes live under
 ## Free tier and the session fallback
 
 OpenCode's free zen models are listed as enabled without a login, but
-`/api/experimental/generate` refuses them ("free tier can only be used in OpenCode") and
+`/api/experimental/generate/text` refuses them ("free tier can only be used in OpenCode") and
 `/api/model/default` answers nothing, so on a fresh install with no provider
 login `generateSmallModelText` throws `404`. What happens next is per feature:
 
@@ -120,7 +120,7 @@ configured.
 ## Thinking variants
 
 The settings override and OpenCode's `title` agent can each name a thinking
-variant. It travels as the model's `variant` on `/api/experimental/generate`.
+variant. It travels as the model's `variant` on `/api/experimental/generate/text`.
 The variant is kept when the catalog does not know the model, because a
 discovery gap is not evidence against the choice. When the catalog knows the
 model, the variant must be listed; a missing or malformed variant list counts as
@@ -141,7 +141,7 @@ normal family order.
 
 ## Prompt shape
 
-`/api/experimental/generate` takes one prompt and no system message, so `system` leads the
+`/api/experimental/generate/text` takes one prompt and no system message, so `system` leads the
 prompt, separated by a blank line.
 
 Input clamp: the prompt is measured against the resolved model's `limit.context`
@@ -157,7 +157,7 @@ what an oversized prompt means:
   model instead of returning confident nonsense.
 
 Output budget: `maxOutputTokens` is capped at the model's `limit.output`, and
-the **same number** is reserved from the input allowance. `/api/experimental/generate` takes
+the **same number** is reserved from the input allowance. `/api/experimental/generate/text` takes
 no output budget of its own, so this number only shapes the reserve — but the
 two sides must stay equal or a caller that asks for a large answer overruns the
 context and the failure looks like a truncation bug.
@@ -182,9 +182,11 @@ to that message instead of the generic "choose another model" text.
 
 OpenCode 2 can reject an explicit model before its cold catalog finishes loading;
 plugin-provided models (Claude Code) stay unavailable for 20-40 s after OpenCode
-starts because plugins for the global location load lazily. An
-`InvalidRequestError` whose message exactly names the selected model as
-`Model unavailable: provider/model` is retried with exponential backoff (0.5, 1,
+starts because plugins for the global location load lazily. Generation waits up
+to 5 s for those plugins, then answers `ServiceUnavailableError` with
+`service: 'plugin'`; a model still missing after them answers
+`ModelNotFoundError`. Either, the second only when it names the selected model,
+is retried with exponential backoff (0.5, 1,
 2, 4, 8, 16 s, ~31 s in total), with the same model and prompt. The rejection
 precedes provider dispatch, so retries cost no tokens. Cancellation also stops the wait. Other errors are not retried.
 If the model remains unavailable, the route returns 503 with
@@ -193,7 +195,7 @@ generation own their error toast and suppress the shared request toast.
 
 ## Structured output
 
-`/api/experimental/generate` has no structured-output mode. `responseSchema` is therefore
+`/api/experimental/generate/text` has no structured-output mode. `responseSchema` is therefore
 emulated: the schema is appended to the prompt as "Reply with JSON matching this
 schema and nothing else: …", and the reply is parsed here. A ```json fence is
 stripped. An unparseable reply is retried **once** — a model that ignored the

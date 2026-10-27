@@ -32,12 +32,20 @@ export const generationBudgetMs = (promptChars) => Math.min(
   DEFAULT_TIMEOUT_MS + Math.max(0, Math.ceil(Number(promptChars) / 4)) * TIMEOUT_PER_TOKEN_MS,
 );
 
-// Waits between retries of `Model unavailable`, ~31 s in total. Right after
+// Waits between retries of an unready catalog, ~31 s in total. Right after
 // OpenCode starts, plugin-provided models (claude-code) stay unavailable for
 // 20-40 s while plugins for the global location load lazily. The rejection
 // precedes provider dispatch, so a retry costs no tokens.
 const UNAVAILABLE_RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000, 16_000];
 let unavailableRetryDelaysMs = UNAVAILABLE_RETRY_DELAYS_MS;
+
+// Generation waits up to 5 s for the location's plugins, then answers that
+// they are still activating; after them it answers the model missing.
+const isCatalogNotReady = (error, model) => (
+  (error?._tag === 'ModelNotFoundError'
+    && error.providerID === model.providerID && error.modelID === model.modelID)
+  || (error?._tag === 'ServiceUnavailableError' && error.service === 'plugin')
+);
 
 /** Test hook: replace the backoff schedule; no argument restores the default. */
 export const setUnavailableRetryDelaysForTest = (delays = UNAVAILABLE_RETRY_DELAYS_MS) => {
@@ -119,7 +127,7 @@ export const getModelInputCharBudget = ({ modelInfo, outputReserveTokens }) => {
  * The output budget to actually request: what the caller asked for, capped by
  * what the model admits it can emit.
  *
- * `/api/experimental/generate` takes no output budget of its own, so this number only
+ * `/api/experimental/generate/text` takes no output budget of its own, so this number only
  * shapes the input reserve — but it has to stay the same number on both sides
  * or a caller that asks for a large answer overruns the context.
  */
@@ -286,7 +294,7 @@ const isLocalModelEndpoint = (modelInfo) => {
 const JSON_FENCE = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
 
 /**
- * `/api/experimental/generate` has no structured-output mode, so the schema travels in the
+ * `/api/experimental/generate/text` has no structured-output mode, so the schema travels in the
  * prompt and the reply is parsed here.
  */
 const buildSchemaInstruction = (responseSchema) =>
@@ -362,7 +370,7 @@ export async function generateSmallModelText({ prompt, system, maxOutputTokens, 
     outputReserveTokens: outputTokens,
   });
 
-  // `/api/experimental/generate` takes a single prompt, so the system instructions lead it.
+  // `/api/experimental/generate/text` takes a single prompt, so the system instructions lead it.
   const sections = [];
   if (typeof system === 'string' && system.trim()) sections.push(system.trim());
   sections.push(clamped.prompt);
@@ -397,7 +405,7 @@ export async function generateSmallModelText({ prompt, system, maxOutputTokens, 
         return await send();
       } catch (error) {
         if (generationOptions.deadline.aborted) throw deadlineError(error);
-        if (error?._tag !== 'InvalidRequestError' || error.message !== unavailableMessage) throw error;
+        if (!isCatalogNotReady(error, resolved)) throw error;
         // OpenCode 2 can resolve a cold catalog before its models arrive.
         // This rejection precedes provider dispatch; other failures must not retry.
         if (attempt < unavailableRetryDelaysMs.length) {
@@ -494,7 +502,7 @@ const resolveReserveTokens = (outputReserveTokens, limits) => (
 /**
  * Reports which model and thinking variant would be used, without calling it.
  *
- * `structuredOutput` stays `null`: `/api/experimental/generate` has no structured-output
+ * `structuredOutput` stays `null`: `/api/experimental/generate/text` has no structured-output
  * mode for any model, and this module emulates it through the prompt. Callers
  * must read `null` as "try it", which is exactly right here — the verdict
  * comes from the reply, not from a capability flag.

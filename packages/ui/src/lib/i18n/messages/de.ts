@@ -17,6 +17,7 @@ import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
+import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -165,6 +166,7 @@ export const dict = {
   ...webSearchI18n.de,
   ...sessionWarmingI18n.de,
   ...heapSnapshotI18n.de,
+  ...consoleBudgetsI18n.de,
   ...sidebarWorkI18n.de,
   ...worktreeArchiveI18n.de,
   ...overviewI18n.de,
@@ -629,7 +631,6 @@ export const dict = {
   'sessions.sidebar.session.work.markDone': 'Als erledigt markieren',
   'sessions.sidebar.session.work.doneSuggested': 'Sieht erledigt aus',
   'sessions.sidebar.session.work.updateFailed': 'Sitzung konnte nicht aktualisiert werden',
-  'sessions.sidebar.session.work.folderDeleted': 'Der Ordner dieser Sitzung wurde gelöscht',
   'sessions.sidebar.session.pin.pinFailed': 'Sitzung konnte nicht angeheftet werden',
   'sessions.sidebar.session.pin.unpinFailed': 'Sitzung konnte nicht losgelöst werden',
   'chat.work.doneHint.text': 'Diese Arbeit scheint erledigt.',

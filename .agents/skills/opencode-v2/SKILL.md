@@ -40,12 +40,14 @@ location, and the build starts every configured local MCP server for it. The
 location then lives until an hour without session events. So each read names
 a directory, and only one the user is working in:
 
-- **Which routes:** agent, plugin, model, provider, integration, mcp, project,
+- **Which routes:** agent, plugin, model, provider, integration, mcp, usage,
   form, permission request list, fs, command, skill, rpc, pty, shell,
   reference, vcs, websearch, config, location (`protocol/src/api.ts` lists the
   groups with `locationMiddleware`). Session routes resolve the session's own
-  location; `GET /api/session`, `/api/session/active` and `/api/credential`
-  are global and start nothing.
+  location; `GET /api/session`, `/api/session/active`, `/api/credential` and,
+  since 2.2.0, `/api/project` are global and start nothing. Since 2.2.0 the
+  session update (except generating a title), fork and agent and model
+  switches no longer build the session's location either.
 - **How the directory travels:** the `x-opencode-directory` header,
   percent-encoded, or a `location[directory]` query. A `?directory=` query is
   ignored.
@@ -68,27 +70,15 @@ code.
 Each exists because 2.x has no route for it. When a tag adds the route,
 the workaround goes and the record comes from OpenCode.
 
-- **Archive of a session whose directory is gone**: OpenCode holds archive
-  state since 2.1 (`PATCH /api/session/{id}` with `archived`), but the PATCH
-  builds the session's location and answers `LocationNotFoundError` once the
-  folder was deleted, which is where every session of a removed worktree
-  ends up. `POST /api/session/{id}/move` still works there, so
-  `openchamber-sessions/session-archive.js` moves such a session to its
-  project's main folder (`canonical` from the project list) and archives it
-  there; `archive-store.js` marks it archived before the move and keeps only
-  sessions with no folder to move to. Entries written before 2.1 move to
-  OpenCode in one pass after start, one directory at a time, and every
-  location the pass started is unloaded right after
-  (`DELETE /api/debug/location`).
-  Session metadata is not a workaround since 2.0.15: it lives on the OpenCode
-  record, written by merge-then-PATCH in `session-metadata-store.js`, which
-  also migrates the old `sessions-metadata.json`. Provider credentials are
-  not one either since 2.0.20: `opencode/auth.js` reads `GET /api/credential`.
-- **MCP elicitation forms without a location**: up to 2.1.3 OpenCode
-  publishes their `form.created` / `form.cancelled` with no directory, so
-  `routeUnlocatedLocationScopedForm` in `packages/ui/src/sync/location-scoped-forms.ts`
-  files them by re-reading the likely directories. 2.1.4 publishes the
-  location; remove that routing when `MINIMUM_OPENCODE_VERSION` reaches 2.1.4.
+- **Archive entries an older OpenChamber kept**: `archive-store.js` holds
+  archive state written before 2.1, and for sessions of deleted directories
+  before 2.2, until `session-archive.js` pushes it to OpenCode after start.
+  Since 2.2 the archive PATCH builds no location, so it works for a session
+  whose folder is gone. Session metadata is not a workaround since 2.0.15: it
+  lives on the OpenCode record, written by merge-then-PATCH in
+  `session-metadata-store.js`, which also migrates the old
+  `sessions-metadata.json`. Provider credentials are not one either since
+  2.0.20: `opencode/auth.js` reads `GET /api/credential`.
 - **1.x sessions created after the one-shot migration**:
   `v1-migration-topup.js` rewinds the migration cursor before a managed start,
   only when no revisited session has 2.x activity.
@@ -96,11 +86,10 @@ the workaround goes and the record comes from OpenCode.
   route does not declare, so session update/delete/archive report the status
   without OpenCode's message or log `ref`.
 
-Open asks upstream (OpenCode Slack): archiving a session whose directory is
-gone without building its location, so it need not move; declaring 500 bodies on session
+Open asks upstream (OpenCode Slack): declaring 500 bodies on session
 mutations; `provider.list` and `agent.list` waiting for plugin activation the
-way `model.list` does since 2.0.27, which would retire the cold-catalog
-recovery in `useConfigStore`; built-in provider plugins setting
+way `model.list` does since 2.0.27 (done in 2.2.0; the cold-catalog
+recovery in `useConfigStore` can go); built-in provider plugins setting
 attribution headers only when the client has not set its own, so a client can
 name itself to a provider (today some plugins overwrite provider-level
 headers). Dropped: an import route for missing 1.x
@@ -143,8 +132,9 @@ gap.
 
 ## Sources of truth
 
-- Reference checkout `~/projects/opencode`, branch `origin/v2` and its
-  `v2.x.y` tags (`git fetch origin --tags` there; never edit it). Maintainer
+- Reference checkout `~/projects/opencode`, branch `origin/dev` and its
+  `v2.x.y` tags (`origin/v2` stopped at 2026-10-10 and does not contain
+  v2.2.0; upstream PRs target `dev`) (`git fetch origin --tags` there; never edit it). Maintainer
   machine only: where the path is absent — CI, a fresh sandbox — report the
   reference checkout as unavailable and answer what you can from the pins
   below. Server
