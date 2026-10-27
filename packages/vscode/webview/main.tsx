@@ -876,7 +876,9 @@ const handleLocalApiRequest = async (input: RequestInfo | URL, url: URL, init: R
       return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return new Response(JSON.stringify({ error: message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      // The same status the web server gives a taken name, which the UI tells apart.
+      const status = message.includes('already exists') ? 409 : 500;
+      return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });
     }
   }
 

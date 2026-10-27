@@ -481,6 +481,32 @@ const findSnippetByName = (name: string, workingDirectory?: string): Snippet | n
   return loadSnippetRegistry(workingDirectory).get(name.toLowerCase()) ?? null;
 };
 
+// A name or alias that already triggers a snippet is taken: a second file
+// under it would shadow or be shadowed by the first.
+const assertSnippetNameFree = (name: string, registry: Map<string, Snippet>, owner: Snippet | null = null): void => {
+  const current = registry.get(name.toLowerCase());
+  if (current && current !== owner) throw new Error(`Snippet "${name}" already exists`);
+};
+
+const isSameFile = (a: string, b: string): boolean => {
+  const first = fs.statSync(a);
+  const second = fs.statSync(b);
+  return first.dev === second.dev && first.ino === second.ino;
+};
+
+// Rename and scope moves keep the file's bytes; a move across volumes (a
+// project on another disk than the global config) cannot rename.
+const moveSnippetFile = (from: string, to: string): void => {
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  try {
+    fs.renameSync(from, to);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code !== 'EXDEV') throw error;
+    fs.copyFileSync(from, to);
+    fs.unlinkSync(from);
+  }
+};
+
 const writeSnippetFile = (filePath: string, config: Record<string, unknown>): void => {
   const aliases = Array.isArray(config.aliases)
     ? config.aliases.map((alias) => String(alias).trim()).filter(Boolean)
@@ -2900,6 +2926,7 @@ export const createSnippet = (
   scope: SnippetScope = 'global',
 ): Snippet | null => {
   assertValidSnippetName(name);
+  assertSnippetNameFree(name, loadSnippetRegistry(workingDirectory));
   const dir = getWritableSnippetDir(scope, workingDirectory);
   const filePath = path.join(dir, `${name}${SNIPPET_EXTENSION}`);
   if (fs.existsSync(filePath)) throw new Error(`Snippet "${name}" already exists`);
@@ -2907,11 +2934,35 @@ export const createSnippet = (
   return getSnippet(name, workingDirectory);
 };
 
+/**
+ * Writes the snippet's fields; `updates.name` renames it and `updates.scope`
+ * moves it between the global and the project folder.
+ */
 export const updateSnippet = (name: string, updates: Record<string, unknown>, workingDirectory?: string): Snippet | null => {
-  const existing = findSnippetByName(name, workingDirectory);
+  assertValidSnippetName(name);
+  const registry = loadSnippetRegistry(workingDirectory);
+  const existing = registry.get(name.toLowerCase());
   if (!existing) throw new Error(`Snippet "${name}" not found`);
-  writeSnippetFile(existing.filePath, { ...existing, ...(updates || {}) });
-  return getSnippet(name, workingDirectory);
+  const { name: nextNameInput, scope: nextScopeInput, ...fields } = updates || {};
+  const nextName = String(nextNameInput ?? '').trim() || existing.name;
+  const nextScope: SnippetScope = nextScopeInput === 'project' || nextScopeInput === 'global' ? nextScopeInput : existing.source;
+  assertValidSnippetName(nextName);
+
+  const targetPath = nextName === existing.name && nextScope === existing.source
+    ? existing.filePath
+    : path.join(getWritableSnippetDir(nextScope, workingDirectory), `${nextName}${SNIPPET_EXTENSION}`);
+  if (targetPath !== existing.filePath) {
+    assertSnippetNameFree(nextName, registry, existing);
+    // A case-only rename finds its own file on a case-insensitive disk; any
+    // other file there is a snippet the registry shadows, never overwritten.
+    if (fs.existsSync(targetPath) && !isSameFile(targetPath, existing.filePath)) {
+      throw new Error(`Snippet "${nextName}" already exists`);
+    }
+  }
+
+  writeSnippetFile(existing.filePath, { ...existing, ...fields });
+  if (targetPath !== existing.filePath) moveSnippetFile(existing.filePath, targetPath);
+  return getSnippet(nextName, workingDirectory);
 };
 
 export const deleteSnippet = (name: string, workingDirectory?: string): void => {
@@ -2925,6 +2976,22 @@ export const expandSnippets = (text: string, workingDirectory?: string): string 
   const collector = { prepend: [] as string[], append: [] as string[] };
   const expanded = expandSnippetText(text || '', registry, new Map(), collector).trim();
   return [...collector.prepend, expanded, ...collector.append].filter(Boolean).join('\n\n');
+};
+
+/**
+ * What a snippet body, saved or not, sends once used: its own prepend and
+ * append blocks placed, and the snippets it names expanded.
+ */
+export const previewSnippet = (content: string, workingDirectory?: string): string => {
+  const registry = loadSnippetRegistry(workingDirectory);
+  const collector = { prepend: [] as string[], append: [] as string[] };
+  const counts = new Map<string, number>();
+  const parsed = parseSnippetBlocks(content || '');
+  // The order `expandSnippetText` gives a used snippet: its blocks, then its text.
+  for (const block of parsed.prepend) collector.prepend.push(expandSnippetText(block, registry, counts, collector));
+  for (const block of parsed.append) collector.append.push(expandSnippetText(block, registry, counts, collector));
+  const inline = expandSnippetText(parsed.inline, registry, counts, collector).trim();
+  return [...collector.prepend, inline, ...collector.append].filter(Boolean).join('\n\n');
 };
 
 // ============== SKILL SCOPE HELPERS ==============

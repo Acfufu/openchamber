@@ -54,7 +54,7 @@ import { getProviderSources, removeProviderConfig, upsertProviderConfig } from '
 import { getAgentSources, getAgentConfig, getAgentPermissions, createAgent, updateAgent, deleteAgent, listDisabledAgents } from './agents.js';
 import { getCommandSources, getCommandConfig, createCommand, updateCommand, deleteCommand } from './commands.js';
 import { listMcpConfigs, getMcpConfig, createMcpConfig, updateMcpConfig, deleteMcpConfig } from './mcp.js';
-import { listSnippets, getSnippet, createSnippet, updateSnippet, deleteSnippet, expandSnippets } from './snippets.js';
+import { listSnippets, getSnippet, createSnippet, updateSnippet, deleteSnippet, expandSnippets, previewSnippet } from './snippets.js';
 import {
   listPluginEntries,
   getPluginEntry,
@@ -387,6 +387,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       updateSnippet,
       deleteSnippet,
       expandSnippets,
+      previewSnippet,
     });
 
     registerPluginRoutes(app, {

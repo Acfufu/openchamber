@@ -824,6 +824,7 @@ headers }` or v1 `{ npm, options }`. The stored entry is always a
   - Commands: `/api/config/commands/:name` and `/api/config/commands/:name/config`
   - MCP servers: `/api/config/mcp` and `/api/config/mcp/:name`
   - Snippets: `/api/config/snippets`, `/api/config/snippets/:name`, and `/api/config/snippets/expand`
+- Snippet writes keep every trigger unique. A new snippet, or a rename, under a name or alias another snippet already answers to fails with 409 and writes nothing, so a second file never shadows the first. `PATCH /api/config/snippets/:name` renames with `name` and moves between the global and project folder with `scope`; the file is renamed in place (copied and removed across volumes), and a case-only rename is a rename of the same file. `POST /api/config/snippets/expand` expands a prompt from `text`, or with `content` previews an unsaved snippet body exactly as `#name` would send it once saved. The VS Code extension host (`packages/vscode/src/opencodeConfig.ts`) carries the same rules, and its webview answers a taken name with 409 too.
 - Agent/command/MCP write routes persist config to disk and return plain success. OpenCode 2 watches those files and rebuilds the affected entity itself, so there is nothing left to apply.
 
 ## Public exports (config-mutation-response.js)
