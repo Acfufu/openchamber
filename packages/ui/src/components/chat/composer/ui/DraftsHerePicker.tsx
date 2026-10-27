@@ -58,7 +58,9 @@ const DraftTime: React.FC<{ draft: SessionDraft }> = ({ draft }) => (
 );
 
 // The time and, on the highlighted entry, the cross share one slot, as a
-// session row's time and its hover actions do.
+// session row's time and its hover actions do. The hidden time is invisible
+// rather than transparent: an opacity below 1 paints it above the cross, where
+// it took the click and opened the draft.
 const DraftMenuItem: React.FC<{ draft: SessionDraft }> = ({ draft }) => {
     const { t } = useI18n();
     const { label, open, discard } = useSessionDraftRow(draft, noop);
@@ -66,7 +68,7 @@ const DraftMenuItem: React.FC<{ draft: SessionDraft }> = ({ draft }) => {
         <DropdownMenuItem onClick={open} className="group/draft gap-2">
             <span dir="auto" className="oc-ui-start-align min-w-0 flex-1 truncate italic">{label}</span>
             <span className="grid shrink-0 place-items-end [&>*]:[grid-area:1/1]">
-                <span className="group-data-[highlighted]/draft:opacity-0"><DraftTime draft={draft} /></span>
+                <span className="group-data-[highlighted]/draft:invisible"><DraftTime draft={draft} /></span>
                 <button
                     type="button"
                     aria-label={t('sessions.sidebar.draft.discard')}
