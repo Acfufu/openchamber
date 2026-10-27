@@ -1013,7 +1013,13 @@ export const createOpenChamberControlService = (dependencies) => {
         const payload = { worktree };
         if (directory) payload.directory = directory;
         if (input.carry !== undefined) payload.carry = input.carry;
-        return sessionService.moveToWorktree(sessionID, payload);
+        const moved = await sessionService.moveToWorktree(sessionID, payload);
+        // A new branch takes the task's name along; an existing branch keeps its own.
+        if (workNamer && !existingBranch && moved?.worktree?.path) {
+          await workNamer.carryToWorktree({ sessionId: sessionID, worktree: moved.worktree.path })
+            .catch((error) => console.warn('Failed to carry the task name into the new worktree:', error instanceof Error ? error.message : String(error)));
+        }
+        return moved;
       }
       if (action.startsWith('session.')) {
         const sessionID = asNonEmptyString(input.sessionId);

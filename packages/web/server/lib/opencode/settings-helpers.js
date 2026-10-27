@@ -379,6 +379,9 @@ export const createSettingsHelpers = (dependencies) => {
     if (candidate.sidebarDetailedZoneRows === true || candidate.sidebarDetailedZoneRows === false) {
       result.sidebarDetailedZoneRows = candidate.sidebarDetailedZoneRows;
     }
+    if (candidate.sidebarWorktreeNameByBranch === true || candidate.sidebarWorktreeNameByBranch === false) {
+      result.sidebarWorktreeNameByBranch = candidate.sidebarWorktreeNameByBranch;
+    }
 
     if (Array.isArray(candidate.securityScopedBookmarks)) {
       result.securityScopedBookmarks = normalizeStringArray(candidate.securityScopedBookmarks);

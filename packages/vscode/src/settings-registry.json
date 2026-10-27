@@ -339,6 +339,9 @@
       "scope": "profile",
       "perSurface": true
     },
+    "sidebarWorktreeNameByBranch": {
+      "scope": "profile"
+    },
     "workStatusSectionOrder": {
       "scope": "profile"
     },

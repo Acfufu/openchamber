@@ -57,7 +57,7 @@ const readWorkTitle = (session) => {
  * @param {object} dependencies
  * @param {(sessionID: string) => Promise<object|null>} dependencies.getSession OpenCode's session record, or null when unknown
  * @param {(directory: string) => Promise<Array<{ path: string }>>} dependencies.listWorktrees the repository's checkouts, the main one first
- * @param {(directory: string, input: { title: string, by: 'agent' }) => Promise<object>} dependencies.setWorktreeTaskTitle
+ * @param {(directory: string, input: { title: string, by: 'agent'|'user' }) => Promise<object>} dependencies.setWorktreeTaskTitle
  * @param {(directory: string) => Promise<string|null>} [dependencies.readPlaceholderBranch] the worktree's branch while it is OpenChamber's unpushed placeholder, else null
  * @param {(directory: string, name: string) => Promise<{ from: string, to: string }|null>} [dependencies.renamePlaceholderBranch]
  * @param {(sessionID: string, title: string, directory: string) => Promise<void>} dependencies.renameSession
@@ -168,5 +168,21 @@ export const createWorkNamer = ({
     return { task: 'session', sessionId: root.id, title, named: true, ...branchKept };
   };
 
-  return { name };
+  /**
+   * A session moved into a new worktree takes its task's name along. The
+   * worktree's row is named by its branch description, which a new branch
+   * does not have, and the agent does not name a task twice, so without this
+   * the row would show the bare branch. Whoever named it keeps the name.
+   */
+  const carryToWorktree = async ({ sessionId, worktree }) => {
+    const session = await getSession(sessionId);
+    const recorded = session ? readWorkTitle(session) : null;
+    if (!recorded) return null;
+    // Renamed by the user after the agent named it: the title is theirs.
+    const current = asText(session.title) || recorded.title;
+    const by = recorded.by === 'agent' && current === recorded.title ? 'agent' : 'user';
+    return setWorktreeTaskTitle(worktree, { title: current, by });
+  };
+
+  return { name, carryToWorktree };
 };
