@@ -29,6 +29,8 @@ const SUMMARY_FIELDS = `
   mergeStateStatus
   headRefOid
   baseRefName
+  comments { totalCount }
+  reviews { totalCount }
   commits(last: 1) {
     nodes {
       commit {
@@ -125,6 +127,8 @@ const prNodeSchema = z.object({
   mergeStateStatus: z.string().nullable(),
   headRefOid: z.string(),
   baseRefName: z.string(),
+  comments: z.object({ totalCount: z.number().int() }).nullish(),
+  reviews: z.object({ totalCount: z.number().int() }).nullish(),
   commits: z.object({
     nodes: z.array(z.object({
       commit: z.object({
@@ -238,7 +242,7 @@ function toSummary(ref, value) {
   }
   const node = parsed.data;
   const state = PR_STATES[node.state];
-  return {
+  const summary = {
     owner: ref.owner,
     repo: ref.repo,
     number: ref.number,
@@ -257,6 +261,11 @@ function toSummary(ref, value) {
       ? summarizeCheckContexts(node.commits.nodes[0]?.commit.statusCheckRollup?.contexts.nodes ?? [])
       : null,
   };
+  // Conversation comments plus reviews: it grows when someone writes on the
+  // pull request (a reply in a review thread is a review of its own), so an
+  // agent waiting on it hears about it (`../pr-watch`).
+  if (node.comments && node.reviews) summary.activity = node.comments.totalCount + node.reviews.totalCount;
+  return summary;
 }
 
 function buildSummaryQuery(entries) {

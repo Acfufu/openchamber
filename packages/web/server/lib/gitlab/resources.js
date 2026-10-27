@@ -141,6 +141,9 @@ function liveMergeRequestSummary(ref, raw) {
   };
   if (text(raw.sha)) summary.headSha = raw.sha;
   if (text(raw.target_branch)) summary.base = raw.target_branch;
+  // Notes people wrote, system notes left out: an agent waiting on the merge
+  // request hears about a new one (`../pr-watch`).
+  if (Number.isInteger(raw.user_notes_count)) summary.activity = raw.user_notes_count;
   return summary;
 }
 

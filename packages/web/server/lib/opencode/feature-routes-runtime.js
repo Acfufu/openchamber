@@ -30,6 +30,7 @@ import { registerMessageSearchRoutes } from '../message-search/routes.js';
 import { registerPermissionAutoAcceptRoutes } from '../permission-auto-accept/runtime.js';
 import { registerMessageQueueRoutes } from '../message-queue/runtime.js';
 import { registerAutoReviewRoutes } from '../auto-review/runtime.js';
+import { registerPrWatchRoutes } from '../pr-watch/runtime.js';
 import { registerWorkflowRoutes } from '../workflows/routes.js';
 import { registerRoutingPromptRewrite, registerRoutingRoutes } from '../routing/routes.js';
 import { registerConfigEntityRoutes } from './config-entity-routes.js';
@@ -267,6 +268,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       worktreeBootstrapStore,
       messageQueueRuntime,
       autoReviewRuntime,
+      prWatchRuntime = null,
       routingRuntime,
       globalEventHub,
       openchamberVersion,
@@ -285,6 +287,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
     registerPermissionAutoAcceptRoutes(app, permissionAutoAcceptRuntime);
     registerMessageQueueRoutes(app, messageQueueRuntime);
     registerAutoReviewRoutes(app, autoReviewRuntime);
+    if (prWatchRuntime) registerPrWatchRoutes(app, prWatchRuntime);
     registerRoutingRoutes(app, routingRuntime);
     // Before the generic OpenCode proxy: swallows the `openchamber/auto` model
     // switch and routes the sends that follow it.
@@ -543,8 +546,9 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       }
       return null;
     };
+    const trackedItemReaders = createTrackedItemReaders({ readLiveSummaries: walkthroughBindingService.readLiveSummaries, trackers });
     trackedItemsService = createTrackedItemsService({
-      readers: createTrackedItemReaders({ readLiveSummaries: walkthroughBindingService.readLiveSummaries, trackers }),
+      readers: trackedItemReaders,
       persistence: createTrackedItemsPersistence({ dataDir: openchamberDataDir }),
       isConnectionOpen: (connectionId) => findEventClient(connectionId) !== null,
       send: (connectionId, event) => {
@@ -591,6 +595,8 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       }
     });
     registerTrackedItemsRoutes(app, { service: trackedItemsService });
+    // An agent waiting on its pull request reads it through the same service.
+    prWatchRuntime?.attach({ trackedItems: trackedItemsService, readers: trackedItemReaders });
     const resolveGitIdentity = async (identityId) => {
       if (identityId === 'global') {
         const identity = await getGlobalIdentity();

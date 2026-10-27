@@ -237,6 +237,9 @@ export const createOpenChamberControlService = (dependencies) => {
     // Delivers a dispatched session's result back to the session that asked
     // (`returnResult`); absent means the server cannot offer it.
     dispatchResults = null,
+    // An agent waiting on its pull request (../pr-watch); absent means the
+    // server cannot offer it.
+    prWatch = null,
     // Agent workflows (../workflows/runtime.js); absent where they are not
     // available, which is every build without OPENCHAMBER_WORKFLOWS_ENABLE.
     workflowRuntime = null,
@@ -959,6 +962,19 @@ export const createOpenChamberControlService = (dependencies) => {
         // `link`; session.link has no other use for them, so both are read.
         const link = input.link ?? { url: input.url, title: input.title, kind: input.kind, identifier: input.identifier };
         return sessionLinks.link({ sessionId: sessionID, directory, link });
+      }
+      if (action === 'pr.watch' || action === 'pr.unwatch') {
+        if (!prWatch) throw new OpenChamberControlError('Waiting on a pull request is not available on this server', 503);
+        // Always the calling session: it is the one a change wakes.
+        const sessionID = asNonEmptyString(options.contextSessionId);
+        if (!sessionID) throw new OpenChamberControlError(`${action} must be called from a session`, 400);
+        try {
+          if (action === 'pr.unwatch') return await prWatch.unwatch(sessionID);
+          const directory = (await resolveSessionDirectory(sessionID)) || asNonEmptyString(contextDirectory);
+          return await prWatch.watch({ sessionID, directory, url: input.url });
+        } catch (error) {
+          throw new OpenChamberControlError(error?.message ?? String(error), Number.isInteger(error?.status) ? error.status : 500);
+        }
       }
       if (action === 'work.name') {
         if (!workNamer) throw new OpenChamberControlError('Naming tasks is not available on this server', 503);

@@ -168,13 +168,17 @@ const pickParameters = (names) => Object.fromEntries(
   Object.entries(ALL_PARAMETER_PROPERTIES).filter(([name]) => names.includes(name)),
 );
 
-const CONTROL_PARAMETER_PROPERTIES = pickParameters(
-  Object.keys(ALL_PARAMETER_PROPERTIES).filter((name) => (
-    !WEB_PARAMETER_NAMES.includes(name)
-    && !MEMORY_ONLY_PARAMETER_NAMES.includes(name)
-    && !SCHEDULE_ONLY_PARAMETER_NAMES.includes(name)
-  )),
-);
+const CONTROL_PARAMETER_PROPERTIES = {
+  ...pickParameters(
+    Object.keys(ALL_PARAMETER_PROPERTIES).filter((name) => (
+      !WEB_PARAMETER_NAMES.includes(name)
+      && !MEMORY_ONLY_PARAMETER_NAMES.includes(name)
+      && !SCHEDULE_ONLY_PARAMETER_NAMES.includes(name)
+    )),
+  ),
+  // The web tool's `url` is a page to load; here it names what pr.watch follows.
+  url: { type: 'string', description: 'pr.watch: the pull or merge request address' },
+};
 const SCHEDULE_PARAMETER_PROPERTIES = {
   ...pickParameters(SCHEDULE_PARAMETER_NAMES),
   ...SCHEDULE_PARAMETER_OVERRIDES,

@@ -117,6 +117,7 @@ import { createPermissionAutoAcceptRuntime } from './lib/permission-auto-accept/
 import { createMessageQueueRuntime } from './lib/message-queue/runtime.js';
 import { createAutoReviewRuntime } from './lib/auto-review/runtime.js';
 import { createDispatchResultsRuntime } from './lib/dispatch-results/runtime.js';
+import { createPrWatchRuntime } from './lib/pr-watch/runtime.js';
 import { isWorkflowFeatureAvailable } from './lib/workflows/feature-flag.js';
 import { createWorkflowAgentSessions } from './lib/workflows/agent-session.js';
 import { createWorkflowRuntime } from './lib/workflows/runtime.js';
@@ -1282,6 +1283,20 @@ const dispatchResultsRuntime = createDispatchResultsRuntime({
 });
 dispatchResultsRuntime.start();
 
+// An agent waiting on its pull request: followed through the tracked-items
+// service (attached when the routes create it), woken with one message.
+const prWatchRuntime = createPrWatchRuntime({
+  buildOpenCodeUrl,
+  getOpenCodeAuthHeaders,
+  broadcastUiEvent: broadcastOpenChamberUiEvent,
+  dataDir: OPENCHAMBER_DATA_DIR,
+  readCleanupOnMerge: async () => (await readSettingsFromDiskMigrated())?.mergedWorktreeCleanupEnabled === true,
+  // Declared further down; only ever called after startup.
+  isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
+  insideSpace: Boolean(process.env.OPENCHAMBER_SPACE_IDLE_STOP_FILE),
+});
+prWatchRuntime.start(globalMessageStreamHub);
+
 // Agent workflows: scripts that fan a task out to many agents, run here while
 // the agent that asked stays free. Absent entirely unless the build flag is set.
 const isWorkflowToolEnabled = async () => {
@@ -2095,6 +2110,7 @@ const openChamberControlService = createOpenChamberControlService({
     updateMetadata: updateSessionMetadataWith,
   },
   dispatchResults: dispatchResultsRuntime,
+  prWatch: prWatchRuntime,
   workflowRuntime,
   archiveStore: openChamberSessionService.archiveStore,
 });
@@ -2154,6 +2170,7 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   contextObligatoryRuntime,
   sessionWarmingRuntime,
   autoReviewRuntime,
+  prWatchRuntime,
   messageQueueRuntime,
   dispatchResultsRuntime,
   workflowRuntime,
@@ -2855,6 +2872,7 @@ async function main(options = {}) {
     worktreeBootstrapStore,
     messageQueueRuntime,
     autoReviewRuntime,
+    prWatchRuntime,
     routingRuntime,
     workflowRuntime,
   });

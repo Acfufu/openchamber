@@ -216,6 +216,11 @@ other.
   checkout, is not renamed: a `branch` passed there answers
   `branchRenamed: false` with a note, so the agent does not take the call for
   a rename.
+- `pr.watch` and `pr.unwatch` let the calling session wait on its pull
+  request without polling: `pr.watch` takes the address in the control tool's
+  own `url` input and hands it to `prWatch` (`../pr-watch/DOCUMENTATION.md`),
+  which reads it, follows it and wakes the session once when it changes. Both
+  act only on the calling session, never one the input names.
 - `session.link` records a code change under review or an issue on a session
   (`../openchamber-sessions/session-link.js`), defaulting to the calling
   session. When to link is not in the action's description but at the head of
