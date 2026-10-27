@@ -897,6 +897,7 @@ const getConfigForPath = (layers: ReturnType<typeof readConfigLayers>, targetPat
   if (!targetPath) return layers.userConfig;
   if (layers.paths.customPath && targetPath === layers.paths.customPath) return layers.customConfig;
   if (layers.paths.projectPath && targetPath === layers.paths.projectPath) return layers.projectConfig;
+  if (layers.paths.userOverridePath && targetPath === layers.paths.userOverridePath) return layers.userOverrideConfig;
   return layers.userConfig;
 };
 
@@ -2574,11 +2575,20 @@ export const updateCommand = (commandName: string, updates: Record<string, unkno
 const providerExistsIn = (config: unknown, providerId: string): boolean =>
   readSectionEntry(config, 'providers', providerId).value !== undefined;
 
+// OpenCode reads both global files, and an `opencode.jsonc` beside
+// `opencode.json` overrides it, so the user scope of a provider is the file
+// that holds it: the override when the entry lives there, else the primary.
+const getUserProviderPath = (layers: ReturnType<typeof readConfigLayers>, providerId: string) => {
+  const { userPath, userOverridePath } = layers.paths;
+  return userOverridePath && providerExistsIn(layers.userOverrideConfig, providerId) ? userOverridePath : userPath;
+};
+
 export const getProviderSources = (providerId: string, workingDirectory?: string) => {
   const layers = readConfigLayers(workingDirectory);
+  const userPath = getUserProviderPath(layers, providerId);
   return {
     auth: { exists: false },
-    user: { exists: providerExistsIn(layers.userConfig, providerId), path: layers.paths.userPath },
+    user: { exists: providerExistsIn(getConfigForPath(layers, userPath), providerId), path: userPath },
     project: { exists: providerExistsIn(layers.projectConfig, providerId), path: layers.paths.projectPath ?? null },
     custom: { exists: providerExistsIn(layers.customConfig, providerId), path: layers.paths.customPath },
   };
@@ -2587,20 +2597,20 @@ export const getProviderSources = (providerId: string, workingDirectory?: string
 /** The stored entry the edit form starts from; custom > project > user, like the edit scope. */
 export const getStoredProviderConfig = (providerId: string, workingDirectory?: string) => {
   const layers = readConfigLayers(workingDirectory);
-  return readStoredProviderEntry([layers.customConfig, layers.projectConfig, layers.userConfig], providerId);
+  return readStoredProviderEntry([layers.customConfig, layers.projectConfig, layers.userOverrideConfig, layers.userConfig], providerId);
 };
 
 export const removeProviderConfig = (providerId: string, workingDirectory?: string, scope: 'user' | 'project' | 'custom' = 'user') => {
   if (!providerId) throw new Error('Provider ID is required');
 
   const layers = readConfigLayers(workingDirectory);
-  let targetPath: string | null | undefined = layers.paths.userPath;
+  let targetPath: string | null | undefined = getUserProviderPath(layers, providerId);
 
   if (scope === 'project') {
     if (!workingDirectory) {
       throw new Error('Working directory is required for project scope');
     }
-    targetPath = layers.paths.projectPath ?? targetPath;
+    targetPath = layers.paths.projectPath ?? layers.paths.userPath;
   }
 
   if (scope === 'custom') {
@@ -2794,13 +2804,13 @@ export const upsertProviderConfig = (
   }
 
   const layers = readConfigLayers(workingDirectory);
-  let targetPath: string | null | undefined = layers.paths.userPath;
+  let targetPath: string | null | undefined = getUserProviderPath(layers, validated.value.providerId);
 
   if (scope === 'project') {
     if (!workingDirectory) {
       throw new Error('Working directory is required for project scope');
     }
-    targetPath = layers.paths.projectPath ?? targetPath;
+    targetPath = layers.paths.projectPath ?? layers.paths.userPath;
   } else if (scope === 'custom') {
     if (!layers.paths.customPath) {
       throw new Error('Custom config path (OPENCODE_CONFIG) is not set');
@@ -2825,6 +2835,18 @@ export const upsertProviderConfig = (
 
   const writePath = targetPath || CONFIG_FILE;
   writeConfig(targetConfig, writePath);
+
+  // Settings turns providers off in the primary user file, so saving one that
+  // lives in the override turns it back on there as well.
+  const { userConfig } = layers;
+  if (writePath === layers.paths.userOverridePath
+    && Array.isArray(userConfig.disabled_providers)
+    && userConfig.disabled_providers.includes(validated.value.providerId)) {
+    userConfig.disabled_providers = userConfig.disabled_providers.filter(
+      (entry) => entry !== validated.value.providerId,
+    );
+    writeConfig(userConfig, layers.paths.userPath);
+  }
 
   return {
     providerId: validated.value.providerId,
