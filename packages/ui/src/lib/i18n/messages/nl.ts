@@ -19,6 +19,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -169,6 +170,7 @@ export const dict = {
   ...heapSnapshotI18n.nl,
   ...consoleBudgetsI18n.nl,
   ...imageToolI18n.nl,
+  ...snippetsI18n.nl,
   ...sidebarWorkI18n.nl,
   ...worktreeArchiveI18n.nl,
   ...overviewI18n.nl,
@@ -2633,8 +2635,6 @@ export const dict = {
   'chat.snippetAutocomplete.action.addNew': 'Nieuw fragment toevoegen',
   'chat.snippetAutocomplete.empty': 'Geen fragmenten gevonden',
   'chat.snippetAutocomplete.footer': '↑↓ navigeren • Enter selecteren • Esc sluiten',
-  'snippets.source.global': 'globaal',
-  'snippets.source.project': 'project',
   'chat.chatInput.toast.compactFailed': 'Kan de sessie niet comprimeren',
   'chat.chatInput.toast.forkFailed': 'Kan de sessie niet forken',
   'chat.chatInput.toast.forkNothingToFork': 'Nog niets om te forken: in deze sessie is nog geen antwoord afgerond',

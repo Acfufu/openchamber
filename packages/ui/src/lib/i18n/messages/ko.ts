@@ -20,6 +20,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -170,6 +171,7 @@ export const dict: Record<I18nKey, string> = {
   ...heapSnapshotI18n.ko,
   ...consoleBudgetsI18n.ko,
   ...imageToolI18n.ko,
+  ...snippetsI18n.ko,
   ...sidebarWorkI18n.ko,
   ...worktreeArchiveI18n.ko,
   ...overviewI18n.ko,
@@ -2633,8 +2635,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.snippetAutocomplete.action.addNew': '새 스니펫 추가',
   'chat.snippetAutocomplete.empty': '스니펫을 찾을 수 없음',
   'chat.snippetAutocomplete.footer': '↑↓ 이동 • Enter 선택 • Esc 닫기',
-  'snippets.source.global': '전역',
-  'snippets.source.project': '프로젝트',
   'chat.chatInput.toast.compactFailed': '세션 압축 실패',
   'chat.chatInput.toast.forkFailed': '세션을 포크하지 못했습니다',
   'chat.chatInput.toast.forkNothingToFork': '아직 포크할 내용이 없습니다: 이 세션에 완료된 응답이 없습니다',

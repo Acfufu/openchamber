@@ -20,6 +20,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -170,6 +171,7 @@ export const dict: Record<I18nKey, string> = {
   ...heapSnapshotI18n.pl,
   ...consoleBudgetsI18n.pl,
   ...imageToolI18n.pl,
+  ...snippetsI18n.pl,
   ...sidebarWorkI18n.pl,
   ...worktreeArchiveI18n.pl,
   ...overviewI18n.pl,
@@ -1436,8 +1438,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.snippetAutocomplete.action.addNew': 'Dodaj nowy fragment',
   'chat.snippetAutocomplete.empty': 'Nie znaleziono fragmentów',
   'chat.snippetAutocomplete.footer': '↑↓ nawigacja • Enter wybierz • Esc zamknij',
-  'snippets.source.global': 'globalny',
-  'snippets.source.project': 'projekt',
   'chat.chatInput.previewAnnotations': 'Adnotacje podglądu:',
   'chat.chatInput.previewContext': 'Kontekst podglądu:',
   'chat.chatInput.previewContextRemove': 'Usuń kontekst podglądu',

@@ -20,6 +20,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -180,6 +181,7 @@ export const dict: Record<I18nKey, string> = {
   ...heapSnapshotI18n.uk,
   ...consoleBudgetsI18n.uk,
   ...imageToolI18n.uk,
+  ...snippetsI18n.uk,
   ...sidebarWorkI18n.uk,
   ...worktreeArchiveI18n.uk,
   ...overviewI18n.uk,
@@ -2590,8 +2592,6 @@ export const dict: Record<I18nKey, string> = {
   "chat.snippetAutocomplete.action.addNew": "Додати новий сніпет",
   "chat.snippetAutocomplete.empty": "Сніпети не знайдено",
   "chat.snippetAutocomplete.footer": "↑↓ навігація • Enter вибрати • Esc закрити",
-  "snippets.source.global": "глобальний",
-  "snippets.source.project": "проєкт",
   "chat.chatInput.toast.compactFailed": "Не вдалося стиснути сесію",
   'chat.chatInput.toast.forkFailed': 'Не вдалося відгалузити сесію',
   'chat.chatInput.toast.forkNothingToFork': 'Поки нічого відгалужувати: у цій сесії ще немає завершеної відповіді',

@@ -20,6 +20,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -180,6 +181,7 @@ export const dict: Record<I18nKey, string> = {
   ...heapSnapshotI18n.es,
   ...consoleBudgetsI18n.es,
   ...imageToolI18n.es,
+  ...snippetsI18n.es,
   ...sidebarWorkI18n.es,
   ...worktreeArchiveI18n.es,
   ...overviewI18n.es,
@@ -2590,8 +2592,6 @@ export const dict: Record<I18nKey, string> = {
   "chat.snippetAutocomplete.action.addNew": "Agregar nuevo snippet",
   "chat.snippetAutocomplete.empty": "No se encontraron snippets",
   "chat.snippetAutocomplete.footer": "↑↓ navegar • Enter seleccionar • Esc cerrar",
-  "snippets.source.global": "global",
-  "snippets.source.project": "proyecto",
   "chat.chatInput.toast.compactFailed": "No se pudo comprimir la sesión",
   'chat.chatInput.toast.forkFailed': 'No se pudo bifurcar la sesión',
   'chat.chatInput.toast.forkNothingToFork': 'Aún no hay nada que bifurcar: ninguna respuesta ha terminado en esta sesión',

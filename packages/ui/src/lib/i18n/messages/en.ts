@@ -19,6 +19,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -169,6 +170,7 @@ export const dict = {
   ...heapSnapshotI18n.en,
   ...consoleBudgetsI18n.en,
   ...imageToolI18n.en,
+  ...snippetsI18n.en,
   ...sidebarWorkI18n.en,
   ...worktreeArchiveI18n.en,
   ...overviewI18n.en,
@@ -2633,8 +2635,6 @@ export const dict = {
   'chat.snippetAutocomplete.action.addNew': 'Add new snippet',
   'chat.snippetAutocomplete.empty': 'No snippets found',
   'chat.snippetAutocomplete.footer': '↑↓ navigate • Enter select • Esc close',
-  'snippets.source.global': 'global',
-  'snippets.source.project': 'project',
   'chat.chatInput.toast.compactFailed': 'Failed to compact session',
   'chat.chatInput.toast.forkFailed': 'Couldn\'t fork the session',
   'chat.chatInput.toast.forkNothingToFork': 'Nothing to fork yet: no reply has finished in this session',

@@ -19,6 +19,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -169,6 +170,7 @@ export const dict = {
   ...heapSnapshotI18n.de,
   ...consoleBudgetsI18n.de,
   ...imageToolI18n.de,
+  ...snippetsI18n.de,
   ...sidebarWorkI18n.de,
   ...worktreeArchiveI18n.de,
   ...overviewI18n.de,
@@ -2347,8 +2349,6 @@ export const dict = {
   'chat.snippetAutocomplete.action.addNew': 'Neues Snippet hinzufügen',
   'chat.snippetAutocomplete.empty': 'Keine Snippets gefunden',
   'chat.snippetAutocomplete.footer': '↑↓ navigieren • Enter auswählen • Esc schließen',
-  'snippets.source.global': 'global',
-  'snippets.source.project': 'Projekt',
   'chat.chatInput.toast.compactFailed': 'Fehler beim Komprimieren der Sitzung',
   'chat.chatInput.toast.forkFailed': 'Sitzung konnte nicht abgezweigt werden',
   'chat.chatInput.toast.forkNothingToFork': 'Noch nichts zum Abzweigen: In dieser Sitzung ist noch keine Antwort abgeschlossen',

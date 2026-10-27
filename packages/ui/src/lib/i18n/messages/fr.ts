@@ -19,6 +19,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -169,6 +170,7 @@ export const dict = {
   ...heapSnapshotI18n.fr,
   ...consoleBudgetsI18n.fr,
   ...imageToolI18n.fr,
+  ...snippetsI18n.fr,
   ...sidebarWorkI18n.fr,
   ...worktreeArchiveI18n.fr,
   ...overviewI18n.fr,
@@ -2339,8 +2341,6 @@ export const dict = {
   'chat.snippetAutocomplete.action.addNew': 'Ajouter un nouvel extrait',
   'chat.snippetAutocomplete.empty': 'Aucun extrait trouvé',
   'chat.snippetAutocomplete.footer': '↑↓ naviguer • Entrer sélectionner • Esc fermer',
-  'snippets.source.global': 'mondial',
-  'snippets.source.project': 'projet',
   'chat.chatInput.toast.compactFailed': 'Échec du compactage de la session',
   'chat.chatInput.toast.forkFailed': 'Impossible de dupliquer la session',
   'chat.chatInput.toast.forkNothingToFork': 'Rien à dupliquer pour l\'instant : aucune réponse n\'est terminée dans cette session',

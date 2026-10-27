@@ -20,6 +20,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -170,6 +171,7 @@ export const dict: Record<I18nKey, string> = {
   ...heapSnapshotI18n['zh-CN'],
   ...consoleBudgetsI18n['zh-CN'],
   ...imageToolI18n['zh-CN'],
+  ...snippetsI18n['zh-CN'],
   ...sidebarWorkI18n['zh-CN'],
   ...worktreeArchiveI18n['zh-CN'],
   ...overviewI18n['zh-CN'],
@@ -2599,8 +2601,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.snippetAutocomplete.action.addNew': '新建代码片段',
   'chat.snippetAutocomplete.empty': '未找到代码片段',
   'chat.snippetAutocomplete.footer': '↑↓ 导航 • Enter 选择 • Esc 关闭',
-  'snippets.source.global': '全局',
-  'snippets.source.project': '项目',
   'chat.chatInput.toast.compactFailed': '压缩会话失败',
   'chat.chatInput.toast.forkFailed': '无法分叉会话',
   'chat.chatInput.toast.forkNothingToFork': '暂无可分叉内容：此会话中还没有已完成的回复',

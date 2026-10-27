@@ -19,6 +19,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -2563,8 +2564,6 @@ export const dict = {
   'chat.snippetAutocomplete.action.addNew': 'הוסף קטע קוד חדש',
   'chat.snippetAutocomplete.empty': 'לא נמצאו קטעי קוד',
   'chat.snippetAutocomplete.footer': '↑↓ ניווט • Enter בחירה • Esc סגירה',
-  'snippets.source.global': 'כללי',
-  'snippets.source.project': 'פרויקט',
   'chat.chatInput.toast.compactFailed': 'לא ניתן היה לדחוס את ההפעלה',
   'chat.chatInput.toast.forkFailed': 'לא ניתן היה לפצל את ההפעלה',
   'chat.chatInput.toast.forkNothingToFork': 'אין עדיין מה לפצל: אף תגובה לא הסתיימה בהפעלה זו',
@@ -3843,6 +3842,7 @@ export const dict = {
   ...heapSnapshotI18n.he,
   ...consoleBudgetsI18n.he,
   ...imageToolI18n.he,
+  ...snippetsI18n.he,
   ...sidebarWorkI18n.he,
   ...worktreeArchiveI18n.he,
   ...overviewI18n.he,

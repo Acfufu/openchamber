@@ -20,6 +20,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -170,6 +171,7 @@ export const dict: Record<I18nKey, string> = {
   ...heapSnapshotI18n['zh-TW'],
   ...consoleBudgetsI18n['zh-TW'],
   ...imageToolI18n['zh-TW'],
+  ...snippetsI18n['zh-TW'],
   ...sidebarWorkI18n['zh-TW'],
   ...worktreeArchiveI18n['zh-TW'],
   ...overviewI18n['zh-TW'],
@@ -2608,8 +2610,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.snippetAutocomplete.action.addNew': '新建程式片段',
   'chat.snippetAutocomplete.empty': '未找到程式片段',
   'chat.snippetAutocomplete.footer': '↑↓ 導航 • Enter 選擇 • Esc 關閉',
-  'snippets.source.global': '全局',
-  'snippets.source.project': '項目',
   'chat.chatInput.toast.compactFailed': '壓縮會話失敗',
   'chat.chatInput.toast.forkFailed': '無法分叉工作階段',
   'chat.chatInput.toast.forkNothingToFork': '尚無可分叉內容：此工作階段中還沒有已完成的回覆',

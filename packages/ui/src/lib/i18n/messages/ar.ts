@@ -19,6 +19,7 @@ import { sessionWarmingI18n } from './session-warming.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
 import { overviewI18n } from './overview.i18n';
@@ -2563,8 +2564,6 @@ export const dict = {
   'chat.snippetAutocomplete.action.addNew': 'إضافة مقتطف جديد',
   'chat.snippetAutocomplete.empty': 'لم يتم العثور على مقتطفات',
   'chat.snippetAutocomplete.footer': '↑↓ للتنقل • Enter للاختيار • Esc للإغلاق',
-  'snippets.source.global': 'عام',
-  'snippets.source.project': 'المشروع',
   'chat.chatInput.toast.compactFailed': 'تعذّر ضغط الجلسة',
   'chat.chatInput.toast.forkFailed': 'تعذّر اشتقاق الجلسة',
   'chat.chatInput.toast.forkNothingToFork': 'لا شيء للاشتقاق بعد: لم يكتمل أي رد في هذه الجلسة',
@@ -3843,6 +3842,7 @@ export const dict = {
   ...heapSnapshotI18n.ar,
   ...consoleBudgetsI18n.ar,
   ...imageToolI18n.ar,
+  ...snippetsI18n.ar,
   ...sidebarWorkI18n.ar,
   ...worktreeArchiveI18n.ar,
   ...overviewI18n.ar,
