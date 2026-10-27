@@ -107,7 +107,13 @@ itself; it can only ask and wait.
   `browser.settle`; the tab is open either way, so a failed wait answers
   `settled: false`, never an error. `browser.capture` waits the same way for at
   most 3 s, then shoots what is there. Attribute changes do not count, because
-  a finished page changes classes and styles on hover all the time. A page can
+  a finished page changes classes and styles on hover all the time; a running
+  animation that will end does count, and one that loops forever or follows
+  scrolling does not. A
+  background tab gets no animation frames while `visibilityState` still says
+  `visible`, so an app's splash that fades out by style starts fading only
+  when a capture shows the page: without the animation check the capture shot
+  the first frame of that fade (seen on `/mobile.html`). A page can
   report a resource only once it has arrived, so a single chunk slower than
   500 ms behind an unchanging splash still ends the wait early; the next
   snapshot shows the splash, and nothing in the page can see a request in
@@ -139,6 +145,25 @@ itself; it can only ask and wait.
   `tabId` is validated and passed through by
   `../openchamber-control/service.js` for every action, so an extension
   provider receives it untouched (`BrowserTabTarget` in `@openchamber/sdk`).
+
+## Running the panel's code
+
+The agent tool reaches the panel of the app the agent works from, so a change
+to `BrowserPane`, `controlClient` or `pageActions` shows there only after that
+app is rebuilt. Run it in `electron:dev` instead and send the actions to that
+instance's API port, the one its log prints after `OpenChamber server
+listening on`; the route has no session, so name the tab after the open:
+
+```sh
+curl -s -X POST http://127.0.0.1:<api-port>/api/openchamber/control \
+  -H 'content-type: application/json' \
+  -d '{"action":"browser.open","input":{"url":"http://localhost:<ui-port>/mobile.html","viewport":"mobile"},"contextDirectory":"<repo>"}'
+```
+
+`browser.capture`, `browser.snapshot` and the rest take `{"tabId": "<tabId from the open>"}`
+in `input`. The tab stays in the background, as an agent's does, and the page
+inside it is a `webview` target on the instance's debugging port for reading
+what the actions alone do not show (frame rate, animations).
 
 ## Invariants
 

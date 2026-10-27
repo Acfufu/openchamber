@@ -488,7 +488,10 @@ export const buildScrollScript = ({ selector, direction }: { selector?: string; 
  * An app then fetches its lazy chunks and replaces its splash screen, and a
  * screenshot taken in between shows the splash as if it were the page.
  * Attribute changes are left out: hover classes and live styles change on a
- * finished page all the time and would hold every wait to its limit.
+ * finished page all the time and would hold every wait to its limit. A
+ * running animation that will finish counts as a change: a splash fades out
+ * by style alone, and a hidden tab, which gets no frames, starts that fade
+ * only once a capture shows it.
  */
 export const buildQuietScript = ({ quietMs, maxMs }: { quietMs: number; maxMs: number }): string => wrap(`
   var quietMs = ${JSON.stringify(quietMs)};
@@ -506,8 +509,30 @@ export const buildQuietScript = ({ quietMs, maxMs }: { quietMs: number; maxMs: n
     } catch (error) {
       resources = null;
     }
+    // A fade or slide that will end is the page still changing. One that
+    // loops forever (a spinner, a pulsing logo) or follows scrolling never
+    // ends on its own and is ignored, and so is a page whose own
+    // getAnimations throws: the wait must still end.
+    var animating = function () {
+      try {
+        if (typeof document.getAnimations !== 'function') return false;
+        var list = document.getAnimations();
+        for (var i = 0; i < list.length; i += 1) {
+          var animation = list[i];
+          if (animation.playState !== 'running' && !animation.pending) continue;
+          if (animation.timeline && animation.timeline !== document.timeline) continue;
+          var timing = animation.effect && animation.effect.getTiming ? animation.effect.getTiming() : null;
+          if (timing && timing.iterations === Infinity) continue;
+          return true;
+        }
+      } catch (error) {
+        return false;
+      }
+      return false;
+    };
     var check = function () {
       var now = performance.now();
+      if (animating()) lastChange = now;
       var quiet = now - lastChange >= quietMs;
       if (quiet || now - startedAt >= maxMs) {
         mutations.disconnect();

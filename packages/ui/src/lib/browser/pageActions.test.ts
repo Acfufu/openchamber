@@ -135,6 +135,40 @@ describe('page action scripts', () => {
     await win.happyDOM.close();
   });
 
+  test('waiting for quiet holds through a finite animation and ignores an endless one', async () => {
+    // A splash fades out by style alone, with no DOM change until it is gone.
+    const win = new Window({ url: 'http://localhost:3000/' });
+    const fadeEndsAt = performance.now() + 250;
+    const fade = { get playState() { return performance.now() < fadeEndsAt ? 'running' : 'finished'; }, pending: false, effect: { getTiming: () => ({ iterations: 1 }) } };
+    const pulse = { playState: 'running', pending: false, effect: { getTiming: () => ({ iterations: Infinity }) } };
+    Object.defineProperty(win.document, 'getAnimations', { value: () => [fade, pulse] });
+    const run = new Function(
+      'window', 'document', 'MutationObserver', 'PerformanceObserver', 'performance', 'setTimeout',
+      `return ${buildQuietScript({ quietMs: 100, maxMs: 2_000 })}`,
+    );
+
+    const startedAt = performance.now();
+    const result = await Promise.resolve(run(win, win.document, win.MutationObserver, undefined, performance, setTimeout));
+
+    expect(result).toEqual({ ok: true, quiet: true });
+    // Never before the fade ended; the endless pulse did not hold it to the limit.
+    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(250);
+    expect(performance.now() - startedAt).toBeLessThan(2_000);
+    await win.happyDOM.close();
+  });
+
+  test('waiting for quiet still ends when the page breaks getAnimations', async () => {
+    const win = new Window({ url: 'http://localhost:3000/' });
+    Object.defineProperty(win.document, 'getAnimations', { value: () => { throw new Error('page override'); } });
+    const run = new Function(
+      'window', 'document', 'MutationObserver', 'PerformanceObserver', 'performance', 'setTimeout',
+      `return ${buildQuietScript({ quietMs: 50, maxMs: 1_000 })}`,
+    );
+
+    expect(await Promise.resolve(run(win, win.document, win.MutationObserver, undefined, performance, setTimeout))).toEqual({ ok: true, quiet: true });
+    await win.happyDOM.close();
+  });
+
   test('a scoped snapshot returns the text of its subtree only', () => {
     const win = new Window({ url: 'http://localhost:3000/' });
     win.document.body.innerHTML = '<nav>Sidebar session</nav><div role="dialog">Appearance settings</div>';
