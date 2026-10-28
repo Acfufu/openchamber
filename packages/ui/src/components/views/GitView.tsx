@@ -1,7 +1,6 @@
 import React from 'react';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useFireworksCelebration } from '@/contexts/FireworksContext';
 import type { GitIdentityProfile, CommitFileEntry, GitStatus } from '@/lib/api/types';
 import { rankByQuery } from '@/lib/search/fuzzySearch';
 import { useGitIdentitiesStore } from '@/stores/useGitIdentitiesStore';
@@ -89,9 +88,8 @@ import { findWorktreeHoldingDirectory } from '@/lib/worktrees/worktreePaths';
 import { cn } from '@/lib/utils';
 import { generateCommitMessage as generateSessionCommitMessage, getGitWorktreeBootstrapStatus } from '@/lib/gitApi';
 import { sessionEvents } from '@/lib/sessionEvents';
-import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
-import { useEasterEggCopy } from '@/lib/easter-eggs/easterEggCopy';
-import { netDeletionLine, pushLine } from '@/lib/easter-eggs/lines';
+import { useI18n } from '@/lib/i18n';
+import { useCommitCelebration } from './git/useCommitCelebration';
 import { BoundGitNetworkOperationError, GitOperationResultError, runBoundGitNetworkOperation, runContributorAwarePush, describeGitSyncOutcome, type GitSyncOutcome } from '@/lib/boundGitNetworkOperation';
 import { useGitOperationRecovery } from './git/useGitOperationRecovery';
 import { GitOperationStatus } from './git/GitOperationStatus';
@@ -237,6 +235,10 @@ type GitViewProps = {
 };
 
 export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
+  // Counts openings of the panel, which stays mounted while closed: the clean
+  // state remounts on each one and picks a new line.
+  const [opening, setOpening] = React.useState({ active: isActive, count: 0 });
+  if (opening.active !== isActive) setOpening({ active: isActive, count: opening.count + (isActive ? 1 : 0) });
   const { t } = useI18n();
   const { git, sourceControl, runtime } = useRuntimeAPIs();
   // The panel's tabs belong to the open view's folder; the repository shown is the same folder,
@@ -695,8 +697,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
   const [commitAction, setCommitAction] = React.useState<CommitAction>(null);
   const [logMaxCountLocal, setLogMaxCountLocal] = React.useState<number>(25);
   const [isSettingIdentity, setIsSettingIdentity] = React.useState(false);
-  const { triggerFireworks } = useFireworksCelebration();
-  const easterEggCopy = useEasterEggCopy();
+  const commitCelebration = useCommitCelebration();
 
   const autoAppliedDefaultRef = React.useRef<Map<string, string>>(new Map());
   const identityApplyCountRef = React.useRef(0);
@@ -1311,13 +1312,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
       commitOutcome = 'local';
       bumpIndexRevision(gitDirectory);
       bumpIndexRevision(gitDirectory);
-      const deletionLine = easterEggCopy
-        ? netDeletionLine(easterEggCopy, commit.summary, getCurrentIntlLocale(), Math.floor(Math.random() * 1000))
-        : null;
-      if (deletionLine) toast.success(deletionLine.title, { description: deletionLine.description });
-      else toast.success(t('gitView.toast.commitCreated'));
-      // A commit-only deletion celebrates now; with a push it waits for the push.
-      if (deletionLine && !options.pushAfter) triggerFireworks({ kind: 'deletion', origin: options.origin });
+      const deletion = commitCelebration.committed(commit.summary, options);
       setCommitMessage('');
       clearGeneratedHighlights();
 
@@ -1332,10 +1327,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
         setSyncAction('publish');
         await executePush();
         commitOutcome = 'published';
-        const pushedLine = easterEggCopy ? pushLine(easterEggCopy, new Date(), getCurrentIntlLocale(), Math.floor(Math.random() * 1000)) : null;
-        if (pushedLine) toast.success(pushedLine.title, { description: pushedLine.description });
-        else toast.success(t('gitView.publish.succeeded'));
-        triggerFireworks({ kind: deletionLine ? 'deletion' : 'push', origin: options.origin });
+        commitCelebration.pushed({ deletion, origin: options.origin });
       }
       await refreshAfterGitAction(() => setIntegrateRefreshKey((v) => v + 1));
     } catch (err) {
@@ -2558,7 +2550,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
                       />
                     </>
                   ) : (
-                      <GitEmptyState onOpenStashes={() => setIsStashesDialogOpen(true)} />
+                      <GitEmptyState key={opening.count} onOpenStashes={() => setIsStashesDialogOpen(true)} />
                   )}
                 </div>
             </ScrollableOverlay>

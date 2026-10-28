@@ -12,7 +12,7 @@ export interface CelebrationOptions {
 }
 
 /** A point on screen, in percent of the viewport. */
-export interface BurstOrigin {
+interface BurstOrigin {
   x: number;
   y: number;
 }
