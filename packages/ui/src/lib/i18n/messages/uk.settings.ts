@@ -1837,6 +1837,7 @@ export const settingsDict = {
   "settings.mcp.page.actions.clearAuth": "Очистити авторизацію",
   "settings.mcp.page.actions.test": "Тестувати",
   "settings.mcp.page.actions.testConnection": "Перевірити з’єднання",
+  "settings.mcp.page.actions.signInAgain": "Увійти знову",
   "settings.mcp.page.actions.working": "Працює...",
   "settings.mcp.page.actions.starting": "Запуск...",
   "settings.mcp.page.actions.clearing": "Очищення...",

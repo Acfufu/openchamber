@@ -1860,6 +1860,7 @@ export const settingsDict = {
   'settings.mcp.page.actions.clearAuth': 'Clear auth',
   'settings.mcp.page.actions.test': 'Test',
   'settings.mcp.page.actions.testConnection': 'Test connection',
+  'settings.mcp.page.actions.signInAgain': 'Sign in again',
   'settings.mcp.page.actions.working': 'Working...',
   'settings.mcp.page.actions.starting': 'Starting...',
   'settings.mcp.page.actions.clearing': 'Clearing...',

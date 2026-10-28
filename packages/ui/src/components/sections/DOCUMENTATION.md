@@ -187,9 +187,32 @@ with one `oauth` method, so signing in is the same connect / status /
 complete flow the Providers page runs. `mcp/McpOAuthSignIn.tsx` looks the
 integration up by server name in the server's directory (the registration is
 per Location) and mounts the shared `providers/ProviderOAuthMethods.tsx`
-with that directory. It appears in the status card while the server reports
-`needs_auth`; once the credential is stored, the page connects the server
-again, which is what moves it out of `needs_auth`.
+with that directory. While the server reports `needs_auth`, the status card
+shows its sign-in row; once the credential is stored, the page connects the
+server again, which is what moves it out of `needs_auth` or `failed`.
+
+### Why a failed OAuth server's header says "Sign in again"
+
+When the service rejects the stored token (a refresh answered with 403
+`access_denied`), OpenCode reports the server `failed`, not `needs_auth`, and
+keeps the rejected credential. Connect only sends it again. A fresh sign-in
+starts with no tokens (it reuses only the earlier client registration) and
+its new credential is the one the next connect uses, so signing in is the
+whole recovery; no sign-out call is needed.
+
+So for a `failed` server whose OAuth integration exists
+(`useMcpOAuthIntegration`), the header's primary button is "Sign in again" in
+place of Connect, and the card shows no second sign-in row: each press mounts
+a fresh `McpOAuthSignIn` with `autoStart` and its start button hidden, so only
+the attempt's progress appears. Test connection stays on the status line for
+the other cause of `failed`, a server that was down; it retries with the
+stored credential. A `failed` server without OAuth keeps Connect.
+
+The Integrations catalog keeps its sign-in row and labels its button "Sign in
+again" for `failed`, gated on the entry's `auth: 'oauth'` so a failed
+token-based entry gets no sign-in block. It starts the sign-in by itself after
+an install only for `needs_auth`: a first connect that failed for another
+reason waits for a click.
 
 ### Claude sign-in on Usage
 

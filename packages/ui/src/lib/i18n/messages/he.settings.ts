@@ -1858,6 +1858,7 @@ export const settingsDict = {
   'settings.mcp.page.actions.clearAuth': 'נקה אימות',
   'settings.mcp.page.actions.test': 'בדוק',
   'settings.mcp.page.actions.testConnection': 'בדוק חיבור',
+  'settings.mcp.page.actions.signInAgain': 'היכנס שוב',
   'settings.mcp.page.actions.working': 'עובד…',
   'settings.mcp.page.actions.starting': 'מתחיל…',
   'settings.mcp.page.actions.clearing': 'מנקה…',

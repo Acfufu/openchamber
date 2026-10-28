@@ -1861,6 +1861,7 @@ export const settingsDict = {
   'settings.mcp.page.actions.clearAuth': 'Autorisatie wissen',
   'settings.mcp.page.actions.test': 'Testen',
   'settings.mcp.page.actions.testConnection': 'Verbinding testen',
+  'settings.mcp.page.actions.signInAgain': 'Opnieuw inloggen',
   'settings.mcp.page.actions.working': 'Bezig...',
   'settings.mcp.page.actions.starting': 'Starten...',
   'settings.mcp.page.actions.clearing': 'Wissen...',
