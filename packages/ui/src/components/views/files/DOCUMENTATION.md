@@ -166,7 +166,11 @@ element, duration and dimensions once metadata loads, a stated failure when
 the runtime cannot decode the codec), `FontArtifact` (a specimen under a
 throwaway `FontFace` family removed when the tab closes), `TableArtifact`
 (CSV/TSV through `delimitedText.ts`, capped rows stated in the meta line),
-and `BinaryArtifact` (name, type, size, download; never a decode attempt).
+`BinaryArtifact` (name, type, size, download; never a decode attempt),
+and `PdfArtifact` (the browser's own PDF viewer in a frame; the Android app,
+whose WebView has no PDF viewer and paints an empty frame, shows the
+`BinaryArtifact` state with a line saying so, and its download opens the
+share sheet, from which the phone's PDF app opens the file).
 `FilesView.renderArtifactPreview` is the single switch both the docked and
 the fullscreen viewer use. SVG, Mermaid (`.mmd`) and delimited files are text
 with an artifact view: each has a per-path preview/source toggle, and opens

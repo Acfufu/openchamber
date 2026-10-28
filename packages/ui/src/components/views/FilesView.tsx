@@ -90,6 +90,7 @@ import { useFileTreeUpload } from './files/useFileTreeUpload';
 import { moveWorkspacePath } from './files/moveWorkspacePath';
 import { areDirectoryNodesEqual, buildFileTreeStatusIndex } from './files/fileTreeStatus';
 import { BinaryArtifact } from './files/previews/BinaryArtifact';
+import { PdfArtifact } from './files/previews/PdfArtifact';
 import { FontArtifact } from './files/previews/FontArtifact';
 import { ImageArtifact, type ImageNeighbor } from './files/previews/ImageArtifact';
 import { imageNeighborsOf } from './files/imageNeighbors';
@@ -3781,16 +3782,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   const pdfSrc = rawAsset.src;
 
-  const renderPdfPreview = React.useCallback((file: FileNode) => (
-    <div className="h-full overflow-hidden bg-[var(--surface-background)]">
-      <iframe
-        src={pdfSrc}
-        className="h-full w-full border-0"
-        title={file.name}
-      />
-    </div>
-  ), [pdfSrc]);
-
   const downloadButton = selectedFile && files.downloadFile ? (
     <Button
       type="button"
@@ -3816,7 +3807,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (isSelectedImage && !isSvgSource) {
       return <ImageArtifact src={imageSrc} name={file.name} sizeBytes={artifactSize} neighbors={imageNeighbors} />;
     }
-    if (isSelectedPdf) return renderPdfPreview(file);
+    if (isSelectedPdf) {
+      return <PdfArtifact src={pdfSrc} name={file.name} path={file.path} sizeBytes={artifactSize} download={downloadButton} />;
+    }
     if (isSelectedMedia) {
       return (
         <MediaArtifact

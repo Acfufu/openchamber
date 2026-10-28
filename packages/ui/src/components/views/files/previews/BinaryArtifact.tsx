@@ -15,8 +15,10 @@ export const BinaryArtifact: React.FC<{
   name: string;
   path: string;
   sizeBytes: number | null;
+  /** Replaces the "does not decode" line, for a file the viewer could show elsewhere. */
+  description?: string;
   download?: React.ReactNode;
-}> = ({ name, path, sizeBytes, download }) => {
+}> = ({ name, path, sizeBytes, description, download }) => {
   const { t } = useI18n();
   const extension = getFileExtension(path).toUpperCase();
   return (
@@ -26,9 +28,9 @@ export const BinaryArtifact: React.FC<{
         <FileTypeIcon filePath={path} className="size-10" />
         <div className="max-w-full truncate typography-ui-header text-foreground">{name}</div>
         <div className="max-w-md typography-ui text-muted-foreground">
-          {extension
+          {description ?? (extension
             ? t('filesView.artifact.binary.descriptionWithType', { extension })
-            : t('filesView.artifact.binary.description')}
+            : t('filesView.artifact.binary.description'))}
         </div>
         {download}
       </div>

@@ -18,6 +18,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'No preview for this file',
     'filesView.artifact.binary.description': 'OpenChamber does not decode this kind of file. Download it to open it in another app.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber does not decode {extension} files. Download it to open it in another app.',
+    'filesView.artifact.pdf.androidUnavailable': 'PDF preview isn\'t available on Android',
   },
   nl: {
     'filesView.artifact.image.fit': 'Passen',
@@ -37,6 +38,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Geen preview voor dit bestand',
     'filesView.artifact.binary.description': 'OpenChamber kan dit soort bestand niet decoderen. Download het om het in een andere app te openen.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber kan {extension}-bestanden niet decoderen. Download het om het in een andere app te openen.',
+    'filesView.artifact.pdf.androidUnavailable': 'PDF-voorbeeld is niet beschikbaar op Android',
   },
   de: {
     'filesView.artifact.image.fit': 'Einpassen',
@@ -56,6 +58,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Keine Vorschau für diese Datei',
     'filesView.artifact.binary.description': 'OpenChamber kann diese Art von Datei nicht dekodieren. Lade sie herunter, um sie in einer anderen App zu öffnen.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber kann {extension}-Dateien nicht dekodieren. Lade sie herunter, um sie in einer anderen App zu öffnen.',
+    'filesView.artifact.pdf.androidUnavailable': 'PDF-Vorschau ist auf Android nicht verfügbar',
   },
   es: {
     'filesView.artifact.image.fit': 'Ajustar',
@@ -75,6 +78,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'No hay vista previa para este archivo',
     'filesView.artifact.binary.description': 'OpenChamber no decodifica este tipo de archivo. Descárgalo para abrirlo en otra aplicación.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber no decodifica archivos {extension}. Descárgalo para abrirlo en otra aplicación.',
+    'filesView.artifact.pdf.androidUnavailable': 'La vista previa de PDF no está disponible en Android',
   },
   fr: {
     'filesView.artifact.image.fit': 'Ajuster',
@@ -94,6 +98,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Aucun aperçu pour ce fichier',
     'filesView.artifact.binary.description': 'OpenChamber ne décode pas ce type de fichier. Téléchargez-le pour l\'ouvrir dans une autre application.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber ne décode pas les fichiers {extension}. Téléchargez-le pour l\'ouvrir dans une autre application.',
+    'filesView.artifact.pdf.androidUnavailable': 'L\'aperçu PDF n\'est pas disponible sur Android',
   },
   ja: {
     'filesView.artifact.image.fit': 'フィット',
@@ -113,6 +118,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'このファイルはプレビューできません',
     'filesView.artifact.binary.description': 'OpenChamber はこの種類のファイルをデコードしません。ダウンロードして別のアプリで開いてください。',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber は {extension} ファイルをデコードしません。ダウンロードして別のアプリで開いてください。',
+    'filesView.artifact.pdf.androidUnavailable': 'Android では PDF をプレビューできません',
   },
   ko: {
     'filesView.artifact.image.fit': '맞춤',
@@ -132,6 +138,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': '이 파일은 미리 볼 수 없습니다',
     'filesView.artifact.binary.description': 'OpenChamber는 이 종류의 파일을 해석하지 않습니다. 다운로드하여 다른 앱에서 여세요.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber는 {extension} 파일을 해석하지 않습니다. 다운로드하여 다른 앱에서 여세요.',
+    'filesView.artifact.pdf.androidUnavailable': 'Android에서는 PDF를 미리 볼 수 없습니다',
   },
   pl: {
     'filesView.artifact.image.fit': 'Dopasuj',
@@ -151,6 +158,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Brak podglądu dla tego pliku',
     'filesView.artifact.binary.description': 'OpenChamber nie dekoduje tego rodzaju plików. Pobierz go, aby otworzyć w innej aplikacji.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber nie dekoduje plików {extension}. Pobierz go, aby otworzyć w innej aplikacji.',
+    'filesView.artifact.pdf.androidUnavailable': 'Podgląd PDF nie jest dostępny na Androidzie',
   },
   'pt-BR': {
     'filesView.artifact.image.fit': 'Ajustar',
@@ -170,6 +178,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Sem pré-visualização para este arquivo',
     'filesView.artifact.binary.description': 'O OpenChamber não decodifica este tipo de arquivo. Baixe-o para abrir em outro aplicativo.',
     'filesView.artifact.binary.descriptionWithType': 'O OpenChamber não decodifica arquivos {extension}. Baixe-o para abrir em outro aplicativo.',
+    'filesView.artifact.pdf.androidUnavailable': 'A pré-visualização de PDF não está disponível no Android',
   },
   tr: {
     'filesView.artifact.image.fit': 'Sığdır',
@@ -189,6 +198,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Bu dosya için önizleme yok',
     'filesView.artifact.binary.description': 'OpenChamber bu tür dosyaların kodunu çözmez. Başka bir uygulamada açmak için indirin.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber {extension} dosyalarının kodunu çözmez. Başka bir uygulamada açmak için indirin.',
+    'filesView.artifact.pdf.androidUnavailable': 'PDF önizlemesi Android\'de kullanılamıyor',
   },
   uk: {
     'filesView.artifact.image.fit': 'Вписати',
@@ -208,6 +218,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'Для цього файлу немає перегляду',
     'filesView.artifact.binary.description': 'OpenChamber не декодує файли такого типу. Завантажте його, щоб відкрити в іншому застосунку.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber не декодує файли {extension}. Завантажте його, щоб відкрити в іншому застосунку.',
+    'filesView.artifact.pdf.androidUnavailable': 'Перегляд PDF на Android недоступний',
   },
   'zh-CN': {
     'filesView.artifact.image.fit': '适应',
@@ -227,6 +238,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': '此文件无法预览',
     'filesView.artifact.binary.description': 'OpenChamber 不解码此类文件。请下载后用其他应用打开。',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber 不解码 {extension} 文件。请下载后用其他应用打开。',
+    'filesView.artifact.pdf.androidUnavailable': 'Android 上无法预览 PDF',
   },
   'zh-TW': {
     'filesView.artifact.image.fit': '適應',
@@ -246,6 +258,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': '此檔案無法預覽',
     'filesView.artifact.binary.description': 'OpenChamber 不解碼此類檔案。請下載後用其他應用程式開啟。',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber 不解碼 {extension} 檔案。請下載後用其他應用程式開啟。',
+    'filesView.artifact.pdf.androidUnavailable': 'Android 上無法預覽 PDF',
   },
   ar: {
     'filesView.artifact.image.fit': 'ملاءمة',
@@ -265,6 +278,7 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'لا توجد معاينة لهذا الملف',
     'filesView.artifact.binary.description': 'لا يفك OpenChamber ترميز هذا النوع من الملفات. نزّله لفتحه في تطبيق آخر.',
     'filesView.artifact.binary.descriptionWithType': 'لا يفك OpenChamber ترميز ملفات {extension}. نزّله لفتحه في تطبيق آخر.',
+    'filesView.artifact.pdf.androidUnavailable': 'معاينة PDF غير متاحة على Android',
   },
   he: {
     'filesView.artifact.image.fit': 'התאם',
@@ -284,5 +298,6 @@ export const fileArtifactsI18n = {
     'filesView.artifact.binary.title': 'אין תצוגה מקדימה לקובץ הזה',
     'filesView.artifact.binary.description': 'OpenChamber לא מפענח קבצים מהסוג הזה. אפשר להוריד את הקובץ ולפתוח אותו באפליקציה אחרת.',
     'filesView.artifact.binary.descriptionWithType': 'OpenChamber לא מפענח קבצי {extension}. אפשר להוריד את הקובץ ולפתוח אותו באפליקציה אחרת.',
+    'filesView.artifact.pdf.androidUnavailable': 'תצוגה מקדימה של PDF לא זמינה ב-Android',
   },
 } as const;
