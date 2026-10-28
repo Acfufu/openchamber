@@ -74,6 +74,27 @@ export function onRowExpand(container: HTMLElement, listener: () => void): () =>
     return () => container.removeEventListener(ROW_EXPAND_EVENT, listener);
 }
 
+// A page waiting for the reader's answer (`openchamber_render` with
+// `awaitAnswer`) raises this from its block when it appears and whenever its
+// height changes, so the timeline holding it can bring it into view. The
+// block names its page in `data-waiting-page`.
+const PAGE_WAITING_EVENT = 'openchamber:page-waiting';
+
+export function dispatchPageWaiting(block: HTMLElement | null): void {
+    block?.dispatchEvent(new CustomEvent(PAGE_WAITING_EVENT, { bubbles: true }));
+}
+
+/** Listens for waiting pages inside `container`. */
+export function onPageWaiting(container: HTMLElement, listener: (block: HTMLElement, pageId: string) => void): () => void {
+    const handle = (event: Event) => {
+        const block = event.target;
+        const pageId = block instanceof HTMLElement ? block.dataset.waitingPage : undefined;
+        if (block instanceof HTMLElement && pageId) listener(block, pageId);
+    };
+    container.addEventListener(PAGE_WAITING_EVENT, handle);
+    return () => container.removeEventListener(PAGE_WAITING_EVENT, handle);
+}
+
 // Middle-button press starts the platform's autoscroll pan (Windows/Linux
 // Chromium); the pan then scrolls without wheel events, so the press itself is
 // the gesture. Inside a nested scroller the pan belongs to that scroller.

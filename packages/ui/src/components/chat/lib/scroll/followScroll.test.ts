@@ -7,6 +7,7 @@ import {
     isPositionHeldByFollow,
     resolveFollowGlideTarget,
     resolveFollowStop,
+    resolvePageRevealTarget,
     resolveViewportAtEnd,
 } from './followScroll';
 
@@ -32,6 +33,21 @@ describe('resolveFollowStop', () => {
 
     test('follows to the end when only growth below a reply that fits carries its start off', () => {
         expect(resolveFollowStop(1500, { limit: 900, bottom: 1400 }, 600)).toEqual({ target: 1500, hold: false });
+    });
+});
+
+describe('resolvePageRevealTarget', () => {
+    test('ends a page that fits at the visible bottom', () => {
+        expect(resolvePageRevealTarget({ top: 2600, bottom: 2800 }, 300, 600, 50)).toBe(2200);
+    });
+
+    test('starts a page taller than the screen at the top', () => {
+        expect(resolvePageRevealTarget({ top: 2600, bottom: 3600 }, 300, 600, 50)).toBe(2550);
+        expect(resolvePageRevealTarget({ top: 2600, bottom: 3600 }, 2550, 600, 50)).toBeNull();
+    });
+
+    test('leaves a page already in view where it is', () => {
+        expect(resolvePageRevealTarget({ top: 2600, bottom: 2800 }, 2300, 600, 50)).toBeNull();
     });
 });
 

@@ -18,7 +18,7 @@ import { answerRenderedPage } from '@/lib/renderPageAnswer';
 import { openExternalUrl } from '@/lib/url';
 import type { ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { dispatchFrameScroll } from '@/components/chat/lib/scroll/timelineScrollIntent';
+import { dispatchFrameScroll, dispatchPageWaiting } from '@/components/chat/lib/scroll/timelineScrollIntent';
 import { useChatSurfaceMode } from '@/components/chat/useChatSurfaceMode';
 import { dispatchFrameSelection, frameRectInApp } from '../frameSelection';
 import {
@@ -478,9 +478,16 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
                 ? t('chat.htmlRender.answeredInChat')
                 : ask.kind === 'unanswered' ? t('chat.htmlRender.unanswered') : null;
     const waiting = ask.kind === 'waiting' && answeredSummary === undefined;
+    // The chat brings a page that waits for an answer into view, and again
+    // as its height arrives: an off-screen frame reports its size only once
+    // it is scrolled into view.
+    const blockRef = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        if (waiting) dispatchPageWaiting(blockRef.current);
+    }, [height, waiting]);
 
     return (
-        <div className="group/html-render my-2">
+        <div ref={blockRef} className="group/html-render my-2" data-waiting-page={waiting ? partId : undefined}>
         {isMobile ? null : (
             // A row of its own above the page: over the page the buttons
             // covered its own controls in the top corner. The row keeps its
