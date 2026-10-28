@@ -95,6 +95,7 @@ import {
   filterLinuxInstalledApps,
   readLinuxDesktopEntries,
 } from './linux-app-discovery.mjs';
+import { createWindowsAppDiscovery } from './windows-app-discovery.mjs';
 import {
   readLinuxAutostartEnabled,
   setLinuxAutostartEnabled,
@@ -3805,6 +3806,10 @@ const parseRelevantChangelogNotes = (fromVersion, toVersion) => fetchUpdateNotes
 
 const buildInstalledAppsCachePath = () => path.join(path.dirname(settingsFilePath()), INSTALLED_APPS_CACHE_FILE);
 
+// The renderer asks again while a first scan is still running (it retries an
+// empty answer), so later requests share the scan in flight.
+let installedAppsRefresh = null;
+
 // Async variants. sips + mdfind via spawnSync blocked the Electron main event
 // loop for 2-3s on boot (22 OPEN_IN_APPS × ~200 ms each). Use execFile promises
 // so each child-process wait yields to the loop and the UI stays responsive.
@@ -4016,275 +4021,13 @@ const CLI_BY_APP_ID = {
   zed: 'zed',
 };
 
-const WINDOWS_CLI_BY_APP_ID = {
-  vscode: 'code.cmd',
-  cursor: 'cursor.cmd',
-  vscodium: 'codium.cmd',
-  windsurf: 'windsurf.cmd',
-  zed: 'zed.cmd',
-};
-
-const WINDOWS_APP_EXECUTABLES = {
-  terminal: ['wt.exe', 'WindowsTerminal.exe'],
-  vscode: ['code.exe', 'code.cmd'],
-  cursor: ['cursor.exe', 'cursor.cmd'],
-  vscodium: ['codium.exe', 'codium.cmd'],
-  windsurf: ['windsurf.exe', 'windsurf.cmd'],
-  zed: ['zed.exe', 'zed.cmd'],
-  'visual-studio': ['devenv.exe'],
-  'sublime-text': ['subl.exe', 'sublime_text.exe'],
-};
-
-const WINDOWS_APP_ID_BY_NAME = new Map([
-  ['finder', 'finder'],
-  ['file explorer', 'finder'],
-  ['terminal', 'terminal'],
-  ['windows terminal', 'terminal'],
-  ['visual studio code', 'vscode'],
-  ['cursor', 'cursor'],
-  ['vscodium', 'vscodium'],
-  ['windsurf', 'windsurf'],
-  ['zed', 'zed'],
-  ['visual studio', 'visual-studio'],
-  ['sublime text', 'sublime-text'],
-]);
-
-const getWindowsAppIdForName = (appName) => WINDOWS_APP_ID_BY_NAME.get(String(appName || '').trim().toLowerCase()) || '';
-
-const runWhere = (program) => {
-  const result = spawnSync('where.exe', [program], { encoding: 'utf8', windowsHide: true });
-  if (result.error || result.status !== 0) return null;
-  const first = String(result.stdout || '').split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-  return first || null;
-};
-
-const findWindowsExecutable = (appId) => {
-  for (const program of WINDOWS_APP_EXECUTABLES[appId] || []) {
-    const resolved = runWhere(program);
-    if (resolved) return resolved;
-  }
-  return null;
-};
-
-const resolveWindowsScriptIconExecutable = (scriptPath) => {
-  if (!scriptPath || !/\.(?:cmd|bat)$/i.test(scriptPath)) return null;
-  let source = '';
-  try {
-    source = fs.readFileSync(scriptPath, 'utf8');
-  } catch {
-    return null;
-  }
-  const scriptDir = path.dirname(scriptPath);
-  const matches = [...source.matchAll(/(?:(?:%~dp0|%~dp0\\|%~dp0\/|\.\.\\|\.\.\/|[A-Za-z]:\\|[A-Za-z]:\/)[^"'\r\n]*?\.exe)/gi)];
-  for (const match of matches) {
-    const raw = String(match[0] || '').replace(/^%~dp0[\\/]?/i, '').trim();
-    const candidate = path.isAbsolute(raw) ? raw : path.resolve(scriptDir, raw);
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
-};
-
-let windowsTerminalPackagePathCache;
-
-const resolveWindowsTerminalPackagePath = () => {
-  if (windowsTerminalPackagePathCache !== undefined) return windowsTerminalPackagePathCache;
-
-  const powershell = runWhere('powershell.exe') || runWhere('pwsh.exe');
-  if (powershell) {
-    const command = '$packages = @(' +
-      'Get-AppxPackage -Name Microsoft.WindowsTerminal -ErrorAction SilentlyContinue;' +
-      'Get-AppxPackage -Name Microsoft.WindowsTerminalPreview -ErrorAction SilentlyContinue' +
-      ') | Where-Object { $_.InstallLocation } | Sort-Object Version -Descending; ' +
-      'if ($packages) { $packages[0].InstallLocation }';
-    const result = spawnSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', command], {
-      encoding: 'utf8',
-      windowsHide: true,
-    });
-    if (!result.error && result.status === 0) {
-      const packagePath = String(result.stdout || '').split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-      if (packagePath && fs.existsSync(packagePath)) {
-        windowsTerminalPackagePathCache = packagePath;
-        return windowsTerminalPackagePathCache;
-      }
-    }
-  }
-
-  const programFilesRoots = [process.env.ProgramW6432, process.env.ProgramFiles, 'C:\\Program Files']
-    .filter((value, index, values) => typeof value === 'string' && value && values.indexOf(value) === index);
-  for (const root of programFilesRoots) {
-    const windowsAppsPath = path.join(root, 'WindowsApps');
-    let entries = [];
-    try {
-      entries = fs.readdirSync(windowsAppsPath, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-
-    const packageNames = entries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter((name) => /^Microsoft\.WindowsTerminal(?:Preview)?_.*__8wekyb3d8bbwe$/i.test(name))
-      .sort()
-      .reverse();
-    const stable = packageNames.find((name) => /^Microsoft\.WindowsTerminal_/i.test(name));
-    const selected = stable || packageNames[0];
-    if (selected) {
-      windowsTerminalPackagePathCache = path.join(windowsAppsPath, selected);
-      return windowsTerminalPackagePathCache;
-    }
-  }
-
-  windowsTerminalPackagePathCache = null;
-  return windowsTerminalPackagePathCache;
-};
-
-const resolveWindowsTerminalIconPath = () => {
-  const packagePath = resolveWindowsTerminalPackagePath();
-  if (!packagePath) return null;
-  const candidates = [
-    path.join(packagePath, 'Images', 'Square44x44Logo.targetsize-96_altform-unplated.png'),
-    path.join(packagePath, 'Images', 'Square44x44Logo.targetsize-96.png'),
-    path.join(packagePath, 'Images', 'StoreLogo.scale-200.png'),
-    path.join(packagePath, 'Images', 'StoreLogo.scale-100.png'),
-  ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
-};
-
-const resolveWindowsTerminalExecutable = () => {
-  const packagePath = resolveWindowsTerminalPackagePath();
-  if (packagePath) {
-    const executable = path.join(packagePath, 'WindowsTerminal.exe');
-    if (fs.existsSync(executable)) return executable;
-  }
-  return findWindowsExecutable('terminal');
-};
-
-const imageFileToDataUrl = (filePath) => {
-  if (!filePath) return null;
-  try {
-    return `data:image/png;base64,${fs.readFileSync(filePath).toString('base64')}`;
-  } catch {
-    return null;
-  }
-};
-
-const resolveWindowsAppIconExecutable = ({ appId, appName }) => {
-  if (appId === 'finder') {
-    const explorerPath = path.join(process.env.SystemRoot || 'C:\\Windows', 'explorer.exe');
-    return fs.existsSync(explorerPath) ? explorerPath : 'explorer.exe';
-  }
-  if (appId === 'terminal') {
-    return resolveWindowsTerminalExecutable();
-  }
-
-  const executable = findWindowsExecutable(appId) || findWindowsAppNameExecutable(appName);
-  if (!executable) return null;
-  if (/\.exe$/i.test(executable)) return executable;
-  return resolveWindowsScriptIconExecutable(executable) || executable;
-};
-
-const windowsIconToDataUrl = async (executablePath) => {
-  if (!executablePath) return null;
-  try {
-    const image = await app.getFileIcon(executablePath, { size: 'normal' });
-    if (image.isEmpty()) return null;
-    return image.toDataURL();
-  } catch {
-    return null;
-  }
-};
-
-const findWindowsAppNameExecutable = (appName) => {
-  const program = `${String(appName || '').trim()}.exe`.replace(/\s+/g, '');
-  return program === '.exe' ? null : runWhere(program);
-};
-
-const isWindowsAppInstalled = ({ appId, appName }) => {
-  if (appId === 'finder') return true;
-  if (appId === 'terminal') return Boolean(findWindowsExecutable('terminal'));
-  if (findWindowsExecutable(appId)) return true;
-  return Boolean(findWindowsAppNameExecutable(appName));
-};
-
-const buildWindowsInstalledApps = async (apps) => {
-  const seen = new Set();
-  const names = (Array.isArray(apps) ? apps : [])
-    .map((appName) => String(appName || '').trim())
-    .filter((appName) => appName && !seen.has(appName) && seen.add(appName))
-    .filter((appName) => isWindowsAppInstalled({ appId: getWindowsAppIdForName(appName), appName }));
-  const results = [];
-  for (const name of names) {
-    const appId = getWindowsAppIdForName(name);
-    const executablePath = resolveWindowsAppIconExecutable({ appId, appName: name });
-    const iconDataUrl = appId === 'terminal'
-      ? imageFileToDataUrl(resolveWindowsTerminalIconPath()) || await windowsIconToDataUrl(executablePath)
-      : await windowsIconToDataUrl(executablePath);
-    results.push({ name, iconDataUrl });
-  }
-  return results;
-};
-
-const buildWindowsOpenProjectSpecs = ({ projectPath, appId, appName }) => {
-  if (appId === 'finder') {
-    return [{ program: 'explorer.exe', args: [projectPath] }];
-  }
-  if (appId === 'terminal') {
-    const specs = [];
-    const terminal = findWindowsExecutable('terminal');
-    if (terminal) {
-      specs.push({ program: terminal, args: ['-d', projectPath] });
-    }
-    const shell = runWhere('pwsh.exe') || runWhere('powershell.exe');
-    if (shell) {
-      specs.push({ program: shell, args: ['-NoExit', '-Command', `Set-Location -LiteralPath ${JSON.stringify(projectPath)}`], shellStart: true });
-    }
-    const commandPrompt = process.env.ComSpec || runWhere('cmd.exe');
-    if (commandPrompt) {
-      specs.push({ program: commandPrompt, args: ['/k', 'cd', '/d', projectPath], shellStart: true });
-    }
-    return specs;
-  }
-  const specs = [];
-  const cli = WINDOWS_CLI_BY_APP_ID[appId];
-  if (cli) {
-    const resolvedCli = runWhere(cli);
-    if (resolvedCli) {
-      specs.push({ program: resolvedCli, args: [projectPath] });
-    }
-  }
-  const exe = findWindowsExecutable(appId);
-  if (exe) {
-    specs.push({ program: exe, args: [projectPath] });
-  }
-  const namedExe = findWindowsAppNameExecutable(appName);
-  if (namedExe && !specs.some((spec) => spec.program === namedExe)) {
-    specs.push({ program: namedExe, args: [projectPath] });
-  }
-  return specs;
-};
-
-const buildWindowsOpenFileSpecs = ({ filePath, appId, appName }) => {
-  if (appId === 'terminal') {
-    return buildWindowsOpenProjectSpecs({ projectPath: path.dirname(filePath), appId, appName });
-  }
-  const specs = [];
-  const cli = WINDOWS_CLI_BY_APP_ID[appId];
-  if (cli) {
-    const resolvedCli = runWhere(cli);
-    if (resolvedCli) {
-      specs.push({ program: resolvedCli, args: [filePath] });
-    }
-  }
-  const exe = findWindowsExecutable(appId);
-  if (exe) {
-    specs.push({ program: exe, args: [filePath] });
-  }
-  const namedExe = findWindowsAppNameExecutable(appName);
-  if (namedExe && !specs.some((spec) => spec.program === namedExe)) {
-    specs.push({ program: namedExe, args: [filePath] });
-  }
-  return specs;
-};
+const {
+  runWhere,
+  buildWindowsInstalledApps,
+  fetchWindowsAppIcons,
+  buildWindowsOpenProjectSpecs,
+  buildWindowsOpenFileSpecs,
+} = createWindowsAppDiscovery({ getFileIcon: (filePath, options) => app.getFileIcon(filePath, options) });
 
 const buildOpenProjectSpecs = ({ projectPath, appId, appName }) => {
   if (appId === 'finder') {
@@ -4333,7 +4076,7 @@ const buildOpenFileSpecs = ({ filePath, appId, appName }) => {
 
 const quoteWindowsCommandArg = (value) => `"${String(value).replace(/"/g, '""')}"`;
 
-const resolveWindowsLaunchProgram = (program) => {
+const resolveWindowsLaunchProgram = async (program) => {
   if (path.isAbsolute(program)) {
     return fs.existsSync(program) ? program : null;
   }
@@ -4351,8 +4094,8 @@ const launchWindowsCommandScript = (spec, program) => {
   child.unref();
 };
 
-const launchWindowsSpec = (spec) => {
-  const program = resolveWindowsLaunchProgram(spec.program);
+const launchWindowsSpec = async (spec) => {
+  const program = await resolveWindowsLaunchProgram(spec.program);
   if (!program) {
     throw new Error('program not found');
   }
@@ -4382,7 +4125,7 @@ const launchWindowsSpec = (spec) => {
   child.unref();
 };
 
-const runSpecChain = (specs, appName) => {
+const runSpecChain = async (specs, appName) => {
   if (!Array.isArray(specs) || specs.length === 0) {
     throw new Error(`Failed to open in ${appName}: no launch candidates`);
   }
@@ -4391,7 +4134,7 @@ const runSpecChain = (specs, appName) => {
     const failures = [];
     for (const spec of specs) {
       try {
-        launchWindowsSpec(spec);
+        await launchWindowsSpec(spec);
         return;
       } catch (error) {
         failures.push(`${spec.program}: ${error instanceof Error ? error.message : String(error)}`);
@@ -5086,7 +4829,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
           if (error) throw new Error(error);
           return null;
         }
-        runSpecChain(buildWindowsOpenProjectSpecs({ projectPath: validated.path, appId, appName }), appName);
+        await runSpecChain(await buildWindowsOpenProjectSpecs({ projectPath: validated.path, appId, appName }), appName);
         return null;
       }
       if (process.platform === 'linux') {
@@ -5103,7 +4846,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       if (process.platform !== 'darwin') {
         throw new Error(unsupportedAppSpecificOpenError('projects'));
       }
-      runSpecChain(buildOpenProjectSpecs({ projectPath: validated.path, appId, appName }), appName);
+      await runSpecChain(buildOpenProjectSpecs({ projectPath: validated.path, appId, appName }), appName);
       return null;
     }
 
@@ -5121,7 +4864,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
           shell.showItemInFolder(validated.path);
           return null;
         }
-        runSpecChain(buildWindowsOpenFileSpecs({ filePath: validated.path, appId, appName }), appName);
+        await runSpecChain(await buildWindowsOpenFileSpecs({ filePath: validated.path, appId, appName }), appName);
         return null;
       }
       if (process.platform === 'linux') {
@@ -5138,7 +4881,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       if (process.platform !== 'darwin') {
         throw new Error(unsupportedAppSpecificOpenError('files'));
       }
-      runSpecChain(buildOpenFileSpecs({ filePath: validated.path, appId, appName }), appName);
+      await runSpecChain(buildOpenFileSpecs({ filePath: validated.path, appId, appName }), appName);
       return null;
     }
 
@@ -5161,18 +4904,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
 
     case 'desktop_fetch_app_icons': {
       if (process.platform === 'win32') {
-        const names = Array.isArray(args.apps) ? args.apps : [];
-        const results = [];
-        for (const name of names) {
-          const appName = String(name || '').trim();
-          if (!appName) continue;
-          const appId = getWindowsAppIdForName(appName);
-          const dataUrl = appId === 'terminal'
-            ? imageFileToDataUrl(resolveWindowsTerminalIconPath()) || await windowsIconToDataUrl(resolveWindowsAppIconExecutable({ appId, appName }))
-            : await windowsIconToDataUrl(resolveWindowsAppIconExecutable({ appId, appName }));
-          if (dataUrl) results.push({ app: appName, data_url: dataUrl });
-        }
-        return results;
+        return fetchWindowsAppIcons(args.apps);
       }
       if (process.platform === 'linux') {
         return fetchLinuxAppIcons(Array.isArray(args.apps) ? args.apps : []);
@@ -5214,7 +4946,9 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
         return { apps: [], hasCache: false, isCacheStale: false, supported: false };
       }
       if (!hasCache || isCacheStale || args.force === true) {
-        void refresh();
+        installedAppsRefresh ??= refresh().finally(() => {
+          installedAppsRefresh = null;
+        });
       }
       return { apps: cachedApps, hasCache, isCacheStale };
     }
