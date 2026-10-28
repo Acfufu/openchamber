@@ -4500,6 +4500,65 @@ describe('removeWorktree', () => {
     }
   });
 
+  // Git drops the registration once it starts deleting, whatever stops it
+  // then; on Windows a path too long for git did (issue #5734) and the archive
+  // left a half-deleted folder. A read-only directory stops git the same way
+  // here, and the release that makes it writable stands for the long-path-aware
+  // removal that finishes the job; left read-only, it stands for a leftover
+  // nothing can delete, which the message then names.
+  it.each([
+    { finished: true },
+    { finished: false },
+  ])('finishes deleting a worktree git unregistered before it failed (cleanup finished: $finished)', async ({ finished }) => {
+    if (!canRunGit() || process.platform === 'win32' || process.getuid?.() === 0) return;
+
+    const previousXdgDataHome = process.env.XDG_DATA_HOME;
+    process.env.XDG_DATA_HOME = createTempDir();
+    let held;
+
+    try {
+      const repo = createTempDir();
+      runGit(repo, ['init', '-b', 'main']);
+      runGit(repo, ['config', 'user.email', 'test@example.com']);
+      runGit(repo, ['config', 'user.name', 'Test User']);
+      runGit(repo, ['commit', '--allow-empty', '-m', 'init']);
+
+      const created = await createWorktree(repo, {
+        mode: 'new',
+        branchName: 'feature/stopped-removal',
+        worktreeName: 'stopped-removal',
+      });
+      await expect.poll(async () => (await getWorktreeBootstrapStatus(created.path)).status).not.toBe('pending');
+      held = path.join(created.path, 'node_modules');
+      fs.mkdirSync(held);
+      fs.writeFileSync(path.join(held, 'index.js'), 'module.exports = 1;\n');
+      fs.chmodSync(held, 0o555);
+
+      const disposeInstance = vi.fn(async () => {
+        if (finished && disposeInstance.mock.calls.length === 2) fs.chmodSync(held, 0o755);
+      });
+      const archiving = archiveWorktree(repo, { directory: created.path, id: 'stopped', disposeInstance });
+
+      if (finished) {
+        await expect(archiving).resolves.toMatchObject({ id: 'stopped', branch: 'feature/stopped-removal' });
+        expect(fs.existsSync(created.path)).toBe(false);
+      } else {
+        await expect(archiving).rejects.toMatchObject({
+          code: 'WORKTREE_ARCHIVE_PARTIAL',
+          message: expect.stringContaining(`its folder ${created.path} could not be deleted completely`),
+        });
+      }
+      expect((await listWorktreeArchives(repo)).map((entry) => entry.id)).toEqual(['stopped']);
+    } finally {
+      if (held && fs.existsSync(held)) fs.chmodSync(held, 0o755);
+      if (previousXdgDataHome === undefined) {
+        delete process.env.XDG_DATA_HOME;
+      } else {
+        process.env.XDG_DATA_HOME = previousXdgDataHome;
+      }
+    }
+  });
+
   it('warns about a failed instance disposal and still removes the worktree', async () => {
     if (!canRunGit()) return;
 

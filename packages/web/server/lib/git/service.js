@@ -6513,14 +6513,18 @@ const replaceWorktreeGitDirectoryLink = async (primaryWorktree, worktreePath) =>
 
 // Resolves true when git removed the worktree, false when git dropped the
 // registration but left the folder behind (the caller removes it as an orphan).
-// A busy folder is released again before the next attempt, git's or the
-// orphan removal's: a request that reached OpenCode after the first release
-// has started the folder again.
+// Once git has started deleting it drops the registration, whatever stopped it:
+// a busy folder, or a path longer than git can handle even with core.longpaths.
+// A refusal before any deletion (a locked worktree) exits 128 like every git
+// `die`, and leaves the folder untouched. A busy folder is released again
+// before the next attempt, git's or the orphan removal's: a request that
+// reached OpenCode after the first release has started the folder again.
 const removeGitWorktreeWhenFree = async (primaryWorktree, worktreePath, targetCanonical, releaseInstance) => {
   for (let attempt = 0; ; attempt += 1) {
-    const result = await runGitCommand(primaryWorktree, ['worktree', 'remove', '--force', worktreePath]);
+    const result = await runGitCommand(primaryWorktree, ['-c', 'core.longpaths=true', 'worktree', 'remove', '--force', worktreePath]);
     if (result.success) return true;
-    if (!isWorktreeBusyError(result.message)) {
+    const busy = isWorktreeBusyError(result.message);
+    if (!busy && result.exitCode === 128) {
       throw new Error(result.message || 'Failed to remove git worktree');
     }
     const stillRegistered = await (async () => {
@@ -6532,6 +6536,9 @@ const removeGitWorktreeWhenFree = async (primaryWorktree, worktreePath, targetCa
     if (!stillRegistered) {
       await releaseInstance();
       return false;
+    }
+    if (!busy) {
+      throw new Error(result.message || 'Failed to remove git worktree');
     }
     const delay = WORKTREE_BUSY_RETRY_DELAYS_MS[attempt];
     if (delay === undefined) throw new Error(WORKTREE_BUSY_MESSAGE);
@@ -6872,8 +6879,11 @@ const archiveRegisteredWorktree = async ({ directory, id, worktreeDirectory, tar
       await runGitCommand(context.primaryWorktree, ['update-ref', '-d', ref, snapshot.commit]);
       throw error;
     }
+    const reason = error instanceof Error ? error.message : String(error);
     throw worktreeArchiveError(
-      `The worktree folder could not be removed completely (${error instanceof Error ? error.message : String(error)}). It is archived; restore it once nothing holds the folder.`,
+      reason === WORKTREE_BUSY_MESSAGE
+        ? `The worktree folder could not be removed completely (${reason}). It is archived; restore it once nothing holds the folder.`
+        : `The worktree is archived, but its folder ${worktreeDirectory} could not be deleted completely: ${reason}`,
       'WORKTREE_ARCHIVE_PARTIAL',
     );
   }
