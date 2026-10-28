@@ -1539,7 +1539,6 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                                     <DiffViewToggle
                                         mode={diffViewMode}
                                         onModeChange={setDiffViewMode}
-                                        className="h-5 w-5 p-0"
                                     />
                                 </div>
                             ) : null}

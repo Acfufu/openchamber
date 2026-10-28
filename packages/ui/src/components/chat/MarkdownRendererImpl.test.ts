@@ -307,8 +307,9 @@ test('Mermaid preserves the view across themes and restores controls and ASCII c
   const original = svg?.outerHTML;
   expect(original).toContain('var(--surface-foreground)');
   const toolbar = host.querySelector('[data-streamdown="mermaid-toolbar"]');
-  expect(toolbar?.classList.contains('absolute')).toBe(true);
-  expect(Array.from(toolbar?.querySelectorAll('button') ?? [], (button) => button.title))
+  // A row of its own above the diagram, never inside the block it would cover.
+  expect(toolbar?.closest('[data-streamdown="mermaid-block"]')).toBeNull();
+  expect(Array.from(toolbar?.querySelectorAll('button') ?? [], (button) => button.getAttribute('aria-label')))
     .toEqual(['Zoom in', 'Zoom out', 'Reset view', 'Copy', 'Download SVG']);
 
   // An early user action flushes the pending initial fit before the saved view.
@@ -331,7 +332,7 @@ test('Mermaid preserves the view across themes and restores controls and ASCII c
     const copy = host.querySelector<HTMLButtonElement>('[data-streamdown="mermaid-toolbar"] button');
     await act(async () => copy?.click());
     expect(write.mock.calls.at(-1)?.[0]).toBe(ascii?.textContent);
-    expect(copy?.title).toBe('Copied');
+    expect(copy?.getAttribute('aria-label')).toBe('Copied');
     expect(host.querySelector('[data-streamdown="mermaid-block"]')?.getAttribute('data-mermaid-render')).toBe('ascii');
   } finally {
     write.mockRestore();

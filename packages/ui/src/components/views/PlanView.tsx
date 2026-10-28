@@ -1,17 +1,10 @@
 import React from 'react';
 import { CodeMirrorEditor } from '@/components/ui/CodeMirrorEditor';
-import { PreviewToggleButton } from './PreviewToggleButton';
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { ActionToolbar } from '@/components/ui/action-toolbar';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection } from '@/components/comments';
 
 import { useDeviceInfo } from '@/lib/device';
@@ -39,7 +32,6 @@ import { getRuntimeKey, subscribeRuntimeEndpointChanged } from '@/lib/runtime-sw
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { createWorktreeSessionForNewBranch } from '@/lib/worktreeSessionCreator';
 import { TodoSendDialog, type TodoSendExecution } from '@/components/session/TodoSendDialog';
-import { Icon } from "@/components/icon/Icon";
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import { toast } from '@/components/ui';
 import { loadMagicPrompts, type MagicPromptSnapshot } from '@/lib/magicPrompts';
@@ -792,147 +784,109 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
     });
   }, [commentText, deleteDraft, editingDraftId, handleCancelComment, handleSaveComment, isDragging, lineSelection, planFileDrafts, planFileLabel, setCommentText, startEdit]);
 
+  // Improve and implement each open the same choice of where the plan goes.
+  const sendMenu = (action: 'improve' | 'implement') => (
+    <>
+      <DropdownMenuItem
+        onClick={() => setPendingPlanSend({ action, target: 'session' })}
+        disabled={isManagedChatPlan}
+      >
+        {t('planView.actions.sendToNewSession')}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => setPendingPlanSend({ action, target: 'worktree' })}
+        disabled={!canCreateWorktree}
+      >
+        {t('planView.actions.sendToNewWorktreeSession')}
+      </DropdownMenuItem>
+    </>
+  );
+
+  const copyPlanContents = async () => {
+    const result = await copyTextToClipboard(content);
+    if (!result.ok) return;
+    setCopiedContent(true);
+    if (copiedContentTimeoutRef.current !== null) {
+      window.clearTimeout(copiedContentTimeoutRef.current);
+    }
+    copiedContentTimeoutRef.current = window.setTimeout(() => {
+      setCopiedContent(false);
+    }, 1200);
+  };
+
   return (
     <div className="relative flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-background">
       <ContextPanelHeaderToolbar>
       <div className={cn('flex min-w-0 items-center gap-2', inPanelHeader ? 'flex-1 py-1 pe-1' : 'border-b border-border/40 px-3 py-1.5 flex-shrink-0')}>
         {leading}
-        <div className="min-w-0 flex-1">
-          <div className="typography-ui-label font-medium truncate">{parsedTitle}</div>
-          {loadError ? (
-            <div className="typography-micro text-[color:var(--status-error)] truncate" title={loadError}>
-              {t('planView.error.loadFailed')}
+        <ActionToolbar
+          className="flex-1"
+          start={(
+            <div className="min-w-0 flex-1">
+              <div className="typography-ui-label font-medium truncate">{parsedTitle}</div>
+              {loadError ? (
+                <div className="typography-micro text-[color:var(--status-error)] truncate" title={loadError}>
+                  {t('planView.error.loadFailed')}
+                </div>
+              ) : null}
+              {saveError ? (
+                <div className="typography-micro text-[color:var(--status-error)] truncate" title={saveError}>
+                  {t('planView.error.saveFailed')}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-          {saveError ? (
-            <div className="typography-micro text-[color:var(--status-error)] truncate" title={saveError}>
-              {t('planView.error.saveFailed')}
-            </div>
-          ) : null}
-        </div>
-        {hasDocument ? (
-          <div className="flex items-center gap-1">
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0"
-                      aria-label={t('planView.actions.improvePlanAria')}
-                      disabled={!content.trim() || isManagedChatPlan}
-                    >
-                      <Icon name="loop-right-ai" className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={8}>{t('planView.actions.improve')}</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setPendingPlanSend({ action: 'improve', target: 'session' })}
-                  disabled={isManagedChatPlan}
-                >
-                  {t('planView.actions.sendToNewSession')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setPendingPlanSend({ action: 'improve', target: 'worktree' })}
-                  disabled={!canCreateWorktree}
-                >
-                  {t('planView.actions.sendToNewWorktreeSession')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0"
-                      aria-label={t('planView.actions.implementPlanAria')}
-                      disabled={!content.trim() || isManagedChatPlan}
-                    >
-                      <Icon name="code-ai" className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={8}>{t('planView.actions.implement')}</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setPendingPlanSend({ action: 'implement', target: 'session' })}
-                  disabled={isManagedChatPlan}
-                >
-                  {t('planView.actions.sendToNewSession')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setPendingPlanSend({ action: 'implement', target: 'worktree' })}
-                  disabled={!canCreateWorktree}
-                >
-                  {t('planView.actions.sendToNewWorktreeSession')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <PreviewToggleButton
-              currentMode={mdViewMode}
-              onToggle={() => saveMdViewMode(mdViewMode === 'preview' ? 'edit' : 'preview')}
-            />
-            {mdViewMode === 'preview' && showMessageTTSButtons && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 w-5 p-0"
-                    aria-label={isTTSPlaying ? t('planView.tts.stopSpeaking') : t('planView.tts.readAloud')}
-                    onClick={() => {
-                      if (isTTSPlaying) {
-                        stopTTS();
-                      } else if (content.trim()) {
-                        void playTTS(content);
-                      }
-                    }}
-                  >
-                    <Icon name="volume-up" className={isTTSPlaying ? 'h-4 w-4 text-[var(--primary-text)]' : 'h-4 w-4'} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={8}>
-                  {isTTSPlaying ? t('planView.tts.stopSpeaking') : t('planView.tts.readAloud')}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                const result = await copyTextToClipboard(content);
-                if (result.ok) {
-                  setCopiedContent(true);
-                  if (copiedContentTimeoutRef.current !== null) {
-                    window.clearTimeout(copiedContentTimeoutRef.current);
+          )}
+          groups={hasDocument ? [
+            [{
+              id: 'mode',
+              label: t('documentToolbar.preview'),
+              icon: 'eye',
+              pressed: mdViewMode === 'preview',
+              onSelect: () => saveMdViewMode(mdViewMode === 'preview' ? 'edit' : 'preview'),
+              pinned: true,
+            }],
+            [
+              {
+                id: 'improve',
+                label: t('planView.actions.improve'),
+                icon: 'loop-right-ai',
+                disabled: !content.trim() || isManagedChatPlan,
+                menu: sendMenu('improve'),
+              },
+              {
+                id: 'implement',
+                label: t('planView.actions.implement'),
+                icon: 'code-ai',
+                disabled: !content.trim() || isManagedChatPlan,
+                menu: sendMenu('implement'),
+              },
+            ],
+            [
+              // Reads the plan's text, so it works in either mode.
+              showMessageTTSButtons && {
+                id: 'read-aloud',
+                label: isTTSPlaying ? t('planView.tts.stopSpeaking') : t('planView.tts.readAloud'),
+                icon: 'volume-up',
+                iconClassName: isTTSPlaying ? 'text-[var(--primary-text)]' : undefined,
+                onSelect: () => {
+                  if (isTTSPlaying) {
+                    stopTTS();
+                  } else if (content.trim()) {
+                    void playTTS(content);
                   }
-                  copiedContentTimeoutRef.current = window.setTimeout(() => {
-                    setCopiedContent(false);
-                  }, 1200);
-                } else {
-                  // ignored
-                }
-              }}
-              className="h-5 w-5 p-0"
-              title={t('planView.actions.copyPlanContents')}
-              aria-label={t('planView.actions.copyPlanContents')}
-            >
-              {copiedContent ? (
-                <Icon name="check" className="h-4 w-4 text-[color:var(--status-success)]" />
-              ) : (
-                <Icon name="clipboard" className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        ) : null}
+                },
+              },
+              {
+                id: 'copy-contents',
+                label: t('planView.actions.copyPlanContents'),
+                icon: 'file-copy',
+                done: copiedContent,
+                onSelect: () => void copyPlanContents(),
+              },
+            ],
+          ] : []}
+          fold
+        />
       </div>
       </ContextPanelHeaderToolbar>
 
