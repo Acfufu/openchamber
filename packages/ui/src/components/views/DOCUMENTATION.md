@@ -454,3 +454,8 @@ after it stops. The check runs on the live `exit` event and on a snapshot that
 reports `exited`, so a tab whose process ended while the panel was closed goes
 away when it is shown. VS Code has neither tabs nor the setting and keeps the
 exited terminal.
+
+In the desktop app Cmd/Ctrl+W closes the shown terminal tab the same way,
+without asking, so a command still running in it ends. It reaches the terminal
+through `lib/closeTabTarget.ts` when the terminal's zone was the place clicked
+or focused last among the surfaces with a tab to close.

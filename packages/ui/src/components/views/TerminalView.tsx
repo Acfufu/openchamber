@@ -43,6 +43,7 @@ import { useInContextPanelHeader } from '@/components/layout/contextPanelHeaderS
 import { useZoneSurfaceDragOut } from '@/components/layout/zoneSurfaceDragContext';
 import { useZoneInteractive } from '@/components/layout/zoneInteractiveContext';
 import { ZoneMoveMenuItems } from '@/components/layout/ZoneMoveMenuItems';
+import { registerCloseTabTarget } from '@/lib/closeTabTarget';
 
 type TerminalViewProps = {
     visible?: boolean;
@@ -911,6 +912,16 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
         [closeTerminalTab, terminalDirectory]
     );
 
+    // While a terminal tab is on screen, Cmd/Ctrl+W in the desktop app closes
+    // it as its close button does, instead of the whole window.
+    const rootRef = React.useRef<HTMLDivElement | null>(null);
+    const handleCloseTabRef = React.useRef(handleCloseTab);
+    handleCloseTabRef.current = handleCloseTab;
+    React.useEffect(() => {
+        if (!enableTabs || !isTerminalVisible || !activeTabId) return;
+        return registerCloseTabTarget(() => handleCloseTabRef.current(activeTabId), rootRef);
+    }, [activeTabId, enableTabs, isTerminalVisible]);
+
     const handleReorderTab = React.useCallback(
         (tabId: string, overTabId: string) => {
             if (!terminalDirectory) return;
@@ -1321,7 +1332,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
     );
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--surface-background)]">
+        <div ref={rootRef} className="flex h-full flex-col overflow-hidden bg-[var(--surface-background)]">
             <TerminalTabRenameDialog
                 currentLabel={renamingTab?.label ?? null}
                 onRename={handleRenameTab}

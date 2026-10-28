@@ -2604,9 +2604,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     handleCloseFileRef.current = handleCloseFile;
   }, [handleCloseFile]);
   const closeTargetPath = selectedFile?.path ?? null;
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
     if (!visible || !closeTargetPath) return;
-    return registerCloseTabTarget(() => handleCloseFileRef.current(closeTargetPath));
+    return registerCloseTabTarget(() => handleCloseFileRef.current(closeTargetPath), rootRef);
   }, [closeTargetPath, visible]);
 
   const openPathSet = React.useMemo(() => new Set(openPaths), [openPaths]);
@@ -5171,7 +5172,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   return (
     // Marks Files as a surface with its own Cmd/Ctrl+F, so Changes and the
     // walkthrough leave the key alone while focus is in here.
-    <div data-find-surface="" className="flex h-full min-h-0 overflow-hidden bg-background relative">
+    <div ref={rootRef} data-find-surface="" className="flex h-full min-h-0 overflow-hidden bg-background relative">
       <Dialogs
         activeDialog={activeDialog}
         dialogData={dialogData}
