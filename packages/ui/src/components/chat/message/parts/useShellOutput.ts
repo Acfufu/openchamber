@@ -15,7 +15,8 @@ const keepTail = (text: string): string => {
 };
 
 /**
- * The output of a running background command, read while `enabled`.
+ * The output of a running shell command, read while `enabled`: a background
+ * command, or one the turn still waits for.
  *
  * OpenCode streams the output to a file and serves it by byte cursor; there is
  * no output event, so the view reads on from its cursor once a second. Each
@@ -25,7 +26,7 @@ const keepTail = (text: string): string => {
  * partial line. A failed read keeps what was shown and tries again on the
  * next tick.
  */
-export const useBackgroundShellOutput = (shellID: string, directory: string | undefined, enabled: boolean): string => {
+export const useShellOutput = (shellID: string, directory: string | undefined, enabled: boolean): string => {
     const [output, setOutput] = React.useState('');
 
     React.useEffect(() => {

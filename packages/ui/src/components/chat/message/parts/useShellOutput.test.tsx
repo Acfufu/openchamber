@@ -4,14 +4,14 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 import { opencodeClient } from '@/lib/opencode/client';
-import { useBackgroundShellOutput } from './useBackgroundShellOutput';
+import { useShellOutput } from './useShellOutput';
 
 let root: Root | null = null;
 let shown = '';
 const originals = new Map<string, PropertyDescriptor | undefined>();
 
 const Host: React.FC = () => {
-  shown = useBackgroundShellOutput('shell_1', '/repo', true);
+  shown = useShellOutput('shell_1', '/repo', true);
   return null;
 };
 
