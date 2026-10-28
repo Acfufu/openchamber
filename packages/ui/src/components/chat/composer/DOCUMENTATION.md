@@ -736,7 +736,19 @@ info mark on every row read as noise. `ui/useAutocompleteSelectionScroll.ts`
 keeps the keyboard's selection in view.
 
 `../AutocompleteRows.test.tsx` mounts the command and skill pickers and covers
-the row's parts and the absent popup on selection.
+the row's parts, the absent popup on selection, and the list height below.
+
+### Why a list placed at the caret skips the phone's height clamp
+
+`useMobileAutocompleteMaxHeight` measures from the list's bottom edge, which
+holds still only while the list hangs above its anchor. The caret placement
+(`useAutocompletePosition`) already sizes the list against the same chat-area
+and keyboard limits, and a list it puts below the line, as it does once the
+phone's keyboard pushes the composer up, grows downward: every clamp moved the
+edge the next clamp measured, and the chat crashed with "Maximum update depth
+exceeded" (#5687). So each picker clamps only while its style carries no
+max-height: on the first frame before the placement is measured, and for
+callers that anchor the list themselves, like the scheduled task editor.
 
 ## Other sessions as context
 

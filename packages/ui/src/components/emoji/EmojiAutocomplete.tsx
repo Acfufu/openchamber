@@ -31,7 +31,8 @@ export const EmojiAutocomplete = React.forwardRef<EmojiAutocompleteHandle, Emoji
   style,
 }, ref) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const mobileMaxHeight = useMobileAutocompleteMaxHeight(containerRef, true, 240);
+  // A caret placement brings its own max-height.
+  const mobileMaxHeight = useMobileAutocompleteMaxHeight(containerRef, style?.maxHeight === undefined, 240);
   const { table, failed } = useEmojiTable(true);
   const results = React.useMemo<EmojiEntry[]>(
     () => (table ? searchEmoji(table.entries, searchQuery, RESULT_LIMIT) : []),

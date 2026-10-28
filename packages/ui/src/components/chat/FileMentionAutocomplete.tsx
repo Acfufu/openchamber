@@ -127,7 +127,8 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
   const measureRefs = React.useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const isMobile = useUIStore((state) => state.isMobile);
-  const mobileMaxHeight = useMobileAutocompleteMaxHeight(containerRef, true);
+  // A caret placement brings its own max-height.
+  const mobileMaxHeight = useMobileAutocompleteMaxHeight(containerRef, style?.maxHeight === undefined);
   const normalizedSearchQuery = (searchQuery ?? '').trim();
 
   React.useEffect(() => {
