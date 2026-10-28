@@ -89,7 +89,9 @@ import { findWorktreeHoldingDirectory } from '@/lib/worktrees/worktreePaths';
 import { cn } from '@/lib/utils';
 import { generateCommitMessage as generateSessionCommitMessage, getGitWorktreeBootstrapStatus } from '@/lib/gitApi';
 import { sessionEvents } from '@/lib/sessionEvents';
-import { useI18n } from '@/lib/i18n';
+import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
+import { useEasterEggCopy } from '@/lib/easter-eggs/easterEggCopy';
+import { netDeletionLine, pushLine } from '@/lib/easter-eggs/lines';
 import { BoundGitNetworkOperationError, GitOperationResultError, runBoundGitNetworkOperation, runContributorAwarePush, describeGitSyncOutcome, type GitSyncOutcome } from '@/lib/boundGitNetworkOperation';
 import { useGitOperationRecovery } from './git/useGitOperationRecovery';
 import { GitOperationStatus } from './git/GitOperationStatus';
@@ -694,6 +696,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
   const [logMaxCountLocal, setLogMaxCountLocal] = React.useState<number>(25);
   const [isSettingIdentity, setIsSettingIdentity] = React.useState(false);
   const { triggerFireworks } = useFireworksCelebration();
+  const easterEggCopy = useEasterEggCopy();
 
   const autoAppliedDefaultRef = React.useRef<Map<string, string>>(new Map());
   const identityApplyCountRef = React.useRef(0);
@@ -1282,7 +1285,7 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
     }
   }, [gitDirectory, git, refreshRemotes, refreshStatusAndBranches, t]);
 
-  const handleCommit = async (options: { pushAfter?: boolean } = {}) => {
+  const handleCommit = async (options: { pushAfter?: boolean; origin?: HTMLElement } = {}) => {
     if (!gitDirectory) return;
     if (!commitMessage.trim()) {
       toast.error(t('gitView.toast.enterCommitMessage'));
@@ -1301,14 +1304,20 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
     let commitOutcome: 'pending' | 'local' | 'published' = 'pending';
 
     try {
-      await git.createGitCommit(gitDirectory, commitMessage.trim(), {
+      const commit = await git.createGitCommit(gitDirectory, commitMessage.trim(), {
         files: filesToCommit,
         stageFiles: [],
       });
       commitOutcome = 'local';
       bumpIndexRevision(gitDirectory);
       bumpIndexRevision(gitDirectory);
-      toast.success(t('gitView.toast.commitCreated'));
+      const deletionLine = easterEggCopy
+        ? netDeletionLine(easterEggCopy, commit.summary, getCurrentIntlLocale(), Math.floor(Math.random() * 1000))
+        : null;
+      if (deletionLine) toast.success(deletionLine.title, { description: deletionLine.description });
+      else toast.success(t('gitView.toast.commitCreated'));
+      // A commit-only deletion celebrates now; with a push it waits for the push.
+      if (deletionLine && !options.pushAfter) triggerFireworks({ kind: 'deletion', origin: options.origin });
       setCommitMessage('');
       clearGeneratedHighlights();
 
@@ -1323,8 +1332,10 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
         setSyncAction('publish');
         await executePush();
         commitOutcome = 'published';
-        toast.success(t('gitView.publish.succeeded'));
-        triggerFireworks();
+        const pushedLine = easterEggCopy ? pushLine(easterEggCopy, new Date(), getCurrentIntlLocale(), Math.floor(Math.random() * 1000)) : null;
+        if (pushedLine) toast.success(pushedLine.title, { description: pushedLine.description });
+        else toast.success(t('gitView.publish.succeeded'));
+        triggerFireworks({ kind: deletionLine ? 'deletion' : 'push', origin: options.origin });
       }
       await refreshAfterGitAction(() => setIntegrateRefreshKey((v) => v + 1));
     } catch (err) {
@@ -2537,8 +2548,8 @@ export const GitView: React.FC<GitViewProps> = ({ isActive }) => {
                         onInsertHighlights={handleInsertHighlights}
                         onGenerateMessage={handleGenerateCommitMessage}
                         isGeneratingMessage={isGeneratingMessage}
-                        onCommit={() => handleCommit({ pushAfter: false })}
-                        onCommitAndPush={() => handleCommit({ pushAfter: true })}
+                        onCommit={(origin) => handleCommit({ pushAfter: false, origin })}
+                        onCommitAndPush={(origin) => handleCommit({ pushAfter: true, origin })}
                         commitAction={commitAction}
                         networkOperationBlocked={operationRecovery.blocked}
                         hasPendingIndexMutation={hasPendingIndexMutation}
