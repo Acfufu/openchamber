@@ -1051,7 +1051,7 @@ export async function createSession(
   selectionTransition?: "submitted-draft",
   selection?: SessionCreateSelection,
   navigation: "open" | "preserve" = "open",
-  /** An id this client minted (`ascendingId("ses")`), so records keyed by it before the response stay valid. */
+  /** An id this client minted (`descendingId("ses")`), so records keyed by it before the response stay valid. */
   id?: string,
 ): Promise<Session | null> {
   const runtimeKey = getRuntimeKey()
@@ -2044,6 +2044,22 @@ export async function updateSessionTitle(
 // ---------------------------------------------------------------------------
 
 /**
+ * Sets the session's status in its directory store ahead of the server:
+ * busy when the agent's turn has started or is about to, idle when a send
+ * that announced it never reached the server.
+ */
+export function markSessionStatus(sessionId: string, directory: string | null | undefined, type: "busy" | "idle"): void {
+  const store = directory ? dirStoreForDirectory(directory) : dirStore()
+  const current = store.getState()
+  store.setState({
+    session_status: {
+      ...current.session_status,
+      [sessionId]: { type },
+    },
+  })
+}
+
+/**
  * Wraps an async send operation with optimistic user-message insertion.
  * Uses useSync()'s optimistic infrastructure — message + parts are inserted
  * into the store AND registered in the shadow Map. mergeOptimisticPage
@@ -2066,6 +2082,11 @@ export async function optimisticSend(input: {
   ready?: Promise<void>
   appendSubmissions?: () => void
   onOptimisticInsert?: () => void
+  /**
+   * Whether the insert marks the session busy (the default). A session that
+   * does not exist yet is marked by its creator once the server has it.
+   */
+  markBusy?: boolean
   /**
    * The actual API call. Receives the optimistic message id and the context
    * with its optimistic ids, so the server's records reconcile in place.
@@ -2189,14 +2210,7 @@ export async function optimisticSend(input: {
   })
   input.onOptimisticInsert?.()
 
-  // Set busy status
-  const current = store.getState()
-  store.setState({
-    session_status: {
-      ...current.session_status,
-      [input.sessionId]: { type: "busy" as const },
-    },
-  })
+  if (input.markBusy !== false) markSessionStatus(input.sessionId, targetDirectory, "busy")
 
   const releasePrompt = trackPromptInFlight(input.sessionId)
   // Only a request that left can have been accepted; a failure before it is certain.

@@ -1,4 +1,4 @@
-import { loadDesktopSettings, peekDesktopSettings } from './persistence';
+import { loadDesktopSettings } from './persistence';
 
 export const RESPONSE_STYLE_PRESETS = ['concise', 'detailed', 'mentor', 'pushback', 'noFiller', 'matchEnergy', 'warmPeer'] as const;
 export type ResponseStylePreset = typeof RESPONSE_STYLE_PRESETS[number];
@@ -45,10 +45,7 @@ const buildResponseStyleInstruction = ({
 };
 
 export const fetchResponseStyleInstruction = async (): Promise<string | null> => {
-  // Read before every send, so it answers from the settings already known
-  // rather than holding the message back for a round trip.
-  const known = peekDesktopSettings();
-  const settings = 'responseStyleEnabled' in known ? known : await loadDesktopSettings();
+  const settings = await loadDesktopSettings();
   if (!settings) return null;
   return buildResponseStyleInstruction({
     enabled: settings.responseStyleEnabled === true,

@@ -830,14 +830,6 @@ async function _flushSettingsUpdate({ keepalive = false }: { keepalive?: boolean
 export const loadDesktopSettings = (): Promise<DesktopSettings | null> => fetchWebSettings();
 
 /**
- * The settings the server is known to hold, without a request: what the last
- * read returned, kept current by every save since. Empty before the first
- * read of a runtime. A caller that needs a key this does not carry reads the
- * document with `loadDesktopSettings`.
- */
-export const peekDesktopSettings = (): Readonly<Partial<DesktopSettings>> => _serverKnownSettings;
-
-/**
  * Queue a change a person made in this window for the debounced write. Keys
  * whose value the server already holds are dropped; computed server flags are
  * never sent. Resolves once the write (or the decision not to write) settled.

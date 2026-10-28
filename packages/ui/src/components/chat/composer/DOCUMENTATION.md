@@ -97,7 +97,8 @@ The composer's top rows render inside the box and inside the mobile pill, so
 the surface stays one shape. Top to bottom: worktree setup, the session still
 being created from a draft's first message, and a message waiting for its
 space (`ComposerStatusStrip`; the creating line yields to the worktree line,
-so one wait shows one line), the goal (`SessionGoalRow`), a
+so one wait shows one line, and appears only once the creation has taken
+300 ms, `useShownAfter`, so a fast server never flashes it), the goal (`SessionGoalRow`), a
 review loop and, once it ends, its result until dismissed, a dispute unfolding in place (`AutoReviewStrip`), the pull request the agent waits on with Stop watching (`PullRequestWatchStrip`), background commands, a staged revert
 (`RevertedMessagesStrip`), the queue (`QueuedMessagesStrip`),
 the "looks done" hint or the review offer, the suggestion

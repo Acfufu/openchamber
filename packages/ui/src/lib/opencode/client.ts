@@ -1395,7 +1395,10 @@ class OpencodeService {
     files?: Array<FileInputLite>
     /**
      * Context items sent ahead of the prompt as synthetic messages. A caller
-     * that supplies `messageId` also supplies the item ids, minted before it.
+     * that supplies `messageId` also supplies the ids of the items the
+     * timeline shows, minted before it; an instruction it does not show (the
+     * response style) may come without an id and gets one here, after the
+     * prompt's, which keeps admission order by time all the same.
      */
     context?: SyntheticContextInput[]
     messageId?: string

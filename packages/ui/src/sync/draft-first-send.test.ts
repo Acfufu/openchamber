@@ -1,10 +1,11 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test"
-import type { ModelSelection, Session } from "@/lib/opencode/model"
+import type { ModelSelection, Session, SessionStatus } from "@/lib/opencode/model"
 import { opencodeClient } from "@/lib/opencode/client"
 import type { MessagePage } from "@/lib/opencode/client"
 import { getRuntimeKey } from "@/lib/runtime-switch"
 import { createPendingDraftWorktreeRequest, resolvePendingDraftWorktreeRequest } from "@/lib/worktrees/pendingDraftWorktree"
 import { useConfigStore } from "@/stores/useConfigStore"
+import { useSessionGoalArmStore } from "@/stores/useSessionGoalArmStore"
 import { ChildStoreManager } from "./child-store"
 import { setActionRefs, setOptimisticRefs } from "./session-actions"
 import { SessionMessageLoader, setImperativeSessionMessageLoader, type SessionMessagePageSource } from "./session-message-loader"
@@ -71,7 +72,14 @@ let loader: SessionMessageLoader
 let historyReads = 0
 let creation = deferred<void>()
 let createSessionCalls: Array<{ id: string | undefined; directory: string | null | undefined }> = []
-let sendCalls: Array<{ id: string; model: ModelSelection | undefined; text: string; pendingAtSend: PendingDraftSend | undefined }> = []
+let sendCalls: Array<{
+  id: string
+  model: ModelSelection | undefined
+  text: string
+  context: string[]
+  pendingAtSend: PendingDraftSend | undefined
+  statusAtSend: SessionStatus | undefined
+}> = []
 let shellCalls: string[] = []
 
 const sdk: SessionMessagePageSource = {
@@ -127,7 +135,9 @@ beforeEach(() => {
       id: params.id,
       model: params.model,
       text: params.text,
+      context: (params.context ?? []).map((item) => item.text),
       pendingAtSend: useSessionUIStore.getState().pendingDraftSends.get(params.id),
+      statusAtSend: childStores.getChild(DIRECTORY)?.getState().session_status[params.id],
     })
     params.beforeSend?.()
     return params.messageId ?? "msg_sent"
@@ -175,7 +185,8 @@ describe("the first message of a draft", () => {
     const [message] = messagesOf(sessionId)
     expect(messagesOf(sessionId)).toHaveLength(1)
     expect(store.getState().part[message.id]?.[0]).toMatchObject({ type: "text", text: "hello" })
-    expect(store.getState().session_status[sessionId]).toEqual({ type: "busy" })
+    // No agent works yet: the session shows "Creating session…" alone.
+    expect(store.getState().session_status[sessionId]).toBeUndefined()
     expect(createSessionCalls).toEqual([{ id: sessionId, directory: DIRECTORY }])
     expect(sendCalls).toEqual([])
     expect(historyReads).toBe(0)
@@ -189,8 +200,85 @@ describe("the first message of a draft", () => {
     // The line "Creating session…" is gone once the session exists; Send
     // waits until the prompt request has left.
     expect(sendCalls[0].pendingAtSend).toEqual({ draftId: 1, sessionCreated: true })
+    // Busy from the moment the session exists.
+    expect(sendCalls[0].statusAtSend).toEqual({ type: "busy" })
     expect(useSessionUIStore.getState().pendingDraftSends.has(sessionId)).toBe(false)
     expect(messagesOf(sessionId)).toHaveLength(1)
+  })
+
+  test("context read for the send is read while the session is being created and travels with the prompt", async () => {
+    let reads = 0
+    const lateRead = deferred<Array<{ text: string }>>()
+    const draft = openDraft(10)
+    useSessionUIStore.setState({ newSessionDraft: draft, currentSessionId: null, currentSessionDirectory: null })
+    const sending = useSessionUIStore.getState().sendMessage("hello", "provider", "model", "build", undefined, undefined, undefined, undefined, "normal", {
+      userInitiated: true,
+      draftSnapshot: draft,
+      lateContext: () => {
+        reads += 1
+        return lateRead.promise
+      },
+    })
+    await flush()
+    // The read started with the send; the message did not wait for it.
+    expect(reads).toBe(1)
+    expect(messagesOf(useSessionUIStore.getState().currentSessionId ?? "")).toHaveLength(1)
+    expect(sendCalls).toEqual([])
+
+    creation.resolve()
+    await flush()
+    expect(sendCalls).toEqual([])
+    lateRead.resolve([{ text: "style of the moment" }])
+    await sending
+
+    expect(sendCalls).toHaveLength(1)
+    expect(sendCalls[0].context).toEqual(["style of the moment"])
+  })
+
+  test("a goal write that fails after the server created the session keeps the session, with Send free again", async () => {
+    // The goal write reaches the network, which is refused here: it fails
+    // after the create response.
+    useSessionGoalArmStore.getState().setArmed(true)
+    try {
+      const { sending, sessionId } = await startDraftSend(11)
+      creation.resolve()
+      const error = await sending.then(() => null, (reason: DraftSendError) => reason)
+
+      expect(error).toBeInstanceOf(DraftSendError)
+      expect(error).toMatchObject({ sessionId, sessionCreated: true })
+      const state = useSessionUIStore.getState()
+      expect(state.currentSessionId).toBe(sessionId)
+      expect(state.newSessionDraft.open).toBe(false)
+      expect(state.pendingDraftSends.size).toBe(0)
+      expect(createSessionCalls).toHaveLength(1)
+      expect(sendCalls).toEqual([])
+      expect(messagesOf(sessionId)).toEqual([])
+      expect(childStores.getChild(DIRECTORY)?.getState().session.map((session) => session.id)).toContain(sessionId)
+      // Nothing reached the agent: the session is not working.
+      expect(childStores.getChild(DIRECTORY)?.getState().session_status[sessionId]).toEqual({ type: "idle" })
+      // The arm comes back for the next try.
+      expect(useSessionGoalArmStore.getState().armed).toBe(true)
+    } finally {
+      useSessionGoalArmStore.getState().setArmed(false)
+    }
+  })
+
+  test("a session the server created under another id is not this one: the draft comes back, nothing is sent", async () => {
+    opencodeClient.createSession = async (params, directory) => {
+      createSessionCalls.push({ id: params?.id, directory })
+      await creation.promise
+      return sessionRecord("ses_server_minted", directory ?? DIRECTORY)
+    }
+    const { draft, sending, sessionId } = await startDraftSend(12)
+    creation.resolve()
+    const error = await sending.then(() => null, (reason: DraftSendError) => reason)
+
+    expect(error).toMatchObject({ sessionId, sessionCreated: false })
+    const state = useSessionUIStore.getState()
+    expect(state.currentSessionId).toBeNull()
+    expect(state.newSessionDraft).toMatchObject({ open: true, draftId: draft.draftId })
+    expect(sendCalls).toEqual([])
+    expect(messagesOf(sessionId)).toEqual([])
   })
 
   test("refuses a second send of the same draft while the session is being created", async () => {
@@ -298,6 +386,8 @@ describe("the first message of a draft", () => {
       expect(state.currentSessionId).toBe(sessionId)
       expect(state.newSessionDraft.open).toBe(false)
       expect(state.pendingDraftSends.size).toBe(0)
+      // The create marked it busy; the failed send takes that back.
+      expect(childStores.getChild(DIRECTORY)?.getState().session_status[sessionId]).toEqual({ type: "idle" })
       expect(childStores.getChild(DIRECTORY)?.getState().session.map((session) => session.id)).toContain(sessionId)
     } finally {
       opencodeClient.listCommands = originalListCommands

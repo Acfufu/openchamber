@@ -36,7 +36,7 @@ import { getDeferredSafeStorage } from "@/stores/utils/safeStorage"
 import { markPendingUserSendAnimation } from "@/lib/userSendAnimation"
 import { prepareUserMessageResume } from "./user-message-resume"
 import { normalizePath } from "@/lib/pathNormalization"
-import { ascendingId } from "@/lib/opencode/ids"
+import { descendingId } from "@/lib/opencode/ids"
 import { CHAT_DRAFT_PROJECT_ID, createChatDirectory, deleteChatDirectory, getChatsRootFromDirectory, isChatDirectoryPath, warmChatsRootDirectory } from "@/lib/chatDirectories"
 import { isSpaceArchiveDirectory } from "@/lib/spaces/space-archives"
 import { isSpaceDirectory } from "@/lib/spaces/space-route"
@@ -67,6 +67,7 @@ import { setActiveSession } from "./sync-context"
 import {
   adoptSessionMove,
   createSession as createSessionAction,
+  markSessionStatus,
   openPendingSessionTranscript,
   type SessionCreateSelection,
   deleteSession as deleteSessionAction,
@@ -200,6 +201,19 @@ export async function routeMessage(params: {
   ready?: Promise<void>
   /** Runs right before the request that starts the turn leaves (the gate on a session's first send). */
   beforeSend?: () => void
+  /**
+   * Instructions read while `ready` settles and admitted right before the
+   * request leaves, after `additionalParts`: the response style, which another
+   * device may have changed since the last send. Text only, with no context
+   * metadata: the timeline shows nothing for them, so they need no optimistic
+   * record, and their ids are minted after the prompt's. Never rejects.
+   */
+  lateContext?: () => Promise<Array<{ text: string }>>
+  /**
+   * Whether the optimistic insert marks the session busy. A session created
+   * from a draft is marked once it exists, by its creator.
+   */
+  markBusy?: boolean
 }): Promise<'command' | 'prompt' | 'shell'> {
   const requestDirectory = params.directory ?? undefined
   // The request goes to the directory the session lives in when it leaves:
@@ -294,9 +308,12 @@ export async function routeMessage(params: {
       // hang an optimistic user message on. The command's message arrives
       // through the stream instead.
       params.appendSubmissions?.()
+      // Read while the session gets ready, so the request waits for neither.
+      const lateContext = params.lateContext?.()
       await params.ready
       const commandContext = [
         ...contextItems,
+        ...((await lateContext) ?? []),
         ...skillInstructionContext(),
       ]
       const selection = sendSelection()
@@ -326,7 +343,10 @@ export async function routeMessage(params: {
     }
   }
 
-  // Normal prompt — optimistic insert so message appears instantly
+  // Normal prompt — optimistic insert so message appears instantly. The late
+  // context is read while the session gets ready, so the request waits for
+  // neither.
+  const lateContextRead = params.lateContext?.()
   await optimisticSend({
     runtimeKey: params.runtimeKey,
     sessionId: params.sessionId,
@@ -335,9 +355,11 @@ export async function routeMessage(params: {
     files: sendFiles,
     context: contextItems,
     ready: params.ready,
+    markBusy: params.markBusy,
     appendSubmissions: params.appendSubmissions,
-    send: (messageID, context) => {
+    send: async (messageID, context) => {
       const selection = sendSelection()
+      const lateContext = (await lateContextRead) ?? []
       return opencodeClient.sendMessage({
         runtimeKey: params.runtimeKey,
         id: params.sessionId,
@@ -347,7 +369,7 @@ export async function routeMessage(params: {
         text: params.content,
         agentMentions: params.agentMentionName ? [{ name: params.agentMentionName }] : undefined,
         files: sendFiles,
-        context: context.length > 0 ? context : undefined,
+        context: context.length + lateContext.length > 0 ? [...context, ...lateContext] : undefined,
         delivery: params.delivery,
         messageId: messageID,
         directory: sendDirectory(),
@@ -382,6 +404,8 @@ type SendMessageOptions = {
    * replaces the composer's armed goal, which belongs to the composer text.
    */
   queuedGoal?: QueuedMessageGoal | null
+  /** Instructions read right before the request leaves, after the session exists (`routeMessage`'s; text only). */
+  lateContext?: () => Promise<Array<{ text: string }>>
 }
 
 type AssistantMessageSessionExecution = {
@@ -2108,41 +2132,61 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
         // The session's id is minted here and sent with the create request, so
         // the chat can switch to it and show the message at once; the server
         // creates the session under this id while the message is on screen.
-        const sessionId = ascendingId("ses")
+        const sessionId = descendingId("ses")
         const draftAgent = saveDraftSessionSelection(sessionId, selection)
         openPendingSessionTranscript(sessionId, sessionDirectory)
         get().setCurrentSession(sessionId, sessionDirectory, "submitted-draft")
         setPendingDraftSend(sessionId, { draftId: draft.draftId, sessionCreated: false })
         const releaseGate = () => setPendingDraftSend(sessionId, null)
 
+        // Whether the server has the session: answered by the create response
+        // alone, since the goal and knowledge writes after it can fail with
+        // the session already there.
+        let resolveSessionCreated!: (created: boolean) => void
+        const sessionCreatedOutcome = new Promise<boolean>((resolve) => { resolveSessionCreated = resolve })
         const creation = (async () => {
-          const createDirectory = await resolveDraftCreateDirectory(draft, sessionDirectory)
-          const created = await createSessionAction(
-            draft.title,
-            createDirectory,
-            draftSessionMetadata(draft),
-            undefined,
-            draftSessionCreateSelection(selection),
-            "preserve",
-            sessionId,
-          )
-          if (!created?.id) throw new Error("Failed to create session")
-          setPendingDraftSend(sessionId, { draftId: draft.draftId, sessionCreated: true })
-          // The draft is a session now: it leaves the drafts every client lists.
-          if (draft.workDraftId) void useSessionDraftsStore.getState().discard(draft.workDraftId, { final: true }).catch(() => undefined)
-          const createdDirectory = finishDraftSession(draft, created, createDirectory) ?? sessionDirectory
-          if (createdDirectory !== normalizePath(sessionDirectory)) {
-            // The session lives elsewhere than where its first message was
-            // shown (a start folder inside the worktree, a deleted directory
-            // left for the project, a path the server canonicalized): the
-            // transcript follows the record there.
-            adoptSessionMove(sessionId, sessionDirectory, createdDirectory)
-            if (get().currentSessionId === sessionId) get().setCurrentSession(sessionId, createdDirectory, "submitted-draft")
+          try {
+            const createDirectory = await resolveDraftCreateDirectory(draft, sessionDirectory)
+            const created = await createSessionAction(
+              draft.title,
+              createDirectory,
+              draftSessionMetadata(draft),
+              undefined,
+              draftSessionCreateSelection(selection),
+              "preserve",
+              sessionId,
+            )
+            if (!created?.id) throw new Error("Failed to create session")
+            if (created.id !== sessionId) {
+              // The prompt must never go to a session that does not exist, and
+              // the one the server made under another id is not this one: it
+              // is empty, so it goes, best effort, before the draft comes back.
+              console.error("[session-ui-store] the server created the session under another id", { requested: sessionId, created: created.id })
+              void deleteSessionAction(created.id).catch(() => undefined)
+              throw new Error("Failed to create session")
+            }
+            resolveSessionCreated(true)
+            setPendingDraftSend(sessionId, { draftId: draft.draftId, sessionCreated: true })
+            // The draft is a session now: it leaves the drafts every client lists.
+            if (draft.workDraftId) void useSessionDraftsStore.getState().discard(draft.workDraftId, { final: true }).catch(() => undefined)
+            const createdDirectory = finishDraftSession(draft, created, createDirectory) ?? sessionDirectory
+            if (createdDirectory !== normalizePath(sessionDirectory)) {
+              // The session lives elsewhere than where its first message was
+              // shown (a start folder inside the worktree, a deleted directory
+              // left for the project, a path the server canonicalized): the
+              // transcript follows the record there.
+              adoptSessionMove(sessionId, sessionDirectory, createdDirectory)
+              if (get().currentSessionId === sessionId) get().setCurrentSession(sessionId, createdDirectory, "submitted-draft")
+            }
+            // The session exists: from here its turn is the agent's.
+            markSessionStatus(sessionId, createdDirectory, "busy")
+            await applyArmedGoal(sessionId, createdDirectory)
+            // The server writes the project knowledge into the new session while
+            // the message is already on screen: only the prompt request waits.
+            if (inputMode !== "shell") await syncSessionKnowledge(createdDirectory, sessionId)
+          } finally {
+            resolveSessionCreated(false)
           }
-          await applyArmedGoal(sessionId, createdDirectory)
-          // The server writes the project knowledge into the new session while
-          // the message is already on screen: only the prompt request waits.
-          if (inputMode !== "shell") await syncSessionKnowledge(createdDirectory, sessionId)
         })()
         // The send below observes the outcome; nothing else has to.
         creation.catch(() => undefined)
@@ -2186,6 +2230,8 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
             skills: options?.skills,
             ready: creation,
             beforeSend: releaseGate,
+            lateContext: options?.lateContext,
+            markBusy: false,
             additionalParts: draftParts?.map((p) => ({
               text: p.text,
               synthetic: p.synthetic,
@@ -2200,12 +2246,20 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
           })
         } catch (error) {
           // The send can fail before the create response (a lost connection,
-          // a command lookup): the creation still settles, and what it says
-          // decides whether the draft comes back or the session stays.
-          const sessionCreated = await creation.then(() => true, () => false)
+          // a command lookup): the creation still settles, and what the
+          // server answered decides whether the draft comes back or the
+          // session stays with the text in its composer.
+          const sessionCreated = await sessionCreatedOutcome
           releaseGate()
-          if (!sessionCreated) reopenDraftAfterFailedCreation(draft, sessionId, sessionDirectory, capturedRuntimeKey)
-          throw new DraftSendError(sessionId, getSyncSessionDirectory(sessionId) ?? sessionDirectory, sessionCreated, error)
+          const liveDirectory = getSyncSessionDirectory(sessionId) ?? sessionDirectory
+          if (sessionCreated) {
+            // Nothing reached the agent: a session marked busy on creation
+            // for a send that failed before its request is idle.
+            markSessionStatus(sessionId, liveDirectory, "idle")
+          } else {
+            reopenDraftAfterFailedCreation(draft, sessionId, sessionDirectory, capturedRuntimeKey)
+          }
+          throw new DraftSendError(sessionId, liveDirectory, sessionCreated, error)
         }
         return
       }
@@ -2309,6 +2363,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
         delivery: options?.delivery,
         skills: options?.skills,
         ready: knowledgeSync,
+        lateContext: options?.lateContext,
         additionalParts: additionalParts?.map((p) => ({
           text: p.text,
           synthetic: p.synthetic,

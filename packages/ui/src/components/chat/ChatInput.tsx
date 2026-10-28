@@ -265,6 +265,7 @@ import { SessionReviewHintRow } from '@/components/chat/SessionReviewHintRow';
 import { BackgroundShellsStrip } from '@/components/chat/BackgroundShellsStrip';
 import { ComposerStatusStrip } from '@/components/chat/ComposerStatusStrip';
 import { useWorktreeBootstrapPending } from '@/hooks/useWorktreeBootstrapPending';
+import { useShownAfter } from '@/hooks/useShownAfter';
 import { FormDock } from '@/components/chat/FormDock';
 import { PermissionDock } from '@/components/chat/PermissionDock';
 import { SessionGoalRow } from '@/components/chat/SessionGoalRow';
@@ -404,6 +405,8 @@ interface ChatInputProps {
 // instead, so that move neither clears what was typed nor leaves it behind
 // under the root for the next new Chat to show.
 const NEW_CHAT_DRAFT_DIRECTORY = CHAT_DRAFT_PROJECT_ID;
+// A session the server creates within this is never announced as being created.
+const CREATING_SESSION_LINE_DELAY_MS = 300;
 
 /**
  * The composer key of the open project draft (see `workDraftComposerKey`), or
@@ -2047,6 +2050,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             delivery?: 'steer';
             skills?: SkillMentions;
             queuedGoal?: QueuedMessageGoal | null;
+            lateContext?: () => Promise<Array<{ text: string }>>;
         } | undefined;
         if (isBtwActive && btwSessionId && btwDirectory) {
             sendMessageOptions = {
@@ -2264,13 +2268,16 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // so the response-style instruction never applies there.
         const shouldAddResponseStyle = !isBtwActive && (newSessionDraftOpen || (currentSessionId ? !hasUserMessages(currentSessionId, currentSessionDirectory) : false));
         if (shouldAddResponseStyle) {
-            const responseStyleInstruction = await fetchResponseStyleInstruction().catch(() => null);
-            if (responseStyleInstruction) {
-                additionalParts.push({
-                    text: wrapSystemReminder(responseStyleInstruction),
-                    synthetic: true,
-                });
-            }
+            // Read right before the prompt leaves, while the message is
+            // already on screen: a style set on another device applies from
+            // the next message without holding this one back for the read.
+            sendMessageOptions = {
+                ...sendMessageOptions,
+                lateContext: async () => {
+                    const responseStyleInstruction = await fetchResponseStyleInstruction().catch(() => null);
+                    return responseStyleInstruction ? [{ text: wrapSystemReminder(responseStyleInstruction) }] : [];
+                },
+            };
         }
 
         const expandOutgoingSnippets = async () => {
@@ -4361,7 +4368,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         : null;
     // The first message is on screen while the server still creates its
     // session; this says why Send waits. A worktree's setup line already does.
-    const creatingSessionRow = pendingFirstSend && !pendingFirstSend.sessionCreated && !worktreeSetupPending
+    // A fast server answers within the delay, and then nothing flashes.
+    const creatingSession = Boolean(pendingFirstSend && !pendingFirstSend.sessionCreated && !worktreeSetupPending);
+    const creatingSessionRow = useShownAfter(creatingSession, CREATING_SESSION_LINE_DELAY_MS)
         ? <ComposerStatusStrip icon="loader-4" spin text={t('chat.draft.creatingSession')} />
         : null;
     // A message sent while its space is still being made waits for it; the
