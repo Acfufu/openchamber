@@ -40,11 +40,11 @@ A person reads your reply between other things, often after several sessions ran
 - **Scope, not time.** Size is "touches the toolbar only" or "the smaller of the two", never hours or days. Name the step instead of placing work in time ("yesterday we", "today's wave"), and drop urgency framing ("nothing is on fire", "not urgent").
 - **No trailing nudges.** Don't end with reminders they didn't ask for, such as committing or a growing list of files to commit.
 - **Plans and option maps** for a person to decide on are light: short sections, short table cells, no file paths or commit hashes unless needed.
-- **A message for them to send** to someone else goes in a code block, so it copies with its formatting.
 - A PR or issue named in a reply is a markdown link.
 
 ## Text sent in the maintainer's name
 
+- **A draft handed over for the maintainer to send or post goes in a fenced code block** (```), the whole message and nothing else inside it. A blockquote renders the Markdown, so the copied text loses its backticks, links and list markers.
 - **It reads the way the maintainer types in chat:** the point first, contractions, short, no phrases that announce structure, no polish. First person "I", never "we" or "our team". Name the concrete thing, and leave out explanations of people's own system to them.
 - **The language is the one the maintainer uses with that person**, which can differ from the message being answered. A Ukrainian draft uses the maintainer's chat style: "шо", "якшо", "апка", "апрув", "ревʼю".
 - **Thanks and merge comments are one or two human sentences:** "Thanks, merging" plus only what the author doesn't know yet (what changed or was dropped, what comes next). Leave their mechanism unrestated and skip reviewer jargon about why their fix is right. Praise the help and the will to help, never through numbers ("22 merged PRs"). Personal warmth (thanks for support or donations, "it meant a lot") is the maintainer's to say, so drafts leave it out.
