@@ -106,7 +106,7 @@ Where that decision is settled depends on who is working:
   access): raise the product question in the session and get an answer there.
   The decision already happened off GitHub; no discussion thread and no link is
   expected on the pull request.
-- **Working as an outside contributor**: settle it in an [Ideas discussion](https://github.com/openchamber/openchamber/discussions/categories/ideas) before the code, as `CONTRIBUTING.md` (*Before you start*) describes, and link it from the pull request.
+- **Working as an outside contributor**: open a feature request and build only after the maintainer marks it `accepted`, as `CONTRIBUTING.md` (*Before you start*) describes; the pull request links it with `Fixes #N` or `Part of #N`. A pull request without that link is closed automatically.
 
 When the call is unclear, ask before building. Deciding it silently is the one
 thing that is always wrong.

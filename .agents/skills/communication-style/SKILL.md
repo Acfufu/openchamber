@@ -56,7 +56,7 @@ A person reads your reply between other things, often after several sessions ran
 ## What OpenChamber's public text says
 
 - **Closing an issue after its fix.** Name the commit or PR and the version it ships in ("Ships in 2.0.3", or "Ships in the next release" while the version isn't known), then "if it still happens there, comment and I'll reopen".
-- **Declining a feature.** The close comment says why the idea or the change is wrong or not needed. That is the whole reason: no process points, no other shape to try. Match thanks to the effort and leave out "feel free to reopen". The matching Ideas discussion gets a one-line close.
+- **Declining a feature.** The close comment says why the idea or the change is wrong or not needed. That is the whole reason: no process points, no other shape to try. Match thanks to the effort and leave out "feel free to reopen".
 - **A contributor's branch we reshaped.** The PR description stays theirs; what landed or was dropped goes in one comment.
 - **A contributor's fork with useful changes.** Don't ask them to open PRs for it. We pull what's useful ourselves, and the reply thanks them and covers their actual PR.
 - **A community reviewer's comment on a PR.** When we act on the PR, thank them and say whether we agree with their call and why, so their review visibly shaped the decision. Casual, short, a different phrase each time.

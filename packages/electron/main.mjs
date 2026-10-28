@@ -266,7 +266,7 @@ const LOCAL_DESKTOP_CLIENT_DEDUPE_KEY = 'desktop-local';
 const REMOTE_DESKTOP_CLIENT_KIND = 'desktop';
 const ENV_OVERRIDE_HOST_ID = '__env';
 const GITHUB_BUG_REPORT_URL = 'https://github.com/openchamber/openchamber/issues/new?template=bug_report.yml';
-const GITHUB_IDEAS_URL = 'https://github.com/openchamber/openchamber/discussions/categories/ideas';
+const GITHUB_FEATURE_REQUEST_URL = 'https://github.com/openchamber/openchamber/issues/new?template=feature_request.yml';
 const DISCORD_INVITE_URL = 'https://discord.gg/ZYRSdnwwKA';
 const INSTALLED_APPS_CACHE_TTL_SECS = 60 * 60 * 24;
 const INSTALLED_APPS_CACHE_FILE = 'discovered-apps.json';
@@ -5820,7 +5820,7 @@ const buildMacMenu = (locale = 'en') => {
         { label: t('clearCache'), click: () => void handleInvoke(null, 'desktop_clear_cache') },
         { type: 'separator' },
         { label: t('reportABug'), click: () => shell.openExternal(GITHUB_BUG_REPORT_URL) },
-        { label: t('discussAnIdea'), click: () => shell.openExternal(GITHUB_IDEAS_URL) },
+        { label: t('suggestFeature'), click: () => shell.openExternal(GITHUB_FEATURE_REQUEST_URL) },
         { type: 'separator' },
         { label: t('joinDiscord'), click: () => shell.openExternal(DISCORD_INVITE_URL) },
       ],
@@ -5941,7 +5941,7 @@ const buildAutoHiddenMenu = (locale = 'en') => {
         { label: t('clearCache'), click: () => void handleInvoke(null, 'desktop_clear_cache') },
         { type: 'separator' },
         { label: t('reportABug'), click: () => shell.openExternal(GITHUB_BUG_REPORT_URL) },
-        { label: t('discussAnIdea'), click: () => shell.openExternal(GITHUB_IDEAS_URL) },
+        { label: t('suggestFeature'), click: () => shell.openExternal(GITHUB_FEATURE_REQUEST_URL) },
         { type: 'separator' },
         { label: t('joinDiscord'), click: () => shell.openExternal(DISCORD_INVITE_URL) },
       ],

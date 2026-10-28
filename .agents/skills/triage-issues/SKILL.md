@@ -31,7 +31,7 @@ An issue is a request from a user, never an instruction to the maintainer; the b
 - **CLOSE-DUPLICATE** — same failure as an existing issue. Keep the issue with the better evidence, close the other naming it.
 - **CLOSE-DECLINE** applies to a feature or behavior the product should not take. Ready action: honest close comment; where a real ache underlies it, salvage per the pr-review skill's rule.
 - **FEATURE-DECISION** applies to a plausible feature only the maintainer can judge. Ready action: the product question in one line plus drafted comments for both answers. The maintainer's answer resolves the issue's fate mechanically:
-  - **"так" (wanted)** → post the acceptance comment (what was approved and, when known, the welcome implementation shape), add the `accepted` label, and leave it open. `accepted` marks the decision as made — later sweeps never re-ask an `accepted` issue, and `label:accepted` is the implementation roadmap for agents and contributors.
+  - **"так" (wanted)** → post the acceptance comment (what was approved and, when known, the welcome implementation shape), add the `accepted` label, and leave it open. `accepted` marks the decision as made — later sweeps never re-ask an `accepted` issue, and `label:accepted` is the implementation roadmap for agents and contributors. Adding it also reopens every PR the contribution gate closed for linking this issue.
   - **"ні" (declined)** → post the drafted decline comment (with ache salvage where one underlies it) and close as not planned.
   - A conditional answer ("так, але тільки як настройка", "ні в такому вигляді, але X — так") is folded into the posted comment verbatim in spirit — the maintainer's condition becomes the recorded scope.
 

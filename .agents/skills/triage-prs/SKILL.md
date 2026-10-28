@@ -40,7 +40,7 @@ Execute the approved closes/comments with retries and ~1–2s spacing between ca
 
 **Trusted community reviewers.** `yulia-ivashko` is a core maintainer with merge rights — her review decisions carry maintainer weight (a PR she approved or merged needs no re-verdict; her open questions are the maintainer's questions). Comments and reviews from `patrick-motard` and `mattv8` are strong human signals: during any sweep, collect the PRs/issues they weighed in on, read their assessment, and carry it into the verdict — an approval from them upgrades confidence like a passing verifier; a concern from them is a finding to verify, never to ignore. They write free-form; map their conclusion onto the verdict ladder rather than expecting the format.
 
-Parked PRs are *waiting on author* for the sweep: the report lists them in one line each and no verdict review is spent on them until a discussion link appears or the maintainer removes the label by hand (the workflow never re-adds it). **Cutover: 2026-09-22.** PRs opened before that date got the label from the first relabel run, with no comment and no rule in place when the author started: for them `needs-discussion` is size information, not a parking decision. Treat those as ordinary review pool entries (size and product fit judged by the `pr-review` skill as usual), and never send the author to Ideas for a PR that predates the rule. The parking applies as written only to PRs opened on or after 2026-09-22.
+PRs closed by the contribution gate (label `needs-accepted-issue`, `.github/scripts/pr-checks.cjs`) are not in the queue: they reopen on their own once they link a bug report or an accepted feature request. PRs labeled `evidence-in-branch` or `needs-visual-evidence` are *waiting on author*, one line each in the report; the label comes off on its own once fixed, and removing it by hand waives the check for that PR. The retired `needs-discussion` label from the earlier parking rule is size information only; such a PR is an ordinary review pool entry.
 
 The review bot's `review:*` labels are a pre-sort, not a verdict: `review:ready` PRs go first (the bot found no code defects — likely MERGE/MERGE-THEN-FIX), `review:blocked` ones carry a bot comment whose findings the verdict review verifies rather than rediscovers. Bot labels never replace the pr-review pass — the bot cannot judge product fit or maintainability scope.
 
@@ -103,16 +103,13 @@ Canonical texts. Reuse verbatim, adjusting only bracketed parts.
 > Closing this as stale: the branch has merge conflicts with `main` and hasn't been updated in over a month. The codebase has moved on significantly since this was opened, so this change would need to be redone against the current state anyway.
 
 **rebase-request**
-> Sorry for the review backlog. The queue is currently far beyond what a single maintainer can handle. This PR has merge conflicts with `main`, and I can only review PRs that merge cleanly. If you're still interested in landing this, please rebase. Conflicted PRs without activity will eventually be closed as stale.
+> Sorry for the review backlog. The queue is currently far beyond what I can get through. This PR has merge conflicts with `main`, and I can only review PRs that merge cleanly. If you're still interested in landing this, please rebase. Conflicted PRs without activity will eventually be closed as stale.
 
 **stale-draft**
 > Closing this as stale: it's been a draft with no new commits for a while, and `main` has moved on a lot since, so it would need redoing against the current code anyway. Thanks for the work on it.
 
 **duplicate-close**
 > Closing as a duplicate of #[N], which will be reviewed instead[: one-clause reason it was kept].
-
-**discussion-after-the-fact** (the linked Ideas discussion is a summary of the finished PR, posted after the implementation)
-> Closing this one. The Ideas discussion linked here describes what you already built, so there was never a point where the shape of this could be discussed. By the time it was posted the decision was made.
 
 **oversized-split** (single PR bundling several concerns)
 > Closing this one. It bundles several unrelated concerns, [list], into a single [size] change across [n] files, which isn't reviewable in this form.
