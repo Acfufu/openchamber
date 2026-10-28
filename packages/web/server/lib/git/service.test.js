@@ -3524,6 +3524,37 @@ describe('removeWorktree', () => {
     }
   });
 
+  it('keeps a branch another checkout holds and still removes the worktree', async () => {
+    if (!canRunGit()) return;
+    const fixture = createRemovalWorktree();
+    runGit(fixture.worktree, ['checkout', '--ignore-other-worktrees', 'main']);
+
+    await expect(removeWorktree(fixture.repo, {
+      directory: fixture.worktree,
+      deleteLocalBranch: true,
+    })).resolves.toBe(true);
+
+    expect(fs.existsSync(fixture.worktree)).toBe(false);
+    expect(runGit(fixture.repo, ['show-ref', '--verify', 'refs/heads/main'])).toContain('refs/heads/main');
+  });
+
+  it('keeps the branch a remote names as its default', async () => {
+    if (!canRunGit()) return;
+    const fixture = createRemovalWorktree();
+    runGit(fixture.repo, ['checkout', '-b', 'other']);
+    runGit(fixture.worktree, ['checkout', 'main']);
+    runGit(fixture.repo, ['update-ref', 'refs/remotes/origin/main', 'main']);
+    runGit(fixture.repo, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+
+    await expect(removeWorktree(fixture.repo, {
+      directory: fixture.worktree,
+      deleteLocalBranch: true,
+    })).resolves.toBe(true);
+
+    expect(fs.existsSync(fixture.worktree)).toBe(false);
+    expect(runGit(fixture.repo, ['show-ref', '--verify', 'refs/heads/main'])).toContain('refs/heads/main');
+  });
+
   it.each(['file', 'symlink'])('preserves a concurrent .git %s installed before conversion claims the entry', async (kind) => {
     if (!canRunGit() || process.platform === 'win32') return;
     const fixture = createRemovalWorktree();
