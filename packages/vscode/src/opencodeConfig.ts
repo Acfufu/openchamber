@@ -1265,18 +1265,13 @@ const isExactPluginSemver = (version: string): boolean => /^\d+\.\d+\.\d+([-+][\
 const getActiveCustomConfigPath = (): string | null =>
   process.env.OPENCODE_CONFIG ? path.resolve(process.env.OPENCODE_CONFIG) : null;
 
-const getActiveOpencodeConfigDir = (): string => {
-  const customConfigPath = getActiveCustomConfigPath();
-  return customConfigPath ? path.dirname(customConfigPath) : OPENCODE_CONFIG_DIR;
-};
-
-const getActiveUserConfigPaths = (): string[] => {
-  const configDir = getActiveOpencodeConfigDir();
-  return [
-    path.join(configDir, 'opencode.json'),
-    path.join(configDir, 'opencode.jsonc'),
-  ];
-};
+// `OPENCODE_CONFIG` is one more file OpenCode reads on top of the global
+// config; the global config folder stays where it is, and OpenCode never scans
+// a `plugins/` folder next to the `OPENCODE_CONFIG` file.
+const getActiveUserConfigPaths = (): string[] => [
+  path.join(OPENCODE_CONFIG_DIR, 'opencode.json'),
+  path.join(OPENCODE_CONFIG_DIR, 'opencode.jsonc'),
+];
 
 const getActivePrimaryUserConfigPath = (): string => {
   const [defaultPath, ...fallbackPaths] = getActiveUserConfigPaths();
@@ -1293,14 +1288,20 @@ const ensureProjectPluginConfigPath = (workingDirectory?: string | null): string
   return path.join(workingDirectory, '.opencode', 'opencode.json');
 };
 
+/**
+ * The config files OpenCode 2 takes plugins from, in its load order: the global
+ * file, then `OPENCODE_CONFIG`, then the project file. Each one adds its own
+ * entries; `OPENCODE_CONFIG` replaces none of the global ones.
+ */
 const getPluginConfigSources = (workingDirectory?: string | null): Array<{ scope: PluginScope; path: string; config: Record<string, unknown> }> => {
   const customPath = getActiveCustomConfigPath();
   const userPath = getActivePrimaryUserConfigPath();
   const projectPath = getProjectConfigPath(workingDirectory || undefined);
   return [
-    customPath
-      ? { scope: 'user', path: customPath, config: readConfigLayer(customPath).config }
-      : { scope: 'user', path: userPath, config: readConfigLayer(userPath).config },
+    { scope: 'user', path: userPath, config: readConfigLayer(userPath).config },
+    ...(customPath
+      ? [{ scope: 'user' as const, path: customPath, config: readConfigLayer(customPath).config }]
+      : []),
     ...(projectPath
       ? [{ scope: 'project' as const, path: projectPath, config: readConfigLayer(projectPath).config }]
       : []),
@@ -1361,7 +1362,11 @@ const getPluginTarget = (id: string, workingDirectory?: string | null): null | {
     throw codedError('Plugin entry id must use config prefix', 'INVALID_SPEC');
   }
   const { scope, rest: spec } = parsePluginIdValue(decoded.value);
-  const source = getPluginConfigSources(workingDirectory).find((candidate) => candidate.scope === scope);
+  // Two user files can both declare the spec; the later one is the entry the
+  // list shows, so it is the one edited.
+  const source = getPluginConfigSources(workingDirectory).reverse().find((candidate) => (
+    candidate.scope === scope && hasPluginSpec(readPluginArray(candidate.config), spec)
+  ));
   if (!source) return null;
   const plugin = readPluginArray(source.config);
   const index = plugin.findIndex((raw) => {
@@ -1390,7 +1395,9 @@ export const listPluginEntries = (workingDirectory?: string): PluginEntry[] => {
       entries.push(entry);
     }
   }
-  return entries;
+  // A spec in both the global file and `OPENCODE_CONFIG` shares one id; the
+  // `OPENCODE_CONFIG` entry is listed, matching `getPluginTarget`.
+  return [...new Map(entries.map((entry) => [entry.id, entry])).values()];
 };
 
 export const getPluginEntry = (id: string, workingDirectory?: string): PluginEntry | null =>
@@ -1403,10 +1410,9 @@ export const createPluginEntry = (entry: { spec?: unknown; options?: unknown; sc
   if (sources.some((source) => source.scope === scope && hasPluginSpec(readPluginArray(source.config), spec))) {
     throw codedError(`Plugin "${spec}" already exists`, 'ENTRY_EXISTS');
   }
-  const userSource = sources.find((source) => source.scope === 'user');
   const targetPath = scope === 'project'
     ? ensureProjectPluginConfigPath(workingDirectory)
-    : userSource?.path ?? getActivePrimaryUserConfigPath();
+    : getActiveCustomConfigPath() ?? getActivePrimaryUserConfigPath();
   const config = fs.existsSync(targetPath) ? readConfigFile(targetPath) : {};
   const plugin = readPluginArray(config);
   writeConfig(writePluginArray(config, [...plugin, serializePluginEntry({ spec, options: entry.options })]), targetPath);
@@ -1437,7 +1443,7 @@ const getPluginDir = (scope: PluginScope, workingDirectory?: string | null): str
     if (!workingDirectory) throw codedError('Project plugin scope requires working directory', 'INVALID_SCOPE');
     return path.join(workingDirectory, '.opencode', 'plugins');
   }
-  return path.join(getActiveOpencodeConfigDir(), 'plugins');
+  return path.join(OPENCODE_CONFIG_DIR, 'plugins');
 };
 
 const getPluginFileTarget = (id: string, workingDirectory?: string): { scope: PluginScope; fileName: string; filePath: string } => {

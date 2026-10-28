@@ -264,7 +264,33 @@ describe('VS Code config bridge plugin parity', () => {
     expect(readJson(configPath).plugins).toBeUndefined();
   });
 
-  test('writes user plugin files next to OPENCODE_CONFIG', async () => {
+  test('lists the global config and plugins folder when OPENCODE_CONFIG names a missing file', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openchamber-vscode-missing-custom-'));
+    tempRoots.push(root);
+    const globalDir = path.join(process.env.XDG_CONFIG_HOME, 'opencode');
+    const globalConfigPath = path.join(globalDir, 'opencode.json');
+    const globalFilePath = path.join(globalDir, 'plugins', 'global-file.js');
+    fs.mkdirSync(path.dirname(globalFilePath), { recursive: true });
+    fs.writeFileSync(globalConfigPath, JSON.stringify({ plugins: ['global-plugin'] }), 'utf8');
+    fs.writeFileSync(globalFilePath, '', 'utf8');
+    process.env.OPENCODE_CONFIG = path.join(root, 'missing', 'opencode.json');
+
+    try {
+      const listed = await handleConfigBridgeMessage({
+        id: 'list-missing-custom',
+        type: 'api:config/plugins',
+        payload: { method: 'GET', target: 'list', directory: root },
+      }, createCtx(root), deps);
+
+      expect((listed?.data?.entries || []).map((entry) => [entry.spec, entry.scope])).toEqual([['global-plugin', 'user']]);
+      expect((listed?.data?.files || []).map((file) => [file.fileName, file.scope])).toEqual([['global-file.js', 'user']]);
+    } finally {
+      fs.rmSync(globalConfigPath, { force: true });
+      fs.rmSync(globalFilePath, { force: true });
+    }
+  });
+
+  test('writes user plugin files to the global plugins folder when OPENCODE_CONFIG is set', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openchamber-vscode-custom-files-'));
     tempRoots.push(root);
     const configDir = path.join(root, 'custom-config');
@@ -286,7 +312,11 @@ describe('VS Code config bridge plugin parity', () => {
     }, ctx, deps);
 
     expect(created?.success).toBe(true);
-    expect(fs.readFileSync(path.join(configDir, 'plugins', 'demo-plugin.ts'), 'utf8')).toBe('export default {}');
+    // OpenCode scans only the global `plugins/` folder for user plugin files.
+    const globalFilePath = path.join(process.env.XDG_CONFIG_HOME, 'opencode', 'plugins', 'demo-plugin.ts');
+    expect(fs.readFileSync(globalFilePath, 'utf8')).toBe('export default {}');
+    expect(fs.existsSync(path.join(configDir, 'plugins'))).toBe(false);
+    fs.rmSync(globalFilePath, { force: true });
   });
 
   // OpenCode 2 watches its config sources, so a write is live as soon as it

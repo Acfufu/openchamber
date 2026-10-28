@@ -5,8 +5,10 @@ import path from 'path';
 
 let rootDir;
 let projectDir;
+let globalDir;
 let userConfigPath;
 let plugins;
+const originalConfigDir = process.env.OPENCODE_CONFIG_DIR;
 
 function thrownBy(fn) {
   try {
@@ -30,6 +32,9 @@ describe('opencode plugins data layer', () => {
   beforeAll(async () => {
     rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openchamber-plugins-'));
     userConfigPath = path.join(rootDir, 'user-opencode.json');
+    // The global config folder is read at import; keep it off the real one.
+    globalDir = path.join(rootDir, 'global');
+    process.env.OPENCODE_CONFIG_DIR = globalDir;
     process.env.OPENCODE_CONFIG = userConfigPath;
     plugins = await import('./plugins.js');
   });
@@ -38,11 +43,14 @@ describe('opencode plugins data layer', () => {
     process.env.OPENCODE_CONFIG = userConfigPath;
     projectDir = fs.mkdtempSync(path.join(rootDir, 'project-'));
     fs.rmSync(userConfigPath, { force: true });
+    fs.rmSync(globalDir, { recursive: true, force: true });
   });
 
   afterAll(() => {
     fs.rmSync(rootDir, { recursive: true, force: true });
     delete process.env.OPENCODE_CONFIG;
+    if (originalConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = originalConfigDir;
   });
 
   test('parses v1 tuples and v2 objects into the same entry', () => {
@@ -148,8 +156,43 @@ describe('opencode plugins data layer', () => {
 
     expect(readJson(firstConfigPath).plugins).toEqual(['first-plugin']);
     expect(readJson(secondConfigPath).plugins).toEqual(['second-plugin']);
-    expect(fs.existsSync(path.join(path.dirname(firstConfigPath), 'plugins', 'first.js'))).toBe(true);
-    expect(fs.existsSync(path.join(path.dirname(secondConfigPath), 'plugins', 'second.js'))).toBe(true);
+    // OpenCode scans only the global `plugins/` folder for user plugin files.
+    expect(fs.readdirSync(path.join(globalDir, 'plugins')).sort()).toEqual(['first.js', 'second.js']);
+    expect(fs.existsSync(path.join(rootDir, 'first', 'plugins'))).toBe(false);
+  });
+
+  test('lists the global config and plugins folder when OPENCODE_CONFIG names a missing file', () => {
+    const globalConfigPath = path.join(globalDir, 'opencode.json');
+    writeJson(globalConfigPath, { plugins: ['global-plugin'] });
+    fs.mkdirSync(path.join(globalDir, 'plugins'), { recursive: true });
+    fs.writeFileSync(path.join(globalDir, 'plugins', 'global-file.js'), '', 'utf8');
+    process.env.OPENCODE_CONFIG = path.join(rootDir, 'missing', 'opencode.json');
+
+    expect(plugins.listPluginEntries(projectDir)).toEqual([
+      expect.objectContaining({ spec: 'global-plugin', scope: 'user', sourcePath: globalConfigPath }),
+    ]);
+    expect(plugins.listPluginDirFiles(projectDir)).toEqual([
+      expect.objectContaining({ fileName: 'global-file.js', scope: 'user', kind: 'file', absolutePath: path.join(globalDir, 'plugins', 'global-file.js') }),
+    ]);
+  });
+
+  test('lists global and OPENCODE_CONFIG entries together and edits each in its own file', () => {
+    const globalConfigPath = path.join(globalDir, 'opencode.json');
+    writeJson(globalConfigPath, { plugins: ['global-plugin', 'shared-plugin'] });
+    writeJson(userConfigPath, { plugins: ['custom-plugin', 'shared-plugin'] });
+
+    expect(plugins.listPluginEntries(projectDir).map((entry) => [entry.spec, entry.sourcePath])).toEqual([
+      ['global-plugin', globalConfigPath],
+      ['shared-plugin', userConfigPath],
+      ['custom-plugin', userConfigPath],
+    ]);
+    expect(thrownBy(() => plugins.createPluginEntry({ spec: 'global-plugin', scope: 'user' }, projectDir)))
+      .toHaveProperty('code', 'ENTRY_EXISTS');
+
+    plugins.updatePluginEntry(plugins.encodePluginId('config', 'user:global-plugin'), { options: { a: 1 } }, projectDir);
+    plugins.deletePluginEntry(plugins.encodePluginId('config', 'user:shared-plugin'), projectDir);
+    expect(readJson(globalConfigPath).plugins).toEqual([{ package: 'global-plugin', options: { a: 1 } }, 'shared-plugin']);
+    expect(readJson(userConfigPath).plugins).toEqual(['custom-plugin']);
   });
 
   test('rewrites a v1 plugin array into v2 plugins when one entry is updated', () => {

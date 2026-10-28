@@ -72,19 +72,13 @@ function hasOptions(options) {
 }
 
 
-function getActiveOpencodeConfigDir() {
-  const customConfigPath = process.env.OPENCODE_CONFIG;
-  if (customConfigPath) {
-    return path.dirname(path.resolve(customConfigPath));
-  }
-  return OPENCODE_CONFIG_DIR;
-}
-
+// `OPENCODE_CONFIG` is one more file OpenCode reads on top of the global
+// config; the global config folder stays where it is, and OpenCode never scans
+// a `plugins/` folder next to the `OPENCODE_CONFIG` file.
 function getActiveUserConfigPaths() {
-  const configDir = getActiveOpencodeConfigDir();
   return [
-    path.join(configDir, 'opencode.json'),
-    path.join(configDir, 'opencode.jsonc'),
+    path.join(OPENCODE_CONFIG_DIR, 'opencode.json'),
+    path.join(OPENCODE_CONFIG_DIR, 'opencode.jsonc'),
   ];
 }
 
@@ -156,12 +150,15 @@ function ensureProjectConfigPath(workingDirectory) {
   return path.join(configDir, 'opencode.json');
 }
 
+/**
+ * The config files OpenCode 2 takes plugins from, in its load order: the global
+ * file, then `OPENCODE_CONFIG`, then the project file. Each one adds its own
+ * entries; `OPENCODE_CONFIG` replaces none of the global ones.
+ */
 function configSources(layers) {
-  const sources = [];
+  const sources = [{ config: layers.userConfig, filePath: layers.paths.userPath, scope: AGENT_SCOPE.USER }];
   if (layers.paths.customPath) {
     sources.push({ config: layers.customConfig, filePath: layers.paths.customPath, scope: AGENT_SCOPE.USER });
-  } else {
-    sources.push({ config: layers.userConfig, filePath: layers.paths.userPath, scope: AGENT_SCOPE.USER });
   }
   if (layers.paths.projectPath) {
     sources.push({ config: layers.projectConfig, filePath: layers.paths.projectPath, scope: AGENT_SCOPE.PROJECT });
@@ -188,7 +185,12 @@ function getPluginTarget(id, workingDirectory) {
   const { scope, value: spec } = splitScopedValue(decoded.value);
   validateScope(scope);
   const layers = readPluginConfigLayers(workingDirectory);
-  const source = configSources(layers).find((candidate) => candidate.scope === scope);
+  // Two user files can both declare the spec; the later one is the entry the
+  // list shows, so it is the one edited.
+  const source = configSources(layers).reverse().find((candidate) => (
+    candidate.scope === scope
+    && readPluginList(candidate.config).some((item) => item.entry.package === spec)
+  ));
   if (!source) {
     return null;
   }
@@ -208,7 +210,7 @@ function pluginDirForScope(scope, workingDirectory) {
     }
     return path.join(workingDirectory, '.opencode', 'plugins');
   }
-  return path.join(getActiveOpencodeConfigDir(), 'plugins');
+  return path.join(OPENCODE_CONFIG_DIR, 'plugins');
 }
 
 /**
@@ -308,7 +310,7 @@ function pluginArrayForWrite(config) {
 
 function listPluginEntries(workingDirectory) {
   const layers = readPluginConfigLayers(workingDirectory);
-  return configSources(layers).flatMap((source) => {
+  const entries = configSources(layers).flatMap((source) => {
     return readPluginList(source.config).map((item) => {
       const entry = {
         id: encodePluginId('config', `${source.scope}:${item.entry.package}`),
@@ -323,6 +325,9 @@ function listPluginEntries(workingDirectory) {
       return entry;
     });
   });
+  // A spec in both the global file and `OPENCODE_CONFIG` shares one id; the
+  // `OPENCODE_CONFIG` entry is listed, matching `getPluginTarget`.
+  return [...new Map(entries.map((entry) => [entry.id, entry])).values()];
 }
 
 function getPluginEntry(id, workingDirectory) {

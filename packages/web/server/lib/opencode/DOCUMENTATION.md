@@ -574,6 +574,13 @@ Only files in the v2 `plugins/` directory are editable through the plugins
 page; a package directory or a v1 `plugin/` file is listed as a package that
 OpenCode loads and OpenChamber does not touch.
 
+`OPENCODE_CONFIG` adds a file on top of the global one and replaces nothing,
+so the plugins page lists user entries from both. A spec in both is one entry,
+the `OPENCODE_CONFIG` one, and new user entries are written there. User plugin
+files stay in the global `plugins/` folder: OpenCode scans plugin folders only
+in config directories, never next to the `OPENCODE_CONFIG` file. The VS Code
+bridge (`opencodeConfig.ts`) keeps the same rules.
+
 A configured plugin spec is classified by `parsedKindForSpec`
 (`plugin-spec.js`): an OpenCode 2 control entry is `control`, a filesystem path
 is `path`, a Git package spec is `git`, anything else is `npm`. A control entry
