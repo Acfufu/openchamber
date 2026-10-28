@@ -3808,7 +3808,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return <ImageArtifact src={imageSrc} name={file.name} sizeBytes={artifactSize} neighbors={imageNeighbors} />;
     }
     if (isSelectedPdf) {
-      return <PdfArtifact src={pdfSrc} name={file.name} path={file.path} sizeBytes={artifactSize} download={downloadButton} />;
+      return <PdfArtifact src={pdfSrc} name={file.name} sizeBytes={artifactSize} download={downloadButton} />;
     }
     if (isSelectedMedia) {
       return (

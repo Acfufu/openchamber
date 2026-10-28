@@ -161,16 +161,13 @@ the pointer; a zoomed image larger than the viewer pans by mouse drag;
 `imageZoom.ts` holds the scale math; round arrows fixed to the viewer's
 edges, and the arrow keys while the viewer has focus and the image is at fit,
 show the previous and next image of the same folder, see below),
-`MediaArtifact` (native audio/video
+`PdfArtifact` (a frame where the runtime has a PDF viewer; elsewhere pages
+drawn by pdf.js, see below), `MediaArtifact` (native audio/video
 element, duration and dimensions once metadata loads, a stated failure when
 the runtime cannot decode the codec), `FontArtifact` (a specimen under a
 throwaway `FontFace` family removed when the tab closes), `TableArtifact`
 (CSV/TSV through `delimitedText.ts`, capped rows stated in the meta line),
-`BinaryArtifact` (name, type, size, download; never a decode attempt),
-and `PdfArtifact` (the browser's own PDF viewer in a frame; the Android app,
-whose WebView has no PDF viewer and paints an empty frame, shows the
-`BinaryArtifact` state with a line saying so, and its download opens the
-share sheet, from which the phone's PDF app opens the file).
+and `BinaryArtifact` (name, type, size, download; never a decode attempt).
 `FilesView.renderArtifactPreview` is the single switch both the docked and
 the fullscreen viewer use. SVG, Mermaid (`.mmd`) and delimited files are text
 with an artifact view: each has a per-path preview/source toggle, and opens
@@ -218,6 +215,24 @@ widen what a URL in the page can open. A PDF and a font load their bytes when
 they open, so only media asks for ranges late, and the renewal covers it
 without changing any server check. A PDF still downloading when its token
 expires, a very large file over a slow link, is the case this leaves open.
+
+### Why PDFs keep the frame where they can, and pdf.js only where they cannot
+
+A PDF opens in a frame, and the runtime's own viewer draws it, with its zoom,
+search and print. The Android WebView and Android Chrome have no viewer and
+painted an empty frame (#5823). They report `navigator.pdfViewerEnabled ===
+false`, so there, and only there, `PdfArtifact` draws the pages with pdf.js:
+pages at the pane width and the device pixel ratio, scrolled down, each page
+painted while it is within a screen of view and cleared once it leaves, so a
+long document holds a few canvases. pdf.js everywhere would have replaced
+working viewers with a poorer one. It is the legacy build, which carries
+polyfills that WebViews a few versions behind need, and the module and its
+worker are bundled assets imported on first use, never fetched from a CDN, so
+offline use and the VS Code CSP hold and nothing loads until a PDF opens there.
+It reads the file in one GET, because a Range request needs a CORS header the
+server does not allow to the Android app. There is no pinch zoom, and PDFs that
+need pdf.js's CMap, standard font or wasm data (CJK text without embedded
+fonts, JPEG 2000 images) may lose that text or image.
 
 An HTML file's preview is untrusted content. `useHtmlPreviewUrl` asks the
 server for a grant (`POST /api/fs/preview`) and loads the page from
