@@ -2091,6 +2091,8 @@ export const dict: Record<I18nKey, string> = {
   "terminalView.error.connectionFailed": "Erro de conexão: {message}",
   "terminalView.error.startSessionFailed": "Não foi possível iniciar a sessão de terminal",
   "terminalView.error.restartFailed": "Não foi possível reiniciar o terminal",
+  "terminalView.error.cannotConnect": "O terminal não conseguiu se conectar",
+  "terminalView.actions.tryAgain": "Tentar novamente",
   "terminalView.error.sendInputFailed": "Não foi possível enviar entrada",
   "terminalView.empty.noWorkingDirectory": "Não há diretório de trabalho disponível para o terminal.",
   "terminalView.empty.selectSession": "Selecione uma sessão para abrir o terminal.",

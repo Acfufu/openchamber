@@ -54,6 +54,10 @@ type TerminalViewProps = {
 };
 
 const FALLBACK_TERMINAL_SIZE = { cols: 80, rows: 24 } as const;
+// The terminal socket retries forever with a growing delay (0.5 s doubling to
+// 8 s). Five failed attempts in a row take about 8 s: a server restart is back
+// by then, so only a connection that stays down shows the error.
+const RECONNECT_ATTEMPTS_BEFORE_ERROR = 5;
 
 type TerminalTabViewportProps = {
     directory: string;
@@ -208,6 +212,11 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
     const [connectionError, setConnectionError] = React.useState<string | null>(null);
     const [isFatalError, setIsFatalError] = React.useState(false);
     const [isReconnectPending, setIsReconnectPending] = React.useState(false);
+    // The terminal whose reconnect kept failing. It stays set through "Try
+    // again" until a snapshot shows the stream is back, so a retry that fails
+    // does not blank the pane while the attempt count starts over.
+    const [unreachableTerminalId, setUnreachableTerminalId] = React.useState<string | null>(null);
+    const [isRetryingConnection, setIsRetryingConnection] = React.useState(false);
     const [activeModifier, setActiveModifier] = React.useState<Modifier | null>(null);
     const [isRestarting, setIsRestarting] = React.useState(false);
 
@@ -458,6 +467,8 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
                                 setConnectionError(null);
                                 setIsFatalError(false);
                                 setIsReconnectPending(false);
+                                setUnreachableTerminalId(null);
+                                setIsRetryingConnection(false);
                                 focusTerminalWhenWindowActive();
 
                                 replaceBuffer(directory, tabId, event.data ?? '', event.sequence ?? 0, terminalSnapshotSize(event));
@@ -472,10 +483,13 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
                                 break;
                             }
                             case 'reconnecting': {
-                                void event;
                                 setConnectionError(null);
                                 setIsFatalError(false);
                                 setIsReconnectPending(true);
+                                setIsRetryingConnection(false);
+                                if ((event.attempt ?? 0) >= RECONNECT_ATTEMPTS_BEFORE_ERROR) {
+                                    setUnreachableTerminalId(terminalId);
+                                }
                                 break;
                             }
                             case 'data': {
@@ -542,6 +556,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
                         if (!fatal) {
                             setConnectionError(null);
                             setIsFatalError(false);
+                            setIsRetryingConnection(false);
                             return;
                         }
 
@@ -846,6 +861,18 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
         // Keep semantics: “close tab -> new clean tab”.
         await handleRestart();
     }, [handleRestart]);
+
+    // A fresh subscription dials at once instead of waiting out the backoff.
+    // When an action runner still holds the session, subscribing replays its
+    // cached snapshot at once; the error stays until the socket itself answers.
+    const handleRetryConnection = React.useCallback(() => {
+        if (!terminalDirectory || !activeTabId || !terminalSessionId) return;
+        disconnectStream();
+        startStream(terminalDirectory, activeTabId, terminalSessionId);
+        setIsRetryingConnection(true);
+        setIsReconnectPending(true);
+        setUnreachableTerminalId(terminalSessionId);
+    }, [activeTabId, disconnectStream, startStream, terminalDirectory, terminalSessionId]);
 
     const handleCreateTab = React.useCallback(() => {
         if (!terminalDirectory) return;
@@ -1462,6 +1489,29 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
                         />
                     )) : null}
                 </div>
+                {isReconnectPending && terminalSessionId !== null && unreachableTerminalId === terminalSessionId ? (
+                    <div
+                        className="absolute inset-0 flex items-center justify-center px-6"
+                        style={{ backgroundColor: xtermTheme.background }}
+                    >
+                        {/* The pane is forced left to right for terminal output; this text follows its own language. */}
+                        <div dir="auto" className="max-w-sm text-center">
+                            <p role="alert" className="typography-ui-label font-medium text-[var(--status-error)]">
+                                {t('terminalView.error.cannotConnect')}
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="mt-4"
+                                onClick={handleRetryConnection}
+                                disabled={isRetryingConnection}
+                            >
+                                {t('terminalView.actions.tryAgain')}
+                            </Button>
+                        </div>
+                    </div>
+                ) : null}
                 {!isReconnectPending && connectionError && (
                     <div className="absolute inset-x-0 bottom-0 bg-[var(--status-error-background)] px-3 py-2 text-xs text-[var(--status-error-text)] flex items-center justify-between gap-2">
                         <span>{connectionError}</span>

@@ -2098,6 +2098,8 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.error.connectionFailed': '連線失敗：{message}',
   'terminalView.error.startSessionFailed': '啟動終端機會話失敗',
   'terminalView.error.restartFailed': '重新啟動終端機失敗',
+  'terminalView.error.cannotConnect': '終端機無法連線',
+  'terminalView.actions.tryAgain': '重試',
   'terminalView.error.sendInputFailed': '傳送輸入失敗',
   'terminalView.empty.noWorkingDirectory': '終端機無法使用，缺少工作目錄。',
   'terminalView.empty.selectSession': '選擇一個會話以開啟終端機。',

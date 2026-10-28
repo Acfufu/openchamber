@@ -3335,6 +3335,8 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.empty.selectSession': 'Select a session to open the terminal.',
   'terminalView.error.connectionFailed': 'Connection failed: {message}',
   'terminalView.error.restartFailed': 'Failed to restart terminal',
+  'terminalView.error.cannotConnect': 'Terminal nie mógł się połączyć',
+  'terminalView.actions.tryAgain': 'Spróbuj ponownie',
   'terminalView.error.sendInputFailed': 'Failed to send input',
   'terminalView.error.sessionEnded': 'Terminal session ended',
   'terminalView.error.startSessionFailed': 'Failed to start terminal session',

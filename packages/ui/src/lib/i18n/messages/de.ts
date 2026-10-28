@@ -1856,6 +1856,8 @@ export const dict = {
   'terminalView.error.connectionFailed': 'Verbindung fehlgeschlagen: {message}',
   'terminalView.error.startSessionFailed': 'Start der Terminal-Sitzung fehlgeschlagen',
   'terminalView.error.restartFailed': 'Neustart des Terminals fehlgeschlagen',
+  'terminalView.error.cannotConnect': 'Terminal konnte keine Verbindung herstellen',
+  'terminalView.actions.tryAgain': 'Erneut versuchen',
   'terminalView.error.sendInputFailed': 'Senden der Eingabe fehlgeschlagen',
   'terminalView.empty.noWorkingDirectory': 'Kein Arbeitsverzeichnis für das Terminal verfügbar.',
   'terminalView.empty.selectSession': 'Wählen Sie eine Sitzung aus, um das Terminal zu öffnen.',

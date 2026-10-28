@@ -2122,6 +2122,8 @@ export const dict = {
   'terminalView.error.connectionFailed': 'Connection failed: {message}',
   'terminalView.error.startSessionFailed': 'Failed to start terminal session',
   'terminalView.error.restartFailed': 'Failed to restart terminal',
+  'terminalView.error.cannotConnect': 'Terminal couldn\'t connect',
+  'terminalView.actions.tryAgain': 'Try again',
   'terminalView.error.sendInputFailed': 'Failed to send input',
   'terminalView.empty.noWorkingDirectory': 'No working directory available for terminal.',
   'terminalView.empty.selectSession': 'Select a session to open the terminal.',

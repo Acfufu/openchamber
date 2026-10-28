@@ -2091,6 +2091,8 @@ export const dict: Record<I18nKey, string> = {
   "terminalView.error.connectionFailed": "Помилка підключення: {message}",
   "terminalView.error.startSessionFailed": "Не вдалося розпочати термінальну сесію",
   "terminalView.error.restartFailed": "Не вдалося перезапустити термінал",
+  "terminalView.error.cannotConnect": "Терміналу не вдалося підключитися",
+  "terminalView.actions.tryAgain": "Спробувати ще раз",
   "terminalView.error.sendInputFailed": "Не вдалося надіслати введені дані",
   "terminalView.empty.noWorkingDirectory": "Для терміналу немає робочого каталогу.",
   "terminalView.empty.selectSession": "Виберіть сесію, щоб відкрити термінал.",

@@ -459,3 +459,22 @@ In the desktop app Cmd/Ctrl+W closes the shown terminal tab the same way,
 without asking, so a command still running in it ends. It reaches the terminal
 through `lib/closeTabTarget.ts` when the terminal's zone was the place clicked
 or focused last among the surfaces with a tab to close.
+
+## A terminal that cannot connect
+
+The terminal socket (`lib/terminalApi.ts`) retries forever, 0.5 s doubling to
+8 s, and reports each failure as a `reconnecting` event with its attempt
+number. `TerminalView` covers the pane with "Terminal couldn't connect" and a
+Try again button once five attempts in a row have failed, about 8 s, and keeps
+it there until a snapshot arrives. Try again drops the subscription and opens a
+new one, which dials at once; its own failures start the count over without
+hiding the error.
+
+### Why a count of failed attempts and not the retry giving up
+
+The retry never gives up: after a server restart or a dropped network it has to
+come back on its own, so ending it would trade a blank pane for a dead one. A
+browser WebSocket also never sees the upgrade's 401 or 403, so a refused token
+cannot be told apart from a server that is down. Five attempts span a typical
+server restart, so a short outage shows nothing, and an outage that lasts shows
+the error while the retry goes on underneath.

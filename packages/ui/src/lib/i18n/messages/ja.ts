@@ -2118,6 +2118,8 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.error.connectionFailed': '接続に失敗しました: {message}',
   'terminalView.error.startSessionFailed': 'ターミナルセッションの開始に失敗しました',
   'terminalView.error.restartFailed': 'ターミナルの再起動に失敗しました',
+  'terminalView.error.cannotConnect': 'ターミナルに接続できませんでした',
+  'terminalView.actions.tryAgain': '再試行',
   'terminalView.error.sendInputFailed': '入力の送信に失敗しました',
   'terminalView.empty.noWorkingDirectory': 'ターミナルに利用可能な作業ディレクトリがありません。',
   'terminalView.empty.selectSession': 'セッションを選択してターミナルを開きます。',

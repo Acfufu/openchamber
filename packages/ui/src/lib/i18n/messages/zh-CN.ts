@@ -2088,6 +2088,8 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.error.connectionFailed': '连接失败：{message}',
   'terminalView.error.startSessionFailed': '启动终端会话失败',
   'terminalView.error.restartFailed': '重启终端失败',
+  'terminalView.error.cannotConnect': '终端无法连接',
+  'terminalView.actions.tryAgain': '重试',
   'terminalView.error.sendInputFailed': '发送输入失败',
   'terminalView.empty.noWorkingDirectory': '终端不可用，缺少工作目录。',
   'terminalView.empty.selectSession': '选择一个会话以打开终端。',

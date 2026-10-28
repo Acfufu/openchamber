@@ -2053,6 +2053,8 @@ export const dict = {
   'terminalView.error.connectionFailed': 'تعذّر الاتصال: {message}',
   'terminalView.error.startSessionFailed': 'تعذّر بدء جلسة الطرفية',
   'terminalView.error.restartFailed': 'تعذّر إعادة تشغيل الطرفية',
+  'terminalView.error.cannotConnect': 'تعذّر اتصال الطرفية',
+  'terminalView.actions.tryAgain': 'حاول مرة أخرى',
   'terminalView.error.sendInputFailed': 'تعذّر إرسال الإدخال',
   'terminalView.empty.noWorkingDirectory': 'لا يتوفر مجلد عمل للطرفية.',
   'terminalView.empty.selectSession': 'اختر جلسة لفتح الطرفية.',

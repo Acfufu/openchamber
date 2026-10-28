@@ -2053,6 +2053,8 @@ export const dict = {
   'terminalView.error.connectionFailed': 'החיבור נכשל: {message}',
   'terminalView.error.startSessionFailed': 'לא ניתן היה להתחיל הפעלת מסוף',
   'terminalView.error.restartFailed': 'לא ניתן היה להפעיל מחדש את המסוף',
+  'terminalView.error.cannotConnect': 'המסוף לא הצליח להתחבר',
+  'terminalView.actions.tryAgain': 'נסה שוב',
   'terminalView.error.sendInputFailed': 'לא ניתן היה לשלוח קלט',
   'terminalView.empty.noWorkingDirectory': 'אין תיקיית עבודה זמינה עבור המסוף.',
   'terminalView.empty.selectSession': 'יש לבחור הפעלה כדי לפתוח את המסוף.',

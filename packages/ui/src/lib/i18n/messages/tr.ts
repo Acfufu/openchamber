@@ -1988,6 +1988,8 @@ export const dict = {
   'terminalView.error.connectionFailed': 'Bağlantı başarısız: {message}',
   'terminalView.error.startSessionFailed': 'Terminal session\'ı başlatılamadı',
   'terminalView.error.restartFailed': 'Terminal yeniden başlatılamadı',
+  'terminalView.error.cannotConnect': 'Terminal bağlanamadı',
+  'terminalView.actions.tryAgain': 'Tekrar dene',
   'terminalView.error.sendInputFailed': 'Girdi gönderilemedi',
   'terminalView.empty.noWorkingDirectory': 'Terminal için kullanılabilir çalışma dizini yok.',
   'terminalView.empty.selectSession': 'Terminali açmak için bir session seçin.',

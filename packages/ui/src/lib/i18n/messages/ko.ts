@@ -2122,6 +2122,8 @@ export const dict: Record<I18nKey, string> = {
   'terminalView.error.connectionFailed': '연결 실패: {message}',
   'terminalView.error.startSessionFailed': '터미널 세션 시작에 실패했습니다',
   'terminalView.error.restartFailed': '터미널 재시작에 실패했습니다',
+  'terminalView.error.cannotConnect': '터미널에 연결할 수 없습니다',
+  'terminalView.actions.tryAgain': '다시 시도',
   'terminalView.error.sendInputFailed': '입력 전송에 실패했습니다',
   'terminalView.empty.noWorkingDirectory': '터미널에서 사용할 작업 디렉터리가 없습니다.',
   'terminalView.empty.selectSession': '터미널을 열 세션을 선택하세요.',
