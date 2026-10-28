@@ -55,6 +55,13 @@ oldest pending form and counts the rest in its header. The BTW sheet keeps
 the inline `FormCard` for its child session's forms; both render a field
 through `FormFieldControl`.
 
+On a phone the dock's body is clamped to the room above the keyboard
+(`useMobileAutocompleteMaxHeight`). iOS Safari raises the keyboard after the
+answer box takes focus, so the clamp shrinks the body under a box Safari has
+already revealed, and Safari does not reveal it again until the first
+keystroke. The dock therefore scrolls the focused field back into view
+whenever that height changes.
+
 ### Why answer textareas measure content in one layout pass
 
 `FormFieldControl` resets the textarea height before measuring its content,

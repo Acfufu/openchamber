@@ -161,6 +161,14 @@ const FormDockPanel: React.FC<{ form: FormRequest; forms: FormRequest[] }> = ({ 
 
     const availableMaxHeight = useMobileAutocompleteMaxHeight(bodyRef, !collapsed, 320);
 
+    // The phone's keyboard rises after the answer box takes focus and shrinks
+    // the body under it, which leaves the box below the part still shown.
+    React.useLayoutEffect(() => {
+        const focused = document.activeElement;
+        if (!focused || !bodyRef.current?.contains(focused)) return;
+        focused.scrollIntoView({ block: 'nearest' });
+    }, [availableMaxHeight]);
+
     const updateValue = React.useCallback((key: string, patch: Partial<FormValues[string]>) => {
         setValues((previous) => ({ ...previous, [key]: { ...valueOf(previous, key), ...patch } }));
     }, []);
