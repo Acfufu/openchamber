@@ -99,6 +99,7 @@
     "profile:heap": "node scripts/profile-heap.mjs",
     "profile:composer": "node scripts/profile-composer.mjs",
     "profile:toggle": "node scripts/profile-toggle.mjs",
+    "profile:ios": "node scripts/profile-ios.mjs",
     "profile:serve": "node scripts/perf/isolated-server.mjs",
     "profile:analyze": "node scripts/perf/analyze-run.mjs"
   },
