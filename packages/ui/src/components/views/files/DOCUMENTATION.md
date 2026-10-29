@@ -114,6 +114,34 @@ it no longer hides the file's git state. Change the look there, not per tree.
 The JSON tree viewer (`components/ui/JsonTreeViewer.tsx`) takes the same
 indent and guides and copies the chevron's look; keep the copy in step.
 
+## Opening and closing a folder
+
+All three trees open and close folders with the sessions sidebar's motion
+(`lib/motion/rowDisclosure.ts`, 200ms ease-out): a folder's rows are revealed
+above a boundary moving down from the folder row and fade in as it uncovers
+them, and every row below slides with the boundary. `useFileTreeDisclosure`
+wraps each tree's toggle. It works on the rows in the document, which carry
+their path in `data-tree-disclosure-path` (a load error row carries its
+folder's path plus `/`), so one hook serves nested lists, a flat list and the
+virtual list. A folder whose children load after opening animates when they
+arrive. Reduced motion, Collapse all, search and auto-expand do not animate.
+
+### Why closing commits at once and draws copies
+
+The tree's state closes the folder immediately, and inert clones of the closing
+rows that were on screen fold away at their old place while the rows below
+slide up. Holding the state open until the motion ended would leave the virtual
+list without the rows that slide into view, which the virtualizer only mounts
+for the closed layout. While the copies fold, the list keeps its old height, so
+a list scrolled to its end does not jump.
+
+### Why the sidebar tree pins rows while a folder opens
+
+In the virtual tree, the rows on screen below an opening folder move past the
+virtual range at once. `SidebarFilesTree` keeps them mounted
+(`slidingRowPaths`) until the motion settles; without that the list under the
+boundary was empty while it moved.
+
 ## Refreshing after file changes
 
 The sidebar tree and the phone browser re-list folders when the agent changed

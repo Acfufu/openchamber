@@ -924,7 +924,9 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   focus.
 - Opening and closing a zone, project, worktree, folder, multi-run or a
   session's subsessions animates like a reasoning block in the chat (200ms
-  ease-out, `sessionSidebarDisclosure.ts`; a session row with subsessions
+  ease-out, `sessionSidebarDisclosure.ts` finds the block and
+  `lib/motion/rowDisclosure.ts` holds the timing and keyframes the file trees
+  share; a session row with subsessions
   carries `expanded` for it). The rows are flat virtual rows, so no
   container changes height: `SessionSidebarRows` compares each new row list
   with the one last drawn, and when exactly one header changed state with one

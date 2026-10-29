@@ -1,5 +1,5 @@
 import React from 'react';
-import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
+import { defaultRangeExtractor, measureElement, useVirtualizer, type Range } from '@tanstack/react-virtual';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 
 import { toast } from '@/components/ui';
@@ -46,6 +46,7 @@ import { useGitStatus, useGitStore } from '@/stores/useGitStore';
 import { DirectoryRequests } from '@/components/views/files/directoryRequests';
 import { areDirectoryNodesEqual } from '@/components/views/files/fileTreeStatus';
 import { useFileTreeUpload } from '@/components/views/files/useFileTreeUpload';
+import { useFileTreeDisclosure } from '@/components/views/files/useFileTreeDisclosure';
 import { moveWorkspacePath } from '@/components/views/files/moveWorkspacePath';
 import { INTERNAL_FILE_PATH_TYPE } from '@/components/chat/composer/attachments/dataTransfer';
 import { AUTO_RELIST_MAX_ENTRIES, useFileTreeChanges, type FileTreeChangeBatch } from '@/components/views/files/useFileTreeChanges';
@@ -93,7 +94,8 @@ type FileNode = {
 };
 
 // A row is one meta line plus its padding (FileRow's block size); rows are
-// measured once mounted.
+// measured once mounted, and every file and folder row then estimates at the
+// measured height.
 const FILE_TREE_ROW_ESTIMATE_PX = 28;
 
 const hasExternalFiles = (dataTransfer: DataTransfer): boolean => (
@@ -1220,15 +1222,26 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean; currentDirectory: st
     }
   }, [handleOpenMatch]);
 
+  // Rows on screen below a folder that opens stay mounted while they slide
+  // down past the virtual range, so the list under the folder does not blank.
+  const [slidingRowPaths, setSlidingRowPaths] = React.useState<readonly string[] | null>(null);
+  const clearSlidingRowPaths = React.useCallback(() => setSlidingRowPaths(null), []);
+  const treeListRef = React.useRef<HTMLUListElement | null>(null);
+  const toggleWithMotion = useFileTreeDisclosure(treeListRef, { onSettled: clearSlidingRowPaths });
   const toggleDirectory = React.useCallback(async (dirPath: string) => {
     const normalized = normalizePath(dirPath);
     if (!root) return;
 
-    toggleExpandedPath(root, normalized);
+    const expanded = useFilesViewTabsStore.getState().byRoot[root]?.expandedPaths.includes(normalized) ?? false;
+    toggleWithMotion(dirPath, expanded, () => {
+      const mountedPaths = Array.from(treeListRef.current?.querySelectorAll<HTMLElement>('[data-tree-disclosure-path]') ?? [], (row) => row.dataset.treeDisclosurePath ?? '');
+      setSlidingRowPaths(expanded ? null : mountedPaths.slice(mountedPaths.indexOf(dirPath) + 1));
+      toggleExpandedPath(root, normalized);
+    });
     if (!loadedDirsRef.current.has(normalized)) {
       await loadDirectory(normalized);
     }
-  }, [loadDirectory, root, toggleExpandedPath]);
+  }, [loadDirectory, root, toggleExpandedPath, toggleWithMotion]);
 
   const {
     canUpload,
@@ -1488,10 +1501,14 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean; currentDirectory: st
   );
   const [treeScrollElement, setTreeScrollElement] = React.useState<HTMLElement | null>(null);
   const [treeListElement, setTreeListElement] = React.useState<HTMLUListElement | null>(null);
+  const attachTreeList = React.useCallback((element: HTMLUListElement | null) => {
+    treeListRef.current = element;
+    setTreeListElement(element);
+  }, []);
   const [focusedRowPath, setFocusedRowPath] = React.useState<string | null>(null);
   const pinnedRowIndexes = React.useMemo(
-    () => [moveDragPath, focusedRowPath].flatMap((path) => (path ? [treeRowIndexByPath.get(path) ?? -1] : [])),
-    [focusedRowPath, moveDragPath, treeRowIndexByPath],
+    () => [moveDragPath, focusedRowPath, ...(slidingRowPaths ?? [])].flatMap((path) => (path ? [treeRowIndexByPath.get(path) ?? -1] : [])),
+    [focusedRowPath, moveDragPath, slidingRowPaths, treeRowIndexByPath],
   );
   const rangeExtractor = React.useCallback(
     (range: Range) => withPinnedRowIndexes(defaultRangeExtractor(range), pinnedRowIndexes, treeRows.length),
@@ -1504,12 +1521,21 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean; currentDirectory: st
     const offset = treeListElement.getBoundingClientRect().top - treeScrollElement.getBoundingClientRect().top + treeScrollElement.scrollTop;
     setTreeListOffset(Math.max(0, Math.round(offset)));
   }, [treeListElement, treeScrollElement]);
+  const measuredRowHeightRef = React.useRef<number | null>(null);
   const treeVirtualizer = useVirtualizer<HTMLElement, HTMLLIElement>({
     count: treeRows.length,
     // Enabled before the scroller exists, the virtualizer would cache offset 0.
     enabled: treeScrollElement !== null,
     getScrollElement: () => treeScrollElement,
-    estimateSize: () => FILE_TREE_ROW_ESTIMATE_PX,
+    // Rows a folder just showed start at their real height: with a guess they
+    // moved once measured, and the rows sliding under an opening folder jumped
+    // at the end of the motion.
+    estimateSize: (index) => (treeRows[index]?.kind === 'node' ? measuredRowHeightRef.current : null) ?? FILE_TREE_ROW_ESTIMATE_PX,
+    measureElement: (element, entry, instance) => {
+      const size = measureElement(element, entry, instance);
+      if (element.dataset.treeRowPath) measuredRowHeightRef.current = size;
+      return size;
+    },
     getItemKey: (index) => treeRows[index]?.key ?? index,
     overscan: 12,
     scrollMargin: treeListOffset,
@@ -1819,7 +1845,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean; currentDirectory: st
         </ul>
         {showsTree ? (
           <ul
-            ref={setTreeListElement}
+            ref={attachTreeList}
             className="relative"
             style={{ height: treeVirtualizer.getTotalSize() }}
             onFocus={handleTreeFocus}
@@ -1835,6 +1861,7 @@ const SidebarFilesTreeContent: React.FC<{ visible: boolean; currentDirectory: st
                   ref={treeVirtualizer.measureElement}
                   data-index={item.index}
                   data-tree-row-path={path}
+                  data-tree-disclosure-path={row.kind === 'node' ? path : `${row.directory}/`}
                   data-file-tree-path={row.kind === 'node' && row.node.type === 'file' ? path : undefined}
                   className="absolute inset-x-0 top-0"
                   style={{ transform: `translateY(${item.start - treeListOffset}px)` }}

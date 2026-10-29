@@ -124,6 +124,7 @@ import {
   fileTreeRowStateClassName,
   type FileTreeGitStatus,
 } from './files/fileTreeRow';
+import { useFileTreeDisclosure } from './files/useFileTreeDisclosure';
 import { Icon } from "@/components/icon/Icon";
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import { ensurePierreThemeRegistered } from '@/lib/shiki/appThemeRegistry';
@@ -579,7 +580,7 @@ const FileRow: React.FC<FileRowProps> = ({
 
   return (
     <ContextMenu open={rightClickMenuPath === node.path} onOpenChange={(open) => setRightClickMenuPath(open ? node.path : null)}>
-      <ContextMenuTrigger render={<div className="group relative flex items-center" onContextMenu={!isMobile ? handleContextMenu : undefined} />}>
+      <ContextMenuTrigger render={<div className="group relative flex items-center" data-tree-disclosure-path={node.path} onContextMenu={!isMobile ? handleContextMenu : undefined} />}>
       <FileTreeIndentGuides depth={depth} />
       <button
         type="button"
@@ -2631,16 +2632,19 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     return statusIndex.badgeByDir.get(relativeDir) ?? null;
   }, [gitStatus, statusIndex, root]);
 
+  const treeListRef = React.useRef<HTMLUListElement>(null);
+  const toggleWithMotion = useFileTreeDisclosure(treeListRef);
   const toggleDirectory = React.useCallback(async (dirPath: string) => {
     const normalized = normalizePath(dirPath);
     if (!root) return;
 
-    toggleExpandedPath(root, normalized);
+    const expanded = useFilesViewTabsStore.getState().byRoot[root]?.expandedPaths.includes(normalized) ?? false;
+    toggleWithMotion(dirPath, expanded, () => toggleExpandedPath(root, normalized));
 
     if (!loadedDirsRef.current.has(normalized)) {
       await loadDirectory(normalized);
     }
-  }, [loadDirectory, root, toggleExpandedPath]);
+  }, [loadDirectory, root, toggleExpandedPath, toggleWithMotion]);
 
   const fileRowPermissions = React.useMemo(
     () => ({ canRename, canCreateFile, canCreateFolder, canDelete, canReveal }),
@@ -2688,6 +2692,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 <li
                   className="relative flex items-center gap-2 py-1 pe-2 typography-meta text-muted-foreground"
                   style={{ paddingLeft: fileTreeRowPaddingLeft(depth + 1) }}
+                  data-tree-disclosure-path={`${node.path}/`}
                 >
                   <FileTreeIndentGuides depth={depth + 1} />
                   <span className="min-w-0 flex-1 truncate text-[var(--status-error)]" title={loadErrorsByDir[node.path]}>{loadErrorsByDir[node.path]}</span>
@@ -5058,7 +5063,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       </div>
 
       <ScrollableOverlay outerClassName="flex-1 min-h-0" className={cn("py-2", isMobile ? "px-3" : "px-2")}>
-        <ul className="flex flex-col">
+        <ul ref={treeListRef} className="relative flex flex-col">
           {searching ? (
             <li className="flex items-center gap-1.5 px-2 py-1 typography-meta text-muted-foreground">
               <Icon name="loader-4" className="size-4 animate-spin" />

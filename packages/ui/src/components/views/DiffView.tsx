@@ -57,6 +57,7 @@ import {
     fileTreeRowPaddingLeft,
     fileTreeRowStateClassName,
 } from './files/fileTreeRow';
+import { useFileTreeDisclosure } from './files/useFileTreeDisclosure';
 import { useDeviceInfo } from '@/lib/device';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { Icon } from "@/components/icon/Icon";
@@ -357,29 +358,31 @@ const FileTree = React.memo<FileListProps>(({
         });
     }, [selectedFile]);
 
-    const toggleDirectory = React.useCallback((path: string) => {
-        setCollapsedDirectories((previous) => {
+    const listRef = React.useRef<HTMLUListElement>(null);
+    const toggleWithMotion = useFileTreeDisclosure(listRef);
+    const toggleDirectory = React.useCallback((path: string, expanded: boolean) => {
+        toggleWithMotion(path, expanded, () => setCollapsedDirectories((previous) => {
             const next = new Set(previous);
             if (!next.delete(path)) {
                 next.add(path);
             }
             return next;
-        });
-    }, []);
+        }));
+    }, [toggleWithMotion]);
 
     return (
         <ScrollableOverlay outerClassName="flex-1 min-h-0" className="px-1.5 py-1.5">
-            <ul className="flex flex-col">
+            <ul ref={listRef} className="relative flex flex-col">
                 {rows.map((row) => {
                     const paddingLeft = fileTreeRowPaddingLeft(row.depth);
 
                     if (row.kind === 'directory') {
                         return (
-                            <li key={row.key} className="relative">
+                            <li key={row.key} className="relative" data-tree-disclosure-path={row.path}>
                                 <FileTreeIndentGuides depth={row.depth} />
                                 <button
                                     type="button"
-                                    onClick={() => toggleDirectory(row.path)}
+                                    onClick={() => toggleDirectory(row.path, row.expanded)}
                                     aria-expanded={row.expanded}
                                     aria-label={row.expanded
                                         ? t('diffView.fileTree.collapseDirectoryAria', { path: row.path })
@@ -398,7 +401,7 @@ const FileTree = React.memo<FileListProps>(({
                     const descriptor = describeChange(row.file);
                     const isActive = selectedFile === row.file.path;
                     return (
-                        <li key={row.key} className="relative">
+                        <li key={row.key} className="relative" data-tree-disclosure-path={row.file.path}>
                             <FileTreeIndentGuides depth={row.depth} />
                             <button
                                 type="button"
