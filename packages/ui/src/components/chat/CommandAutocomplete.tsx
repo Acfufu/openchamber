@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useChatSessionSelection } from './chatColumnSession';
-import { selectCommandsForDirectory, useCommandsStore } from '@/stores/useCommandsStore';
+import { isCommandOfferedInComposer, selectCommandsForDirectory, useCommandsStore } from '@/stores/useCommandsStore';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { useI18n } from '@/lib/i18n';
@@ -119,7 +119,7 @@ export const CommandAutocomplete = React.forwardRef<CommandAutocompleteHandle, C
   // The list depends on the registries, not on what is typed: it is built
   // once per registry change, and only the ranking follows the query.
   const allCommands = React.useMemo<CommandInfo[]>(() => {
-    const customCommands: CommandInfo[] = commandsWithMetadata.map((cmd, index) => ({
+    const customCommands: CommandInfo[] = commandsWithMetadata.filter(isCommandOfferedInComposer).map((cmd, index) => ({
       id: `opencode:${cmd.scope ?? 'global'}:${cmd.name}:${cmd.agent ?? ''}:${cmd.model ?? ''}:${index}`,
       name: cmd.name,
       source: 'opencode',
