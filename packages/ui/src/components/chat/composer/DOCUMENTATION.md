@@ -1168,10 +1168,18 @@ skill, `references/ios-webkit.md`; `lib/iosWebKitMotion.test.ts` guards them.
   upward one adds no scrollable overflow), with the opposite one on a stuck
   user header. A leg on which one sticky header hands over to another cannot
   be shown by one offset, so it falls back to scrollTop per frame.
+- **The shell follows only its own keyboard.** A keyboard opened for a field
+  on a surface over the shell (a drawer's search, the Git commit box, a
+  dialog) leaves the shell's strip, layout and movers as they are, and the
+  glide does not run (`inShell: false` on `oc:keyboard-anim`): the covered
+  transcript, following its end, chased every change of it. Focus moving out
+  of the shell with the keyboard up gives back what the shell took.
 - **Keyboard geometry is written through `lib/mobileKeyboardInsets.ts`.** The
-  three values are registered non-inherited and written on their readers
-  only; a new reader joins the module's selector list. On the root they
-  restyled the whole page on every open and close.
+  values (the keyboard's height from its start, the shell's and the
+  surfaces' layout heights, the transcript's strip) are registered
+  non-inherited and written on their readers only; a new reader joins the
+  module's selector list. On the root they restyled the whole page on every
+  open and close.
 - **Swap first, then focus in the next frame.** WKWebView stops presenting
   frames once focus starts the keyboard transition and holds the last one until
   about mid-transition, so a swap committed in the same task as `focus()` stays
