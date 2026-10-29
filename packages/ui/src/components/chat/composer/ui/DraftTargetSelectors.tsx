@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { useWidthMorph } from '@/lib/motion/useWidthMorph';
+import { useWidthMorph } from '@/lib/motion/useSizeMorph';
 
 import { Icon } from '@/components/icon/Icon';
 import { Input } from '@/components/ui/input';

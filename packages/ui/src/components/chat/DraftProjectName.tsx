@@ -1,5 +1,5 @@
 import React from 'react';
-import { useWidthMorph } from '@/lib/motion/useWidthMorph';
+import { useWidthMorph } from '@/lib/motion/useSizeMorph';
 
 /**
  * The project's name inside the new-session heading. Picking another project

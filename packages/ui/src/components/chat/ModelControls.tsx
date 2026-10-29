@@ -34,7 +34,7 @@ import { formatCompactNumber } from '@/lib/numberFormat';
 import { getEditModeColors } from '@/lib/permissions/editModeColors';
 import { cn } from '@/lib/utils';
 import { usePopupSideOnOpen } from '@/components/ui/popup-side';
-import { useWidthMorph } from '@/lib/motion/useWidthMorph';
+import { useWidthMorph } from '@/lib/motion/useSizeMorph';
 import { agentLabel } from '@/lib/agentLabel';
 import { matchesRankQuery, rankByQuery } from '@/lib/search/fuzzySearch';
 import { useContextStore } from '@/stores/contextStore';

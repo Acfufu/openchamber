@@ -708,10 +708,16 @@
 }
 }
 
-/* A control easing into a new width (lib/motion/useWidthMorph.ts) clips its
+/* A control easing into a new width (lib/motion/useSizeMorph.ts) clips its
    text while it moves: an ellipsis there would flash on every change. */
 [data-width-morphing] * {
   text-overflow: clip !important;
+}
+
+/* A popup easing into a new height clips its content while it moves: a
+   longer list would spill past the box, a scroller would flash its bar. */
+[data-height-morphing] {
+  overflow: hidden !important;
 }
 
 /* Keyboard focus draws no ring anywhere in the app. Chromium matches

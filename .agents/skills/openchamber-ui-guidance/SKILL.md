@@ -130,6 +130,11 @@ Using a control must not shift anything the user did not touch.
   draft heading) eases into it with `useWidthMorph`; a mark that arrives after
   a choice goes after the label, so the label never shifts (the branch
   picker's uncommitted-changes mark). `theme-system` owns the motion.
+- **An open popup eases into a new height.** A menu or picker list that
+  narrows as the user types, an autocomplete, items that arrive late: the
+  box grows or shrinks on the same spring instead of jumping, and the edge
+  facing its trigger stays put. Shared menus (`DropdownMenuContent`) do it
+  already; a hand-built popup calls `useHeightMorph` on its box.
 - **Scrollers reserve their thumb.** Every overlay scroller keeps its 6px
   gutter whether or not it overflows, so content never shifts when a list
   crosses the threshold; a wrapper that only frames other scrollers opts out
