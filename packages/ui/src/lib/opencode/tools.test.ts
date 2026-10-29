@@ -273,6 +273,8 @@ describe("renderedPage", () => {
       .toEqual({ kind: "answered", summary: "Layout B", data: { layout: "b" } })
     expect(renderedPage("openchamber_render", completed(input, { openchamber: { ok: true, answer: { answered: false, reason: "chat" } } }))?.ask)
       .toEqual({ kind: "answered-in-chat" })
+    expect(renderedPage("openchamber_render", completed(input, { openchamber: { ok: true, answer: { answered: false, reason: "chat-sent-earlier" } } }))?.ask)
+      .toEqual({ kind: "chat-sent-earlier" })
     const stopped: ToolState = { status: "error", input, error: "aborted", time: { start: 1, end: 2 } }
     expect(renderedPage("openchamber_render", stopped)?.ask).toEqual({ kind: "unanswered" })
   })

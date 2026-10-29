@@ -357,8 +357,22 @@ export const createOpenChamberControlService = (dependencies) => {
     resolveDirectory: (input) => sessionService.resolveDirectory(input),
   });
 
+  // A message the user steered into the turn stays in OpenCode's inbox until
+  // a step ends. A queued one waits for the turn to end, so the page's call
+  // returning would not deliver it. A failed read counts as none, so the page
+  // waits as it did before this check.
+  const hasUnreadChat = async (sessionID) => {
+    try {
+      const client = await getClient();
+      const items = await client.session.inbox.list({ sessionID });
+      return items.some((item) => item.type === 'user' && item.delivery === 'steer');
+    } catch (error) {
+      console.warn('[render.page] could not read the session inbox:', error?.message ?? error);
+      return false;
+    }
+  };
   const pageAnswers = createPageAnswers({ onWaitChange: onPageWaitChange });
-  const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled, pageAnswers });
+  const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled, pageAnswers, hasUnreadChat });
   const generateImage = createImageGenerationAction({
     getClient,
     readSettings: readSettingsFromDiskMigrated,

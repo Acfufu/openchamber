@@ -64,6 +64,18 @@ other.
   16,000 characters as JSON) or the request is aborted. Nothing outlives the
   call, so a second answer, an answer for a call that ended, and an answer
   after a server restart are a `404`, never a silent success.
+  Before it waits, the action reads the session's OpenCode inbox. A message
+  the user steered into the turn that the agent has not read yet means they
+  wrote before the page appeared (a queued one waits for the turn to end
+  anyway, so it does not count); OpenCode delivers it only after this call returns, so
+  waiting held it back and an answer on the page reached the agent first.
+  The call then returns at once with `{ answered: false, reason:
+  "chat-sent-earlier" }` and a note that the message is not an answer to the
+  page, and the chat says so under the page. A failed inbox read counts as
+  no message, and the page waits. One case stays open: a prompt sent just
+  before the page appeared that OpenCode was still preparing (attachments
+  are read first) and that reaches the inbox only after this read; the page
+  then waits as before.
   `onPageWaitChange` hears both ends of a wait. The server's wiring
   (`index.js`) lists the page with the session's pending requests
   (`trackWaitingPage` in `../opencode/session-runtime.js`), broadcasts

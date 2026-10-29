@@ -213,7 +213,7 @@ const renderPageInputSchema = renderPageFields
 // awaitAnswer), as the plugin records it in the call's metadata.
 const pageAnswerSchema = z.union([
   z.object({ answered: z.literal(true), summary: z.string(), data: z.json().catch(null) }),
-  z.object({ answered: z.literal(false) }),
+  z.object({ answered: z.literal(false), reason: z.string().optional().catch(undefined) }),
 ])
 
 const openChamberResultSchema = z
@@ -348,6 +348,8 @@ export type RenderedPageAsk =
   | { kind: "waiting" }
   | { kind: "answered"; summary: string; data: JsonValue }
   | { kind: "answered-in-chat" }
+  /** The user had written in the chat before the page appeared, so it did not wait. */
+  | { kind: "chat-sent-earlier" }
   | { kind: "unanswered" }
 
 // A page sent without a title is named after its own <title>, else its first
@@ -394,7 +396,9 @@ export function renderedPage(
   if (result?.ok !== true) return null
   const answer = result.answer
   if (answer?.answered === true) return { html, title, ask: { kind: "answered", summary: answer.summary, data: answer.data } }
-  if (answer?.answered === false) return { html, title, ask: { kind: "answered-in-chat" } }
+  if (answer?.answered === false) {
+    return { html, title, ask: { kind: answer.reason === "chat-sent-earlier" ? "chat-sent-earlier" : "answered-in-chat" } }
+  }
   return { html, title, ask: { kind: "show" } }
 }
 

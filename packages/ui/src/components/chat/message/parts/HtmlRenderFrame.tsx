@@ -476,7 +476,9 @@ function HtmlRenderFrame({ part, html, title, ask }: HtmlRenderFrameProps) {
             ? t('chat.htmlRender.waiting')
             : ask.kind === 'answered-in-chat'
                 ? t('chat.htmlRender.answeredInChat')
-                : ask.kind === 'unanswered' ? t('chat.htmlRender.unanswered') : null;
+                : ask.kind === 'chat-sent-earlier'
+                    ? t('chat.htmlRender.chatSentEarlier')
+                    : ask.kind === 'unanswered' ? t('chat.htmlRender.unanswered') : null;
     const waiting = ask.kind === 'waiting' && answeredSummary === undefined;
     // The chat brings a page that waits for an answer into view, and again
     // as its height arrives: an off-screen frame reports its size only once

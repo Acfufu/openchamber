@@ -127,6 +127,8 @@ const ANSWERED_NOTE = "The user answered on the page. summary is their choice in
  */
 export const RENDER_PAGE_CLOSED_IN_CHAT_NOTE = "The user did not answer on the page and wrote in the chat instead; their message follows this result. Continue from that message and don't ask the same question on a page again unless they want it.";
 
+const CHAT_SENT_EARLIER_NOTE = "The page did not wait: the user had already written in the chat before it appeared, and that message follows this result. They wrote it without seeing the page, so it is not an answer to it. Continue from that message; show the page again only if it still fits.";
+
 const pageKey = (sessionId, callId) => `${sessionId}\u0000${callId}`;
 
 /**
@@ -209,9 +211,14 @@ export const createPageAnswers = ({ onWaitChange = () => {} } = {}) => {
  * `render.page`: the chat draws the page straight from the call's input, so
  * this checks that the input is a page the chat will draw and that the tool is
  * still on (a plugin generated before it was switched off must not keep
- * drawing). With `awaitAnswer` the call then waits for the user's answer.
+ * drawing). With `awaitAnswer` the call then waits for the user's answer,
+ * unless `hasUnreadChat` finds a message the user sent before the page
+ * appeared: OpenCode delivers that message only once this call returns, so
+ * waiting would hold it back and let an answer on the page reach the agent
+ * first. The plugin's prompt hook cannot catch it, since it fired before the
+ * page existed.
  */
-export const createRenderPageAction = ({ isEnabled, pageAnswers }) => async (input, { sessionId, callId, directory, signal } = {}) => {
+export const createRenderPageAction = ({ isEnabled, pageAnswers, hasUnreadChat }) => async (input, { sessionId, callId, directory, signal } = {}) => {
   if (!await isEnabled()) {
     throw new OpenChamberControlError('The render tool is turned off in OpenChamber settings', 403);
   }
@@ -237,6 +244,12 @@ export const createRenderPageAction = ({ isEnabled, pageAnswers }) => async (inp
   // A plugin generated before pages could wait sends no call id.
   if (!sessionId || !callId) {
     throw new OpenChamberControlError('This connection cannot wait for an answer on a page; show the page without awaitAnswer and ask in text', 400);
+  }
+  if (await hasUnreadChat(sessionId)) {
+    const answer = { answered: false, reason: 'chat-sent-earlier' };
+    return hidden
+      ? { title, answer, note: `${CHAT_SENT_EARLIER_NOTE} ${hidden.note}`, images: hidden.images }
+      : { title, answer, note: CHAT_SENT_EARLIER_NOTE };
   }
   const answer = await pageAnswers.wait({ sessionId, callId, title, directory, signal });
   return hidden
