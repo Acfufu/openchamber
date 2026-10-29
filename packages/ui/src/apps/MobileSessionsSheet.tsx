@@ -153,6 +153,7 @@ const SortableProjectRow: React.FC<{ project: ReorderProject }> = ({ project }) 
  */
 export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, onOpenChange, variant = 'drawer', footer }) => {
   const { t } = useI18n();
+  const listActive = useActiveAfterSlideStarts(open);
   const liveSessions = useAllLiveSessions();
   const projects = useProjectsStore((state) => state.projects);
   const manualProjectOrder = useProjectsStore((state) => state.manualProjectOrder);
@@ -199,7 +200,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   }, [searchOpen, variant]);
 
   React.useEffect(() => {
-    if (!open) {
+    if (!listActive) {
       setQuery('');
       setSearchOpen(false);
       setEditingOrder(false);
@@ -216,7 +217,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     void refreshGlobalSessions(liveSessions).then(() => seedGlobalSessionStatusFromHost());
     // intentionally only on open transition — session events keep the list current after that
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [listActive]);
 
   const close = React.useCallback(() => onOpenChange(false), [onOpenChange]);
   const sidebarActions = React.useMemo<MobileSidebarActions>(() => ({
@@ -469,7 +470,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
         {/* Mounted while reordering too, so the list comes back as it was. */}
         <div className={cn('flex min-h-0 flex-1 flex-col', (editingOrder || empty) && 'hidden')}>
           <MobileSidebarActionsProvider value={sidebarActions}>
-            <SessionSidebar mobileVariant isVisible={open} phone={phoneList} />
+            <SessionSidebar mobileVariant isVisible={listActive} phone={phoneList} />
           </MobileSidebarActionsProvider>
         </div>
 
@@ -697,6 +698,37 @@ const DRAWER_ENTER_DELAY_MS = 16;
 // sides feel like the same piece of chrome.
 const DRAWER_ENTER_DURATION_MS = 320;
 const DRAWER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+/**
+ * `open`, turning true only once the drawer's slide is under way. Waking the
+ * list (its polling, ordering and the refresh on open) rebuilds every row,
+ * and done in the tap's own frame it held the slide back by about 65 ms on
+ * an iPhone. The slide is a transform the compositor runs, so the same work
+ * a few frames later neither delays nor stutters it; the list shows its
+ * last state until then. Closing turns it off at once.
+ */
+const useActiveAfterSlideStarts = (open: boolean): boolean => {
+  const [active, setActive] = React.useState(open);
+  React.useEffect(() => {
+    if (!open) {
+      setActive(false);
+      return;
+    }
+    let frame = 0;
+    // After the container's enter delay, plus a frame for the transition to
+    // reach the compositor.
+    const timer = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(() => setActive(true));
+      });
+    }, DRAWER_ENTER_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [open]);
+  return active;
+};
 
 /** Full-width left drawer for the phone sessions list: covers the whole app
     and slides in from the left edge. Closes via the header X, a right-edge

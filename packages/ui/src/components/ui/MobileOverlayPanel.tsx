@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon/Icon";
 import { useI18n } from '@/lib/i18n';
 import { isInsideOpenPopup, isTopmostBackLayer, registerBackLayer } from '@/lib/mobileBackLayers';
 import { isIMECompositionEvent } from '@/lib/ime';
+import { useMobileChatInsets } from '@/lib/mobileChatInsets';
 
 interface MobileOverlayPanelProps {
   open: boolean;
@@ -45,6 +46,7 @@ export const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
   renderHeader,
 }) => {
   const { t } = useI18n();
+  const chatInsets = useMobileChatInsets();
   const overlayRootRef = React.useRef<HTMLElement | null>(null);
   const [entered, setEntered] = React.useState(false);
   // True once the enter transition has finished. While entering, the panel's
@@ -147,8 +149,8 @@ export const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
       // column's insets; on phones they are 0 and this is a no-op. The scrim
       // deliberately still covers everything.
       style={{
-        paddingLeft: 'var(--oc-chat-inset-left, 0px)',
-        paddingRight: 'var(--oc-chat-inset-right, 0px)',
+        paddingLeft: chatInsets.left,
+        paddingRight: chatInsets.right,
       }}
     >
         <div

@@ -696,6 +696,16 @@
   transition-timing-function: var(--oc-motion-popup-easing);
 }
 
+/* iOS WebKit runs a transition on a linear() easing on the main thread at
+   60 Hz; a cubic-bezier it hands to the compositor. This one stays within 2%
+   of the popup spring (performance-engineering, references/ios-webkit.md).
+   The feature query matches iOS and iPadOS WebKit only. */
+@supports (-webkit-touch-callout: none) {
+  .oc-popup-motion {
+    transition-timing-function: cubic-bezier(0.26, 0.2, 0.13, 1);
+  }
+}
+
 .oc-popup-motion[data-ending-style] {
   transition-duration: var(--oc-motion-popup-exit-duration);
   transition-timing-function: ease-in;

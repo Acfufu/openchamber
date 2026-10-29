@@ -597,6 +597,40 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
         }
     }, [activeMobilePanel, currentProviderId]);
 
+    // The expanded provider's models mount once the panel has started to
+    // rise: hundreds of elements below the fold, mounted with the panel they
+    // held its rise back by 30-50 ms on an iPhone. The rise is a transform the
+    // compositor runs, so the work a few frames later does not stutter it.
+    // Only a panel the rows above already fill defers them: a shorter one
+    // would grow in the middle of its rise, so it shows them before the
+    // first paint, as before.
+    const mobileModelPanelOpen = activeMobilePanel === 'model';
+    const [mobileProviderModelsShown, setMobileProviderModelsShown] = React.useState(false);
+    const mobileModelListRef = React.useRef<HTMLDivElement | null>(null);
+    React.useLayoutEffect(() => {
+        if (!mobileModelPanelOpen) return;
+        const scroller = mobileModelListRef.current?.closest<HTMLElement>('.pwa-overlay-scroll');
+        if (scroller && scroller.scrollHeight <= scroller.clientHeight + 1) setMobileProviderModelsShown(true);
+    }, [mobileModelPanelOpen]);
+    React.useEffect(() => {
+        if (!mobileModelPanelOpen) {
+            setMobileProviderModelsShown(false);
+            return;
+        }
+        let frame = 0;
+        // After the panel's enter delay, plus a frame for its rise to reach
+        // the compositor.
+        const timer = window.setTimeout(() => {
+            frame = window.requestAnimationFrame(() => {
+                frame = window.requestAnimationFrame(() => setMobileProviderModelsShown(true));
+            });
+        }, 16);
+        return () => {
+            window.clearTimeout(timer);
+            window.cancelAnimationFrame(frame);
+        };
+    }, [mobileModelPanelOpen]);
+
     React.useEffect(() => {
         if (activeMobilePanel === null) {
             setExpandedMobileModelKey(null);
@@ -2155,7 +2189,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 onClose={closeMobilePanel}
                 title={t('chat.modelControls.selectModel')}
             >
-                <div className="flex flex-col gap-2">
+                <div ref={mobileModelListRef} className="flex flex-col gap-2">
                     <div>
                         <div className="relative">
                             <Icon name="search" className="absolute inset-s-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -2279,7 +2313,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     )}
                                 </button>
 
-                                {isExpanded && providerModels.length > 0 && (
+                                {isExpanded && mobileProviderModelsShown && providerModels.length > 0 && (
                                     <div className="flex flex-col border-t border-edge-muted">
                                         {providerModels.map((model: ProviderModel) => renderMobileModelRow({
                                             model,
