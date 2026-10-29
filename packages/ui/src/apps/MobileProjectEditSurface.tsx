@@ -209,7 +209,7 @@ export const MobileProjectEditSurface: React.FC<MobileProjectEditSurfaceProps> =
             <div className="flex justify-center pt-2">
               <span
                 className="flex size-16 items-center justify-center overflow-hidden rounded-2xl bg-[var(--surface-muted)] text-muted-foreground"
-                style={project.iconBackground ? { backgroundColor: project.iconBackground } : undefined}
+                style={hasImageIcon && project.iconBackground ? { backgroundColor: project.iconBackground } : undefined}
               >
                 {hasImageIcon ? (
                   <ProjectIconImage
