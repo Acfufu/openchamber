@@ -573,7 +573,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
               </div>
             )}
             {visibleAgents.length > 0 && (visibleRecentFiles.length > 0 || visibleResults.length > 0 || visibleSessions.length > 0) && (
-              <div className="my-1 border-t border-border/60" />
+              <div className="my-1 border-t border-edge" />
             )}
             {visibleRecentFiles.map((file, index) => {
               const rowIndex = visibleAgents.length + index;
@@ -627,7 +627,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
               );
             })}
             {visibleRecentFiles.length > 0 && visibleResults.length > 0 && (
-              <div className="my-1 border-t border-border/60" />
+              <div className="my-1 border-t border-edge" />
             )}
             {visibleResults.map((file, index) => {
               const rowIndex = visibleAgents.length + visibleRecentFiles.length + index;
@@ -688,7 +688,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
               );
             })}
             {visibleSessions.length > 0 && (visibleRecentFiles.length > 0 || visibleResults.length > 0) && (
-              <div className="my-1 border-t border-border/60" />
+              <div className="my-1 border-t border-edge" />
             )}
             {/* After the files: Enter on `@pack` keeps choosing the file it always did. */}
             {visibleSessions.map((session, index) => {

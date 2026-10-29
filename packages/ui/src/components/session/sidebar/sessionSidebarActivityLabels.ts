@@ -1,4 +1,4 @@
-/** The icon and title of each zone, shared by the desktop's zone headers and the phone's. */
+/** The title of each zone, shared by the desktop's zone headers and the phone's; the icon is the phone's only. */
 // The list by time holds every project's sessions, so it is titled Projects;
 // its clock icon says how it is ordered.
 export const ACTIVITY_ICON = { pinned: 'pushpin', work: 'eye', chats: 'chat-4', timeline: 'history' } as const;

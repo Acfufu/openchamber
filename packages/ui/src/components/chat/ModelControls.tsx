@@ -34,6 +34,7 @@ import { formatCompactNumber } from '@/lib/numberFormat';
 import { getEditModeColors } from '@/lib/permissions/editModeColors';
 import { cn } from '@/lib/utils';
 import { usePopupSideOnOpen } from '@/components/ui/popup-side';
+import { useWidthMorph } from '@/lib/motion/useWidthMorph';
 import { agentLabel } from '@/lib/agentLabel';
 import { matchesRankQuery, rankByQuery } from '@/lib/search/fuzzySearch';
 import { useContextStore } from '@/stores/contextStore';
@@ -49,7 +50,8 @@ import { useIsTextTruncated } from '@/hooks/useIsTextTruncated';
 import { formatEffortLabel, getCycledPrimaryAgentName, isPrimaryMode, type MobileControlsPanel } from './mobileControlsUtils';
 import { getCurrentIntlLocale, isRightToLeft, useI18n } from '@/lib/i18n';
 import { useOpenCodeReadiness } from '@/hooks/useOpenCodeReadiness';
-import { eventMatchesShortcut, getEffectiveShortcutCombo, normalizeCombo } from '@/lib/shortcuts';
+import { eventMatchesShortcut, formatShortcutForDisplay, getEffectiveShortcutCombo, normalizeCombo } from '@/lib/shortcuts';
+import { TooltipLabelWithShortcut } from '@/components/ui/action-toolbar';
 import { markStartupTrace } from '@/lib/startupTrace';
 import { AUTO_MODEL_ID, AUTO_PROVIDER_ID, isAutoModel } from '@/lib/routing/autoModel';
 import { selectAutoReady, useRoutingStore } from '@/stores/useRoutingStore';
@@ -390,6 +392,10 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     const providers = useConfigStore((state) => state.providers);
     const getAgentColor = useAgentColors();
     const favoriteAgents = useUIStore((state) => state.favoriteAgents);
+    const shortcutOverrides = useUIStore((state) => state.shortcutOverrides);
+    const modelShortcut = selection ? undefined : formatShortcutForDisplay(getEffectiveShortcutCombo('open_model_selector', shortcutOverrides), '');
+    const agentShortcut = selection ? undefined : formatShortcutForDisplay(getEffectiveShortcutCombo('cycle_agent', shortcutOverrides), '');
+    const thinkingShortcut = selection ? undefined : formatShortcutForDisplay(getEffectiveShortcutCombo('cycle_thinking_variant', shortcutOverrides), '');
     const toggleFavoriteAgent = useUIStore((state) => state.toggleFavoriteAgent);
     const currentProviderId = useConfigStore((state) => selection ? selection.model?.providerId ?? '' : state.currentProviderId);
     const currentModelId = useConfigStore((state) => selection ? selection.model?.modelId ?? '' : state.currentModelId);
@@ -558,6 +564,11 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     const agentTriggerRef = React.useRef<HTMLDivElement>(null);
     const modelMenuSide = usePopupSideOnOpen(agentMenuOpen, modelTriggerRef, 'top');
     const agentMenuSide = usePopupSideOnOpen(isAgentSelectorOpen, agentTriggerRef, 'top');
+    // A picker that now names a longer or shorter choice eases into its new width.
+    const variantTriggerRef = React.useRef<HTMLDivElement>(null);
+    useWidthMorph(modelTriggerRef);
+    useWidthMorph(agentTriggerRef);
+    useWidthMorph(variantTriggerRef);
     const setAgentMenuOpen = selection ? setLocalModelSelectorOpen : setModelSelectorOpen;
     const openAddProviderSettings = React.useCallback(() => {
         requestProviderConnect(true);
@@ -1686,14 +1697,14 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             >
                 <div className="flex flex-col gap-1.5">
                     {}
-                    <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                    <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                             <div className="typography-micro text-muted-foreground mb-0.5">{t('chat.modelControls.provider')}</div>
                         <div className="typography-meta text-foreground font-medium">{getProviderDisplayName()}</div>
                     </div>
 
                     {}
                     {currentCapabilityIcons.length > 0 && (
-                        <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                        <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                             <div className="typography-micro text-muted-foreground mb-1">{t('chat.modelControls.capabilities')}</div>
                             <div className="flex flex-wrap gap-1.5">
                                 {currentCapabilityIcons.map(({ key, icon, label }) => (
@@ -1708,7 +1719,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
                     {}
                     {(inputModalityIcons.length > 0 || outputModalityIcons.length > 0) && (
-                        <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                        <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                             <div className="typography-micro text-muted-foreground mb-1">{t('chat.modelControls.modalities')}</div>
                             <div className="flex flex-col gap-1">
                                 {inputModalityIcons.length > 0 && (
@@ -1732,7 +1743,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     )}
 
                     {}
-                    <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                    <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                         <div className="typography-micro text-muted-foreground mb-1">{t('chat.modelControls.limits')}</div>
                         <div className="flex flex-col gap-0.5">
                             <div className="flex items-center justify-between">
@@ -1747,7 +1758,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     </div>
 
                     {}
-                    <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                    <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                         <div className="typography-micro text-muted-foreground mb-1">{t('chat.modelControls.metadata')}</div>
                         <div className="flex flex-col gap-0.5">
                             <div className="flex items-center justify-between">
@@ -1799,13 +1810,13 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 <div className="flex flex-col gap-1.5">
                     {}
                     {currentAgent.description && (
-                        <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                        <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                             <div className="typography-meta text-foreground">{currentAgent.description}</div>
                         </div>
                     )}
 
                     {}
-                    <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                    <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                         <div className="typography-micro text-muted-foreground mb-0.5">{t('chat.modelControls.mode')}</div>
                         <div className="typography-meta text-foreground font-medium">
                             {currentAgent.mode === 'primary'
@@ -1820,7 +1831,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
                     {}
                     {(hasModelConfig || hasTemperatureOrTopP) && (
-                        <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                        <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                             <div className="typography-micro text-muted-foreground mb-1">{t('chat.modelControls.model')}</div>
                             {hasModelConfig && (
                                 <div className="typography-meta text-foreground font-medium mb-1">
@@ -1847,7 +1858,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     )}
 
                     {}
-                    <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                    <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                         <div className="typography-micro text-muted-foreground mb-1">{t('chat.modelControls.permissions')}</div>
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between">
@@ -1882,7 +1893,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
                     {}
                     {hasCustomPrompt && (
-                        <div className="rounded-xl border border-border/40 bg-sidebar/30 px-2 py-1.5">
+                        <div className="rounded-xl border border-edge-muted bg-sidebar/30 px-2 py-1.5">
                             <div className="flex items-center justify-between">
                                 <span className="typography-meta text-muted-foreground">{t('chat.modelControls.customPrompt')}</span>
                                 <Icon name="checkbox-circle" className="size-4 text-foreground" />
@@ -2002,7 +2013,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 <div
                     key={`mobile-model-${providerId}-${modelId}`}
                     className={cn(
-                        'border-b border-border/30 last:border-b-0',
+                        'border-b border-edge-muted last:border-b-0',
                         isSelected && 'bg-interactive-selection/15 text-interactive-selection-foreground'
                     )}
                 >
@@ -2035,7 +2046,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                             </span>
                                         ) : null}
                                         {contextText && indicatorIcons.length > 0 ? (
-                                            <span aria-hidden="true" className="h-3 w-px flex-shrink-0 bg-border/50" />
+                                            <span aria-hidden="true" className="h-3 w-px flex-shrink-0 bg-edge" />
                                         ) : null}
                                         {indicatorIcons.length > 0 ? (
                                             <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap ps-0.5">
@@ -2095,7 +2106,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                         </div>
                     </div>
                     {isExpanded && hasVariants ? (
-                        <div className="border-t border-border/30 p-2">
+                        <div className="border-t border-edge-muted p-2">
                             <div className="flex flex-wrap gap-2">
                                 {inlineVariantOptions.map((variantOption) => {
                                     const isVariantSelected = variantOption === resolvedVariant || (!variantOption && !resolvedVariant);
@@ -2108,7 +2119,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                                 'inline-flex items-center rounded-full border px-2.5 py-1 typography-meta font-medium',
                                                 isVariantSelected
                                                     ? 'border-border bg-interactive-selection text-interactive-selection-foreground'
-                                                    : 'border-border/40 text-muted-foreground hover:bg-interactive-hover/50'
+                                                    : 'border-edge-muted text-muted-foreground hover:bg-interactive-hover/50'
                                             )}
                                             aria-pressed={isVariantSelected}
                                         >
@@ -2120,7 +2131,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => openMobileVariantOverflow(providerId, modelId)}
-                                        className="inline-flex items-center rounded-full border border-border/40 px-2.5 py-1 typography-meta font-medium text-muted-foreground hover:bg-interactive-hover/50"
+                                        className="inline-flex items-center rounded-full border border-edge-muted px-2.5 py-1 typography-meta font-medium text-muted-foreground hover:bg-interactive-hover/50"
                                         aria-label={t('chat.modelControls.moreThinkingModes')}
                                     >
                                         {t('inlineComment.actions.showMore')}
@@ -2155,7 +2166,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     setExpandedMobileModelKey(null);
                                 }}
                                         placeholder={t('chat.modelControls.searchProvidersOrModels')}
-                                className="ps-7 h-9 rounded-xl border-border/40 bg-[var(--surface-elevated)] typography-meta"
+                                className="ps-7 h-9 rounded-xl border-edge-muted bg-[var(--surface-elevated)] typography-meta"
                             />
                             {mobileModelQuery && (
                                 <button
@@ -2180,7 +2191,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     )}
 
                     {mobileAutoEntry ? (
-                        <div className="rounded-xl border border-border/40 bg-[var(--surface-elevated)] overflow-hidden">
+                        <div className="rounded-xl border border-edge-muted bg-[var(--surface-elevated)] overflow-hidden">
                             <div className="flex flex-col">
                                 {renderMobileModelRow({
                                     model: mobileAutoEntry.model,
@@ -2194,12 +2205,12 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
                     {/* Favorites Section for Mobile */}
                     {filteredFavorites.length > 0 && (
-                        <div className="rounded-xl border border-border/40 bg-[var(--surface-elevated)] overflow-hidden">
+                        <div className="rounded-xl border border-edge-muted bg-[var(--surface-elevated)] overflow-hidden">
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 <Icon name="star-fill" className="size-3 inline-block me-1.5 text-primary" />
                                 {t('chat.modelControls.favorites')}
                             </div>
-                            <div className="flex flex-col border-t border-border/30">
+                            <div className="flex flex-col border-t border-edge-muted">
                                 {filteredFavorites.map(({ model, providerID, modelID }) => renderMobileModelRow({
                                     model,
                                     providerId: providerID,
@@ -2212,12 +2223,12 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
                     {/* Recent Section for Mobile */}
                     {filteredRecents.length > 0 && (
-                        <div className="rounded-xl border border-border/40 bg-[var(--surface-elevated)] overflow-hidden">
+                        <div className="rounded-xl border border-edge-muted bg-[var(--surface-elevated)] overflow-hidden">
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 <Icon name="time" className="size-3 inline-block me-1.5" />
                                 {t('chat.modelControls.recent')}
                             </div>
-                            <div className="flex flex-col border-t border-border/30">
+                            <div className="flex flex-col border-t border-edge-muted">
                                 {filteredRecents.map(({ model, providerID, modelID }) => renderMobileModelRow({
                                     model,
                                     providerId: providerID,
@@ -2237,7 +2248,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                         const isExpanded = expandedMobileProviders.has(provider.id) || normalizedQuery.length > 0;
 
                          return (
-                             <div key={provider.id} className="rounded-xl border border-border/40 bg-[var(--surface-elevated)] overflow-hidden">
+                             <div key={provider.id} className="rounded-xl border border-edge-muted bg-[var(--surface-elevated)] overflow-hidden">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -2269,7 +2280,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 </button>
 
                                 {isExpanded && providerModels.length > 0 && (
-                                    <div className="flex flex-col border-t border-border/30">
+                                    <div className="flex flex-col border-t border-edge-muted">
                                         {providerModels.map((model: ProviderModel) => renderMobileModelRow({
                                             model,
                                             providerId: provider.id as string,
@@ -2320,7 +2331,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 onClose={closeMobilePanel}
                 title={t('chat.modelControls.thinking')}
                 renderHeader={mobileVariantTarget ? ((closeButton) => (
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-edge-muted">
                         <button
                             type="button"
                             onClick={handleBack}
@@ -2340,7 +2351,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                         className={cn(
                             'flex w-full items-center justify-between gap-2 rounded-xl border px-2 py-1.5 text-start',
                             'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                            isDefault ? 'border-border bg-interactive-selection text-interactive-selection-foreground' : 'border-border/40'
+                            isDefault ? 'border-border bg-interactive-selection text-interactive-selection-foreground' : 'border-edge-muted'
                         )}
                         onClick={() => handleSelect(undefined)}
                     >
@@ -2359,7 +2370,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 className={cn(
                                     'flex w-full items-center justify-between gap-2 rounded-xl border px-2 py-1.5 text-start',
                                     'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                                    selected ? 'border-border bg-interactive-selection text-interactive-selection-foreground' : 'border-border/40'
+                                    selected ? 'border-border bg-interactive-selection text-interactive-selection-foreground' : 'border-edge-muted'
                                 )}
                                 onClick={() => handleSelect(variant)}
                             >
@@ -2398,7 +2409,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     'active:bg-interactive-active',
                                     isSelected 
                                         ? 'border-border bg-interactive-selection text-interactive-selection-foreground'
-                                        : 'border-border/40 hover:bg-interactive-hover/50'
+                                        : 'border-edge-muted hover:bg-interactive-hover/50'
                                 )}
                                 onClick={() => handleAgentChange(agent.name)}
                             >
@@ -2439,7 +2450,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 <div className="flex min-w-[240px] flex-col gap-3">
                     <div className="flex flex-col gap-0.5">
                         <span className="typography-micro font-semibold text-foreground">
-                            {currentMetadata.name || getCurrentModelDisplayName()}
+                            <TooltipLabelWithShortcut label={currentMetadata.name || getCurrentModelDisplayName()} shortcut={modelShortcut} />
                         </span>
                         <span className="typography-meta text-muted-foreground">{getProviderDisplayName()}</span>
                     </div>
@@ -2511,7 +2522,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     </div>
                 </div>
             ) : (
-                <div className="min-w-[200px] typography-meta text-muted-foreground">{t('chat.modelControls.metadataUnavailable')}</div>
+                <div className="min-w-[200px] typography-meta text-muted-foreground"><TooltipLabelWithShortcut label={t('chat.modelControls.metadataUnavailable')} shortcut={modelShortcut} /></div>
             )}
         </TooltipContent>
     );
@@ -2655,7 +2666,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 <div
                                     ref={modelTriggerRef}
                                     className={cn(
-                                        'model-controls__model-trigger flex items-center gap-1.5 cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
+                                        'model-controls__model-trigger flex items-center gap-1.5 cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0 overflow-hidden',
                                         buttonHeight
                                     )}
                                 >
@@ -2713,7 +2724,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                             collisionAvoidance={{ side: 'none', align: 'shift' }}
                             onKeyDownCapture={handleModelShortcutKeyDownCapture}
                         >
-                            {!selection && <div className="p-1 border-b border-border/40">
+                            {!selection && <div className="p-1 border-b border-edge-muted">
                                 <button
                                     type="button"
                                     onClick={openAddProviderSettings}
@@ -2770,7 +2781,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     return (
                                         <div className="flex items-center gap-x-2 whitespace-nowrap overflow-hidden">
                                             <span>{t('chat.modelControls.keyboardHintNavigate')}</span>
-                                            {!selection && <span>{t('chat.modelControls.keyboardHintSwitchAgent', { shortcut: 'Tab' })}</span>}
+                                            {agentShortcut ? <span>{t('chat.modelControls.keyboardHintSwitchAgent', { shortcut: agentShortcut })}</span> : null}
                                             {activeHasThinkingVariants ? <span>{t('chat.modelControls.keyboardHintThinking')}</span> : null}
                                         </div>
                                     );
@@ -2838,7 +2849,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
         if (!currentAgent) {
             return (
                 <TooltipContent align="start" sideOffset={8} className="max-w-[320px]">
-                    <div className="min-w-[200px] typography-meta text-muted-foreground">{t('chat.modelControls.noAgentSelected')}</div>
+                    <div className="min-w-[200px] typography-meta text-muted-foreground"><TooltipLabelWithShortcut label={t('chat.modelControls.noAgentSelected')} shortcut={agentShortcut} /></div>
                 </TooltipContent>
             );
         }
@@ -2870,7 +2881,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 <div className="flex min-w-[200px] flex-col gap-2.5">
                     <div className="flex flex-col gap-0.5">
                         <span className="typography-micro font-semibold text-foreground">
-                            {agentLabel(currentAgent)}
+                            <TooltipLabelWithShortcut label={agentLabel(currentAgent)} shortcut={agentShortcut} />
                         </span>
                         {currentAgent.description && (
                             <span className="typography-meta text-muted-foreground">{currentAgent.description}</span>
@@ -2968,7 +2979,8 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
         const displayVariant = currentVariant ? formatEffortLabel(currentVariant) : t('chat.modelControls.default');
         const isDefault = !currentVariant;
-        const colorClass = isDefault ? 'text-muted-foreground' : 'text-[color:var(--status-info)]';
+        // Effort is a setting, not a status: a picked one reads in the text colour.
+        const colorClass = isDefault ? 'text-muted-foreground' : 'text-foreground';
         // An effort nobody picked in this composer is this model's configured
         // default; the tooltip says so.
         const isInherited = !selection && !isDefault && currentVariantSelection.override === undefined;
@@ -3011,8 +3023,9 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     <TooltipTrigger asChild>
                         <DropdownMenuTrigger asChild nativeButton={false}>
                             <div
+                                ref={variantTriggerRef}
                                 className={cn(
-                                    'model-controls__variant-trigger flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
+                                    'model-controls__variant-trigger flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0 overflow-hidden',
                                     buttonHeight,
                                 )}
                             >
@@ -3059,7 +3072,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <TooltipContent side="top">
-                    <p className="typography-meta">{tooltipText}</p>
+                    <TooltipLabelWithShortcut label={tooltipText} shortcut={thinkingShortcut} />
                 </TooltipContent>
             </Tooltip>
         );
@@ -3074,7 +3087,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild nativeButton={false}>
                                     <div ref={agentTriggerRef} className={cn(
-                                        'flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0',
+                                        'flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0 overflow-hidden',
                                         buttonHeight
                                     )}>
                                         {!agentSelectionReady ? (
@@ -3109,10 +3122,9 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                                     className={cn(
                                                         'model-controls__agent-label',
                                                         controlTextSize,
-                                                        'font-medium min-w-0 truncate',
+                                                        'font-medium min-w-0 truncate text-foreground',
                                                         isDesktop ? 'max-w-[220px]' : undefined
                                                     )}
-                                                    style={uiAgentName ? { color: getAgentColor(uiAgentName).color } : undefined}
                                                 >
                                                     {getAgentDisplayName()}
                                                 </span>
@@ -3122,7 +3134,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
                             <DropdownMenuContent side={agentMenuSide} align="end" alignOffset={-40} constrainToMain collisionAvoidance={{ side: 'none', align: 'shift' }} className="w-[min(280px,calc(100vw-2rem))] p-0 flex flex-col overflow-hidden">
-                                <div className="p-2 border-b border-border/40">
+                                <div className="p-2 border-b border-edge-muted">
                                     <div className="relative">
                                         <Icon name="search" className="absolute inset-s-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                                         <Input
@@ -3233,10 +3245,9 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                             className={cn(
                                 'model-controls__agent-label',
                                 controlTextSize,
-                                'font-medium truncate min-w-0',
+                                'font-medium truncate min-w-0 text-foreground',
                                 isMobile && 'max-w-[60px]'
                             )}
-                            style={uiAgentName ? { color: getAgentColor(uiAgentName).color } : undefined}
                         >
                             {getAgentDisplayName()}
                         </span>

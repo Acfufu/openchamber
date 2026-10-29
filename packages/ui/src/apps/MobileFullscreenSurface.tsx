@@ -176,7 +176,7 @@ export const MobileFullscreenSurface: React.FC<MobileFullscreenSurfaceProps> = (
       className={cn(
         'flex flex-col bg-background text-foreground',
         isDialog
-          ? 'h-[min(88dvh,860px)] w-full max-w-[720px] overflow-hidden rounded-2xl border border-border/70 shadow-[0_24px_64px_rgb(0_0_0_/_0.32)]'
+          ? 'h-[min(88dvh,860px)] w-full max-w-[720px] overflow-hidden rounded-2xl border border-edge shadow-[0_24px_64px_rgb(0_0_0_/_0.32)]'
           : 'oc-keyboard-inset-surface oc-bottom-safe-surface fixed inset-0 z-50',
       )}
       style={isDialog ? {
@@ -206,7 +206,7 @@ export const MobileFullscreenSurface: React.FC<MobileFullscreenSurfaceProps> = (
         <header
           className={cn(
             'flex h-[var(--oc-header-height,56px)] shrink-0 items-center gap-2 px-3',
-            !noHeaderBorder && 'border-b border-border/70',
+            !noHeaderBorder && 'border-b border-edge',
           )}
         >
           <button

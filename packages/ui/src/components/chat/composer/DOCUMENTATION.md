@@ -239,8 +239,11 @@ the row. The rule and the resting
 height per column live in `state/composerTailInset.ts`; the mobile morph uses
 the same rule to announce how far the transcript's end moves, which is less
 than the slot's height change whenever part of it is taken from the gap. While the slot is taller than at rest
-the column carries `data-composer-grown`, and the recap hint, which rides the
-composer's top edge, hides until the composer is back at rest.
+the column carries `data-composer-grown`, and the recap hint hides until the
+composer is back at rest. The hint lies under the latest answer's footer as an
+overlay over this gap (`MessageBody`), taking no room, so its arrival and
+leaving move nothing (maintainer, 2026-10-29); a composer grown into the gap
+would cover it.
 The transcript's end fade is a band in the chat background over the
 scroller's end (`.chat-scroll-fade--end` in `index.css`; a mask on the
 scroller made the GPU recomposite the whole transcript every frame). It reads

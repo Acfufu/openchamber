@@ -1,4 +1,6 @@
 import React from 'react';
+import { SessionRecapNote } from '@/components/chat/SessionRecapSpacer';
+import { DraftProjectName } from '@/components/chat/DraftProjectName';
 import { createPortal } from 'react-dom';
 import type { Message, Part, Session } from '@/lib/opencode/model';
 import { getLastConversationRecord, isIncompleteAssistantTurn } from '@/lib/opencode/model';
@@ -45,7 +47,6 @@ const HISTORY_TRIM_DELAY_MS = 3000;
 import { hasActiveFormToolInCurrentTurn, recoverPendingFormWithRetry } from '@/sync/form-recovery';
 import { toast } from '@/components/ui';
 import { StatusRowContainer } from './StatusRowContainer';
-import { SessionRecapNote } from '@/components/chat/SessionRecapSpacer';
 import {
     FLOATING_COMPOSER_DEFAULT_TAIL_INSET_PX,
     FLOATING_COMPOSER_GAP_PX,
@@ -409,7 +410,7 @@ const ChatViewport = React.memo(({
                 queued message) left the last line under the row. */}
             <div
                 ref={registerComposerInsetReader}
-                className="flex-shrink-0"
+                className="relative flex-shrink-0"
                 style={{
                     height: floatingComposer
                         ? `calc(${sessionIsWorking
@@ -417,8 +418,22 @@ const ChatViewport = React.memo(({
                             : `var(--chat-composer-tail-inset, ${FLOATING_COMPOSER_DEFAULT_TAIL_INSET_PX}px)`} + var(--chat-floating-panel-clearance, 0px))`
                         : (isMobile ? '40px' : '10vh'),
                 }}
-                aria-hidden="true"
-            />
+            >
+                {/* The recap of the latest answer lies at the top of this band,
+                    right under the answer's footer: it takes no room, so its
+                    arrival and leaving move nothing. Rows of the list paint
+                    only inside their own box (`contain: paint`), so it lives
+                    here rather than in the answer's row. It goes once a new
+                    prompt makes the session busy, and while the composer grows
+                    into the band or a panel docks over it (design-system.css). */}
+                {floatingComposer && currentSessionId ? (
+                    <div className="oc-recap-hint pointer-events-none absolute inset-x-0 top-0 transition-opacity duration-300 ease-out">
+                        <div className="chat-message-column">
+                            <SessionRecapNote sessionId={currentSessionId} directory={directory} isMobile={isMobile} />
+                        </div>
+                    </div>
+                ) : null}
+            </div>
         </>
     ), [currentSessionId, directory, floatingComposer, isMobile, sessionIsWorking]);
 
@@ -727,7 +742,7 @@ const HydrationSkeleton: React.FC<{ waiting: boolean }> = ({ waiting }) => {
 const ReadOnlyPromptBanner: React.FC<{ text: string; onStop?: () => void; stopLabel?: string }> = ({ text, onStop, stopLabel }) => (
     <div className="w-full py-3">
         <div className="chat-input-column">
-            <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-[var(--surface-background)] px-4 py-3 typography-ui-label text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-2xl border border-edge bg-[var(--surface-background)] px-4 py-3 typography-ui-label text-muted-foreground">
                 <span className="min-w-0 flex-1 text-center">{text}</span>
                 {onStop ? (
                     <Button
@@ -759,7 +774,7 @@ const renderDraftTitle = (title: string, projectLabel: string | null): React.Rea
     return (
         <>
             {title.slice(0, projectIndex)}
-            <span className="font-medium">{projectLabel}</span>
+            <DraftProjectName label={projectLabel} />
             {title.slice(projectIndex + projectLabel.length)}
         </>
     );
@@ -1331,7 +1346,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         isFollowingProgrammatically,
         showScrollButton,
         userOwnsScroll,
-        viewportAtEnd,
         nearContentStart,
     } = useChatTimelineScroll({
         currentSessionId,
@@ -1652,15 +1666,19 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     // the timeline, and onto the reading elements, not the column: inherited
     // from the column, every new composer line restyled the whole transcript
     // (composerInsetReaders). While the composer is taller than at rest,
-    // `data-composer-grown` on the column hides the recap hint, which rides
-    // the composer's top edge and would otherwise land on the last row.
+    // `data-composer-grown` on the column hides the recap hint, which lies
+    // in the gap under the latest answer the composer then grows into.
+    // The read-only banner that stands in for the composer swaps in with a
+    // resize, so the observer reads this ref after the render that set it.
+    const promptReadOnlyRef = React.useRef(promptReadOnly);
+    promptReadOnlyRef.current = promptReadOnly;
     React.useLayoutEffect(() => {
         const slot = composerSlotNode;
         const column = slot?.parentElement;
         if (!floatingComposer || !slot || !column || !globalThis.ResizeObserver) return;
         const update = () => {
             const height = Math.round(slot.getBoundingClientRect().height);
-            const { tailInset, grown } = recordComposerSlotHeight(column, height);
+            const { tailInset, grown } = recordComposerSlotHeight(column, height, !promptReadOnlyRef.current);
             publishComposerInsets(column, { inset: height, tailInset });
             column.toggleAttribute('data-composer-grown', grown);
         };
@@ -1960,32 +1978,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                                 </div>
                             </div>
                         </div>
-                        {/* The recap hint shares the anchor but keys its fade
-                            on the measured distance to the end, not on the
-                            user-owns-scroll intent flag or the list's at-end
-                            transitions: a session switch or a sideways swipe
-                            that nudges the viewport must not strand it either
-                            way. It stays out of the measured status node — it
-                            lives inside the fixed composer gap, so its arrival
-                            must not move the end. */}
-                        {currentSessionId ? (
-                            <div
-                                ref={registerFloatingPanelClearanceReader}
-                                className={cn(
-                                    'oc-recap-hint pointer-events-none absolute bottom-full inset-x-0 mb-2 transition-opacity duration-300 ease-out',
-                                    !viewportAtEnd && 'opacity-0',
-                                )}
-                                style={{ transform: 'translateY(calc(-1 * var(--chat-floating-panel-clearance, 0px)))' }}
-                            >
-                                <div className="chat-input-column">
-                                    <SessionRecapNote
-                                        sessionId={currentSessionId}
-                                        directory={effectiveSessionDirectory}
-                                        isMobile={isMobile}
-                                    />
-                                </div>
-                            </div>
-                        ) : null}
                     </div>
                 )}
                 {promptReadOnly ? (

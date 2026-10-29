@@ -130,12 +130,15 @@ export const MobileSessionRow: React.FC<{
     selectMobileSession(session, row.projectId, actions.close);
   };
   const stopRename = () => useMobileSidebarRowsStore.getState().stopRename();
+  // As on the desktop, a request waiting on the user stands for the turn:
+  // the running mark and its timer step aside for the warning badge.
+  const waitingOnUser = pendingRequests.hasPermission || pendingRequests.hasForm;
   const liveState = aiRename.pending
-    ? <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
-    : isStreaming || showUnread ? <SessionActivityIndicator state={turnActivity ?? 'unread'} /> : null;
+    ? <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-status-info" aria-label={t('sessions.aiRename.generating')} />
+    : (isStreaming || showUnread) && !waitingOnUser ? <SessionActivityIndicator state={turnActivity ?? 'unread'} /> : null;
   // No date, as on the desktop: the list is ordered by recency. A turn's
   // duration shows while it runs and until it is read.
-  const timeSlot = showActivityDuration
+  const timeSlot = showActivityDuration && !waitingOnUser
     ? <SessionActivityDuration sessionId={session.id} running={isStreaming} className="shrink-0 typography-micro" />
     : null;
   const pinMarker = pinned && !pinnedZoneShown
