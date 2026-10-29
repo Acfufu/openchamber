@@ -500,7 +500,9 @@ it when the editor updates, takes focus or reads its layout within that
 frame. It applies to every CodeMirror view on iOS, not only the composer. When
 bumping `@codemirror/view`,
 carry the patch over and rerun `editor/__tests__/iosNativeParagraph.test.ts`;
-remove it once a CodeMirror release fixes this.
+remove it once a CodeMirror release fixes this. The upstream report is
+https://code.haverbeke.berlin/codemirror/dev/issues/1780; CodeMirror's GitHub
+repositories are an archived mirror.
 
 ### Why patch CodeMirror and not work around it in the composer
 
