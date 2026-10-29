@@ -102,6 +102,9 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
     return (
         <div
             data-mobile-comment-composer="true"
+            // Stands in for the composer while a comment is open; its height
+            // is not the composer's resting height (ChatContainer).
+            data-composer-transient=""
             className="relative flex flex-col rounded-[1.25rem] border border-edge shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.12)]"
             style={{ backgroundColor: currentTheme?.colors?.surface?.subtle }}
         >

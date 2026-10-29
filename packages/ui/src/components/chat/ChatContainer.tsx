@@ -740,7 +740,7 @@ const HydrationSkeleton: React.FC<{ waiting: boolean }> = ({ waiting }) => {
 // `onStop` is set while a subagent's turn runs: its session takes no
 // prompts, but the user can still stop it from here.
 const ReadOnlyPromptBanner: React.FC<{ text: string; onStop?: () => void; stopLabel?: string }> = ({ text, onStop, stopLabel }) => (
-    <div className="w-full py-3">
+    <div className="w-full py-3" data-composer-transient="">
         <div className="chat-input-column">
             <div className="flex items-center gap-2 rounded-2xl border border-edge bg-[var(--surface-background)] px-4 py-3 typography-ui-label text-muted-foreground">
                 <span className="min-w-0 flex-1 text-center">{text}</span>
@@ -1668,17 +1668,21 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     // (composerInsetReaders). While the composer is taller than at rest,
     // `data-composer-grown` on the column hides the recap hint, which lies
     // in the gap under the latest answer the composer then grows into.
-    // The read-only banner that stands in for the composer swaps in with a
-    // resize, so the observer reads this ref after the render that set it.
-    const promptReadOnlyRef = React.useRef(promptReadOnly);
-    promptReadOnlyRef.current = promptReadOnly;
     React.useLayoutEffect(() => {
         const slot = composerSlotNode;
         const column = slot?.parentElement;
         if (!floatingComposer || !slot || !column || !globalThis.ResizeObserver) return;
         const update = () => {
             const height = Math.round(slot.getBoundingClientRect().height);
-            const { tailInset, grown } = recordComposerSlotHeight(column, height, !promptReadOnlyRef.current);
+            // Only the composer itself at its natural height can set the
+            // resting height. What stands in for it (a subagent's read-only
+            // banner, the mobile comment composer: data-composer-transient)
+            // and a slot the pill morph pins for its tween (an inline height,
+            // measured with the keyboard's padding) are shorter, and kept as
+            // the floor they left the composer "grown" (recap hidden) until a
+            // reload.
+            const transient = slot.style.height !== '' || slot.querySelector('[data-composer-transient]') !== null;
+            const { tailInset, grown } = recordComposerSlotHeight(column, height, !transient);
             publishComposerInsets(column, { inset: height, tailInset });
             column.toggleAttribute('data-composer-grown', grown);
         };

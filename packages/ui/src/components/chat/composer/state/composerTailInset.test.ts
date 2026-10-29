@@ -34,4 +34,13 @@ describe('recordComposerSlotHeight', () => {
         expect(recordComposerSlotHeight(column, 128)).toEqual({ tailInset: 208, grown: false });
         expect(recordComposerSlotHeight(column, 180).grown).toBe(true);
     });
+
+    test('a pinned slot taller than the resting composer is grown, without moving the floor', () => {
+        // SAFETY: the column is only a WeakMap key here, so any object stands in for it.
+        const column = {} as HTMLElement;
+        recordComposerSlotHeight(column, 114);
+        expect(recordComposerSlotHeight(column, 162, false)).toEqual({ tailInset: 194, grown: true });
+        expect(recordComposerSlotHeight(column, 110, false).grown).toBe(false);
+        expect(recordComposerSlotHeight(column, 114)).toEqual({ tailInset: 194, grown: false });
+    });
 });

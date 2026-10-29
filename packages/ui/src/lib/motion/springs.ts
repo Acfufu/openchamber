@@ -44,6 +44,19 @@ const settleTime = (spring: SpringSpec): number => {
 
 const round = (value: number): string => String(Math.round(value * 10000) / 10000);
 
+/**
+ * The spring as an easing function of progress (0..1 over its settle time),
+ * for motion driven from JavaScript on the same curve its `linear()` traces.
+ */
+export const springEase = (spring: SpringSpec): ((progress: number) => number) => {
+  const settle = settleTime(spring);
+  return (progress) => {
+    if (progress <= 0) return 0;
+    if (progress >= 1) return 1;
+    return springPosition(spring, settle * progress);
+  };
+};
+
 export const springCss = (spring: SpringSpec): SpringCss => {
   const settle = settleTime(spring);
   const points: string[] = [];
