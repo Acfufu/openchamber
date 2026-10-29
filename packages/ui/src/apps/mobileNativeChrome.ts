@@ -191,8 +191,12 @@ export const useNativeMobileChrome = (): void => {
       let layoutApplied = false;
       let safeBottomPx = 0;
       let keyboardOpen = false;
+      // Whether the field the keyboard opened for is in the app shell (the
+      // composer, the transcript) or on a surface over it; the hide reports
+      // the same, since by then the field has lost focus.
+      let keyboardInShell = true;
 
-      const setVar = (name: '--oc-kb-layout' | '--oc-kb-scroll-inset', px: number) => {
+      const setVar = (name: '--oc-kb-layout' | '--oc-kb-surface' | '--oc-kb-scroll-inset', px: number) => {
         writeMobileKeyboardVar(name, px);
       };
       const clearSettle = () => {
@@ -214,15 +218,15 @@ export const useNativeMobileChrome = (): void => {
       type KbMover = { el: HTMLElement; factor: number; base: 'shell' | 'keyboard' };
       const getKbMovers = (): KbMover[] => {
         const movers: KbMover[] = [];
-        const composer = document.querySelector<HTMLElement>('.oc-mobile-composer');
+        const composer = keyboardInShell ? document.querySelector<HTMLElement>('.oc-mobile-composer') : null;
         if (composer) movers.push({ el: composer, factor: 1, base: 'shell' });
         // Status row, recap hint and scroll-to-end button sit on the slot's
         // top edge outside the form; they ride the same slide.
-        const riders = document.querySelector<HTMLElement>('.oc-composer-riders');
+        const riders = keyboardInShell ? document.querySelector<HTMLElement>('.oc-composer-riders') : null;
         if (riders) movers.push({ el: riders, factor: 1, base: 'shell' });
         // The centered draft title moves half the shift — exactly where the
         // center lands after the shell snap (see mobile.css notes).
-        const draftCenter = document.querySelector<HTMLElement>('.oc-draft-center');
+        const draftCenter = keyboardInShell ? document.querySelector<HTMLElement>('.oc-draft-center') : null;
         if (draftCenter) movers.push({ el: draftCenter, factor: 0.5, base: 'shell' });
         // What sits at the bottom of a layout that takes the keyboard in when
         // the change is invisible (--oc-kb-layout): a drawer's footer, a
@@ -231,7 +235,10 @@ export const useNativeMobileChrome = (): void => {
         // inside the shell (the iPad's panels) and the keyboard's own height
         // in a surface over it.
         for (const el of document.querySelectorAll<HTMLElement>('[data-keyboard-rider]')) {
-          movers.push({ el, factor: Number(el.dataset.keyboardRider) || 1, base: el.closest('.oc-mobile-app-shell') ? 'shell' : 'keyboard' });
+          const inShell = el.closest('.oc-mobile-app-shell') !== null;
+          // The shell keeps its layout for a keyboard opened over it.
+          if (inShell && !keyboardInShell) continue;
+          movers.push({ el, factor: Number(el.dataset.keyboardRider) || 1, base: inShell ? 'shell' : 'keyboard' });
         }
         return movers;
       };
@@ -276,8 +283,18 @@ export const useNativeMobileChrome = (): void => {
         clearSettle();
         dropRevealRoom();
         observeNativeKeyboardHeight(info.keyboardHeight);
+        const inShell = document.activeElement?.closest('.oc-mobile-app-shell') != null;
+        // Focus moved between the shell and a surface over it with the
+        // keyboard up: the shell gives back what it took for the old field,
+        // its movers first (they are found under the old owner).
+        if (keyboardOpen && keyboardInShell && !inShell) {
+          clearKbMovers();
+          setVar('--oc-kb-layout', 0);
+          setVar('--oc-kb-scroll-inset', 0);
+        }
         keyboardOpen = true;
         keyboardHeight = info.keyboardHeight;
+        keyboardInShell = inShell;
         if (!layoutApplied) {
           // The shell's resolved padding-bottom while the keyboard is down IS the
           // bottom safe padding it gives up when open — measure it so the slide
@@ -305,15 +322,19 @@ export const useNativeMobileChrome = (): void => {
         // `slide` (keyboard minus the safe inset the shell gives up) is exactly
         // the strip the scroller loses at settle, so the glide's destination
         // and the settle snap stay geometry-neutral.
-        setVar('--oc-kb-scroll-inset', slide);
-        dispatchKb('oc:keyboard-anim', { phase: 'show', slide, durationMs: KB_ANIM_MS, easing: KB_ANIM_EASING });
+        // A keyboard for a field over the shell (a drawer's, a dialog's)
+        // leaves the shell as it is: it is covered, and a transcript that
+        // follows its end would chase every change of it.
+        if (keyboardInShell) setVar('--oc-kb-scroll-inset', slide);
+        dispatchKb('oc:keyboard-anim', { phase: 'show', slide, durationMs: KB_ANIM_MS, easing: KB_ANIM_EASING, inShell: keyboardInShell });
         revealFocusedField('start');
         settleTimer = window.setTimeout(() => {
           settleTimer = null;
           // Invisible swap: transition off, layout takes the keyboard height (one
           // reflow), shift returns to 0 in the same frame.
           root.classList.remove('oc-kb-animating');
-          setVar('--oc-kb-layout', keyboardHeight);
+          setVar('--oc-kb-surface', keyboardHeight);
+          if (keyboardInShell) setVar('--oc-kb-layout', keyboardHeight);
           layoutApplied = true;
           clearKbMovers();
           dispatchKb('oc:keyboard-settled', { open: true });
@@ -362,9 +383,10 @@ export const useNativeMobileChrome = (): void => {
           // the next frame looks unchanged.
           root.classList.remove('oc-kb-animating');
           setVar('--oc-kb-layout', 0);
+          setVar('--oc-kb-surface', 0);
           layoutApplied = false;
         }
-        dispatchKb('oc:keyboard-anim', { phase: 'hide', slide, durationMs: KB_HIDE_MS, easing: KB_ANIM_EASING });
+        dispatchKb('oc:keyboard-anim', { phase: 'hide', slide, durationMs: KB_HIDE_MS, easing: KB_ANIM_EASING, inShell: keyboardInShell });
         root.classList.add('oc-kb-animating', 'oc-kb-hide');
         // Settled open, the movers start from their raised position (the
         // layout just dropped under them); a hide that interrupts a show
@@ -489,6 +511,7 @@ export const useNativeMobileChrome = (): void => {
       root.classList.remove('oc-capacitor-app', 'oc-keyboard-open', 'oc-kb-animating', 'oc-kb-hide', 'oc-kb-caret-hold', 'oc-platform-android', 'oc-android-below-status-bar');
       writeMobileKeyboardVar('--oc-keyboard-inset', null);
       writeMobileKeyboardVar('--oc-kb-layout', null);
+      writeMobileKeyboardVar('--oc-kb-surface', null);
       writeMobileKeyboardVar('--oc-kb-scroll-inset', null);
     };
   }, []);

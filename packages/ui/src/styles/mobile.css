@@ -580,6 +580,12 @@
   initial-value: 0px;
 }
 
+@property --oc-kb-surface {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @property --oc-kb-scroll-inset {
   syntax: '<length>';
   inherits: false;
@@ -597,14 +603,14 @@
 /* Portal surfaces (drawers, dialogs, overlay panels, the comment bar) render
    at <body> level, outside the app shell, so they take the keyboard into their
    own layout: their bottom edge rises by the keyboard height. Like the shell,
-   they take it once, where the change is invisible (--oc-kb-layout: at the end
+   they take it once, where the change is invisible (--oc-kb-surface: at the end
    of a rise, at the start of a fall), and what sits at their bottom rides the
    keyboard meanwhile on a compositor transform (`data-keyboard-rider`,
    mobileNativeChrome.ts). A `bottom` transitioning with the keyboard re-laid
    the surface out on every frame, on the main thread, and climbed in 60 Hz
    steps beside the keyboard. The opacity term keeps a scrim's enter fade. */
 :root.oc-capacitor-app .oc-keyboard-inset-surface {
-  bottom: var(--oc-kb-layout, 0px);
+  bottom: var(--oc-kb-surface, 0px);
   transition: opacity 0.2s ease-out;
 }
 /* MobileOverlayPanel's anchor snaps when the keyboard starts instead: its
@@ -615,6 +621,33 @@
 :root.oc-capacitor-app .oc-keyboard-inset-surface.oc-keyboard-inset-snap {
   bottom: var(--oc-keyboard-inset, 0px);
 }
+/* A rider rides the keyboard by keyframes fitted to it, so a sliver can open
+   between the two for a frame; while they move, the background of a rider on
+   the keyboard's edge (full travel, `data-keyboard-rider=""`) reaches down
+   under it, and what it left behind never shows through. A rider at a
+   fraction of the travel (a dialog's centred card) does not touch the
+   keyboard, and keeps its own positioning. */
+:root.oc-capacitor-app.oc-kb-animating [data-keyboard-rider=""] {
+  position: relative;
+}
+:root.oc-capacitor-app.oc-kb-animating [data-keyboard-rider=""]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 100dvh;
+  background: inherit;
+  pointer-events: none;
+}
+
+/* Over the raised keyboard the overlay's sheet floats, so it takes the same
+   rounded corners below as above. */
+:root.oc-capacitor-app.oc-keyboard-open .pwa-overlay-panel {
+  border-bottom-width: 1px;
+  border-bottom-left-radius: var(--radius-xl, 0.75rem);
+  border-bottom-right-radius: var(--radius-xl, 0.75rem);
+}
+
 /* A screen tall, since the keyboard inset does not inherit into it; below
    the sheet (z-index -1 inside the scrim's stacking context), which starts
    its slide under the snapped anchor. */

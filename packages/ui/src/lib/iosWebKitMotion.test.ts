@@ -167,7 +167,7 @@ test('spring easings reach script-driven motion only where it cannot be composit
  * values are registered non-inherited and written only on the elements that
  * read them, through lib/mobileKeyboardInsets.ts.
  */
-const KEYBOARD_VARIABLES = ['--oc-keyboard-inset', '--oc-kb-layout', '--oc-kb-scroll-inset'];
+const KEYBOARD_VARIABLES = ['--oc-keyboard-inset', '--oc-kb-layout', '--oc-kb-surface', '--oc-kb-scroll-inset'];
 
 test('keyboard geometry is registered non-inherited', () => {
   const css = read('styles/mobile.css');
@@ -195,7 +195,7 @@ test('no layout property transitions with the keyboard', () => {
   const found: string[] = [];
   for (const file of sourceFiles.filter((name) => name.endsWith('.css'))) {
     for (const { selector, body } of cssRules(read(file))) {
-      if (!/var\(--oc-(keyboard-inset|kb-layout|kb-scroll-inset)/.test(body)) continue;
+      if (!/var\(--oc-(keyboard-inset|kb-layout|kb-surface|kb-scroll-inset)/.test(body)) continue;
       const shorthand = declaration(body, 'transition');
       const properties = [
         ...(shorthand ? splitTopLevel(shorthand).map(shorthandProperty) : []),

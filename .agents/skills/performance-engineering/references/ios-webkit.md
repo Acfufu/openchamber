@@ -133,7 +133,9 @@ out on every frame, on the main thread, and climbs in 60 Hz steps beside the
 120 Hz keyboard. The shell and every keyboard-inset surface (drawers,
 dialogs, the comment bar, `.oc-keyboard-inset-surface` in `mobile.css`) take
 the keyboard into their layout where the change is invisible
-(`--oc-kb-layout`: when it has landed, as it starts to fall); what sits at
+(`--oc-kb-layout` for the shell, `--oc-kb-surface` for the surfaces over it:
+when it has landed, as it starts to fall); a keyboard opened for a field over
+the shell leaves the shell and its transcript as they are. What sits at
 their bottom carries `data-keyboard-rider` (a factor, `0.5` for a centred
 card) and rides the keyboard meanwhile on keyframes, with the composer
 (`slideMovers` in `apps/mobileNativeChrome.ts`). `MobileOverlayPanel` snaps
