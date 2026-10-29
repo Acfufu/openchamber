@@ -76,3 +76,15 @@ export const springCssVariables = (name: MotionSpringName, spring: SpringSpec): 
     [`--oc-motion-${name}-easing`, css.easing],
   ];
 };
+
+/**
+ * A CSS time in milliseconds, or 0 when it is not one. The production CSS
+ * minifier rewrites `294ms` as `.294s`, so a reader that took the number as
+ * milliseconds ran every animation for a fraction of a millisecond.
+ */
+export const parseCssTimeMs = (value: string): number => {
+  const match = /^(-?(?:\d+\.?\d*|\.\d+))(ms|s)$/u.exec(value.trim());
+  if (!match) return 0;
+  const amount = Number.parseFloat(match[1]);
+  return match[2] === 's' ? amount * 1000 : amount;
+};

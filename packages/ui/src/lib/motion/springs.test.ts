@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { MOTION_SPRING_NAMES, MOTION_SPRINGS, springCss, springCssVariables } from './springs';
+import { MOTION_SPRING_NAMES, MOTION_SPRINGS, springCss, springCssVariables, parseCssTimeMs } from './springs';
 
 describe('springCss', () => {
   test('starts at rest, ends on target, and settles later with more bounce', () => {
@@ -23,5 +23,19 @@ describe('springCss', () => {
         expect(css).toContain(`${property}: ${value};`);
       }
     }
+  });
+});
+
+describe('parseCssTimeMs', () => {
+  test('reads milliseconds and the seconds a minifier writes', () => {
+    expect(parseCssTimeMs('294ms')).toBe(294);
+    expect(parseCssTimeMs('.294s')).toBe(294);
+    expect(parseCssTimeMs(' 0.25s ')).toBe(250);
+  });
+
+  test('anything else is no duration', () => {
+    expect(parseCssTimeMs('')).toBe(0);
+    expect(parseCssTimeMs('294')).toBe(0);
+    expect(parseCssTimeMs('var(--x)')).toBe(0);
   });
 });

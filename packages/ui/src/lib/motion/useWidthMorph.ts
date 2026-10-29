@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { parseCssTimeMs } from './springs';
+
 const readMotionVariable = (name: string): string => (
   getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 );
@@ -24,7 +26,7 @@ const watchWidth = (element: HTMLElement): (() => void) => {
     // Nothing to show while hidden (zero width), when nothing moved, or for
     // readers who asked for less motion.
     if (from <= 0 || Math.abs(from - to) < 1 || prefersReducedMotion()) return;
-    const duration = Number.parseFloat(readMotionVariable('--oc-motion-layout-duration')) || 0;
+    const duration = parseCssTimeMs(readMotionVariable('--oc-motion-layout-duration'));
     if (duration <= 0) return;
     const animation = element.animate(
       [{ width: `${from}px` }, { width: `${to}px` }],
