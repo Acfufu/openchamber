@@ -432,6 +432,12 @@ export const useNativeMobileChrome = (): void => {
       function revealFocusedField(phase: 'start' | 'landed') {
         const field = document.activeElement;
         if (!(field instanceof HTMLElement) || !isTextInput(field)) return;
+        // A terminal takes keys through a hidden field and keeps its own
+        // view; room added under it squeezed its canvas. Any other field
+        // nobody sees is someone else's input proxy too.
+        if (field.closest('[data-terminal-owner]')) return;
+        const box = field.getBoundingClientRect();
+        if (box.width < 2 || box.height < 2 || getComputedStyle(field).opacity === '0') return;
         if (phase === 'start' && field.closest('.oc-mobile-composer, [data-keyboard-rider], .oc-keyboard-inset-snap, .chat-scroll')) return;
         // An editable region (CodeMirror's content is the whole document) is
         // measured at its caret; one whose caret cannot be measured is left
