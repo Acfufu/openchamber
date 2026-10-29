@@ -488,6 +488,31 @@ on Android Chrome with Gboard (Thai input, #3514) the EditContext path moved
 the caret into the middle of the draft and reinserted fragments. Generic
 editors (Files, Plan, Skills) keep the base `EditorView` and its EditContext.
 
+On iOS, a keyboard that cleans up dictation (WeChat, #5746) deletes its first
+transcript and writes the cleaned text in batches: it inserts a paragraph `DIV`
+and keeps writing into that same `DIV`. Stock `@codemirror/view` reads the
+paragraph at once and replaces the `DIV` with its own line, so everything the
+keyboard writes after the first paragraph break lands in a detached node and
+never reaches the draft. A temporary Bun patch
+(`bun-patches/@codemirror%2Fview@6.43.15.patch`) reads such a paragraph one
+frame later, with the rest of its batch, and reads it early instead of dropping
+it when the editor updates, takes focus or reads its layout within that
+frame. It applies to every CodeMirror view on iOS, not only the composer. When
+bumping `@codemirror/view`,
+carry the patch over and rerun `editor/__tests__/iosNativeParagraph.test.ts`;
+remove it once a CodeMirror release fixes this.
+
+### Why patch CodeMirror and not work around it in the composer
+
+The paragraph is replaced inside CodeMirror's DOM observer before any
+transaction exists, and any view update in the waiting frame discards the
+observer's unread records. Neither step is reachable through the public API:
+two app-side attempts in #5739 (keeping the latest default transaction, then
+deferring through `beforeinput` and `inputHandler`) each lost text in their own
+checks, because CodeMirror's measure cycle and update path reset the DOM under
+them. The patch is the smallest change at the place the text is lost, and it
+goes away when CodeMirror ships the fix.
+
 The document is not, however, the string it was given: CodeMirror normalizes
 line endings, so a `\r\n` pair becomes one break and the document ends up
 shorter than the inserted string. **Never derive a caret position from the
