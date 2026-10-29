@@ -610,7 +610,8 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     React.useLayoutEffect(() => {
         if (!mobileModelPanelOpen) return;
         const scroller = mobileModelListRef.current?.closest<HTMLElement>('.pwa-overlay-scroll');
-        if (scroller && scroller.scrollHeight <= scroller.clientHeight + 1) setMobileProviderModelsShown(true);
+        // Without a scroller to measure there is no telling, so the rows show.
+        if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 1) setMobileProviderModelsShown(true);
     }, [mobileModelPanelOpen]);
     React.useEffect(() => {
         if (!mobileModelPanelOpen) {
