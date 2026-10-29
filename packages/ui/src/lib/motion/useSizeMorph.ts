@@ -67,8 +67,17 @@ const watchSize = (element: HTMLElement, axis: MorphAxis): (() => void) => {
 
   const observer = new MutationObserver(onContentChange);
   observer.observe(element, { childList: true, subtree: true, characterData: true });
+  // The size a move starts from is the last one laid out, not the last one a
+  // content change left: a popup measured as it mounts is the full height of
+  // its list until its positioner caps it, and the first change after that
+  // (a hovered row) eased it from that stale height down to the real one.
+  const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+    if (running?.animation.playState !== 'running') settledSize = measure(element, axis);
+  });
+  sizes?.observe(element);
   return () => {
     observer.disconnect();
+    sizes?.disconnect();
     running?.animation.cancel();
     element.removeAttribute(morphingAttribute);
   };
