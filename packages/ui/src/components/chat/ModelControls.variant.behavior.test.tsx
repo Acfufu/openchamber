@@ -658,13 +658,10 @@ describe('ModelControls effort restore', () => {
       const label = () => dom.container.querySelector('.model-controls__variant-label');
       expect(useConfigStore.getState().currentVariant).toBe('high');
       expect(label()?.textContent?.trim()).toBe('High');
-      // Only the "Default" option is muted; an inherited effort shows like a picked one.
-      expect(label()?.classList.contains('text-muted-foreground')).toBe(false);
 
       await act(async () => { useConfigStore.getState().setModel(OTHER_MODEL_ID); });
       expect(useConfigStore.getState().currentVariant).toBe(undefined);
       expect(label()?.textContent?.trim()).toBe('Default');
-      expect(label()?.classList.contains('text-muted-foreground')).toBe(true);
 
       await act(async () => { useConfigStore.getState().setModel(MODEL_ID); });
       expect(useConfigStore.getState().currentVariant).toBe('high');
@@ -683,7 +680,6 @@ describe('ModelControls effort restore', () => {
     const { dom, cleanup } = await renderModelControls();
     try {
       const label = () => dom.container.querySelector('.model-controls__variant-label');
-      expect(label()?.classList.contains('text-muted-foreground')).toBe(false);
 
       await act(async () => { useConfigStore.getState().setModel(OTHER_MODEL_ID); });
       expect(useConfigStore.getState().currentVariant).toBe(undefined);

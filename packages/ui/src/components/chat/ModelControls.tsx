@@ -11,9 +11,10 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { handleDropdownNavigationKey } from '@/components/ui/dropdown-navigation';
+import { isIMECompositionEvent } from '@/lib/ime';
 import { Input } from '@/components/ui/input';
 import { MobileOverlayPanel } from '@/components/ui/MobileOverlayPanel';
 import { ProviderLogo } from '@/components/ui/ProviderLogo';
@@ -78,6 +79,9 @@ const selectLatestReplyModelChoice = (messages: Message[], state: State) => find
     (messageId) => state.part[messageId],
 );
 const MAX_INLINE_MOBILE_VARIANT_OPTIONS = 6;
+
+/** A section caption in the composer's pickers, the same as the model picker's. */
+const PICKER_SECTION_HEADER_CLASS = 'typography-micro font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 px-2 py-1.5';
 
 const AgentDescriptionTooltip: React.FC<{
     description?: string;
@@ -563,6 +567,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     // only when the composer sits too close to the top to fit them.
     const modelTriggerRef = React.useRef<HTMLDivElement>(null);
     const agentTriggerRef = React.useRef<HTMLDivElement>(null);
+    const agentListRef = React.useRef<HTMLDivElement>(null);
     const modelMenuSide = usePopupSideOnOpen(agentMenuOpen, modelTriggerRef, 'top');
     const agentMenuSide = usePopupSideOnOpen(isAgentSelectorOpen, agentTriggerRef, 'top');
     // A picker that now names a longer or shorter choice eases into its new width.
@@ -688,16 +693,6 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
         const sorted = [...selectableDesktopAgents].sort((a, b) => a.name.localeCompare(b.name));
         return rankByQuery(sorted, agentSearchQuery, (agent) => [agent.name, agent.displayName, agent.description]);
     }, [selectableDesktopAgents, agentSearchQuery]);
-
-    const defaultAgentName = React.useMemo(() => {
-        if (settingsDefaultAgent) {
-            const found = selectableDesktopAgents.find(a => a.name === settingsDefaultAgent);
-            if (found) return found.name;
-        }
-        const buildAgent = selectableDesktopAgents.find(a => a.name === 'build');
-        if (buildAgent) return buildAgent.name;
-        return selectableDesktopAgents[0]?.name;
-    }, [settingsDefaultAgent, selectableDesktopAgents]);
 
     const currentAgent = React.useMemo(() => {
         if (uiAgentName) {
@@ -2677,18 +2672,17 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             const hasPendingVariant = pendingThinkingVariants.has(mapKey);
             const pendingVariant = pendingThinkingVariants.get(mapKey);
             const effectiveVariant = hasPendingVariant ? pendingVariant : (isSelected ? currentVariant : undefined);
-            const displayLabel = effectiveVariant
-                ? effectiveVariant.charAt(0).toUpperCase() + effectiveVariant.slice(1)
-                : 'Default';
+            const displayLabel = effectiveVariant ? formatEffortLabel(effectiveVariant) : t('chat.modelControls.default');
 
+            // The effort as the composer shows it after the model: "/ medium".
             return (
                 <span className={cn(
-                    'typography-micro whitespace-nowrap',
+                    'typography-micro whitespace-nowrap lowercase',
                     isHighlighted
                         ? (wasAdjusted ? 'text-interactive-selection-foreground' : 'text-interactive-selection-foreground/70')
                         : (wasAdjusted ? 'text-foreground' : 'text-muted-foreground'),
                 )}>
-                    Thinking: {displayLabel}
+                    <span aria-hidden="true" className="opacity-60">/ </span>{displayLabel}
                 </span>
             );
         };
@@ -2760,18 +2754,6 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                             collisionAvoidance={{ side: 'none', align: 'shift' }}
                             onKeyDownCapture={handleModelShortcutKeyDownCapture}
                         >
-                            {!selection && <div className="p-1 border-b border-edge-muted">
-                                <button
-                                    type="button"
-                                    onClick={openAddProviderSettings}
-                                    className="typography-meta group flex w-full items-center gap-1 rounded-md px-2 py-1.5 cursor-pointer hover:bg-interactive-hover/50"
-                                >
-                                    <span className="flex size-4 items-center justify-center text-muted-foreground">
-                                        <Icon name="add" className="size-4 -me-0.5" />
-                                    </span>
-                                    <span className="font-medium text-foreground">{t('chat.modelControls.addNewProvider')}</span>
-                                </button>
-                            </div>}
                             <ModelPickerList
                                 providers={providers}
                                 favoriteModels={favoriteModelsList}
@@ -2782,6 +2764,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 labels={modelPickerLabels}
                                 selectedModel={currentProviderId && currentModelId ? { providerID: currentProviderId, modelID: currentModelId } : null}
                                 leadingEntry={autoEntry}
+                                searchAction={selection ? null : { label: t('chat.modelControls.addNewProvider'), icon: 'add', onSelect: openAddProviderSettings }}
                                 leadingAction={onRunInParallel ? {
                                     label: t('chat.modelControls.runInParallel'),
                                     icon: <ArrowsMerge className="h-3.5 w-3.5 flex-shrink-0" />,
@@ -2804,8 +2787,6 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     over.providerID,
                                     over.modelID,
                                 )}
-                                reorderFavoriteAriaLabel={t('chat.modelControls.reorderFavoriteAria')}
-                                reorderFavoriteTitle={t('chat.modelControls.reorderFavoriteTitle')}
                                 providerOrder={providerOrder}
                                 onReorderProvider={setProviderOrder}
                                 reorderProviderTitle={t('chat.modelControls.reorderProviderTitle')}
@@ -3015,8 +2996,26 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
         const displayVariant = currentVariant ? formatEffortLabel(currentVariant) : t('chat.modelControls.default');
         const isDefault = !currentVariant;
-        // Effort is a setting, not a status: a picked one reads in the text colour.
-        const colorClass = isDefault ? 'text-muted-foreground' : 'text-foreground';
+        // The effort reads as a quiet suffix of the model name: "Opus 5.5 / medium".
+        // It brightens on its own hover, so the pointer shows it is a control of
+        // its own; where the row is too narrow for it, its icon stands in.
+        const triggerLabel = (
+            <>
+                <Icon name="brain-ai-3" className={cn('model-controls__variant-icon flex-shrink-0 text-muted-foreground group-hover:text-foreground', controlIconSize)} />
+                <span aria-hidden="true" className="model-controls__variant-slash text-muted-foreground/60">/</span>
+                <span
+                    className={cn(
+                        'model-controls__variant-label',
+                        controlTextSize,
+                        'font-medium min-w-0 truncate lowercase text-muted-foreground group-hover:text-foreground',
+                        isMobile && 'max-w-[60px]',
+                        isDesktop && 'max-w-[180px]',
+                    )}
+                >
+                    {displayVariant}
+                </span>
+            </>
+        );
         // An effort nobody picked in this composer is this model's configured
         // default; the tooltip says so.
         const isInherited = !selection && !isDefault && currentVariantSelection.override === undefined;
@@ -3033,22 +3032,14 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     onPointerDownCapture={(event) => {
                         if (event.pointerType === 'touch') event.preventDefault();
                     }}
+                    aria-label={tooltipText}
                     className={cn(
-                        'model-controls__variant-trigger flex items-center gap-1.5 transition-opacity min-w-0 focus:outline-none',
+                        'model-controls__variant-trigger group flex items-center gap-1 min-w-0 focus:outline-none',
                         buttonHeight,
-                        'cursor-pointer hover:bg-transparent hover:opacity-70',
+                        'cursor-pointer hover:bg-transparent',
                     )}
                 >
-                    <Icon name="brain-ai-3" className={cn(controlIconSize, 'flex-shrink-0', colorClass)} />
-                    <span className={cn(
-                        'model-controls__variant-label',
-                        controlTextSize,
-                        'font-medium truncate min-w-0',
-                        isMobile && 'max-w-[60px]',
-                        colorClass
-                    )}>
-                        {displayVariant}
-                    </span>
+                    {triggerLabel}
                 </button>
             );
         }
@@ -3060,35 +3051,24 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                         <DropdownMenuTrigger asChild nativeButton={false}>
                             <div
                                 ref={variantTriggerRef}
+                                aria-label={tooltipText}
                                 className={cn(
-                                    'model-controls__variant-trigger flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0 overflow-hidden',
+                                    'model-controls__variant-trigger group flex items-center gap-1 cursor-pointer select-none hover:bg-transparent min-w-0 overflow-hidden',
                                     buttonHeight,
                                 )}
                             >
-                                <Icon name="brain-ai-3" className={cn(controlIconSize, 'flex-shrink-0', colorClass)} />
-                                <span
-                                    className={cn(
-                                        'model-controls__variant-label',
-                                        controlTextSize,
-                                        'font-medium min-w-0 truncate',
-                                        isDesktop ? 'max-w-[180px]' : undefined,
-                                        colorClass,
-                                    )}
-                                >
-                                    {displayVariant}
-                                </span>
+                                {triggerLabel}
                             </div>
                         </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <DropdownMenuContent side="top" align="end" alignOffset={-40} className="w-[min(180px,calc(100vw-2rem))]">
-                        <DropdownMenuLabel className="typography-ui-header font-semibold text-foreground">{t('chat.modelControls.thinking')}</DropdownMenuLabel>
+                    <DropdownMenuContent side="top" align="end" alignOffset={-40} className="w-max max-w-[calc(100vw-2rem)]">
+                        <DropdownMenuLabel className={PICKER_SECTION_HEADER_CLASS}>{t('chat.modelControls.thinking')}</DropdownMenuLabel>
                         <DropdownMenuItem className="typography-meta" onSelect={() => handleVariantSelect(undefined)}>
                             <div className="flex items-center justify-between gap-2 w-full min-w-0">
-                                <span className="typography-meta font-medium text-foreground truncate min-w-0">{t('chat.modelControls.default')}</span>
-                                {isDefault && <Icon name="check" className="size-4 text-primary flex-shrink-0" />}
+                                <span className="typography-meta font-medium text-foreground truncate min-w-0 lowercase">{t('chat.modelControls.default')}</span>
+                                {isDefault && <Icon name="check" className="size-4 text-inherit flex-shrink-0" />}
                             </div>
                         </DropdownMenuItem>
-                        {displayVariants.length > 0 && <DropdownMenuSeparator />}
                         {displayVariants.map((variant) => {
                             const selected = currentVariant === variant;
                             const label = formatEffortLabel(variant);
@@ -3099,12 +3079,17 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                     onSelect={() => handleVariantSelect(variant)}
                                 >
                                     <div className="flex items-center justify-between gap-2 w-full min-w-0">
-                                        <span className="typography-meta font-medium text-foreground truncate min-w-0">{label}</span>
+                                        <span className="typography-meta font-medium text-foreground truncate min-w-0 lowercase">{label}</span>
                                         {selected && <Icon name="check" className="size-4 text-inherit flex-shrink-0" />}
                                     </div>
                                 </DropdownMenuItem>
                             );
                         })}
+                        {/* The model picker's footer, flush with the menu's edges. */}
+                        <div className="-mx-1 -mb-1 mt-1 flex items-center gap-x-2 overflow-hidden whitespace-nowrap border-t border-edge-muted px-3 pt-1 pb-1.5 typography-micro text-muted-foreground">
+                            <span>{t('chat.modelControls.keyboardHintNavigate')}</span>
+                            {thinkingShortcut ? <span>{t('chat.modelControls.keyboardHintSwitchThinking', { shortcut: thinkingShortcut })}</span> : null}
+                        </div>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <TooltipContent side="top">
@@ -3116,6 +3101,53 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
     const renderAgentSelector = () => {
         if (!isCompact) {
+            const isFavoriteAgent = (agent: Agent) => favoriteAgents.includes(agent.name);
+            // Starred agents in the order Tab cycles through them. A search lists
+            // every match by rank instead, so Enter picks the row on top.
+            const favoriteAgentRows = agentSearchQuery.trim() ? [] : selectableDesktopAgents.filter(isFavoriteAgent);
+            const otherAgentRows = favoriteAgentRows.length > 0
+                ? sortedAndFilteredAgents.filter((agent) => !isFavoriteAgent(agent))
+                : sortedAndFilteredAgents;
+            const focusFirstAgentItem = () => {
+                agentListRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+            };
+            // The field keeps typing to itself; ArrowDown or Ctrl+N steps into the
+            // list, and Enter picks the top result.
+            const handleAgentSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+                if (handleDropdownNavigationKey(event, (key) => { if (key === 'ArrowDown') focusFirstAgentItem(); })) return;
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    focusFirstAgentItem();
+                } else if (event.key === 'Enter' && !isIMECompositionEvent(event)) {
+                    const topAgent = favoriteAgentRows[0] ?? otherAgentRows[0];
+                    if (topAgent) {
+                        event.preventDefault();
+                        handleAgentChange(topAgent.name);
+                        setIsAgentSelectorOpen(false);
+                    }
+                }
+                event.stopPropagation();
+            };
+            const renderAgentMenuItem = (agent: Agent) => (
+                <AgentDescriptionTooltip key={agent.name} description={agent.description}>
+                    <DropdownMenuItem
+                        className="typography-meta"
+                        onSelect={() => handleAgentChange(agent.name)}
+                    >
+                        <div className="flex w-full items-center gap-1.5">
+                            <div className="h-1 w-1 rounded-full" style={{ background: getAgentColor(agent.name).color }} />
+                            <span className="min-w-0 truncate font-medium">{agentLabel(agent)}</span>
+                            <span className="ms-auto flex flex-shrink-0 items-center gap-1.5">
+                                {agent.name === uiAgentName ? <Icon name="check" className="size-4 text-inherit" /> : null}
+                                <AgentFavoriteToggle
+                                    favorite={isFavoriteAgent(agent)}
+                                    onToggle={() => toggleFavoriteAgent(agent.name)}
+                                />
+                            </span>
+                        </div>
+                    </DropdownMenuItem>
+                </AgentDescriptionTooltip>
+            );
             return (
                 <div className="flex items-center gap-2 min-w-0">
                     <Tooltip delayDuration={600}>
@@ -3170,7 +3202,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
                             <DropdownMenuContent side={agentMenuSide} align="end" alignOffset={-40} constrainToMain collisionAvoidance={{ side: 'none', align: 'shift' }} className="w-[min(280px,calc(100vw-2rem))] p-0 flex flex-col overflow-hidden">
-                                <div className="p-2 border-b border-edge-muted">
+                                <div className="px-2 py-1 border-b border-edge-muted">
                                     <div className="relative">
                                         <Icon name="search" className="absolute inset-s-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                                         <Input
@@ -3178,52 +3210,42 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                             placeholder={t('chat.modelControls.searchAgents')}
                                             value={agentSearchQuery}
                                             onChange={(e) => setAgentSearchQuery(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                e.stopPropagation();
-                                            }}
-                                            className="ps-8 h-8 typography-meta"
+                                            onKeyDown={handleAgentSearchKeyDown}
+                                            className="h-7 rounded-none bg-transparent ps-8 pe-0 typography-meta ring-0 hover:[&:not(:focus)]:bg-transparent focus:ring-0 focus-visible:ring-0"
                                         />
                                     </div>
                                 </div>
                                 <ScrollableOverlay outerClassName="max-h-[min(400px,calc(var(--available-height)-4rem))] flex-1">
-                                    <div className="p-1">
-                                        {!agentSearchQuery.trim() && defaultAgentName && (
-                                            <>
-                                                <DropdownMenuItem
-                                                    className="typography-meta"
-                                                    onSelect={() => handleAgentChange(defaultAgentName)}
-                                                >
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Icon name="arrow-go-back" className="size-3.5 text-muted-foreground" />
-                                                        <span className="font-medium">{t('chat.modelControls.resetToDefault')}</span>
-                                                    </div>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                            </>
-                                        )}
+                                    <div ref={agentListRef} className="p-1">
                                         {sortedAndFilteredAgents.length === 0 ? (
                                             <div className="px-2 py-4 text-center typography-meta text-muted-foreground">
-                                                No agents found
+                                                {t('chat.modelControls.noAgentsFound')}
                                             </div>
-                                        ) : (
-                                            sortedAndFilteredAgents.map((agent) => (
-                                                <AgentDescriptionTooltip key={agent.name} description={agent.description}>
-                                                    <DropdownMenuItem
-                                                        className="typography-meta"
-                                                        onSelect={() => handleAgentChange(agent.name)}
-                                                    >
-                                                        <div className="flex w-full items-center gap-1.5">
-                                                            <div className="h-1 w-1 rounded-full" style={{ background: getAgentColor(agent.name).color }} />
-                                                            <span className="font-medium">{agentLabel(agent)}</span>
-                                                            <AgentFavoriteToggle
-                                                                className="ms-auto"
-                                                                favorite={favoriteAgents.includes(agent.name)}
-                                                                onToggle={() => toggleFavoriteAgent(agent.name)}
-                                                            />
+                                        ) : favoriteAgentRows.length > 0 ? (
+                                            <>
+                                                <div role="group" aria-label={t('chat.modelControls.favorites')}>
+                                                    <div className={PICKER_SECTION_HEADER_CLASS}>
+                                                        <span className="min-w-0 truncate">{t('chat.modelControls.favorites')}</span>
+                                                        {agentShortcut ? (
+                                                            <span className="ms-auto flex-shrink-0 normal-case tracking-normal font-normal">
+                                                                {t('chat.modelControls.favoriteAgentsCycleHint', { shortcut: agentShortcut })}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                    {favoriteAgentRows.map(renderAgentMenuItem)}
+                                                </div>
+                                                {otherAgentRows.length > 0 ? (
+                                                    <>
+                                                        <div className="h-px bg-edge-muted my-1" />
+                                                        <div role="group" aria-label={t('chat.modelControls.agentsSection')}>
+                                                            <div className={PICKER_SECTION_HEADER_CLASS}>{t('chat.modelControls.agentsSection')}</div>
+                                                            {otherAgentRows.map(renderAgentMenuItem)}
                                                         </div>
-                                                    </DropdownMenuItem>
-                                                </AgentDescriptionTooltip>
-                                            ))
+                                                    </>
+                                                ) : null}
+                                            </>
+                                        ) : (
+                                            sortedAndFilteredAgents.map(renderAgentMenuItem)
                                         )}
                                     </div>
                                 </ScrollableOverlay>
@@ -3313,9 +3335,11 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                         isMobile && 'overflow-hidden'
                     )}
                 >
-                    {!inlineMobileSelection && renderVariantSelector()}
-                    {renderModelSelector()}
-                    {inlineMobileSelection && renderVariantSelector()}
+                    {/* The effort follows the model as its suffix, so the two sit closer than the other controls. */}
+                    <div className="flex items-center gap-x-1 min-w-0">
+                        {renderModelSelector()}
+                        {renderVariantSelector()}
+                    </div>
                     {(!selection || agentSelectable) && !isAutoSelected && renderAgentSelector()}
                 </div>
             </div>

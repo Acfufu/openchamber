@@ -542,11 +542,19 @@ div[data-chat-input-footer="true"] {
    data-top-bottom-scroll when content is both above and below. */
 .oc-sticky-fade-overlay {
   opacity: 0;
+  /* Hidden, it must not catch the clicks meant for the rows under it. */
+  pointer-events: none;
 }
 
 .oc-sticky-fade-root:has(.oc-sticky-fade-scroller[data-top-scroll="true"]) .oc-sticky-fade-overlay,
 .oc-sticky-fade-root:has(.oc-sticky-fade-scroller[data-top-bottom-scroll="true"]) .oc-sticky-fade-overlay {
   opacity: 1;
+}
+
+/* The model picker's sticky caption folds its section, once it shows. */
+.oc-sticky-fade-root:has(.oc-sticky-fade-scroller[data-top-scroll="true"]) .oc-sticky-fade-overlay[data-model-picker-sticky-header],
+.oc-sticky-fade-root:has(.oc-sticky-fade-scroller[data-top-bottom-scroll="true"]) .oc-sticky-fade-overlay[data-model-picker-sticky-header] {
+  pointer-events: auto;
 }
 
 [data-scroll-shadow="true"][data-orientation="vertical"][data-bottom-scroll="true"]:not(.chat-scroll) {
@@ -1129,9 +1137,19 @@ diffs-container {
   }
 }
 
+/* The effort trigger is "/ medium" after the model; collapsed, its icon stands in. */
+.model-controls__variant-icon {
+  display: none;
+}
+
 @container model-controls (max-width: 14rem) {
-  :root:not(.vscode-runtime) .model-controls__variant-label {
+  :root:not(.vscode-runtime) .model-controls__variant-label,
+  :root:not(.vscode-runtime) .model-controls__variant-slash {
     display: none;
+  }
+
+  :root:not(.vscode-runtime) .model-controls__variant-icon {
+    display: block;
   }
 }
 
@@ -1149,8 +1167,13 @@ diffs-container {
 }
 
 @container model-controls (max-width: 9rem) {
-  :root.vscode-runtime .model-controls__variant-label {
+  :root.vscode-runtime .model-controls__variant-label,
+  :root.vscode-runtime .model-controls__variant-slash {
     display: none;
+  }
+
+  :root.vscode-runtime .model-controls__variant-icon {
+    display: block;
   }
 }
 
