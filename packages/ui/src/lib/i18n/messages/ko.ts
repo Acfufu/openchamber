@@ -335,7 +335,6 @@ export const dict: Record<I18nKey, string> = {
   'mobile.menu.instances': '인스턴스',
   'mobile.menu.update': '업데이트',
   'mobile.menu.settings': '설정',
-  'mobile.sessions.footer.more': '더 보기',
   'mobile.sessions.newChatCta': '{project}에서 새 채팅',
   'mobile.sessions.dateGroup.today': '오늘',
   'mobile.sessions.dateGroup.yesterday': '어제',

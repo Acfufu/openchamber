@@ -336,7 +336,6 @@ export const dict: Record<I18nKey, string> = {
   'mobile.menu.instances': 'Instancje',
   'mobile.menu.update': 'Aktualizuj',
   'mobile.menu.settings': 'Ustawienia',
-  'mobile.sessions.footer.more': 'Więcej',
   'mobile.sessions.newChatCta': 'Nowy czat w {project}',
   'mobile.sessions.dateGroup.today': 'Dzisiaj',
   'mobile.sessions.dateGroup.yesterday': 'Wczoraj',

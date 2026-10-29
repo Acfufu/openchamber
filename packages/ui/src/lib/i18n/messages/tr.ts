@@ -256,7 +256,6 @@ export const dict = {
   'mobile.menu.instances': 'Instance\'lar',
   'mobile.menu.update': 'Güncelle',
   'mobile.menu.settings': 'Ayarlar',
-  'mobile.sessions.footer.more': 'Daha fazla',
   'mobile.sessions.newChatCta': '{project} içinde yeni sohbet',
   'mobile.sessions.dateGroup.today': 'Bugün',
   'mobile.sessions.dateGroup.yesterday': 'Dün',

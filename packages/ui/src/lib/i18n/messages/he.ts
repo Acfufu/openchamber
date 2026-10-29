@@ -287,7 +287,6 @@ export const dict = {
   'mobile.menu.instances': 'מופעים',
   'mobile.menu.update': 'עדכון',
   'mobile.menu.settings': 'הגדרות',
-  'mobile.sessions.footer.more': 'עוד',
   'mobile.sessions.newChatCta': 'צ\'אט חדש ב-{project}',
   'mobile.sessions.dateGroup.today': 'היום',
   'mobile.sessions.dateGroup.yesterday': 'אתמול',

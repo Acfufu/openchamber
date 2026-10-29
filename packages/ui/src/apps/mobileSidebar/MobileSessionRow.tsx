@@ -179,8 +179,8 @@ export const MobileSessionRow: React.FC<{
           : <>
             {titleText}
             {pinMarker}
-            {liveState}
             {doneHint}
+            {liveState}
             {timeSlot}
           </>}
         secondLine={<>
@@ -192,8 +192,8 @@ export const MobileSessionRow: React.FC<{
             <span className="block min-w-0 truncate typography-micro">{branch}</span>
           </> : null}
           <span className="ms-auto flex shrink-0 items-center gap-1.5">
-            {refMark(true)}
             <MobileSessionGoalGlyph session={session} />
+            {refMark(true)}
             <MobileSessionPendingBadges {...pendingRequests} />
           </span>
         </>}
@@ -215,12 +215,15 @@ export const MobileSessionRow: React.FC<{
           style={{ paddingInlineStart: geometry.textLeft(depth), touchAction: 'manipulation' }}
           onClick={select}
         >
+          {/* The desktop row's order: the goal, the PR and the requests
+              waiting on the user, then the pin, the done hint, the live
+              state and its time. */}
           {titleText}
+          <MobileSessionGoalGlyph session={session} />
+          {refMark(false)}
+          <MobileSessionPendingBadges {...pendingRequests} />
           {pinMarker}
           {doneHint}
-          {refMark(false)}
-          <MobileSessionGoalGlyph session={session} />
-          <MobileSessionPendingBadges {...pendingRequests} />
           {liveState}
           {timeSlot}
         </button>

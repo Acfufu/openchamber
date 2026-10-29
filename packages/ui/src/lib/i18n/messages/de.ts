@@ -290,7 +290,6 @@ export const dict = {
   'mobile.menu.instances': 'Instanzen',
   'mobile.menu.update': 'Aktualisieren',
   'mobile.menu.settings': 'Einstellungen',
-  'mobile.sessions.footer.more': 'Mehr',
   'mobile.sessions.newChatCta': 'Neuer Chat in {project}',
   'mobile.sessions.dateGroup.today': 'Heute',
   'mobile.sessions.dateGroup.yesterday': 'Gestern',

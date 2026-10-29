@@ -1014,8 +1014,6 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     ...visibleSessionCountByGroup,
     ...visibleActivityCountByKey,
   ]), [visibleActivityCountByKey, visibleSessionCountByGroup]);
-  // A boolean, so a new renderList function each render does not rebuild the model.
-  const phoneList = Boolean(view.renderList);
   const sidebarRowModel = React.useMemo(() => buildSessionSidebarRowModel({
     mode: view.hasSessionSearchQuery ? 'search' : 'normal',
     sections: orderedSectionsForRender,
@@ -1051,11 +1049,10 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     singleProjectId: selectedSingleProjectId,
     showOnlyMainWorkspace: view.showOnlyMainWorkspace,
     hideDirectoryControls: view.hideDirectoryControls,
-    // The phone's zone headers have their own look and no caption.
-    projectsCaption: !phoneList && !view.hideDirectoryControls,
+    projectsCaption: !view.hideDirectoryControls,
     sessionBatchSize: singleProjectMode && !view.useGroupedSections ? 20 : undefined,
     runIndex,
-  }), [runIndex, chatGroup, showChatsSection, projectView.collapsedActivities, pinnedItems, pinnedWorktreeEntries, workEntries, timeEntries, draftPlacement, movedSessionIds, movedGroupKeys, zoneSessionIds, detailedZoneRows, collapsedFolderIds, collection.pinnedSessionIds, expandedParents, folderAuthorityByOwner, foldersMap, groupSearchDataByGroup, groupStatusByKey, orderedSectionsForRender, projectSections, collapsedGroups, projectView.collapsedProjects, selectedSingleProjectId, sessionOrderIndex, singleProjectMode, view.activeProjectId, view.hasSessionSearchQuery, view.hideDirectoryControls, view.normalizedSessionSearchQuery, view.showOnlyMainWorkspace, view.useGroupedSections, phoneList, visibleCountByContainer, worktreeArchiveAnchors, liveSpaceIds]);
+  }), [runIndex, chatGroup, showChatsSection, projectView.collapsedActivities, pinnedItems, pinnedWorktreeEntries, workEntries, timeEntries, draftPlacement, movedSessionIds, movedGroupKeys, zoneSessionIds, detailedZoneRows, collapsedFolderIds, collection.pinnedSessionIds, expandedParents, folderAuthorityByOwner, foldersMap, groupSearchDataByGroup, groupStatusByKey, orderedSectionsForRender, projectSections, collapsedGroups, projectView.collapsedProjects, selectedSingleProjectId, sessionOrderIndex, singleProjectMode, view.activeProjectId, view.hasSessionSearchQuery, view.hideDirectoryControls, view.normalizedSessionSearchQuery, view.showOnlyMainWorkspace, view.useGroupedSections, visibleCountByContainer, worktreeArchiveAnchors, liveSpaceIds]);
   React.useEffect(() => {
     onSearchMatchCountChange(sidebarRowModel.searchMatchCount);
   }, [onSearchMatchCountChange, sidebarRowModel.searchMatchCount]);

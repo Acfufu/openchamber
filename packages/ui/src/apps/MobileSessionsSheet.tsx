@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { DirectoryExplorerDialog } from '@/components/session/DirectoryExplorerDialog';
 import { Icon } from '@/components/icon/Icon';
+import type { IconName } from '@/components/icon/icons';
 import { NewWorktreeDialog } from '@/components/session/NewWorktreeDialog';
 import { SessionSidebar } from '@/components/session/SessionSidebar';
 import { SessionSearchInput } from '@/components/session/SessionSearchInput';
@@ -400,6 +401,40 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     </Button>
   ) : null;
 
+  // The pages the list opens, last among the list's own controls, as the
+  // desktop header's More menu.
+  const pageItem = (icon: IconName, label: string, onClick: () => void) => (
+    <DropdownMenuItem onClick={onClick} className={MOBILE_MENU_ITEM_CLASS}>
+      <span className="flex items-center gap-2">
+        <Icon name={icon} className="size-4" />
+        {label}
+      </span>
+    </DropdownMenuItem>
+  );
+  const moreMenu = footer && !editingOrder ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="chip"
+          size="sm"
+          aria-label={t('sessions.sidebar.header.actions.more')}
+          title={t('sessions.sidebar.header.actions.more')}
+          style={{ touchAction: 'manipulation' }}
+        >
+          <Icon name="more" className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {footer.onOpenOverview ? pageItem('compass-3', t('overview.title'), footer.onOpenOverview) : null}
+        {pageItem('git-pull-request', t('sourceBoard.title'), footer.onOpenSourceBoard)}
+        {pageItem('calendar-schedule', t('sessions.sidebar.header.actions.scheduledTasks'), footer.onOpenScheduled)}
+        {pageItem('archive', t('sessions.sidebar.nav.archive'), footer.onOpenArchive)}
+        {pageItem('bar-chart', t('usageStats.openAction'), footer.onOpenUsage)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
+
   // The new-session button keeps the outer right edge whatever else is showing:
   // it is the one action people reach for without looking, so it must not slide
   // around as the icons beside it come and go.
@@ -407,6 +442,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     <>
       {addProjectButton}
       {displayMenu}
+      {moreMenu}
       {doneEditingButton}
       {newChatButton}
     </>
@@ -474,12 +510,10 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
           </MobileSidebarActionsProvider>
         </div>
 
-        {/* App-level footer: the connected instance (Capacitor) on the left;
-            on the right the pages opened less often behind "More", then a
-            pending web update, the overview, the issues board and Settings.
-            Settings is the one filled button; the rest are flat, as the
-            header's. Bottom placement keeps the header for list actions and
-            stays thumb-reachable. */}
+        {/* App-level footer, as the desktop sidebar's: the connected
+            instance (Capacitor) on the left, a pending web update and
+            Settings on the right. The pages the list opens are in the
+            header's More menu. */}
         {footer ? (
           <div
             className="flex shrink-0 items-center justify-between gap-2 border-t border-edge px-3 pt-1.5"
@@ -502,41 +536,6 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="chip"
-                    size="lg"
-                    className="w-10 shrink-0 px-0"
-                    aria-label={t('mobile.sessions.footer.more')}
-                    title={t('mobile.sessions.footer.more')}
-                    style={{ touchAction: 'manipulation' }}
-                  >
-                    <Icon name="more" className="size-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="end" className="w-56">
-                  <DropdownMenuItem onClick={footer.onOpenScheduled} className={MOBILE_MENU_ITEM_CLASS}>
-                    <span className="flex items-center gap-2">
-                      <Icon name="calendar-schedule" className="size-4" />
-                      {t('sessions.sidebar.header.actions.scheduledTasks')}
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={footer.onOpenArchive} className={MOBILE_MENU_ITEM_CLASS}>
-                    <span className="flex items-center gap-2">
-                      <Icon name="archive" className="size-4" />
-                      {t('sessions.sidebar.nav.archive')}
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={footer.onOpenUsage} className={MOBILE_MENU_ITEM_CLASS}>
-                    <span className="flex items-center gap-2">
-                      <Icon name="bar-chart" className="size-4" />
-                      {t('usageStats.openAction')}
-                    </span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
               {footer.onOpenUpdate ? (
                 <Button
                   type="button"
@@ -552,32 +551,6 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
                   <span className="absolute inset-e-2 top-2 inline-flex size-2 rounded-full bg-primary" aria-hidden />
                 </Button>
               ) : null}
-              {footer.onOpenOverview ? (
-                <Button
-                  type="button"
-                  variant="chip"
-                  size="lg"
-                  className="w-10 px-0"
-                  onClick={footer.onOpenOverview}
-                  aria-label={t('overview.title')}
-                  title={t('overview.title')}
-                  style={{ touchAction: 'manipulation' }}
-                >
-                  <Icon name="compass-3" className="size-5" />
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="chip"
-                size="lg"
-                className="w-10 px-0"
-                onClick={footer.onOpenSourceBoard}
-                aria-label={t('sourceBoard.title')}
-                title={t('sourceBoard.title')}
-                style={{ touchAction: 'manipulation' }}
-              >
-                <Icon name="git-pull-request" className="size-5" />
-              </Button>
               <Tooltip>
               <TooltipTrigger asChild>
               <Button

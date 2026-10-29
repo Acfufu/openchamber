@@ -335,7 +335,6 @@ export const dict: Record<I18nKey, string> = {
   'mobile.menu.instances': '執行個體',
   'mobile.menu.update': '更新',
   'mobile.menu.settings': '設定',
-  'mobile.sessions.footer.more': '更多',
   'mobile.sessions.newChatCta': '在 {project} 中新增聊天',
   'mobile.sessions.dateGroup.today': '今天',
   'mobile.sessions.dateGroup.yesterday': '昨天',

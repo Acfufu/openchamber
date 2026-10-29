@@ -334,7 +334,6 @@ export const dict = {
   'mobile.menu.instances': 'Instanties',
   'mobile.menu.update': 'Bijwerken',
   'mobile.menu.settings': 'Instellingen',
-  'mobile.sessions.footer.more': 'Meer',
   'mobile.sessions.newChatCta': 'Nieuwe chat in {project}',
   'mobile.sessions.dateGroup.today': 'Vandaag',
   'mobile.sessions.dateGroup.yesterday': 'Gisteren',
