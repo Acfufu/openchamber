@@ -183,6 +183,31 @@ test('keyboard geometry is written only through mobileKeyboardInsets', () => {
   expect(writers).toEqual([]);
 });
 
+/**
+ * Whatever reads the keyboard's height takes it into its layout once, where
+ * the change is invisible, and what sits at its bottom rides the keyboard on
+ * a transform (`data-keyboard-rider`). A layout property transitioning with
+ * the keyboard re-lays the page out on every frame on the main thread and
+ * climbs in 60 Hz steps beside it.
+ */
+test('no layout property transitions with the keyboard', () => {
+  const LAYOUT = /^(top|bottom|left|right|inset|height|max-height|min-height|width|padding|padding-bottom|margin|margin-bottom|all)$/;
+  const found: string[] = [];
+  for (const file of sourceFiles.filter((name) => name.endsWith('.css'))) {
+    for (const { selector, body } of cssRules(read(file))) {
+      if (!/var\(--oc-(keyboard-inset|kb-layout|kb-scroll-inset)/.test(body)) continue;
+      const shorthand = declaration(body, 'transition');
+      const properties = [
+        ...(shorthand ? splitTopLevel(shorthand).map(shorthandProperty) : []),
+        ...splitTopLevel(declaration(body, 'transition-property') ?? ''),
+      ];
+      const moving = properties.filter((property) => LAYOUT.test(property));
+      if (moving.length > 0) found.push(`${file}: ${selector} (${moving.join(', ')})`);
+    }
+  }
+  expect(found).toEqual([]);
+});
+
 // Without it an iPhone caps the app's own animations at 60 Hz while the
 // keyboard beside them runs at 120 Hz.
 test('the iOS app opts in to 120 Hz animation', () => {
