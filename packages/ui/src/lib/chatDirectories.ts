@@ -4,9 +4,10 @@ import { runtimeFetch } from '@/lib/runtime-fetch';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 
 export const CHAT_DRAFT_PROJECT_ID = 'openchamber:chats';
-type ChatRoots = { configured: string; legacy: string };
+type ChatRoots = { configured: string; legacy: string; canonicalConfigured: string; canonicalLegacy: string };
 const chatsRootByRuntime = new Map<string, Promise<ChatRoots>>();
 const chatsRootCacheByRuntime = new Map<string, ChatRoots>();
+const chatsRootListeners = new Set<() => void>();
 
 const joinPath = (base: string, ...parts: string[]): string =>
   [base.replace(/[\\/]+$/, ''), ...parts].join('/');
@@ -29,8 +30,10 @@ export function getChatsRootFromDirectory(directory: string | null | undefined):
   const normalized = normalizePath(directory);
   const roots = cachedRoots();
   if (!normalized || !roots) return null;
-  if (isWithinRoot(normalized, roots.configured)) return roots.configured;
-  return isWithinRoot(normalized, roots.legacy) ? roots.legacy : null;
+  // Canonical aliases come from the server's filesystem, not client-side case
+  // folding. Keep returning the original root identity for folders and scopes.
+  if (isWithinRoot(normalized, roots.configured) || isWithinRoot(normalized, roots.canonicalConfigured)) return roots.configured;
+  return isWithinRoot(normalized, roots.legacy) || isWithinRoot(normalized, roots.canonicalLegacy) ? roots.legacy : null;
 }
 
 export function isChatDirectoryPath(directory: string | null | undefined): boolean {
@@ -44,20 +47,37 @@ export function isChatDirectoryForHome(directory: string | null | undefined, hom
   return Boolean(normalized && legacy && isWithinRoot(normalized, legacy));
 }
 
-export function getChatsRootForHome(home: string | null | undefined): string | null {
-  return cachedRoots()?.configured ?? legacyRootForHome(home);
+/**
+ * The chats root the server named, or null until it has. Never a guess: with
+ * OPENCHAMBER_DATA_DIR the root is outside the home, and the home's legacy
+ * folder does not exist, so a guessed root failed to open.
+ */
+export function getChatsRoot(): string | null {
+  return cachedRoots()?.configured ?? null;
+}
+
+/** Notifies once the server names a chats root for a runtime. */
+export function subscribeChatsRoot(listener: () => void): () => void {
+  chatsRootListeners.add(listener);
+  return () => chatsRootListeners.delete(listener);
 }
 
 async function getChatRoots(): Promise<ChatRoots> {
   const runtimeKey = getRuntimeKey();
   const existing = chatsRootByRuntime.get(runtimeKey);
   if (existing) return existing;
-  const pending = opencodeClient.getFilesystemHomeInfo().then(({ home, chatsRoot }) => {
+  const pending = opencodeClient.getFilesystemHomeInfo().then(({ home, chatsRoot, canonicalChatsRoot, canonicalLegacyChatsRoot }) => {
     const legacy = legacyRootForHome(home);
     const configured = normalizePath(chatsRoot) ?? legacy;
     if (!legacy || !configured) throw new Error('Unable to resolve chat directories');
-    const roots = { configured, legacy };
+    const roots = {
+      configured,
+      legacy,
+      canonicalConfigured: normalizePath(canonicalChatsRoot) ?? configured,
+      canonicalLegacy: normalizePath(canonicalLegacyChatsRoot) ?? legacy,
+    };
     chatsRootCacheByRuntime.set(runtimeKey, roots);
+    for (const listener of chatsRootListeners) listener();
     return roots;
   }).catch((error) => {
     chatsRootByRuntime.delete(runtimeKey);
@@ -70,6 +90,15 @@ async function getChatRoots(): Promise<ChatRoots> {
 /** Required before a global snapshot can classify or persist managed chats. */
 export async function ensureChatsRootDirectory(): Promise<void> {
   await getChatRoots();
+}
+
+/**
+ * The chats root from the server's answer itself. The cache behind
+ * `getChatsRoot` is keyed by the runtime key at request time, which can still
+ * change while the page starts up.
+ */
+export async function resolveChatsRootDirectory(): Promise<string> {
+  return (await getChatRoots()).configured;
 }
 
 export function warmChatsRootDirectory(): Promise<void> {
@@ -94,8 +123,9 @@ export async function deleteChatDirectory(directory: string): Promise<void> {
   const roots = await getChatRoots();
   if (getRuntimeKey() !== runtimeKey) throw new Error('Runtime changed while deleting chat directory');
   // A session may own a descendant, never either shared chats root itself.
-  if (normalized === roots.configured || normalized === roots.legacy) return;
-  if (!isWithinRoot(normalized, roots.configured) && !isWithinRoot(normalized, roots.legacy)) return;
+  const allowedRoots = [roots.configured, roots.legacy, roots.canonicalConfigured, roots.canonicalLegacy];
+  if (allowedRoots.includes(normalized)) return;
+  if (!allowedRoots.some(root => isWithinRoot(normalized, root))) return;
   const response = await runtimeFetch('/api/fs/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -8,11 +8,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { agentLabel } from '@/lib/agentLabel';
 import { isPrimaryMode } from '@/components/chat/mobileControlsUtils';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useI18n } from '@/lib/i18n';
 
-export interface AgentSelectorProps {
+interface AgentSelectorProps {
   /** Currently selected agent name (empty string for no agent) */
   value: string;
   /** Called when agent selection changes */
@@ -91,7 +92,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     >
       <SelectTrigger
         id={id}
-        size="lg"
         className={cn('max-w-full', className)}
       >
         <SelectValue placeholder={t('multirun.agentSelector.placeholder')} />
@@ -105,7 +105,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 value={agent.name}
                 className="w-auto whitespace-nowrap"
               >
-                {agent.name}
+                {agentLabel(agent)}
               </SelectItem>
             ))}
           </SelectGroup>

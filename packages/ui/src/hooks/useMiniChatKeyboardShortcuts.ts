@@ -1,6 +1,7 @@
 import React from 'react';
 import { focusChatInput } from '@/components/chat/composer/editor/dom';
-import { canUseElectronDesktopIPC, invokeDesktop } from '@/lib/desktop';
+import { canUseElectronDesktopIPC, getMiniChatRuntimeArgs, invokeDesktop } from '@/lib/desktop';
+import { getNextFavoriteModel } from '@/lib/modelRefs';
 import { ShortcutDispatcher, getEffectiveShortcutCombo, shortcutRegistry } from '@/lib/shortcuts';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useUIStore } from '@/stores/useUIStore';
@@ -26,22 +27,26 @@ export const useMiniChatKeyboardShortcuts = () => {
 
   const cycleFavoriteModel = (delta: number): boolean | void => {
     if (hasActiveBtwComposer()) return false;
-    const { favoriteModels, addRecentModel } = useUIStore.getState();
-    if (favoriteModels.length === 0) return false;
-
+    const { favoriteModels, hiddenModels, addRecentModel, setLastSelectedModel } = useUIStore.getState();
     const {
+      providers,
       currentProviderId,
       currentModelId,
       setProvider,
       setModel,
     } = useConfigStore.getState();
-    const currentIndex = favoriteModels.findIndex(
-      (favorite) => favorite.providerID === currentProviderId && favorite.modelID === currentModelId,
+    const next = getNextFavoriteModel(
+      favoriteModels,
+      providers,
+      hiddenModels,
+      { providerID: currentProviderId, modelID: currentModelId },
+      delta,
     );
-    const next = favoriteModels[(currentIndex + delta + favoriteModels.length) % favoriteModels.length];
+    if (!next) return false;
     setProvider(next.providerID);
     setModel(next.modelID);
     addRecentModel(next.providerID, next.modelID);
+    setLastSelectedModel(next.providerID, next.modelID);
   };
 
   useKeybinds({
@@ -53,6 +58,7 @@ export const useMiniChatKeyboardShortcuts = () => {
       void invokeDesktop('desktop_open_draft_mini_chat_window', {
         directory: '',
         projectId: null,
+        ...getMiniChatRuntimeArgs(),
       })?.catch((error) => {
         console.warn('[mini-chat-shortcuts] failed to open draft mini chat window', error);
       });
@@ -93,6 +99,11 @@ export const useMiniChatKeyboardShortcuts = () => {
     },
     cycle_favorite_model_forward: () => cycleFavoriteModel(1),
     cycle_favorite_model_backward: () => cycleFavoriteModel(-1),
+    toggle_dictation: () => {
+      if (hasActiveBtwComposer()) return false;
+      // Same event the main app dispatches; ComposerDictation listens for it.
+      window.dispatchEvent(new CustomEvent('openchamber:dictation-toggle'));
+    },
   });
 
   React.useEffect(() => {

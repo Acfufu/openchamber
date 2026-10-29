@@ -27,16 +27,21 @@ export function useSessionAiRename(sessionID: string, directory: string | null |
       throw new Error('Session moved');
     }
     const store = childStores.ensureChild(directory, { bootstrap: false });
-    const turns = await loadSessionTitleTurns({
-      loader: messageLoader,
-      target: { directory, sessionID },
-      getRecords: () => buildSessionMessageRecordsSnapshot(store.getState(), sessionID).list,
-      revertMessageID: session.revert?.messageID,
-      signal,
-    });
-    signal.throwIfAborted();
-    if (getRuntimeKey() !== runtimeKey) throw new Error('Runtime changed');
-    return { session, turns };
+    const release = messageLoader.retainSessionHistory({ directory, sessionID });
+    try {
+      const turns = await loadSessionTitleTurns({
+        loader: messageLoader,
+        target: { directory, sessionID },
+        getRecords: () => buildSessionMessageRecordsSnapshot(store.getState(), sessionID).list,
+        revertMessageID: session.revert?.messageID,
+        signal,
+      });
+      signal.throwIfAborted();
+      if (getRuntimeKey() !== runtimeKey) throw new Error('Runtime changed');
+      return { session, turns };
+    } finally {
+      release();
+    }
   }, [childStores, directory, messageLoader, runtimeKey, sessionID]);
 
   const rename = useCallback(async () => {
@@ -45,9 +50,9 @@ export function useSessionAiRename(sessionID: string, directory: string | null |
       await generateAndSaveSessionTitle({
         signal,
         prepare,
-        generate: (turns, requestSignal) => generateSessionTitle({ turns, directory, sessionID, signal: requestSignal }),
+        generate: (session, turns, requestSignal) => generateSessionTitle({ turns, currentTitle: session.title, directory, signal: requestSignal }),
         readSession: () => opencodeClient.getSession(sessionID, directory),
-        saveTitle: (title, requestSignal) => updateSessionTitle(sessionID, title, { directory, expectedRuntimeKey: runtimeKey, signal: requestSignal }),
+        saveTitle: (title, requestSignal) => updateSessionTitle(sessionID, title, { directory, expectedRuntimeKey: runtimeKey, signal: requestSignal, byUser: true }),
       });
     });
   }, [directory, prepare, runtimeKey, sessionID]);

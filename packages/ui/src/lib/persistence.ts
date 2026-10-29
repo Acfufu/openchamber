@@ -191,6 +191,7 @@ const persistToLocalStorage = (settings: DesktopSettings) => {
   setOrRemoveLocalStorage('sttModel', typeof settings.sttModel === 'string' ? settings.sttModel : null);
   setOrRemoveLocalStorage('sttLocalModel', typeof settings.sttLocalModel === 'string' ? settings.sttLocalModel : null);
   setOrRemoveLocalStorage('sttLanguage', typeof settings.sttLanguage === 'string' ? settings.sttLanguage : null);
+  setOrRemoveLocalStorage('sttCorrectTranscript', settings.sttCorrectTranscript === undefined ? null : String(settings.sttCorrectTranscript));
 };
 
 export interface SettingsSyncedDetail {
@@ -237,6 +238,7 @@ export const subscribeToSettingsSaveState = (listener: () => void): (() => void)
  * their own APIs instead of updateDesktopSettings. 'error' resets to idle.
  */
 export const reportSettingsSaveState = (state: 'saving' | 'saved' | 'error'): void => {
+  ensureSettingsRuntimeLifecycle();
   dispatchSettingsSaveState(state);
 };
 
@@ -295,7 +297,7 @@ type SettingsWrite = {
   changes: Partial<DesktopSettings>;
 };
 /** Whether a settings write reached its store. A no-op (nothing to send) counts as ok. */
-export type SettingsWriteResult = { ok: boolean };
+type SettingsWriteResult = { ok: boolean };
 type SettingsMutation = { revision: number; changes: Partial<DesktopSettings> };
 type SettingsOperation = { revision: number };
 
@@ -497,6 +499,7 @@ const ensureSettingsRuntimeLifecycle = (): void => {
     _settingsCache = null;
     _settingsInflight = null;
     _serverKnownSettings = {};
+    dispatchSettingsSaveState('saved');
   });
 
   // Mirror the deferred safe-storage lifecycle: without these listeners, a
@@ -702,8 +705,11 @@ export const syncDesktopSettings = async (options?: { bootstrap?: boolean; adopt
     const webSettings = await fetchWebSettings(context);
     if (webSettings && isSettingsRuntimeContextCurrent(context)) {
       await applySettings(webSettings);
+    } else if (isSettingsRuntimeContextCurrent(context)) {
+      window.dispatchEvent(new Event('openchamber:settings-sync-failed'));
     }
   } catch (error) {
+    if (isSettingsRuntimeContextCurrent(context)) window.dispatchEvent(new Event('openchamber:settings-sync-failed'));
     console.warn('Failed to synchronise settings:', error);
   } finally {
     _settingsMutationTracker.finish(operation);

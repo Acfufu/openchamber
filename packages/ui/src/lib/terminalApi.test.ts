@@ -1,17 +1,18 @@
-import { describe, expect, mock, test } from 'bun:test';
+import { describe, expect, mock, spyOn, test } from 'bun:test';
 import type { TerminalSessionPurpose, TerminalStreamEvent } from './api/types';
 import type { RelayTunnelWebSocket } from './relay/tunnel-client';
 
 let nextFetchResponse = (): Response => new Response(null, { status: 500 });
 mock.module('./runtime-fetch', () => ({ runtimeFetch: async () => nextFetchResponse() }));
-mock.module('./runtime-url', () => ({ getRuntimeUrlResolver: () => ({ websocket: () => 'ws://example.test/terminal' }) }));
+const socketPaths: string[] = [];
+mock.module('./runtime-url', () => ({ getRuntimeUrlResolver: () => ({ websocket: (path: string) => { socketPaths.push(path); return 'ws://example.test/terminal'; } }) }));
 mock.module('./runtime-auth', () => ({
   clearRuntimeUrlAuthToken: () => undefined,
   refreshRuntimeUrlAuthToken: async () => undefined,
 }));
 mock.module('./relay/runtime-socket', () => ({ openRuntimeWebSocket: () => { throw new Error('not used in tests'); } }));
 
-const { createTerminalSession, isTerminalCwdMissingError, parseTerminalSession, parseTerminalSessionPurpose, TerminalRequestError, TerminalTransport } = await import('./terminalApi');
+const { connectTerminalStream, createTerminalSession, disposeTerminalInputTransport, isTerminalCwdMissingError, parseTerminalSession, parseTerminalSessionPurpose, TerminalRequestError, TerminalTransport } = await import('./terminalApi');
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -179,6 +180,72 @@ describe('terminal transport', () => {
     transport.subscribe('term-1', { onEvent: (event) => thirdEvents.push(`${event.type}:${event.data ?? ''}`) });
     expect(thirdEvents).toEqual(['snapshot:prompt next']);
     transport.dispose();
+  });
+
+  test('keeps projection encoding proportional to new output after the history fills', async () => {
+    const socket = new FakeSocket();
+    const transport = new TerminalTransport({ refreshAuth: async () => '', openSocket: () => socket });
+    transport.subscribe('term-1', { onEvent: () => {} });
+    await tick();
+    socket.open();
+    await tick();
+
+    socket.emit({ t: 'snapshot', v: 3, s: 'term-1', q: 0, history: 'x'.repeat(512 * 1024), status: 'running' });
+    let encoded = 0;
+    const originalEncode = TextEncoder.prototype.encode;
+    const encode = spyOn(TextEncoder.prototype, 'encode').mockImplementation(function (this: TextEncoder, value?: string) {
+      encoded += value?.length ?? 0;
+      return originalEncode.call(this, value);
+    });
+    try {
+      const chunk = 'y'.repeat(4096);
+      for (let sequence = 1; sequence <= 128; sequence += 1) {
+        socket.emit({ t: 'output', v: 3, s: 'term-1', q: sequence, d: chunk });
+      }
+      expect(encoded).toBeLessThan(8 * 1024 * 1024);
+      const replay: string[] = [];
+      transport.subscribe('term-1', { onEvent: (event) => { if (event.type === 'snapshot') replay.push(event.data ?? ''); } });
+      expect(replay).toEqual(['y'.repeat(512 * 1024)]);
+    } finally {
+      encode.mockRestore();
+      transport.dispose();
+    }
+  });
+
+  test('replays UTF-8-aligned history across output, split surrogates, and restart', async () => {
+    const socket = new FakeSocket();
+    const transport = new TerminalTransport({ refreshAuth: async () => '', openSocket: () => socket });
+    transport.subscribe('term-1', { onEvent: () => {} });
+    await tick();
+    socket.open();
+    await tick();
+
+    const lateHistory = (): string => {
+      let history = '';
+      const unsubscribe = transport.subscribe('term-1', {
+        onEvent: (event) => { if (event.type === 'snapshot') history = event.data ?? ''; },
+      });
+      unsubscribe();
+      return history;
+    };
+    try {
+      const cap = 512 * 1024;
+      socket.emit({ t: 'snapshot', v: 3, s: 'term-1', q: 0, history: 'x'.repeat(cap - 2), status: 'running' });
+      socket.emit({ t: 'output', v: 3, s: 'term-1', q: 1, d: '\u6f22' });
+      expect(lateHistory()).toBe('x'.repeat(cap - 3) + '\u6f22');
+
+      socket.emit({ t: 'snapshot', v: 3, s: 'term-1', q: 2, history: 'a'.repeat(cap - 4) + '\ud83d', status: 'running' });
+      expect(lateHistory()).toBe('a'.repeat(cap - 4) + '\ud83d');
+      socket.emit({ t: 'output', v: 3, s: 'term-1', q: 3, d: '\ude00' });
+      expect(lateHistory()).toBe('a'.repeat(cap - 4) + '\ud83d\ude00');
+
+      socket.emit({ t: 'output', v: 3, s: 'term-1', q: 4, d: 'b'.repeat(cap + 9) });
+      expect(lateHistory()).toBe('b'.repeat(cap));
+      socket.emit({ t: 'restarted', v: 3, s: 'term-1', q: 5, history: '' });
+      expect(lateHistory()).toBe('');
+    } finally {
+      transport.dispose();
+    }
   });
 
   test('recovers when opening the first websocket fails', async () => {
@@ -502,5 +569,24 @@ describe('terminal transport', () => {
       { t: 'write', v: 3, s: 'term-1', d: 'bun run dev\r' },
     ]);
     transport.dispose();
+  });
+});
+
+describe('one terminal socket per target', () => {
+  test('a terminal inside an isolated space is attached over that space\'s socket, a host terminal over the host\'s', async () => {
+    socketPaths.length = 0;
+    const SPACE = 'a1b2c3d4e5f6';
+    const errors: unknown[] = [];
+    const onError = (error: unknown) => { errors.push(error); };
+    const stopHost = connectTerminalStream('t-host', () => undefined, onError, '/home/me/app');
+    const stopSpace = connectTerminalStream('t-space', () => undefined, onError, `/spaces/${SPACE}/app`);
+    const stopSpaceAgain = connectTerminalStream('t-space-2', () => undefined, onError, `/spaces/${SPACE}/app/src`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The dial fails in this test, which is fine: the path is what is under test.
+    expect(socketPaths).toEqual(['/api/terminal/ws', `/api/terminal/ws?directory=${encodeURIComponent(`/spaces/${SPACE}`)}`]);
+    stopHost();
+    stopSpace();
+    stopSpaceAgain();
+    disposeTerminalInputTransport();
   });
 });

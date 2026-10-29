@@ -4,6 +4,7 @@ import { Icon } from '@/components/icon/Icon';
 import { useI18n } from '@/lib/i18n';
 import { getSettingsSaveState, subscribeToSettingsSaveState } from '@/lib/persistence';
 import { cn } from '@/lib/utils';
+import { SettingsScrollbarTopClearanceContext } from '@/components/sections/shared/settingsScrollbarClearance';
 import {
   SETTINGS_DESCRIPTION_CLASS,
   SETTINGS_PAGE_TITLE_CLASS,
@@ -24,10 +25,20 @@ interface SettingsPageLayoutProps {
   headerEnd?: React.ReactNode;
   /** Show persistence feedback for instant-save settings. */
   showSaveStatus?: boolean;
+  /**
+   * Commit-on-blur for autosaving pages: fires for every focus leaving the
+   * page content, so a text field does not need its own handler.
+   */
+  onBlurCapture?: React.FocusEventHandler;
   /** Additional className for the content container */
   className?: string;
   /** Additional className for the outer ScrollableOverlay */
   outerClassName?: string;
+  /**
+   * The content is at least as tall as the pane, so a `flex-1` child (an
+   * editor) takes the height left under the fields; taller content scrolls.
+   */
+  fillHeight?: boolean;
 }
 
 /**
@@ -44,24 +55,30 @@ export const SettingsPageLayout: React.FC<SettingsPageLayoutProps> = ({
   description,
   headerEnd,
   showSaveStatus = false,
+  onBlurCapture,
+  fillHeight = false,
 }) => {
+  const scrollbarTopClearance = React.useContext(SettingsScrollbarTopClearanceContext);
   const hasHeader = title != null || description != null || headerEnd != null || showSaveStatus;
   const isPlainTitle = typeof title === 'string' || typeof title === 'number';
   const hasTitleChrome = titleLeading != null || titleAccessory != null;
 
   return (
     <ScrollableOverlay
-      outerClassName={cn('h-full', outerClassName)}
-      className="w-full @container"
+      outerClassName={cn('h-full overlay-scrollbar-wrapper--stable-gutter', outerClassName)}
+      className={cn('w-full @container', fillHeight && 'flex flex-col')}
+      verticalTrackStart={scrollbarTopClearance}
     >
       <div
         className={cn(
           'mx-auto max-w-[840px] space-y-0 px-6 py-6 @3xl:px-12 @3xl:py-8',
+          fillHeight && 'flex w-full flex-1 flex-col',
           // The first visible section never needs the top divider, no matter
           // which platform-conditional sections above it rendered null.
           '[&>section:first-of-type]:border-t-0 [&>section:first-of-type]:pt-0',
           className
         )}
+        onBlurCapture={onBlurCapture}
       >
         {hasHeader && (
           // Wraps rather than squeezes. The action cluster never shrinks, so on

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { strToU8, zipSync } from "fflate"
 import { useInputStore } from "./input-store"
+import { getChatDraftIdentityKey } from "@/lib/chatDraftPersistence"
 
 class MockFileReader {
   result: string | ArrayBuffer | null = null
@@ -90,10 +91,22 @@ describe("input-store attachments", () => {
       pendingInputText: null,
       pendingInputMode: "replace",
       pendingSyntheticParts: null,
+      pendingGuestIssue: null,
       pendingBtwComposerRequest: null,
       activeEditorFile: null,
+      attachmentDraftKey: null,
+      attachmentDrafts: new Map(),
     })
     useInputStore.getState().setAttachedFiles([])
+  })
+
+  testWithMockFileReader("refuses a file over 10 MB without reading it when it has no path on disk", async () => {
+    const big = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "place.rbxl")
+
+    await expect(useInputStore.getState().addAttachedFile(big)).rejects.toThrow("place.rbxl")
+
+    expect(pendingReaders).toHaveLength(0)
+    expect(useInputStore.getState().attachedFiles).toEqual([])
   })
 
   testWithMockFileReader("does not attach a local file that finishes reading after attachments are cleared", async () => {
@@ -107,6 +120,24 @@ describe("input-store attachments", () => {
     expect(useInputStore.getState().attachedFiles).toEqual([])
   })
 
+  testWithMockFileReader("rejects pending file and selection reads after switching drafts, even after returning", async () => {
+    const source = { runtimeKey: "runtime", directory: "/repo", sessionId: "source" }
+    const input = useInputStore.getState()
+    input.selectAttachmentDraft(source)
+    input.addRestoredAttachment({ url: "data:text/plain;base64,aGVsbG8=", mimeType: "text/plain", filename: "ready.txt" })
+    const ready = useInputStore.getState().attachedFiles
+    const local = input.addAttachedFile(new File(["hello"], "hello.txt", { type: "text/plain" }))
+    const selection = input.addVSCodeSelectionAttachment("/repo/code.ts", new File(["hello"], "selection.ts", { type: "text/plain" }))
+    expect(pendingReaders).toHaveLength(2)
+    input.selectAttachmentDraft({ ...source, sessionId: "other" })
+    expect(useInputStore.getState().attachedFiles).toEqual([])
+    input.selectAttachmentDraft(source)
+    for (const reader of pendingReaders) resolveReader(reader, "data:text/plain;base64,aGVsbG8=")
+    expect(await local).toBe(false)
+    await selection
+    expect(useInputStore.getState().attachedFiles).toBe(ready)
+  })
+
   testWithMockFileReader("does not attach a local file after attached files are replaced", async () => {
     const addPromise = useInputStore.getState().addAttachedFile(new File(["hello"], "hello.txt", { type: "text/plain" }))
     expect(pendingReaders).toHaveLength(1)
@@ -115,6 +146,25 @@ describe("input-store attachments", () => {
     resolveReader(pendingReaders[0], "data:text/plain;base64,aGVsbG8=")
     await addPromise
 
+    expect(useInputStore.getState().attachedFiles).toEqual([])
+  })
+
+  testWithMockFileReader("a pending selection in another draft does not block the same selection here", async () => {
+    const source = { runtimeKey: "runtime", directory: "/repo", sessionId: "source" }
+    const input = useInputStore.getState()
+    const file = new File(["hello"], "selection.ts", { type: "text/plain" })
+    input.selectAttachmentDraft(source)
+    const first = input.addVSCodeSelectionAttachment("/repo/code.ts", file)
+    input.selectAttachmentDraft({ ...source, sessionId: "other" })
+    const second = input.addVSCodeSelectionAttachment("/repo/code.ts", file)
+    expect(pendingReaders).toHaveLength(2)
+    // A repeated selection of the current identity must not cancel its read.
+    input.selectAttachmentDraft({ ...source, sessionId: "other" })
+    input.clearAttachedFiles(source)
+    for (const reader of pendingReaders) resolveReader(reader, "data:text/plain;base64,aGVsbG8=")
+    await Promise.all([first, second])
+    expect(useInputStore.getState().attachedFiles.map((attachment) => attachment.filename)).toEqual(["selection.ts"])
+    input.selectAttachmentDraft(source)
     expect(useInputStore.getState().attachedFiles).toEqual([])
   })
 
@@ -150,6 +200,33 @@ describe("input-store attachments", () => {
     await addPromise
 
     expect(useInputStore.getState().attachedFiles).toEqual([])
+  })
+
+  test("moves the selected draft's files onto another draft, merged with its own", () => {
+    const parent = { runtimeKey: "runtime", directory: "/repo", sessionId: "parent" }
+    const btw = { ...parent, sessionId: "btw-pending:parent" }
+    const input = useInputStore.getState()
+    input.selectAttachmentDraft(btw)
+    input.addRestoredAttachment({ url: "data:text/plain;base64,aGVsbG8=", mimeType: "text/plain", filename: "earlier.txt" })
+    input.selectAttachmentDraft(parent)
+    input.addRestoredAttachment({ url: "data:image/png;base64,AQID", mimeType: "image/png", filename: "image-1.png" })
+
+    input.moveAttachedFiles(parent, btw)
+
+    expect(useInputStore.getState().attachedFiles).toEqual([])
+    input.selectAttachmentDraft(btw)
+    expect(useInputStore.getState().attachedFiles.map((file) => file.filename)).toEqual(["earlier.txt", "image-1.png"])
+    input.selectAttachmentDraft(parent)
+    expect(useInputStore.getState().attachedFiles).toEqual([])
+  })
+
+  test("leaves files in place when the drafts are the same", () => {
+    const parent = { runtimeKey: "runtime", directory: "/repo", sessionId: "parent" }
+    const input = useInputStore.getState()
+    input.selectAttachmentDraft(parent)
+    input.addRestoredAttachment({ url: "data:image/png;base64,AQID", mimeType: "image/png", filename: "image-1.png" })
+    input.moveAttachedFiles(parent, { ...parent })
+    expect(useInputStore.getState().attachedFiles.map((file) => file.filename)).toEqual(["image-1.png"])
   })
 
   test("does not leave local file reads pending after a reader error", async () => {
@@ -405,6 +482,41 @@ describe("input-store attachments", () => {
   })
 })
 
+describe("input-store guest attach", () => {
+  beforeEach(() => {
+    useInputStore.setState({ pendingGuestIssue: null })
+  })
+
+  test("holds a guest issue until the composer consumes it", () => {
+    const issue = {
+      providerId: "clickup",
+      id: "abc",
+      title: "Login",
+      url: "https://app.clickup.com/t/abc",
+    }
+    useInputStore.getState().setPendingGuestIssue(issue)
+    expect(useInputStore.getState().pendingGuestIssue).toEqual(issue)
+    expect(useInputStore.getState().consumePendingGuestIssue()).toEqual(issue)
+    expect(useInputStore.getState().pendingGuestIssue).toBeNull()
+    expect(useInputStore.getState().consumePendingGuestIssue()).toBeNull()
+  })
+
+  test("holds a guest pull with author and branches", () => {
+    const pull = {
+      providerId: "gitlab",
+      id: "!12",
+      title: "Fix login",
+      url: "https://gitlab.com/acme/app/-/merge_requests/12",
+      kind: "pull" as const,
+      author: "ada",
+      branches: { head: "feature", base: "main" },
+    }
+    useInputStore.getState().setPendingGuestIssue(pull)
+    expect(useInputStore.getState().pendingGuestIssue).toEqual(pull)
+    expect(useInputStore.getState().consumePendingGuestIssue()).toEqual(pull)
+  })
+})
+
 describe("input-store BTW composer requests", () => {
   test("keeps the request scoped to its parent without changing the normal composer", () => {
     useInputStore.setState({
@@ -426,5 +538,93 @@ describe("input-store BTW composer requests", () => {
     })
     expect(useInputStore.getState().consumePendingBtwComposerRequest("parent-1")).toBeNull()
     expect(useInputStore.getState().pendingInputText).toBe("normal draft")
+  })
+})
+
+describe("input-store pinned composer addressing", () => {
+  beforeEach(() => {
+    useInputStore.setState({
+      pendingInputText: null,
+      pendingInputMode: "replace",
+      pendingInputTarget: null,
+      pendingSyntheticParts: null,
+      pinnedSyntheticParts: new Map(),
+      attachedFiles: [],
+      attachmentDraftKey: null,
+      attachmentDrafts: new Map(),
+    })
+  })
+
+  test("app-wide text reaches the main composer and never a pinned one", () => {
+    useInputStore.getState().setPendingInputText("from a plugin", "append")
+
+    expect(useInputStore.getState().consumePendingInputText("ses_pinned")).toBeNull()
+    expect(useInputStore.getState().consumePendingInputText()).toEqual({ text: "from a plugin", mode: "append" })
+    expect(useInputStore.getState().pendingInputTarget).toBeNull()
+  })
+
+  test("text quoted in a pinned chat reaches only that chat's composer", () => {
+    useInputStore.getState().setPendingInputText("> quoted", "append", "ses_pinned")
+
+    expect(useInputStore.getState().consumePendingInputText()).toBeNull()
+    expect(useInputStore.getState().consumePendingInputText("ses_other")).toBeNull()
+    expect(useInputStore.getState().consumePendingInputText("ses_pinned")).toEqual({ text: "> quoted", mode: "append" })
+    expect(useInputStore.getState().consumePendingInputText("ses_pinned")).toBeNull()
+  })
+
+  test("pending context of the main and a pinned composer stays apart", () => {
+    const main = [{ text: "main context" }]
+    const pinned = [{ text: "pinned context" }]
+    useInputStore.getState().setPendingSyntheticParts(main)
+    useInputStore.getState().setPendingSyntheticParts(pinned, "ses_pinned")
+
+    expect(useInputStore.getState().getPendingSyntheticParts()).toBe(main)
+    expect(useInputStore.getState().consumePendingSyntheticParts("ses_pinned")).toBe(pinned)
+    expect(useInputStore.getState().getPendingSyntheticParts("ses_pinned")).toBeNull()
+    expect(useInputStore.getState().consumePendingSyntheticParts()).toBe(main)
+    expect(useInputStore.getState().pendingSyntheticParts).toBeNull()
+  })
+
+  test("moving the selected attachment slot between two composers keeps both drafts' files", () => {
+    const main = { runtimeKey: "runtime", directory: "/repo", sessionId: "ses_main" }
+    const pinned = { runtimeKey: "runtime", directory: "/repo", sessionId: "ses_pinned" }
+    const file = (id: string) => ({
+      id, file: new File([], `${id}.txt`), dataUrl: "", mimeType: "text/plain", filename: `${id}.txt`, size: 0, source: "local" as const,
+    })
+    const store = useInputStore.getState()
+    store.selectAttachmentDraft(main)
+    store.setAttachedFiles([file("a")])
+    store.setAttachedFiles([file("b")], pinned)
+
+    useInputStore.getState().selectAttachmentDraft(pinned)
+    expect(useInputStore.getState().attachedFiles.map((entry) => entry.id)).toEqual(["b"])
+    expect(useInputStore.getState().attachmentDrafts.get(getChatDraftIdentityKey(main))?.map((entry) => entry.id)).toEqual(["a"])
+
+    useInputStore.getState().selectAttachmentDraft(main)
+    expect(useInputStore.getState().attachedFiles.map((entry) => entry.id)).toEqual(["a"])
+    expect(useInputStore.getState().attachmentDrafts.get(getChatDraftIdentityKey(pinned))?.map((entry) => entry.id)).toEqual(["b"])
+  })
+})
+
+describe("input-store draft submit", () => {
+  beforeEach(() => {
+    useInputStore.setState({ pendingDraftSubmit: null })
+  })
+
+  test("the requested draft takes its first message once", () => {
+    useInputStore.getState().requestDraftSubmit(7, "Fix the build")
+
+    expect(useInputStore.getState().consumePendingDraftSubmit(7)).toBe("Fix the build")
+    expect(useInputStore.getState().consumePendingDraftSubmit(7)).toBeNull()
+  })
+
+  test("another draft or a session drops the message instead of sending it", () => {
+    useInputStore.getState().requestDraftSubmit(7, "Fix the build")
+    expect(useInputStore.getState().consumePendingDraftSubmit(8)).toBeNull()
+    expect(useInputStore.getState().pendingDraftSubmit).toBeNull()
+
+    useInputStore.getState().requestDraftSubmit(7, "Fix the build")
+    expect(useInputStore.getState().consumePendingDraftSubmit(null)).toBeNull()
+    expect(useInputStore.getState().pendingDraftSubmit).toBeNull()
   })
 })

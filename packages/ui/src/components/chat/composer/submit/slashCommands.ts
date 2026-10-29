@@ -9,7 +9,7 @@
  * commands are data.
  *
  * Commands that are not "send a prompt pair" (undo, redo, timeline, compact,
- * handoff-review) stay with the composer: they manipulate session state or
+ * handoff-review, fork) stay with the composer: they manipulate session state or
  * open UI rather than producing a message.
  */
 
@@ -17,7 +17,7 @@ import type { I18nKey } from '@/lib/i18n';
 import type { MagicPromptId } from '@/lib/magicPrompts';
 
 /** What a command needs before it can run. */
-export type CommandRequirement = 'session' | 'session-or-draft';
+type CommandRequirement = 'session' | 'session-or-draft';
 
 export interface MagicPromptCommand {
     /** The name typed after the slash. */
@@ -148,6 +148,7 @@ const LOCAL_ACTION_COMMANDS = new Set([
     'timeline',
     'handoff-review',
     'compact',
+    'fork',
 ]);
 
 /**

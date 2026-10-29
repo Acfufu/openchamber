@@ -8,16 +8,20 @@ import { useViewportStore } from '@/sync/viewport-store';
 import { useSessions, useDirectorySync, useSessionMessages, useSessionMessagesResolved } from '@/sync/sync-context';
 import { useSubagentCostRollup } from '@/components/chat/work-status/useSubagentCostRollup';
 import { useConfigStore } from '@/stores/useConfigStore';
+import { useContextWindowLimits } from '@/hooks/useContextWindowLimits';
 import { resolveGlobalSessionDirectory, useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
-import { contextTokensFromBreakdown } from '@/stores/utils/tokenUtils';
+import { buildSessionContextUsage, isSameContextUsage } from '@/stores/utils/tokenUtils';
 import { ContextUsageDisplay } from '@/components/ui/ContextUsageDisplay';
+import { toContextUsageReading } from '@/components/ui/contextUsageReading';
 import { McpDropdown } from '@/components/mcp/McpDropdown';
 import { ArchiveAllDropdown } from '@/components/session/ArchiveAllDropdown';
 import { SessionSwitcherDropdown } from '@/components/session/SessionSwitcherDropdown';
 import { SessionsTabTitle } from '@/components/session/SessionsTabTitle';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
+import { getVSCodeBootstrapConfig, getVSCodeBootstrapWorkspaceFolder } from '@/lib/vscodeBootstrap';
 import { cn } from '@/lib/utils';
+import { normalizePath } from '@/lib/pathNormalization';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +33,7 @@ import {
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useTerminalSessionKeepalive } from '@/hooks/useTerminalSessionKeepalive';
 import { useUpdatePolling } from '@/hooks/useUpdatePolling';
-import { useI18n } from '@/lib/i18n';
+import { isRightToLeft, useI18n } from '@/lib/i18n';
 import { toast } from '@/components/ui';
 import { ProviderLogo } from '@/components/ui/ProviderLogo';
 import { UsageProgressBar } from '@/components/sections/usage/UsageProgressBar';
@@ -38,14 +42,13 @@ import { formatQuotaValueLabel, formatQuotaResetLabel, formatWindowLabel, QUOTA_
 import { useQuotaAutoRefresh, useQuotaStore } from '@/stores/useQuotaStore';
 import { updateDesktopSettings } from '@/lib/persistence';
 import { formatTimeForPreference } from '@/lib/timeFormat';
-import { lazyWithChunkRecovery } from '@/lib/chunkLoadRecovery';
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from '@/lib/opencode/model';
 import type { UsageWindow } from '@/types';
 import type { SessionContextUsage } from '@/stores/types/sessionTypes';
 import { useUIStore, type TimeFormatPreference } from '@/stores/useUIStore';
 import { useSessionListSync } from '@/components/session/sidebar/list/useSessionListSync';
-
-const SettingsView = lazyWithChunkRecovery(() => import('@/components/views/SettingsView').then(m => ({ default: m.SettingsView })));
+import { RunOverview } from '@/components/multirun/RunOverview';
+import { RunAutoFusion } from '@/lib/multirun/autoFusion';
 
 const formatTime = (timestamp: number | null, timeFormatPreference: TimeFormatPreference) => {
   if (!timestamp) return '-';
@@ -56,8 +59,6 @@ const formatTime = (timestamp: number | null, timeFormatPreference: TimeFormatPr
   }
 };
 
-// Width threshold for mobile vs desktop layout in settings
-const MOBILE_WIDTH_THRESHOLD = 550;
 // Sessions sidebar width in expanded layout
 const SESSIONS_SIDEBAR_WIDTH = 280;
 // Keep enough room for the chat after adding the persistent sessions sidebar.
@@ -65,16 +66,7 @@ const EXPANDED_LAYOUT_THRESHOLD = SESSIONS_SIDEBAR_WIDTH + 520;
 const SESSIONS_SIDEBAR_MIN_WIDTH = Math.round(SESSIONS_SIDEBAR_WIDTH * 0.7);
 const SESSIONS_SIDEBAR_MAX_WIDTH = 520;
 
-const normalizePath = (value?: string | null): string | null => {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const replaced = trimmed.replace(/\\/g, '/');
-  if (replaced === '/') return '/';
-  return replaced.length > 1 ? replaced.replace(/\/+$/, '') : replaced;
-};
-
-type VSCodeView = 'sessions' | 'chat' | 'settings';
+type VSCodeView = 'sessions' | 'chat';
 
 export const VSCodeLayout: React.FC = () => {
   const { t } = useI18n();
@@ -100,6 +92,14 @@ export const VSCodeLayout: React.FC = () => {
     return null;
   }, []);
 
+  // The "Run on several models" command opens a new-session tab whose draft
+  // starts in parallel mode.
+  const initialParallelComposer = React.useMemo<boolean>(() => getVSCodeBootstrapConfig()?.initialComposer === 'parallel', []);
+
+  const bootstrapWorkspaceFolder = React.useMemo<string | null>(() => {
+    return getVSCodeBootstrapWorkspaceFolder();
+  }, []);
+
   const hasAppliedInitialSession = React.useRef(false);
 
   const bootDraftOpen = React.useMemo(() => {
@@ -111,10 +111,6 @@ export const VSCodeLayout: React.FC = () => {
   }, []);
 
   const [currentView, setCurrentView] = React.useState<VSCodeView>(() => (bootDraftOpen ? 'chat' : 'sessions'));
-  // Mirror currentView so the navigate event handler (registered once) can read the live value.
-  const currentViewRef = React.useRef(currentView);
-  // Snapshot of the view the user was on before opening Settings, so close restores it.
-  const viewBeforeSettingsRef = React.useRef<VSCodeView | null>(null);
   const [containerWidth, setContainerWidth] = React.useState<number>(0);
   const [expandedSidebarWidth, setExpandedSidebarWidth] = React.useState<number>(SESSIONS_SIDEBAR_WIDTH);
   const [isResizingExpandedSidebar, setIsResizingExpandedSidebar] = React.useState(false);
@@ -192,11 +188,6 @@ export const VSCodeLayout: React.FC = () => {
     }
   }, [currentSessionId]);
 
-  // Keep currentViewRef in sync so the stable navigate handler reads the live view.
-  React.useEffect(() => {
-    currentViewRef.current = currentView;
-  }, [currentView]);
-
   React.useEffect(() => {
     const vscodeApi = runtimeApis.vscode;
     if (!vscodeApi) {
@@ -251,8 +242,21 @@ export const VSCodeLayout: React.FC = () => {
   }, [currentSessionId, newSessionDraftOpen, currentView, viewMode, isSyncingMessages, hasActiveSessionWork]);
 
   const handleBackToSessions = React.useCallback(() => {
+    useUIStore.getState().setRunOverviewKey(null);
     setCurrentView('sessions');
   }, []);
+
+  // A run overview replaces the chat like any other surface: opening one shows
+  // the chat column, and selecting a session closes it.
+  const runOverviewKey = useUIStore((state) => state.runOverviewKey);
+  React.useEffect(() => {
+    if (runOverviewKey) setCurrentView((view) => (view === 'sessions' ? 'chat' : view));
+  }, [runOverviewKey]);
+  React.useEffect(() => useSessionUIStore.subscribe((state, prev) => {
+    if (state.currentSessionId && state.currentSessionId !== prev.currentSessionId) {
+      useUIStore.getState().setRunOverviewKey(null);
+    }
+  }), []);
 
   const handleSessionSelected = React.useCallback(() => {
     setCurrentView('chat');
@@ -362,12 +366,7 @@ export const VSCodeLayout: React.FC = () => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ view?: string }>).detail;
       const view = detail?.view;
-      if (view === 'settings') {
-        if (currentViewRef.current !== 'settings') {
-          viewBeforeSettingsRef.current = currentViewRef.current;
-        }
-        setCurrentView('settings');
-      } else if (view === 'chat') {
+      if (view === 'chat') {
         setCurrentView('chat');
       } else if (view === 'sessions') {
         setCurrentView('sessions');
@@ -407,10 +406,12 @@ export const VSCodeLayout: React.FC = () => {
 
         // Keep trying to fetch core datasets on cold starts.
         if (configStore.isConnected) {
-          if (configStore.providers.length === 0) {
+          // Loaded flags, not list lengths: a catalog shown from the
+          // persisted cache is not a live load.
+          if (!configStore.providersLoaded) {
             await configStore.loadProviders({ source: 'vscodeLayout:bootstrap' });
           }
-          if (configStore.agents.length === 0) {
+          if (!useConfigStore.getState().agentsLoaded) {
             await configStore.loadAgents({ source: 'vscodeLayout:bootstrap' });
           }
         }
@@ -418,7 +419,7 @@ export const VSCodeLayout: React.FC = () => {
         const configState = useConfigStore.getState();
         // If OpenCode is still warming up, the initial provider/agent loads can fail and be swallowed by retries.
         // Only mark bootstrap complete when core datasets are present so we keep retrying on cold starts.
-        if (!configState.isInitialized || !configState.isConnected || configState.providers.length === 0 || configState.agents.length === 0) {
+        if (!configState.isInitialized || !configState.isConnected || !configState.providersLoaded || !configState.agentsLoaded) {
           return;
         }
         if (debugEnabled) console.log('[OpenChamber][VSCode][bootstrap] post-load', {
@@ -449,7 +450,8 @@ export const VSCodeLayout: React.FC = () => {
     // No initialSessionId means open a new session draft
     if (!initialSessionId) {
       hasAppliedInitialSession.current = true;
-      openNewSessionDraft({ automatic: true });
+      openNewSessionDraft({ automatic: true, directoryOverride: bootstrapWorkspaceFolder });
+      if (initialParallelComposer) useUIStore.getState().requestParallelComposer();
       return;
     }
 
@@ -459,9 +461,9 @@ export const VSCodeLayout: React.FC = () => {
 
     hasAppliedInitialSession.current = true;
     void useSessionUIStore.getState().setCurrentSession(initialSessionId);
-  }, [connectionStatus, hasInitializedOnce, initialSessionExists, initialSessionId, openNewSessionDraft, viewMode]);
+  }, [bootstrapWorkspaceFolder, connectionStatus, hasInitializedOnce, initialParallelComposer, initialSessionExists, initialSessionId, openNewSessionDraft, viewMode]);
 
-  // Track container width for responsive settings layout
+  // Track container width for the expanded sessions/chat layout.
   React.useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -479,7 +481,6 @@ export const VSCodeLayout: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const usesMobileLayout = containerWidth > 0 && containerWidth < MOBILE_WIDTH_THRESHOLD;
   const usesExpandedLayout = containerWidth >= EXPANDED_LAYOUT_THRESHOLD;
 
   const clampExpandedSidebarWidth = React.useCallback((value: number) => {
@@ -503,7 +504,9 @@ export const VSCodeLayout: React.FC = () => {
     if (expandedSidebarResizePointerIdRef.current !== event.pointerId) {
       return;
     }
-    const delta = event.clientX - expandedSidebarResizeStartXRef.current;
+    // The handle is on the sidebar's end edge: in RTL dragging left widens it.
+    const sign = isRightToLeft(event.currentTarget) ? -1 : 1;
+    const delta = (event.clientX - expandedSidebarResizeStartXRef.current) * sign;
     const nextWidth = clampExpandedSidebarWidth(expandedSidebarResizeStartWidthRef.current + delta);
     setExpandedSidebarWidth((current) => (current === nextWidth ? current : nextWidth));
   }, [clampExpandedSidebarWidth]);
@@ -536,7 +539,8 @@ export const VSCodeLayout: React.FC = () => {
     <>
       <div ref={containerRef} className="h-full w-full bg-background text-foreground flex flex-col">
       {viewMode === 'editor' ? (
-        // Editor mode: just chat, no sidebar
+        // Editor mode: just chat, no sidebar. A run launched here opens its
+        // overview over the chat, as in the other layouts.
         <div className="flex flex-col h-full">
           <VSCodeHeader
             title={activeSessionTitle || t('vscodeLayout.title.chat')}
@@ -545,30 +549,19 @@ export const VSCodeLayout: React.FC = () => {
             showRateLimits
             enableSessionSwitcher
           />
-          <div className="flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden">
             <ErrorBoundary>
-              <ChatView />
+              <ChatView active={!runOverviewKey} />
             </ErrorBoundary>
+            <ErrorBoundary><RunOverview /></ErrorBoundary>
           </div>
         </div>
-      ) : currentView === 'settings' ? (
-        // Settings view
-        <React.Suspense fallback={null}>
-          <SettingsView
-            onClose={() => {
-              const previousView = viewBeforeSettingsRef.current;
-              viewBeforeSettingsRef.current = null;
-              setCurrentView(previousView ?? (usesExpandedLayout ? 'chat' : 'sessions'));
-            }}
-            forceMobile={usesMobileLayout}
-          />
-        </React.Suspense>
       ) : usesExpandedLayout ? (
         // Expanded layout: sessions sidebar + chat side by side
         <div className="flex h-full">
           {/* Sessions sidebar */}
           <div
-            className={cn('relative h-full border-r border-border overflow-hidden flex-shrink-0', isResizingExpandedSidebar && 'select-none')}
+            className={cn('relative h-full border-e border-border overflow-hidden flex-shrink-0', isResizingExpandedSidebar && 'select-none')}
             style={{ width: expandedSidebarWidth, minWidth: expandedSidebarWidth, maxWidth: expandedSidebarWidth }}
           >
             <SessionSidebar
@@ -578,7 +571,7 @@ export const VSCodeLayout: React.FC = () => {
             />
             <div
               className={cn(
-                'absolute right-0 top-0 z-20 h-full w-[3px] cursor-col-resize transition-colors hover:bg-[var(--interactive-border)]/80',
+                'absolute inset-e-0 top-0 z-20 h-full w-[3px] cursor-col-resize transition-colors hover:bg-[var(--interactive-border)]/80',
                 isResizingExpandedSidebar && 'bg-[var(--interactive-border)]'
               )}
               onPointerDown={handleExpandedSidebarResizeStart}
@@ -599,10 +592,11 @@ export const VSCodeLayout: React.FC = () => {
               showRateLimits
               enableSessionSwitcher
             />
-            <div className="flex-1 overflow-hidden">
+            <div className="relative flex-1 overflow-hidden">
               <ErrorBoundary>
-                <ChatView active={currentView === 'chat'} />
+                <ChatView active={currentView === 'chat' && !runOverviewKey} />
               </ErrorBoundary>
+              <ErrorBoundary><RunOverview /></ErrorBoundary>
             </div>
           </div>
         </div>
@@ -637,15 +631,17 @@ export const VSCodeLayout: React.FC = () => {
               showRateLimits
               enableSessionSwitcher
             />
-            <div className="flex-1 overflow-hidden">
+            <div className="relative flex-1 overflow-hidden">
               <ErrorBoundary>
-                <ChatView active={currentView === 'chat'} />
+                <ChatView active={currentView === 'chat' && !runOverviewKey} />
               </ErrorBoundary>
+              <ErrorBoundary><RunOverview /></ErrorBoundary>
             </div>
           </div>
         </>
       )}
       <SessionDialogs />
+      <RunAutoFusion />
       </div>
     </>
   );
@@ -658,7 +654,6 @@ interface VSCodeHeaderProps {
   onArchiveAll?: () => void;
   onNewSession?: () => void;
   onSettings?: () => void;
-  onAgentManager?: () => void;
   showMcp?: boolean;
   showContextUsage?: boolean;
   showRateLimits?: boolean;
@@ -666,12 +661,10 @@ interface VSCodeHeaderProps {
 }
 
 
-const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, onArchiveAll, onNewSession, onSettings, onAgentManager, showMcp, showContextUsage, showRateLimits, enableSessionSwitcher }) => {
+const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, onArchiveAll, onNewSession, onSettings, showMcp, showContextUsage, showRateLimits, enableSessionSwitcher }) => {
   const { t } = useI18n();
   const showArchivedSessions = useSessionDisplayStore((state) => state.showArchivedSessions);
   const toggleArchivedSessions = useSessionDisplayStore((state) => state.toggleArchivedSessions);
-  const getCurrentModel = useConfigStore((state) => state.getCurrentModel);
-  const providers = useConfigStore((state) => state.providers);
   const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   // Same rollup the work-status panel reports, so the header and the panel
@@ -695,68 +688,11 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
     void loadQuotaSettings();
   }, [loadQuotaSettings]);
 
-  const currentModel = getCurrentModel();
-  const headerMessageSummary = React.useMemo(() => {
-    type AssistantTokens = { input: number; output: number; reasoning: number; cache: { read: number; write: number } };
-    let latestAssistantModel: ReturnType<typeof getCurrentModel> | undefined;
-    let lastTokens: AssistantTokens | undefined;
-    let lastMessageId: string | undefined;
+  const { context: contextLimit, output: outputLimit } = useContextWindowLimits(currentSessionId ?? null);
 
-    for (let i = currentSessionMessages.length - 1; i >= 0; i -= 1) {
-      const message = currentSessionMessages[i] as { role?: unknown; providerID?: unknown; modelID?: unknown; tokens?: AssistantTokens };
-      if (message.role !== 'assistant') {
-        continue;
-      }
-
-      if (!latestAssistantModel && typeof message.providerID === 'string' && typeof message.modelID === 'string') {
-        const provider = providers.find((entry) => entry.id === message.providerID);
-        latestAssistantModel = provider?.models.find((entry) => entry.id === message.modelID);
-      }
-
-      if (!lastTokens && message.tokens) {
-        const total = contextTokensFromBreakdown(message.tokens);
-        if (total > 0) {
-          lastTokens = message.tokens;
-          lastMessageId = (currentSessionMessages[i] as { id?: string }).id;
-        }
-      }
-
-      if (latestAssistantModel && lastTokens) {
-        break;
-      }
-    }
-
-    return { latestAssistantModel, lastTokens, lastMessageId };
-  }, [currentSessionMessages, providers]);
-  const latestAssistantModel = headerMessageSummary.latestAssistantModel;
-  const modelForLimits = currentModel?.limit ? currentModel : latestAssistantModel;
-  const limit = modelForLimits && typeof modelForLimits.limit === 'object' && modelForLimits.limit !== null
-    ? (modelForLimits.limit as Record<string, unknown>)
-    : null;
-  const contextLimit = limit && typeof limit.context === 'number' ? limit.context : 0;
-  const outputLimit = limit && typeof limit.output === 'number' ? limit.output : 0;
-
-  const contextUsage = React.useMemo<SessionContextUsage | null>(() => {
-    if (!currentSessionId || !headerMessageSummary.lastTokens) {
-      return null;
-    }
-
-    const lastTokens = headerMessageSummary.lastTokens;
-    const totalTokens = contextTokensFromBreakdown(lastTokens);
-    const thresholdLimit = contextLimit > 0 ? contextLimit : 200000;
-    const percentage = contextLimit > 0 ? Math.round((totalTokens / contextLimit) * 100) : 0;
-    const normalizedOutput = outputLimit > 0 ? Math.round((lastTokens.output / outputLimit) * 100) : undefined;
-
-    return {
-      totalTokens,
-      percentage,
-      contextLimit: contextLimit || 0,
-      outputLimit: outputLimit || undefined,
-      normalizedOutput,
-      thresholdLimit,
-      lastMessageId: headerMessageSummary.lastMessageId,
-    };
-  }, [contextLimit, currentSessionId, headerMessageSummary.lastMessageId, headerMessageSummary.lastTokens, outputLimit]);
+  const contextUsage = React.useMemo<SessionContextUsage | null>(() => (
+    currentSessionId ? buildSessionContextUsage(currentSessionMessages, contextLimit, outputLimit) : null
+  ), [contextLimit, currentSessionId, currentSessionMessages, outputLimit]);
   const [stableContextUsage, setStableContextUsage] = React.useState<SessionContextUsage | null>(null);
   const isContextUsageResolvedForSession = !currentSessionId || currentSessionMessagesResolved;
 
@@ -766,22 +702,8 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
       return;
     }
 
-    if (contextUsage && contextUsage.totalTokens > 0) {
-      setStableContextUsage((prev) => {
-        if (
-          prev
-          && prev.totalTokens === contextUsage.totalTokens
-          && prev.percentage === contextUsage.percentage
-          && prev.contextLimit === contextUsage.contextLimit
-          && (prev.outputLimit ?? 0) === (contextUsage.outputLimit ?? 0)
-          && (prev.normalizedOutput ?? 0) === (contextUsage.normalizedOutput ?? 0)
-          && prev.thresholdLimit === contextUsage.thresholdLimit
-          && prev.lastMessageId === contextUsage.lastMessageId
-        ) {
-          return prev;
-        }
-        return contextUsage;
-      });
+    if (contextUsage) {
+      setStableContextUsage((prev) => (isSameContextUsage(prev, contextUsage) ? prev : contextUsage));
       return;
     }
 
@@ -825,11 +747,11 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
   }, [setQuotaDisplayMode]);
 
   return (
-    <div className="flex items-center gap-1.5 pl-3 pr-2 py-1 border-b border-border bg-background shrink-0">
+    <div className="flex items-center gap-1.5 ps-3 pe-2 py-1 border-b border-border bg-background shrink-0">
       {showBack && onBack && (
         <button
           onClick={onBack}
-          className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('vscodeLayout.actions.backToSessionsAria')}
         >
           <Icon name="arrow-left" className="h-5 w-5" />
@@ -840,9 +762,9 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
           <button
             type="button"
             aria-label={t('sessions.switcher.openAria')}
-            className="inline-flex min-w-0 max-w-full items-center rounded-md px-1 py-0.5 -my-0.5 text-left transition-colors hover:bg-interactive-hover/60 focus-visible:outline-none focus-visible:bg-interactive-hover/60"
+            className="inline-flex min-w-0 max-w-full items-center rounded-md px-1 py-0.5 -my-0.5 text-start transition-colors hover:bg-interactive-hover/60 focus-visible:outline-none focus-visible:bg-interactive-hover/60"
           >
-            <span className="text-sm font-medium truncate" title={title}>{title}</span>
+            <span dir="auto" className="oc-ui-start-align text-sm font-medium truncate" title={title}>{title}</span>
           </button>
         </SessionSwitcherDropdown>
       ) : (
@@ -854,7 +776,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
           type="button"
           onClick={toggleArchivedSessions}
           className={cn(
-            'inline-flex h-8 w-8 items-center justify-center p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+            'inline-flex h-8 w-8 items-center justify-center p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             showArchivedSessions ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
           )}
           aria-label={t('sessions.sidebar.header.displayMode.showArchived')}
@@ -868,24 +790,15 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
       {onNewSession && (
         <button
           onClick={onNewSession}
-          className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('vscodeLayout.actions.newSessionAria')}
         >
           <Icon name="add" className="h-5 w-5" />
         </button>
       )}
-      {onAgentManager && (
-        <button
-          onClick={onAgentManager}
-          className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          aria-label={t('vscodeLayout.actions.openAgentManagerAria')}
-        >
-          <Icon name="robot-2" className="h-5 w-5" />
-        </button>
-      )}
       {showMcp && (
         <McpDropdown
-          headerIconButtonClass="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          headerIconButtonClass="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       )}
       {showRateLimits && (
@@ -900,7 +813,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
             <button
               type="button"
               aria-label={t('vscodeLayout.quota.actions.rateLimitsAria')}
-              className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={isQuotaLoading}
             >
               <Icon name="timer" className="h-5 w-5" />
@@ -918,7 +831,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
                     <button
                       type="button"
                       className={
-                        `px-2 py-0.5 rounded-sm typography-micro text-[10px] transition-colors ${
+                        `px-2 py-0.5 rounded-sm typography-micro text-[0.625rem] transition-colors ${
                           quotaDisplayMode === 'usage'
                             ? 'bg-interactive-selection text-interactive-selection-foreground'
                             : 'text-muted-foreground hover:text-foreground'
@@ -932,7 +845,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
                     <button
                       type="button"
                       className={
-                        `px-2 py-0.5 rounded-sm typography-micro text-[10px] transition-colors ${
+                        `px-2 py-0.5 rounded-sm typography-micro text-[0.625rem] transition-colors ${
                           quotaDisplayMode === 'remaining'
                             ? 'bg-interactive-selection text-interactive-selection-foreground'
                             : 'text-muted-foreground hover:text-foreground'
@@ -946,7 +859,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
                   </div>
                   <button
                     type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground hover:bg-interactive-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => fetchAllQuotas()}
                     disabled={isQuotaLoading}
                     aria-label={t('vscodeLayout.quota.actions.refreshAria')}
@@ -956,7 +869,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
                 </div>
               </DropdownMenuLabel>
             </div>
-            <div className="border-b border-[var(--interactive-border)] px-2 pb-2 typography-micro text-muted-foreground text-[10px]">
+            <div className="border-b border-[var(--interactive-border)] px-2 pb-2 typography-micro text-muted-foreground text-[0.625rem]">
               {t('vscodeLayout.quota.lastUpdated', { time: formatTime(quotaLastUpdated, timeFormatPreference) })}
             </div>
             {!hasRateLimits && (
@@ -1004,7 +917,7 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
                                 tonePercent={window.usedPercent}
                                 className="h-1"
                               />
-                              <span className="flex items-center justify-between typography-micro text-muted-foreground text-[10px]">
+                              <span className="flex items-center justify-between typography-micro text-muted-foreground text-[0.625rem]">
                                 <span>{formatQuotaResetLabel(window.resetAt, window.resetAfterFormatted ?? window.resetAtFormatted, timeFormatPreference)}</span>
                               </span>
                       </span>
@@ -1021,20 +934,19 @@ const VSCodeHeader: React.FC<VSCodeHeaderProps> = ({ title, showBack, onBack, on
       {onSettings && (
         <button
           onClick={onSettings}
-          className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex h-9 w-9 items-center justify-center p-2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('vscodeLayout.actions.settingsAria')}
         >
           <Icon name="settings-3" className="h-5 w-5" />
         </button>
       )}
-      {showContextUsage && stableContextUsage && stableContextUsage.totalTokens > 0 && (
+      {showContextUsage && stableContextUsage && (
         <ContextUsageDisplay
-          totalTokens={stableContextUsage.totalTokens}
-          percentage={stableContextUsage.percentage}
+          reading={toContextUsageReading(stableContextUsage)}
           contextLimit={stableContextUsage.contextLimit}
           outputLimit={stableContextUsage.outputLimit ?? 0}
           cost={(sessionTotalCost ?? 0) > 0 ? sessionTotalCost : null}
-          className="h-9 shrink-0 pl-1 pr-1 typography-ui-label"
+          className="h-9 shrink-0 ps-1 pe-1 typography-ui-label"
           valueClassName="font-semibold leading-none"
           hideIcon
           showPercentIcon

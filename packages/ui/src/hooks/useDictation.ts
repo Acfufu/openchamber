@@ -52,20 +52,22 @@ const toError = (value: unknown): Error =>
 const getDictationStartOptions = (): DictationStartOptions => {
     const state = useConfigStore.getState();
     const language = state.sttLanguage?.trim();
+    const correct = state.sttCorrectTranscript ? { correct: true } : {};
     if (state.sttProvider === 'openai-compatible') {
         return {
             provider: 'openai-compatible',
             ...(language ? { language } : {}),
+            ...correct,
             openaiCompatible: {
                 baseUrl: state.sttServerUrl,
                 model: state.sttModel,
-                ...(state.sttApiKey ? { apiKey: state.sttApiKey } : {}),
             },
         };
     }
     return {
         provider: 'local',
         ...(language ? { language } : {}),
+        ...correct,
         localModel: state.sttLocalModel,
     };
 };

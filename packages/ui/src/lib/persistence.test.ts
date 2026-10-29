@@ -8,6 +8,8 @@ import {
   DEFAULT_INPUT_HISTORY_LIMIT,
   DEFAULT_INPUT_HISTORY_SCOPE,
 } from '@/lib/inputHistoryScope';
+import { LOCALE_STORAGE_KEY } from '@/lib/i18n/runtime';
+import { useI18nStore } from '@/lib/i18n/store';
 import { useInputHistoryStore } from '@/stores/useInputHistoryStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useMessageQueueStore } from '@/stores/messageQueueStore';
@@ -27,6 +29,7 @@ import { switchRuntimeEndpoint } from './runtime-switch';
 
 type TestWindow = {
   __OPENCHAMBER_HOME__?: string;
+  localStorage?: Storage;
   addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => void;
   removeEventListener: (type: string, listener: EventListenerOrEventListenerObject) => void;
   dispatchEvent: (event: Event) => boolean;
@@ -37,6 +40,17 @@ type TestWindow = {
 let createdWindow = false;
 let createdLocalStorage = false;
 let isolatedRuntimeCounter = 0;
+const originalFetch = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+
+// A failed runtime settings API tries HTTP next. Keep that fallback offline in
+// this suite instead of waiting for real DNS/network requests to *.example.
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    writable: true,
+    value: async () => new Response(null, { status: 503 }),
+  });
+});
 
 // Each test gets its own runtime identity so an in-flight load or save left
 // behind by the previous test is rejected as stale instead of leaking its
@@ -134,11 +148,14 @@ const resetModelPrefsState = (): void => {
     collapsedModelProviders: [],
     recentModels: [],
     recentAgents: [],
+    favoriteAgents: [],
     recentEfforts: {},
   });
 };
 
 afterAll(() => {
+  if (originalFetch) Object.defineProperty(globalThis, 'fetch', originalFetch);
+  else Reflect.deleteProperty(globalThis, 'fetch');
   registerRuntimeAPIs(null);
   if (createdWindow) {
     delete (globalThis as { window?: unknown }).window;
@@ -399,6 +416,36 @@ describe('updateDesktopSettings', () => {
     expect(useUIStore.getState().terminalShell).toBe('bash');
   });
 
+  test('restores the interface language from the server after browser storage lost it (#2745)', async () => {
+    // The i18n runtime reads storage through `window`, as it does in a browser.
+    const testWindow = getWindow();
+    const hadWindowStorage = testWindow.localStorage !== undefined;
+    testWindow.localStorage ??= localStorage;
+    useI18nStore.getState().setLocale('en');
+    localStorage.clear();
+    const saves: Partial<SettingsPayload>[] = [];
+    registerSettingsApi(async (changes) => {
+      saves.push(changes);
+      return {};
+    }, async () => ({
+      settings: { locale: 'uk', draftStartersCraftGoalAdded: true, draftStartersScheduleTaskAdded: true },
+      source: 'web',
+    }));
+
+    try {
+      await syncDesktopSettings();
+
+      expect(useI18nStore.getState().locale).toBe('uk');
+      // The next launch paints in the restored language before the server answers.
+      expect(JSON.parse(localStorage.getItem(LOCALE_STORAGE_KEY) ?? '{}')).toEqual({ locale: 'uk' });
+      await delay(400);
+      expect(saves).toEqual([]);
+    } finally {
+      useI18nStore.getState().setLocale('en');
+      if (!hadWindowStorage) delete testWindow.localStorage;
+    }
+  });
+
   test('isolates local settings mirrors and removes values omitted by the next runtime', async () => {
     getWindow();
     localStorage.clear();
@@ -512,18 +559,17 @@ describe('updateDesktopSettings', () => {
     getWindow();
     useSessionDisplayStore.setState({
       projectDisplayMode: 'all',
-      sessionGroupingMode: 'by-worktree',
+      sidebarViewMode: 'projects',
       projectSortOrder: 'manual',
-      showRecentSection: true,
+      showChatsSection: true,
       singleProjectId: 'local-project',
-      stickyZoneHeaders: false,
     });
     registerSettingsApi(async () => ({}), async () => ({
       settings: {
         sidebarProjectDisplayMode: 'single',
-        sidebarSessionGroupingMode: 'flat',
+        sidebarViewMode: 'timeline',
         sidebarProjectSortOrder: 'recent',
-        sidebarShowRecentSection: false,
+        sidebarShowChatsSection: false,
         autoSaveEnabled: true,
         draftStartersCraftGoalAdded: true,
         draftStartersScheduleTaskAdded: true,
@@ -536,18 +582,16 @@ describe('updateDesktopSettings', () => {
     const state = useSessionDisplayStore.getState();
     expect({
       projectDisplayMode: state.projectDisplayMode,
-      sessionGroupingMode: state.sessionGroupingMode,
+      sidebarViewMode: state.sidebarViewMode,
       projectSortOrder: state.projectSortOrder,
-      showRecentSection: state.showRecentSection,
+      showChatsSection: state.showChatsSection,
       singleProjectId: state.singleProjectId,
-      stickyZoneHeaders: state.stickyZoneHeaders,
     }).toEqual({
       projectDisplayMode: 'single',
-      sessionGroupingMode: 'flat',
+      sidebarViewMode: 'timeline',
       projectSortOrder: 'recent',
-      showRecentSection: false,
+      showChatsSection: false,
       singleProjectId: 'local-project',
-      stickyZoneHeaders: false,
     });
   });
 
@@ -556,9 +600,9 @@ describe('updateDesktopSettings', () => {
     const saves: Array<Partial<SettingsPayload>> = [];
     useSessionDisplayStore.setState({
       projectDisplayMode: 'single',
-      sessionGroupingMode: 'flat',
+      sidebarViewMode: 'timeline',
       projectSortOrder: 'a-z',
-      showRecentSection: false,
+      showChatsSection: false,
     });
     registerSettingsApi(async (changes) => {
       saves.push(changes);
@@ -579,14 +623,14 @@ describe('updateDesktopSettings', () => {
     const state = useSessionDisplayStore.getState();
     expect({
       projectDisplayMode: state.projectDisplayMode,
-      sessionGroupingMode: state.sessionGroupingMode,
+      sidebarViewMode: state.sidebarViewMode,
       projectSortOrder: state.projectSortOrder,
-      showRecentSection: state.showRecentSection,
+      showChatsSection: state.showChatsSection,
     }).toEqual({
       projectDisplayMode: 'single',
-      sessionGroupingMode: 'flat',
+      sidebarViewMode: 'timeline',
       projectSortOrder: 'a-z',
-      showRecentSection: false,
+      showChatsSection: false,
     });
   });
 
@@ -594,9 +638,9 @@ describe('updateDesktopSettings', () => {
     getWindow();
     useSessionDisplayStore.setState({
       projectDisplayMode: 'single',
-      sessionGroupingMode: 'flat',
+      sidebarViewMode: 'timeline',
       projectSortOrder: 'z-a',
-      showRecentSection: false,
+      showChatsSection: false,
     });
     registerSettingsApi(async () => ({}), async () => {
       throw new Error('offline');
@@ -607,14 +651,14 @@ describe('updateDesktopSettings', () => {
     const state = useSessionDisplayStore.getState();
     expect({
       projectDisplayMode: state.projectDisplayMode,
-      sessionGroupingMode: state.sessionGroupingMode,
+      sidebarViewMode: state.sidebarViewMode,
       projectSortOrder: state.projectSortOrder,
-      showRecentSection: state.showRecentSection,
+      showChatsSection: state.showChatsSection,
     }).toEqual({
       projectDisplayMode: 'single',
-      sessionGroupingMode: 'flat',
+      sidebarViewMode: 'timeline',
       projectSortOrder: 'z-a',
-      showRecentSection: false,
+      showChatsSection: false,
     });
   });
 
@@ -823,6 +867,7 @@ describe('updateDesktopSettings', () => {
         collapsedModelProviders: ['openai'],
         recentModels: [{ providerID: 'google', modelID: 'gemini-pro' }],
         recentAgents: ['build'],
+        favoriteAgents: ['plan'],
         recentEfforts: { 'openai/gpt-5': ['low'] },
       });
 
@@ -835,7 +880,9 @@ describe('updateDesktopSettings', () => {
         collapsedModelProviders: ['openai'],
         recentModels: [{ providerID: 'google', modelID: 'gemini-pro' }],
         recentAgents: ['build'],
+        favoriteAgents: ['plan'],
         recentEfforts: { 'openai/gpt-5': ['low'] },
+        customProviderIcons: {},
       });
     } finally {
       stop();
@@ -861,7 +908,9 @@ describe('updateDesktopSettings', () => {
         collapsedModelProviders: [],
         recentModels: [],
         recentAgents: [],
+        favoriteAgents: [],
         recentEfforts: {},
+        customProviderIcons: {},
       }]);
     } finally {
       stop();
@@ -1464,7 +1513,9 @@ describe('unload lifecycle flush (#2197)', () => {
         collapsedModelProviders: [],
         recentModels: [],
         recentAgents: [],
+        favoriteAgents: [],
         recentEfforts: {},
+        customProviderIcons: {},
       }]);
     } finally {
       stopModelPrefs();

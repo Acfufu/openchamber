@@ -246,7 +246,7 @@ const PageRow: React.FC<{
         onClick={onSelect}
         disabled={!active}
         className={cn(
-          'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left',
+          'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-start',
           selected ? 'bg-interactive-selection text-foreground' : 'hover:bg-interactive-hover',
           !active && 'opacity-60',
         )}
@@ -267,7 +267,7 @@ const PageRow: React.FC<{
               type="button"
               variant="ghost"
               size="xs"
-              className="absolute right-8 top-1/2 hidden -translate-y-1/2 group-hover/page:inline-flex"
+              className="absolute end-8 top-1/2 hidden -translate-y-1/2 group-hover/page:inline-flex"
               onClick={onRetry}
             >
               {t('repoWiki.page.retry')}
@@ -504,7 +504,9 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
   const wiki = shownEntry.status?.wiki ?? null;
   const run = wiki?.run ?? null;
   const runActive = run?.status === 'running';
-  const pages = wiki?.catalog?.pages ?? [];
+  // Memoized: the effect below keys on this array, and a fresh `?? []` per
+  // render would run it every render.
+  const pages = React.useMemo(() => wiki?.catalog?.pages ?? [], [wiki]);
 
   React.useEffect(() => {
     if (pages.length === 0) {
@@ -712,7 +714,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
 
         {!crossView && !readOnly
           ? (
-              <div className="ml-auto flex min-w-0 items-center gap-1">
+              <div className="ms-auto flex min-w-0 items-center gap-1">
                 {/* The prose language is a per-generation choice like the
                     model — defaulting to the interface language, which is the
                     best evidence of what the reader reads. */}
@@ -981,7 +983,7 @@ export const RepoWikiPanel: React.FC<RepoWikiPanelProps> = ({ directory, readOnl
       {pages.length > 0
         ? (
             <div className="flex min-h-0 flex-1">
-              <div className="flex min-h-0 w-44 flex-shrink-0 flex-col border-r border-border">
+              <div className="flex min-h-0 w-44 flex-shrink-0 flex-col border-e border-border">
                 <div className="flex-shrink-0 px-2.5 pb-1 pt-2 typography-micro text-muted-foreground">
                   {pageCounts.done}/{pageCounts.total}
                   {pageCounts.failed > 0

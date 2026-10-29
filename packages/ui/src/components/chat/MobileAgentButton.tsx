@@ -1,10 +1,11 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useSessionUIStore } from '@/sync/session-ui-store';
+import { useChatSessionSelection } from './chatColumnSession';
 import { useSelectionStore } from '@/sync/selection-store';
 import { getAgentDisplayName } from './mobileControlsUtils';
-import { getAgentColor } from '@/lib/agentColors';
+import { useAgentColors } from '@/hooks/useAgentColors';
+import { isAutoModel } from '@/lib/routing/autoModel';
 
 interface MobileAgentButtonProps {
     onCycleAgent: () => void;
@@ -16,9 +17,12 @@ const LONG_PRESS_MS = 500;
 
 // NOTE: Use pointer events instead of onClick to keep soft keyboard open on mobile
 export const MobileAgentButton: React.FC<MobileAgentButtonProps> = ({ onCycleAgent, onOpenAgentPanel, className }) => {
+    const getAgentColor = useAgentColors();
     const currentAgentName = useConfigStore((state) => state.currentAgentName);
+    const currentProviderId = useConfigStore((state) => state.currentProviderId);
+    const currentModelId = useConfigStore((state) => state.currentModelId);
     const getVisibleAgents = useConfigStore((state) => state.getVisibleAgents);
-    const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
+    const currentSessionId = useChatSessionSelection().sessionId;
     const sessionAgentName = useSelectionStore((state) =>
         currentSessionId ? state.getSessionAgentSelection(currentSessionId) : null
     );
@@ -70,6 +74,10 @@ export const MobileAgentButton: React.FC<MobileAgentButtonProps> = ({ onCycleAge
         };
     }, []);
 
+    // Under Auto the routing category names the agent, so the composer offers
+    // no agent to pick — same as the desktop controls.
+    if (isAutoModel(currentProviderId, currentModelId)) return null;
+
     return (
         <button
             type="button"
@@ -86,7 +94,7 @@ export const MobileAgentButton: React.FC<MobileAgentButtonProps> = ({ onCycleAge
                 'touch-none',
                 className
             )}
-            style={{ color: `var(${agentColor.var})` }}
+            style={{ color: agentColor.color }}
             title={agentLabel}
         >
             <span className="flex h-full w-full min-w-0 items-center">

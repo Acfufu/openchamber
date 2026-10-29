@@ -7,15 +7,18 @@ import {
 import { MobileOverlayPanel } from '@/components/ui/MobileOverlayPanel';
 import { ProviderLogo } from '@/components/ui/ProviderLogo';
 import { Icon } from '@/components/icon/Icon';
+import { Spinner } from '@/components/ui/spinner';
 import { useModelLists } from '@/hooks/useModelLists';
 import { useOpenCodeReadiness } from '@/hooks/useOpenCodeReadiness';
 import { useDeviceInfo } from '@/lib/device';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { dropdownTriggerVariants } from '@/components/ui/dropdown-trigger';
-import { useConfigStore } from '@/stores/useConfigStore';
+import { selectProvidersForDirectory, useConfigStore } from '@/stores/useConfigStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { ModelPickerList, type ModelPickerEntry, type ModelPickerProvider } from '@/components/model-picker/ModelPickerList';
+import { AUTO_MODEL_ID, AUTO_PROVIDER_ID, isAutoModel } from '@/lib/routing/autoModel';
+import { selectAutoReady, useRoutingStore } from '@/stores/useRoutingStore';
 
 interface ModelSelectorProps {
     providerId: string;
@@ -27,6 +30,7 @@ interface ModelSelectorProps {
     placeholder?: string;
     tooltipsEnabled?: boolean;
     dropdownPortalToBody?: boolean;
+    directory?: string;
     /**
      * Drop the model name and the chevron, leaving the provider logo. For
      * headers that run out of room before they run out of controls — the logo
@@ -34,6 +38,12 @@ interface ModelSelectorProps {
      * usually after.
      */
     compact?: boolean;
+    /**
+     * Offer the Auto routing row on top, as the composer does. Only for
+     * selections that are later sent through the routing rewrite (Session
+     * Defaults); a routing category or fallback must name a real model.
+     */
+    offerAuto?: boolean;
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -47,18 +57,29 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     tooltipsEnabled = true,
     dropdownPortalToBody = false,
     compact = false,
+    directory,
+    offerAuto = false,
 }) => {
     const { t } = useI18n();
-    const { isReady, isUnavailable } = useOpenCodeReadiness();
-    const providers = useConfigStore((state) => state.providers) as ModelPickerProvider[];
-    const modelsMetadata = useConfigStore((state) => state.modelsMetadata);
+    const autoReady = useRoutingStore(selectAutoReady);
+    const autoEntry = React.useMemo<ModelPickerEntry | null>(() => (offerAuto && autoReady
+        ? { providerID: AUTO_PROVIDER_ID, modelID: AUTO_MODEL_ID, model: { id: AUTO_MODEL_ID, name: t('chat.modelControls.autoModel') } }
+        : null), [autoReady, offerAuto, t]);
+    const isAutoSelected = isAutoModel(providerId, modelId);
+    const { isReady, isUnavailable } = useOpenCodeReadiness('models', directory);
+    const providers: ModelPickerProvider[] = useConfigStore((state) => directory === undefined
+        ? state.providers : selectProvidersForDirectory(state, directory));
+    const loadProviders = useConfigStore((state) => state.loadProviders);
+    React.useEffect(() => {
+        if (directory !== undefined) void loadProviders({ directory });
+    }, [directory, loadProviders]);
     const isMobile = useUIStore((state) => state.isMobile);
     const hiddenModels = useUIStore((state) => state.hiddenModels);
     const toggleFavoriteModel = useUIStore((state) => state.toggleFavoriteModel);
     const isFavoriteModel = useUIStore((state) => state.isFavoriteModel);
     const addRecentModel = useUIStore((state) => state.addRecentModel);
     const providerOrder = useUIStore((state) => state.providerOrder);
-    const { favoriteModelsList, recentModelsList } = useModelLists();
+    const { favoriteModelsList, recentModelsList } = useModelLists(directory);
     const { isMobile: deviceIsMobile } = useDeviceInfo();
     const isActuallyMobile = isMobile || deviceIsMobile;
 
@@ -74,7 +95,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     const handleSelect = React.useCallback((entry: ModelPickerEntry) => {
         onChange(entry.providerID, entry.modelID);
-        addRecentModel(entry.providerID, entry.modelID);
+        // Auto has its own pinned row; it does not belong in Recent.
+        if (!isAutoModel(entry.providerID, entry.modelID)) addRecentModel(entry.providerID, entry.modelID);
         closePicker();
     }, [addRecentModel, closePicker, onChange]);
 
@@ -85,6 +107,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     const labels = React.useMemo(() => ({
         searchPlaceholder: t('settings.agents.modelSelector.searchPlaceholder'),
+        list: t('chat.modelControls.modelListAria'),
         noResults: t('settings.agents.modelSelector.state.noModelsFound'),
         favorites: t('settings.agents.modelSelector.section.favorites'),
         recent: t('settings.agents.modelSelector.section.recent'),
@@ -92,6 +115,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         notSelected: placeholder || t('settings.agents.modelSelector.notSelected'),
         favorite: t('settings.agents.modelSelector.actions.favorite'),
         unfavorite: t('settings.agents.modelSelector.actions.unfavorite'),
+        provider: t('chat.modelControls.provider'),
         capabilities: t('chat.modelControls.capabilities'),
         capabilityToolCalling: t('chat.modelControls.capability.toolCalling'),
         capabilityReasoning: t('chat.modelControls.capability.reasoning'),
@@ -107,10 +131,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         if (!providerId || !modelId) {
             return placeholder || t('settings.agents.modelSelector.notSelected');
         }
+        if (isAutoSelected) return t('chat.modelControls.autoModel');
         const provider = providers.find((entry) => entry.id === providerId);
         const model = provider?.models?.find((entry) => entry.id === modelId);
         return (typeof model?.name === 'string' && model.name.trim()) || modelId;
-    }, [modelId, placeholder, providerId, providers, t]);
+    }, [isAutoSelected, modelId, placeholder, providerId, providers, t]);
 
     const picker = (
         <ModelPickerList
@@ -118,12 +143,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             providerOrder={providerOrder}
             favoriteModels={favoriteModelsList}
             recentModels={recentModelsList}
-            modelsMetadata={modelsMetadata}
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
             onSelect={handleSelect}
             labels={labels}
             selectedModel={selectedModel}
+            leadingEntry={autoEntry}
             hiddenModels={hiddenModels}
             allowedProviderIds={allowedProviderIds}
             isModelAllowed={isModelAllowed}
@@ -144,7 +169,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     onClick={isReady ? () => setIsMobilePanelOpen(true) : undefined}
                     disabled={!isReady}
                     className={cn(
-                        dropdownTriggerVariants(),
+                        dropdownTriggerVariants({ size: 'mobile' }),
                         'w-full',
                         className,
                     )}
@@ -152,9 +177,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     <div className="flex min-w-0 items-center gap-2">
                         {!displayReady ? (
                             <>
-                                <Icon name="loader-4" className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                {isUnavailable ? <Icon name="error-warning" className="h-3.5 w-3.5 text-muted-foreground" /> : <Spinner className="h-3.5 w-3.5 text-muted-foreground" />}
                                 <span className="typography-meta text-muted-foreground">{isUnavailable ? t('common.unavailable') : t('common.loading')}</span>
                             </>
+                        ) : isAutoSelected ? (
+                            <Icon name="openchamber" className="h-3.5 w-3.5 flex-shrink-0" />
                         ) : providerId ? (
                             <ProviderLogo providerId={providerId} className="h-3.5 w-3.5 flex-shrink-0" />
                         ) : (
@@ -177,10 +204,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     return (
         <DropdownMenu open={isReady && isDropdownOpen} onOpenChange={isReady ? setIsDropdownOpen : undefined}>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild nativeButton={false}>
                 <div
                     className={cn(
-                        dropdownTriggerVariants({ size: 'sm' }),
+                        dropdownTriggerVariants(),
                         'min-w-0 w-fit',
                         !isReady && 'opacity-60 cursor-not-allowed',
                         className,
@@ -191,7 +218,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 >
                     {!displayReady ? (
                         <>
-                            <Icon name="loader-4" className="h-3.5 w-3.5 animate-spin text-muted-foreground flex-shrink-0" />
+                            {isUnavailable ? <Icon name="error-warning" className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <Spinner className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
                             {!compact && (
                                 <span className="typography-ui-label font-normal whitespace-nowrap text-muted-foreground">
                                     {isUnavailable ? t('common.unavailable') : t('common.loading')}
@@ -200,13 +227,17 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                         </>
                     ) : (
                         <>
-                            {providerId ? <ProviderLogo providerId={providerId} className="h-3.5 w-3.5 flex-shrink-0" /> : <Icon name="pencil-ai" className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />}
+                            {isAutoSelected
+                                ? <Icon name="openchamber" className="h-3.5 w-3.5 flex-shrink-0" />
+                                : providerId
+                                    ? <ProviderLogo providerId={providerId} className="h-3.5 w-3.5 flex-shrink-0" />
+                                    : <Icon name="pencil-ai" className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />}
                             {!compact && (
-                                <span className="typography-ui-label min-w-0 flex-1 truncate text-left font-normal text-foreground">{triggerLabel}</span>
+                                <span className="typography-ui-label min-w-0 flex-1 truncate text-start font-normal text-foreground">{triggerLabel}</span>
                             )}
                         </>
                     )}
-                    {!compact && <Icon name="arrow-down-s" className="h-4 w-4 flex-shrink-0 text-muted-foreground/50" />}
+                    {!compact && <Icon name="arrow-down-s" className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
                 </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[min(380px,calc(100vw-2rem))] p-0 flex flex-col" align="start" portalToBody={dropdownPortalToBody}>

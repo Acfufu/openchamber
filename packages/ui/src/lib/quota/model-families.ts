@@ -32,16 +32,34 @@ const GOOGLE_MODEL_FAMILIES: ModelFamily[] = [
     matcher: (modelName) => modelName.startsWith('gemini/'),
     order: 1,
   },
+];
+
+const ANTIGRAVITY_MODEL_FAMILIES: ModelFamily[] = [
   {
-    id: 'antigravity-auth',
-    label: 'Antigravity',
-    matcher: (modelName) => modelName.startsWith('antigravity/'),
+    id: 'antigravity-gemini',
+    label: 'Gemini Models',
+    matcher: (modelName) => {
+      const lower = modelName.toLowerCase();
+      const name = lower.includes('/') ? lower.split('/')[1] : lower;
+      return name.startsWith('gemini');
+    },
+    order: 1,
+  },
+  {
+    id: 'antigravity-3p',
+    label: 'Claude & Third-Party Models',
+    matcher: (modelName) => {
+      const lower = modelName.toLowerCase();
+      const name = lower.includes('/') ? lower.split('/')[1] : lower;
+      return name.startsWith('claude') || name.startsWith('gpt');
+    },
     order: 2,
   },
 ];
 
-const PROVIDER_MODEL_FAMILIES: Record<string, ModelFamily[]> = {
+const PROVIDER_MODEL_FAMILIES: Partial<Record<QuotaProviderId, ModelFamily[]>> = {
   google: GOOGLE_MODEL_FAMILIES,
+  antigravity: ANTIGRAVITY_MODEL_FAMILIES,
 };
 
 function getModelFamily(modelName: string, providerId: QuotaProviderId): ModelFamily | null {
@@ -60,28 +78,6 @@ export function getAllModelFamilies(providerId: QuotaProviderId): ModelFamily[] 
 
 export function sortModelFamilies(families: ModelFamily[]): ModelFamily[] {
   return [...families].sort((a, b) => a.order - b.order);
-}
-
-/**
- * Group model names by family (for backward compatibility with Header.tsx)
- */
-export function groupModelsByFamily(
-  models: Record<string, unknown>,
-  providerId: QuotaProviderId
-): Map<string | null, string[]> {
-  const groups = new Map<string | null, string[]>();
-
-  for (const modelName of Object.keys(models)) {
-    const family = getModelFamily(modelName, providerId);
-    const familyId = family?.id ?? null;
-
-    if (!groups.has(familyId)) {
-      groups.set(familyId, []);
-    }
-    groups.get(familyId)!.push(modelName);
-  }
-
-  return groups;
 }
 
 /**
@@ -109,6 +105,17 @@ export function groupModelsByFamilyWithGetter<T>(
 }
 
 /**
+ * Match Gemini 3.x on the version token rather than on the separator that
+ * follows it. Google writes the minor version with a dot
+ * (`gemini-3.6-flash`), a few gateway providers write it with a hyphen
+ * (`gemini-3-6-flash`), and the launch ids carry no minor version at all
+ * (`gemini-3-flash`). Requiring a separator after `gemini-3` covers all
+ * three, and the leading anchor keeps the earlier generations, the versionless
+ * aliases, and the embedding models out.
+ */
+const GEMINI_3_MODEL = /^gemini-3[.-]/;
+
+/**
  * Get default models for a provider based on simple patterns.
  * For Google provider with gemini/ and antigravity/ prefixes:
  * - Gemini 3.x models
@@ -126,8 +133,9 @@ export function getDefaultModels(
     const lower = model.toLowerCase();
     // Handle gemini/ and antigravity/ prefixes
     const modelName = lower.includes('/') ? lower.split('/')[1] : lower;
-    // Gemini 3.x
-    if (modelName.startsWith('gemini-3-')) return true;
+    // Gemini 3.x, including the dotted (gemini-3.6-flash) and hyphenated
+    // (gemini-3-6-flash) minor versions
+    if (GEMINI_3_MODEL.test(modelName)) return true;
     // All Claude models
     if (modelName.startsWith('claude-')) return true;
     return false;

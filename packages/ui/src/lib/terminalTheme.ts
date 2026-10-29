@@ -1,5 +1,6 @@
 import type { Theme } from '@/types/theme';
 import type { GhosttyColor, GhosttyTheme } from '@/lib/ghostty/core';
+import { withOpacity } from './theme/color';
 
 export interface TerminalTheme {
   background: string;
@@ -27,20 +28,21 @@ export interface TerminalTheme {
   brightWhite: string;
 }
 
-export function convertThemeToXterm(theme: Theme): TerminalTheme {
+/** `background` is the page the terminal sits on (`usePageColors`). */
+export function convertThemeToXterm(theme: Theme, background = theme.colors.surface.background): TerminalTheme {
   const { colors } = theme;
   const syntax = colors.syntax.base;
 
   return {
 
-    background: colors.surface.background,
+    background,
     foreground: syntax.foreground,
     cursor: colors.interactive.cursor,
-    cursorAccent: colors.surface.background,
+    cursorAccent: background,
 
     selectionBackground: colors.interactive.selection,
     selectionForeground: colors.interactive.selectionForeground,
-    selectionInactiveBackground: colors.interactive.selection + '50',
+    selectionInactiveBackground: withOpacity(colors.interactive.selection, 0.31),
 
     black: colors.surface.muted,
     red: colors.status.error,

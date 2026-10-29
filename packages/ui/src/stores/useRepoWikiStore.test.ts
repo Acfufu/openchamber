@@ -78,10 +78,6 @@ mock.module('@/lib/repoWikiApi', () => ({
     calls.fetchStatus += 1;
     return handlers.fetchStatus();
   },
-  fetchRepoWikiPage: () => {
-    calls.fetchPage += 1;
-    return handlers.fetchPage();
-  },
   fetchRepoWikiPageById: () => {
     calls.fetchPage += 1;
     return handlers.fetchPage();
@@ -324,13 +320,10 @@ describe('useRepoWikiStore', () => {
   test('the turn-complete revalidate skips a project with an active run', async () => {
     handlers.fetchStatus = async () => statusPayload({ runActive: true });
 
-    let timerScheduled = false;
     const originalSetTimeout = globalThis.setTimeout;
-    // SAFETY: only observing whether the poller, not the revalidate, reacts.
-    (globalThis as { setTimeout: unknown }).setTimeout = () => {
-      timerScheduled = true;
-      return 1;
-    };
+    // SAFETY: stubs the poller's timer out, so a scheduled poll cannot add
+    // fetches; the turn-complete revalidate must not need one either.
+    (globalThis as { setTimeout: unknown }).setTimeout = () => 1;
 
     try {
       await store().load(PROJECT_PATH);

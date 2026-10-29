@@ -227,4 +227,3 @@ export const createRepoWikiStore = ({ dataDir }) => {
   };
 };
 
-export const __testing = { PROJECT_ID_PATTERN, PAGE_ID_PATTERN, MAX_MANIFEST_BYTES, MAX_PAGE_BYTES };

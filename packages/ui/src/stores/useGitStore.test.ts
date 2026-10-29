@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import type { GitStatus } from '@/lib/api/types';
 import { useGitStore } from './useGitStore';
 import { getRuntimeKey } from '@/lib/runtime-switch';
@@ -82,7 +82,7 @@ const createGitApi = (getGitStatus: GitAPI['getGitStatus']): GitAPI => ({
   getGitBranches: async () => ({ all: [], current: 'main', branches: {} }),
   getGitLog: async () => ({ all: [], latest: null, total: 0 }),
   getCurrentGitIdentity: async () => null,
-  getGitFileDiff: async (_directory, options) => ({ original: '', modified: '', path: options.path }),
+  getGitFileDiff: async (_directory, options) => ({ original: '', modified: '', path: options.path, submodule: null }),
 });
 
 describe('useGitStore', () => {
@@ -91,9 +91,33 @@ describe('useGitStore', () => {
     useGitStore.getState().resetForRuntimeSwitch(getRuntimeKey());
   });
 
+  test('recheckRepository re-probes a directory whose non-repository answer is still fresh', async () => {
+    let isRepository = false;
+    const git: GitAPI = {
+      ...createGitApi(async () => createStatus()),
+      checkIsGitRepository: async () => isRepository,
+    };
+    await useGitStore.getState().fetchStatus('/repo', git);
+    expect(useGitStore.getState().getDirectoryState('/repo')?.isGitRepo).toBe(false);
+
+    isRepository = true;
+    // An ordinary refresh trusts the cached answer for the stale window.
+    await useGitStore.getState().fetchStatus('/repo', git);
+    expect(useGitStore.getState().getDirectoryState('/repo')?.isGitRepo).toBe(false);
+
+    expect(await useGitStore.getState().recheckRepository('/repo', git)).toBe(true);
+    expect(useGitStore.getState().getDirectoryState('/repo')?.status?.current).toBe('main');
+  });
+
+  test('recheckRepository reports a directory that is still not a repository', async () => {
+    const git: GitAPI = { ...createGitApi(async () => createStatus()), checkIsGitRepository: async () => false };
+    expect(await useGitStore.getState().recheckRepository('/repo', git)).toBe(false);
+    expect(useGitStore.getState().getDirectoryState('/repo')?.isGitRepo).toBe(false);
+  });
+
   test('keeps timed-out diff requests inside the concurrency limit until they settle', async () => {
     const paths = ['one.ts', 'two.ts', 'three.ts', 'four.ts'];
-    setDirectoryStatus(createStatus({}, paths.map((path) => ({ path, index: ' ', working_dir: 'M' }))));
+    setDirectoryStatus(createStatus({ staged: {}, working: {} }, paths.map((path) => ({ path, index: ' ', working_dir: 'M' }))));
     const pending: Array<{ path: string; request: Deferred<Awaited<ReturnType<GitAPI['getGitFileDiff']>>> }> = [];
     const git = createGitApi(async () => createStatus());
     git.getGitFileDiff = (_directory, { path }) => {
@@ -113,19 +137,19 @@ describe('useGitStore', () => {
       expect(pending.length).toBe(2);
       expect(useGitStore.getState().getDirectoryState('/repo')?.diffCache.size).toBe(0);
     } finally {
-      for (const { path, request } of pending) request.resolve({ path, original: 'before', modified: 'after' });
+      for (const { path, request } of pending) request.resolve({ path, original: 'before', modified: 'after', submodule: null });
       await prefetch;
     }
     // Late responses were discarded, but their real completion frees capacity.
     expect(useGitStore.getState().getDirectoryState('/repo')?.diffCache.size).toBe(0);
-    git.getGitFileDiff = async (_directory, { path }) => ({ path, original: 'fresh', modified: 'fresh' });
+    git.getGitFileDiff = async (_directory, { path }) => ({ path, original: 'fresh', modified: 'fresh', submodule: null });
     await useGitStore.getState().prefetchDiffs('/repo', git, paths);
     expect(useGitStore.getState().getDirectoryState('/repo')?.diffCache.size).toBe(4);
   }, 40_000);
 
   test('limits overlapping diff batches per directory and retains capacity across a cache reset', async () => {
     const paths = ['one.ts', 'two.ts', 'three.ts'];
-    const status = createStatus({}, paths.map((path) => ({ path, index: ' ', working_dir: 'M' })));
+    const status = createStatus({ staged: {}, working: {} }, paths.map((path) => ({ path, index: ' ', working_dir: 'M' })));
     const directories = ['/repo-a', '/repo-b', '/repo-c'];
     const populate = () => useGitStore.setState({
       directories: new Map(directories.map((directory) => [directory, createDirectoryState(status)])),
@@ -149,7 +173,7 @@ describe('useGitStore', () => {
       await Promise.all(directories.map((directory) => useGitStore.getState().prefetchDiffs(directory, git, paths)));
       expect(calls.length).toBe(6);
     } finally {
-      request.resolve({ path: 'one.ts', original: '', modified: '' });
+      request.resolve({ path: 'one.ts', original: '', modified: '', submodule: null });
       await Promise.all(batches);
     }
     for (const directory of directories) expect(useGitStore.getState().getDirectoryState(directory)?.diffCache.size).toBe(0);
@@ -178,7 +202,7 @@ describe('useGitStore', () => {
 
   test('a duplicate diff demand does not discard the first batch or leave failure slots occupied', async () => {
     const paths = ['one.ts', 'two.ts', 'three.ts'];
-    setDirectoryStatus(createStatus({}, paths.map((path) => ({ path, index: ' ', working_dir: 'M' }))));
+    setDirectoryStatus(createStatus({ staged: {}, working: {} }, paths.map((path) => ({ path, index: ' ', working_dir: 'M' }))));
     const request = createDeferred<Awaited<ReturnType<GitAPI['getGitFileDiff']>>>();
     const git = createGitApi(async () => createStatus());
     let calls = 0;
@@ -186,11 +210,11 @@ describe('useGitStore', () => {
       calls += 1;
       if (path === 'one.ts') return request.promise;
       if (path === 'two.ts') throw new Error('failed read');
-      return { path, original: '', modified: 'fresh' };
+      return { path, original: '', modified: 'fresh', submodule: null };
     };
     const first = useGitStore.getState().prefetchDiffs('/repo', git, paths);
     await useGitStore.getState().prefetchDiffs('/repo', git, paths);
-    request.resolve({ path: 'one.ts', original: '', modified: 'fresh' });
+    request.resolve({ path: 'one.ts', original: '', modified: 'fresh', submodule: null });
     await first;
     expect(calls).toBe(3);
     const cache = useGitStore.getState().getDirectoryState('/repo')?.diffCache;
@@ -219,13 +243,14 @@ describe('useGitStore', () => {
       { directory: '/repo', options: undefined },
     ]);
 
-    requests[1].resolve(createStatus({ 'src/index.ts': { insertions: 1, deletions: 0 } }));
+    requests[1].resolve(createStatus({ staged: {}, working: { 'src/index.ts': { insertions: 1, deletions: 0 } } }));
     await fullPromise;
     requests[0].resolve(createStatus());
     await lightPromise;
 
     expect(useGitStore.getState().getDirectoryState('/repo')?.status?.diffStats).toEqual({
-      'src/index.ts': { insertions: 1, deletions: 0 },
+      staged: {},
+      working: { 'src/index.ts': { insertions: 1, deletions: 0 } },
     });
   });
 
@@ -246,7 +271,7 @@ describe('useGitStore', () => {
 
     expect(statusCalls).toEqual([{ directory: '/repo', options: undefined }]);
 
-    requests[0].resolve(createStatus({ 'src/index.ts': { insertions: 1, deletions: 0 } }));
+    requests[0].resolve(createStatus({ staged: {}, working: { 'src/index.ts': { insertions: 1, deletions: 0 } } }));
     const [fullResult, lightResult] = await Promise.all([fullPromise, lightPromise]);
     expect(lightResult).toBe(fullResult);
   });
@@ -414,16 +439,16 @@ describe('useGitStore', () => {
   });
 
   test('rejects direct diff commits captured for another runtime', () => {
-    useGitStore.getState().setDiff('/repo', 'stale.ts', { original: 'a', modified: 'b' }, 'runtime-a');
+    useGitStore.getState().setDiff('/repo', 'stale.ts', { original: 'a', modified: 'b', submodule: null }, 'runtime-a');
     expect(useGitStore.getState().getDiff('/repo', 'stale.ts')).toBe(null);
   });
 
   test('clears cached file contents when a git refresh hint invalidates diffs', () => {
     setDirectoryStatus(createStatus(
-      { 'src/index.ts': { insertions: 1, deletions: 1 } },
+      { staged: {}, working: { 'src/index.ts': { insertions: 1, deletions: 1 } } },
       [{ path: 'src/index.ts', index: ' ', working_dir: 'M' }],
     ));
-    useGitStore.getState().setDiff('/repo', 'src/index.ts', { original: 'old', modified: 'stale' });
+    useGitStore.getState().setDiff('/repo', 'src/index.ts', { original: 'old', modified: 'stale', submodule: null });
 
     useGitStore.getState().clearDiffCache('/repo');
 
@@ -435,13 +460,46 @@ describe('useGitStore', () => {
       { path: 'src/first.ts', index: ' ', working_dir: 'M' },
       { path: 'src/second.ts', index: ' ', working_dir: 'M' },
     ]));
-    useGitStore.getState().setDiff('/repo', 'src/first.ts', { original: 'a', modified: 'b' });
-    useGitStore.getState().setDiff('/repo', 'src/second.ts', { original: 'c', modified: 'd' });
+    useGitStore.getState().setDiff('/repo', 'src/first.ts', { original: 'a', modified: 'b', submodule: null });
+    useGitStore.getState().setDiff('/repo', 'src/second.ts', { original: 'c', modified: 'd', submodule: null });
 
     useGitStore.getState().clearDiffCache('/repo', ['src/first.ts']);
 
     expect(useGitStore.getState().getDiff('/repo', 'src/first.ts')).toBe(null);
     expect(useGitStore.getState().getDiff('/repo', 'src/second.ts')?.modified).toBe('d');
+  });
+
+  test('measures eviction from stored byte sizes instead of re-encoding cached diffs', () => {
+    setDirectoryStatus(createStatus());
+    const encode = spyOn(TextEncoder.prototype, 'encode');
+    try {
+      for (let index = 0; index < 30; index += 1) {
+        useGitStore.getState().setDiff('/repo', `src/file-${index}.ts`, {
+          original: 'a'.repeat(64),
+          modified: 'b'.repeat(64),
+          submodule: null,
+        });
+      }
+
+      const encodesBeforeLimitPush = encode.mock.calls.length;
+      useGitStore.getState().setDiff('/repo', 'src/file-30.ts', {
+        original: 'c'.repeat(64),
+        modified: 'd'.repeat(64),
+        submodule: null,
+      });
+
+      // Two encodes measure the inserted diff's original and modified sides;
+      // the eviction scans over the full cache must read the sizes stored at
+      // insertion instead of encoding every cached entry again.
+      expect(encode.mock.calls.length - encodesBeforeLimitPush).toBe(2);
+
+      const cache = useGitStore.getState().getDirectoryState('/repo')?.diffCache;
+      expect(cache?.size).toBe(30);
+      expect(cache?.has('src/file-0.ts')).toBe(false);
+      expect(cache?.has('src/file-30.ts')).toBe(true);
+    } finally {
+      encode.mockRestore();
+    }
   });
 
   test('keeps the newest branch request when completions are reversed', async () => {
@@ -531,10 +589,77 @@ describe('useGitStore', () => {
     expect(status?.files[0]).toBe(conflicted);
   });
 
-  test('preserves diff stats during optimistic moves', () => {
-    const diffStats = { 'src/index.ts': { insertions: 2, deletions: 1 } };
+  test('moves diff stats into the staged scope during optimistic staging', () => {
+    setDirectoryStatus(createStatus(
+      { staged: {}, working: { 'src/index.ts': { insertions: 2, deletions: 1 } } },
+      [{ path: 'src/index.ts', index: ' ', working_dir: 'M' }],
+    ));
+
+    useGitStore.getState().moveStatusPathsOptimistically('/repo', ['src/index.ts'], 'stage');
+    const status = useGitStore.getState().getDirectoryState('/repo')?.status;
+
+    expect(status?.diffStats).toEqual({
+      staged: { 'src/index.ts': { insertions: 2, deletions: 1 } },
+      working: {},
+    });
+  });
+
+  test('moves diff stats into the working scope during optimistic unstaging', () => {
+    setDirectoryStatus(createStatus(
+      { staged: { 'src/index.ts': { insertions: 2, deletions: 1 } }, working: {} },
+      [{ path: 'src/index.ts', index: 'M', working_dir: ' ' }],
+    ));
+
+    useGitStore.getState().moveStatusPathsOptimistically('/repo', ['src/index.ts'], 'unstage');
+    const status = useGitStore.getState().getDirectoryState('/repo')?.status;
+
+    expect(status?.diffStats).toEqual({
+      staged: {},
+      working: { 'src/index.ts': { insertions: 2, deletions: 1 } },
+    });
+  });
+
+  test('merges both scopes when optimistically staging a partially staged file', () => {
+    setDirectoryStatus(createStatus(
+      {
+        staged: { 'src/index.ts': { insertions: 2, deletions: 1 } },
+        working: { 'src/index.ts': { insertions: 3, deletions: 2 } },
+      },
+      [{ path: 'src/index.ts', index: 'M', working_dir: 'M' }],
+    ));
+
+    useGitStore.getState().moveStatusPathsOptimistically('/repo', ['src/index.ts'], 'stage');
+    const status = useGitStore.getState().getDirectoryState('/repo')?.status;
+
+    expect(status?.diffStats).toEqual({
+      staged: { 'src/index.ts': { insertions: 5, deletions: 3 } },
+      working: {},
+    });
+  });
+
+  test('merges both scopes when optimistically unstaging a partially staged file', () => {
+    setDirectoryStatus(createStatus(
+      {
+        staged: { 'src/index.ts': { insertions: 2, deletions: 1 } },
+        working: { 'src/index.ts': { insertions: 3, deletions: 2 } },
+      },
+      [{ path: 'src/index.ts', index: 'M', working_dir: 'M' }],
+    ));
+
+    useGitStore.getState().moveStatusPathsOptimistically('/repo', ['src/index.ts'], 'unstage');
+    const status = useGitStore.getState().getDirectoryState('/repo')?.status;
+
+    expect(status?.diffStats).toEqual({
+      staged: {},
+      working: { 'src/index.ts': { insertions: 5, deletions: 3 } },
+    });
+  });
+
+  test('preserves the diff stats reference when a moved path has no stats', () => {
+    const diffStats = { staged: {}, working: { 'other.ts': { insertions: 1, deletions: 1 } } };
     setDirectoryStatus(createStatus(diffStats, [
       { path: 'src/index.ts', index: ' ', working_dir: 'M' },
+      { path: 'other.ts', index: ' ', working_dir: 'M' },
     ]));
 
     useGitStore.getState().moveStatusPathsOptimistically('/repo', ['src/index.ts'], 'stage');

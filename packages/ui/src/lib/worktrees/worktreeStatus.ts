@@ -1,16 +1,8 @@
-import { getGitStatus, resolveGitPrimaryRoot } from '@/lib/gitApi';
+import { getGitBranches, getGitStatus, git, resolveGitPrimaryRoot } from '@/lib/gitApi';
+import { normalizePath as normalizePathImpl } from '@/lib/pathNormalization';
 import type { WorktreeMetadata } from '@/types/worktree';
 
-const normalizePath = (value: string): string => {
-  if (!value) {
-    return '';
-  }
-  const replaced = value.replace(/\\/g, '/');
-  if (replaced === '/') {
-    return '/';
-  }
-  return replaced.replace(/\/+$/, '');
-};
+const normalizePath = (value: string | null | undefined): string => normalizePathImpl(value) ?? '';
 
 export async function getWorktreeStatus(worktreePath: string): Promise<WorktreeMetadata['status']> {
   const normalizedPath = normalizePath(worktreePath);
@@ -20,7 +12,41 @@ export async function getWorktreeStatus(worktreePath: string): Promise<WorktreeM
     ahead: status.ahead,
     behind: status.behind,
     upstream: status.tracking,
+    aheadBase: status.aheadBase ?? null,
   };
+}
+
+// Deleting a worktree force-removes its files and force-deletes its branch, so
+// skipping the confirmation is allowed only when nothing would be lost: no
+// uncommitted changes, and every commit already on the branch's upstream or,
+// for a branch never pushed, on the base branch (`aheadBase`, e.g. origin/main).
+// A never-pushed branch whose base could not be compared opens the dialog.
+export function canDeleteWorktreeWithoutConfirm(status: WorktreeMetadata['status']): boolean {
+  return Boolean(status && !status.isDirty && (status.upstream || status.aheadBase) && status.ahead === 0);
+}
+
+// The delete dialog offers deleting the worktree's branch only when that is
+// not the default branch of a remote and no other checkout holds it: a
+// worktree can end up on `main`. The server keeps both branches regardless;
+// this keeps the dialog from offering what it would refuse. A failed read
+// offers nothing.
+export async function canDeleteWorktreeBranch(projectDirectory: string, worktree: Pick<WorktreeMetadata, 'path' | 'branch'>): Promise<boolean> {
+  const branch = (worktree.branch ?? '').replace(/^refs\/heads\//, '').trim();
+  if (!branch) return false;
+  const worktreePath = normalizePath(worktree.path);
+  try {
+    const [checkouts, branches] = await Promise.all([
+      git.worktree.list(projectDirectory),
+      getGitBranches(projectDirectory, { remote: 'local' }),
+    ]);
+    const heldElsewhere = checkouts.some((checkout) => (
+      normalizePath(checkout.path) !== worktreePath
+      && checkout.branch.replace(/^refs\/heads\//, '') === branch
+    ));
+    return !heldElsewhere && !Object.values(branches.defaultBranches ?? {}).includes(branch);
+  } catch {
+    return false;
+  }
 }
 
 // Resolving a project's root (primary worktree) requires shelling out to

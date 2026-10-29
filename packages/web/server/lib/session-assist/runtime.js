@@ -1,11 +1,13 @@
 // Background session assistance. Only live idle events arm generation; there
-// is no backfill. Clients hide results whose forMessageID is no longer current.
+// is no backfill. A new turn deletes the assist this process wrote; clients
+// retire any other payload older than the session's `time.idle`.
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createOpencodeClient } from '@opencode-ai/sdk/v2';
+import { OpenCode } from '@opencode/client';
 import { readMergedSettingsSync } from '../opencode/settings-files.js';
-import { loadAssistContext } from './context.js';
+import { isString } from '../shared/guards.js';
+import { loadAssistContext, newestContentId } from './context.js';
 import { buildAssistPrompt, buildAssistSystemPrompt } from './prompt.js';
 
 const OPENCHAMBER_SETTINGS_FILE = path.join(
@@ -28,7 +30,31 @@ const RECAP_CHAR_LIMIT = 320;
 const SUGGESTION_CHAR_LIMIT = 500;
 const FETCH_TIMEOUT_MS = 5_000;
 const GENERATION_TIMEOUT_MS = 120_000;
+// Enough records to look past the idle marker and a couple of switches.
+const TAIL_RECHECK_LIMIT = 8;
 const QUIET_FAILURE_CODES = new Set(['context-too-small', 'output-exhausted']);
+
+/**
+ * A one-line cause for a generation failure: the status, code, and a bounded
+ * message. A bare "generation failed" hides whether this was a cold-start 503,
+ * a provider rejection, or a bug, which is what tells a transient startup
+ * failure from a permanent one.
+ */
+const describeGenerationFailure = (error) => {
+  const parts = [];
+  const status = Number(error?.statusCode);
+  if (Number.isFinite(status)) parts.push(`status ${status}`);
+  const code = isString(error?.code) ? error.code.trim() : '';
+  if (code) parts.push(`code ${code}`);
+  // The small-model service rethrows raw SDK rejections, which are tagged
+  // objects rather than Errors. Read the message from either shape, and keep
+  // the tag when the SDK only carries that.
+  const message = isString(error?.message) ? error.message.trim() : '';
+  if (message) parts.push(message.replace(/\s+/g, ' ').slice(0, 300));
+  const tag = isString(error?._tag) ? error._tag.trim() : '';
+  if (tag) parts.push(`tag ${tag}`);
+  return parts.join(' | ');
+};
 
 const extractJsonObject = (value) => {
   const text = String(value ?? '').trim();
@@ -77,17 +103,56 @@ const extractUserMessage = (payload) => {
   };
 };
 
+/**
+ * The recap and the suggestion live in OpenChamber's own session metadata
+ * store: OpenCode 2.x accepts session metadata only when a session is created.
+ * `persistSessionAssist(sessionID, directory, assist)` writes it; without that
+ * seam the runtime stays inert rather than generating text it cannot save.
+ */
 export const createSessionAssistRuntime = ({
   buildOpenCodeUrl,
   getOpenCodeAuthHeaders,
   getSmallModelService,
   getTargets = getSessionAssistTargets,
   quietMs = IDLE_QUIET_MS,
+  persistSessionAssist = null,
+  // Archive state is OpenChamber's own in v2 (no OpenCode route sets it), so
+  // the runtime asks rather than reading `time.archived` off the record.
+  isSessionArchived = async () => false,
+  // Asked once when a turn ends, before the quiet window is armed: which of
+  // the enabled fields are worth the Small Model (`{ recap, suggestion }`), or
+  // null for "unknown", which keeps every enabled field. See session-work.
+  evaluateTurn = null,
+  // `../session-lineage.js`: a known subsession never gets an assist, so its
+  // turn end arms nothing and reads nothing.
+  lineage = null,
+  // Called with `{ sessionId, directory, pending }` when a session's assist
+  // starts waiting (turn end) and when it is written, skipped, failed or
+  // dropped. Clients keep a chat's OpenCode location until then: the assist
+  // reads the session's directory, and reading a stopped one starts it again.
+  onPendingChange = () => {},
 }) => {
   const timers = new Map();
+  // Turn ends waiting for `evaluateTurn`; a newer event replaces or drops the entry.
+  const gates = new Map();
   const inflight = new Map();
   const ready = new Map();
+  // Sessions holding an assist this process wrote, keyed to their directory.
+  const persisted = new Map();
+  // Sessions announced as waiting for an assist, keyed to their directory.
+  const announced = new Map();
   let stopped = false;
+
+  // Announces only transitions, after every change to the four maps above.
+  const announce = (sessionId, directory = '') => {
+    const pending = !stopped && (gates.has(sessionId) || timers.has(sessionId)
+      || inflight.has(sessionId) || ready.has(sessionId));
+    if (pending === announced.has(sessionId)) return;
+    const announcedDirectory = pending ? directory : announced.get(sessionId);
+    if (pending) announced.set(sessionId, directory);
+    else announced.delete(sessionId);
+    onPendingChange({ sessionId, directory: announcedDirectory, pending });
+  };
 
   const clearTimer = (sessionId) => {
     const existing = timers.get(sessionId);
@@ -99,28 +164,57 @@ export const createSessionAssistRuntime = ({
 
   const invalidate = (sessionId) => {
     clearTimer(sessionId);
+    gates.delete(sessionId);
     ready.delete(sessionId);
     inflight.get(sessionId)?.controller.abort();
+    announce(sessionId);
   };
 
-  const generateAssist = async (sessionId, directory, signal) => {
-    const targets = getTargets();
+  // A new turn makes the stored recap and suggestion describe an older turn:
+  // delete them so "has a suggestion" in metadata means the same everywhere.
+  const retireStored = (sessionId, directory) => {
+    if (!persisted.has(sessionId)) return;
+    const storedDirectory = persisted.get(sessionId);
+    persisted.delete(sessionId);
+    Promise.resolve(persistSessionAssist(sessionId, directory || storedDirectory, null))
+      .catch(() => console.warn('[session-assist] failed to retire a stale assist'));
+  };
+
+  const generateAssist = async (sessionId, directory, signal, allowed) => {
+    const enabledTargets = getTargets();
+    const targets = {
+      recap: enabledTargets.recap && allowed.recap,
+      suggestion: enabledTargets.suggestion && allowed.suggestion,
+    };
     if (!targets.recap && !targets.suggestion) return;
     const baseUrl = buildOpenCodeUrl('/', '').replace(/\/$/, '');
-    const client = createOpencodeClient({ baseUrl, headers: getOpenCodeAuthHeaders(), throwOnError: true });
+    const client = OpenCode.make({
+      baseUrl,
+      headers: {
+        ...getOpenCodeAuthHeaders(),
+        // v2 scopes by header and rejects non-ASCII header values.
+        ...(directory ? { 'x-opencode-directory': encodeURIComponent(directory) } : {}),
+      },
+    });
     const requestOptions = () => ({ signal: AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]) });
     const checkCurrent = () => {
       signal.throwIfAborted();
       if (buildOpenCodeUrl('/', '').replace(/\/$/, '') !== baseUrl) throw new Error('Session assist runtime changed');
     };
-    const { data: session } = await client.session.get({ sessionID: sessionId, directory }, requestOptions());
+    const session = await client.session.get({ sessionID: sessionId }, requestOptions());
     checkCurrent();
     // Reverted history is not the active conversation. A new prompt clears
     // the revert boundary before its next idle event.
-    if (session?.id !== sessionId || session.parentID || session.revert?.messageID || session.time?.archived) return;
+    if (session?.id === sessionId) lineage?.remember(sessionId, session.parentID ?? null);
+    if (session?.id !== sessionId || session.parentID || session.revert?.messageID) return;
+    // An archived session is put away: no recap or suggestion is generated for it.
+    if (await isSessionArchived(sessionId)) return;
     const context = await loadAssistContext({
       signal,
-      readPage: (page) => client.session.messages({ sessionID: sessionId, directory, ...page }, requestOptions()),
+      readPage: ({ limit, cursor }) => client.message.list(
+        { sessionID: sessionId, limit, ...(cursor ? { cursor } : { order: 'desc' }) },
+        requestOptions(),
+      ),
     });
     checkCurrent();
     if (!context) return;
@@ -131,19 +225,29 @@ export const createSessionAssistRuntime = ({
     const described = await describeSmallModel({ directory, preferredProviderID, preferredModelID });
     checkCurrent();
     if (!described) return;
+    // A local server keeps one prompt cache per slot: a side request on the
+    // session's own model evicts it, and the next turn reprocesses the whole
+    // history. There only a different model may write the assist, however the
+    // session's model was picked (fallback or an explicit Small Model).
+    if (described.localEndpoint
+      && described.providerID === preferredProviderID
+      && described.modelID === preferredModelID) return;
     const system = buildAssistSystemPrompt(targets);
     const prompt = buildAssistPrompt(turns, targets, described.inputCharBudget - system.length - 512);
     if (!prompt) return;
     let generated;
     try {
       generated = await generateSmallModelText({
-        prompt: prompt.text, system, directory, sessionID: sessionId,
-        preferredProviderID, preferredModelID, restrictToPreferredProvider: true,
+        prompt: prompt.text, system, directory,
+        preferredProviderID, preferredModelID,
         onOverflow: 'error', timeoutMs: GENERATION_TIMEOUT_MS, signal,
       });
     } catch (error) {
       if (!signal.aborted && Number(error?.statusCode) !== 404 && !QUIET_FAILURE_CODES.has(error?.code)) {
-        console.warn('[session-assist] generation failed');
+        // Keep the cause: a bare "generation failed" hides whether this was a
+        // cold-start 503, a provider rejection, or a bug, which is exactly what
+        // the operator needs to tell a transient startup from a permanent one.
+        console.warn('[session-assist] generation failed', describeGenerationFailure(error));
       }
       return;
     }
@@ -160,41 +264,43 @@ export const createSessionAssistRuntime = ({
     if (recap && scriptMismatch(recap)) recap = '';
     if (suggestion && scriptMismatch(suggestion)) suggestion = '';
     if (!recap && !suggestion) return;
-    const { data: latest } = await client.session.messages({ sessionID: sessionId, directory, limit: 1 }, requestOptions());
+    // v2 lists newest first. The answer is followed by its `idle` marker and
+    // possibly a model or agent switch, so read a short tail and compare the
+    // newest content record rather than the newest record.
+    const latestPage = await client.message.list({ sessionID: sessionId, limit: TAIL_RECHECK_LIMIT, order: 'desc' }, requestOptions());
     checkCurrent();
-    if (latest?.at(-1)?.info.id !== last.id) return;
+    if (newestContentId(latestPage?.data) !== last.id) return;
     // Never fall back to the pre-generation metadata snapshot after a failed
     // fresh read: doing so overwrites dismissals and unrelated metadata.
-    const { data: freshSession } = await client.session.get({ sessionID: sessionId, directory }, requestOptions());
+    const freshSession = await client.session.get({ sessionID: sessionId }, requestOptions());
     checkCurrent();
-    if (freshSession?.id !== sessionId || freshSession.revert?.messageID || freshSession.time?.archived || freshSession.directory !== session.directory) return;
+    if (freshSession?.id !== sessionId || freshSession.revert?.messageID || freshSession.location?.directory !== session.location?.directory) return;
+    if (await isSessionArchived(sessionId)) return;
+    // The archive check is a wait of its own: a turn that started meanwhile
+    // has aborted this run, and the write below must not land.
+    checkCurrent();
     const enabled = getTargets();
-    if (!enabled.recap) recap = '';
-    if (!enabled.suggestion) suggestion = '';
+    if (!enabled.recap || !allowed.recap) recap = '';
+    if (!enabled.suggestion || !allowed.suggestion) suggestion = '';
     if (!recap && !suggestion) return;
-    const currentMetadata = freshSession.metadata ?? {};
-    const currentNamespace = currentMetadata.openchamber ?? {};
-    await client.session.update({
-      sessionID: sessionId, directory,
-      metadata: {
-        ...currentMetadata,
-        openchamber: {
-          ...currentNamespace,
-          assist: { recap, suggestion, forMessageID: last.id, generatedAt: Date.now() },
-        },
-      },
-    }, requestOptions());
+    await persistSessionAssist(sessionId, directory, {
+      recap,
+      suggestion,
+      forMessageID: last.id,
+      generatedAt: Date.now(),
+    });
+    persisted.set(sessionId, directory);
   };
 
-  const startGeneration = (sessionId, directory, armedAt) => {
+  const startGeneration = (sessionId, directory, armedAt, allowed) => {
     if (stopped) return;
     if (inflight.has(sessionId)) {
-      ready.set(sessionId, { directory, armedAt });
+      ready.set(sessionId, { directory, armedAt, allowed });
       return;
     }
     const controller = new AbortController();
     inflight.set(sessionId, { controller, armedAt });
-    generateAssist(sessionId, directory, controller.signal)
+    generateAssist(sessionId, directory, controller.signal, allowed)
       .catch(() => {
         if (!controller.signal.aborted) console.warn('[session-assist] failed to read or save assistance');
       })
@@ -203,34 +309,84 @@ export const createSessionAssistRuntime = ({
         if (ready.has(sessionId)) {
           const next = ready.get(sessionId);
           ready.delete(sessionId);
-          startGeneration(sessionId, next.directory, next.armedAt);
+          startGeneration(sessionId, next.directory, next.armedAt, next.allowed);
         }
+        announce(sessionId);
       });
   };
 
-  const armTimer = (sessionId, directory) => {
+  const armTimer = (sessionId, directory, armedAt, allowed) => {
     clearTimer(sessionId);
-    const armedAt = Date.now();
     const timer = setTimeout(() => {
       timers.delete(sessionId);
-      startGeneration(sessionId, directory, armedAt);
+      startGeneration(sessionId, directory, armedAt, allowed);
+      announce(sessionId);
     }, quietMs);
     timer.unref?.();
     timers.set(sessionId, { timer, armedAt });
+    announce(sessionId, directory);
   };
 
+  const ALL_FIELDS = { recap: true, suggestion: true };
+
+  // The quiet window is armed only for fields Jev did not rule out; with
+  // nothing left there is no timer and no Small Model call at all.
+  const onTurnEnd = (sessionId, directory) => {
+    clearTimer(sessionId);
+    const armedAt = Date.now();
+    // Both fields off: nothing to generate, so nothing waits.
+    const enabled = getTargets();
+    if (!enabled.recap && !enabled.suggestion) {
+      gates.delete(sessionId);
+      announce(sessionId);
+      return;
+    }
+    if (typeof evaluateTurn !== 'function') {
+      armTimer(sessionId, directory, armedAt, ALL_FIELDS);
+      return;
+    }
+    const gate = { armedAt };
+    gates.set(sessionId, gate);
+    announce(sessionId, directory);
+    Promise.resolve()
+      .then(() => evaluateTurn({ sessionId, directory, assist: enabled }))
+      .catch(() => null)
+      .then((allowed) => {
+        if (stopped || gates.get(sessionId) !== gate) return;
+        gates.delete(sessionId);
+        const fields = allowed ?? ALL_FIELDS;
+        if (fields.recap || fields.suggestion) armTimer(sessionId, directory, armedAt, fields);
+        announce(sessionId);
+      });
+  };
+
+  let parkedNoticeLogged = false;
   const processPayload = (payload, directoryHint = '') => {
     if (stopped) return;
+    if (typeof persistSessionAssist !== 'function') {
+      if (!parkedNoticeLogged) {
+        parkedNoticeLogged = true;
+        console.log('[session-assist] parked: no session metadata store is wired, so a recap could not be saved');
+      }
+      return;
+    }
     const status = extractSessionStatus(payload);
     if (status) {
-      if (status.type === 'idle') armTimer(status.sessionId, status.directory || directoryHint);
-      else invalidate(status.sessionId);
+      if (status.type === 'idle') {
+        if (lineage?.isChild(status.sessionId) !== true) onTurnEnd(status.sessionId, status.directory || directoryHint);
+      }
+      else {
+        invalidate(status.sessionId);
+        retireStored(status.sessionId, status.directory || directoryHint);
+      }
       return;
     }
     const userMessage = extractUserMessage(payload);
     if (userMessage) {
       // Ignore old message.updated events re-emitted after completion.
-      const since = timers.get(userMessage.sessionId)?.armedAt ?? inflight.get(userMessage.sessionId)?.armedAt;
+      const since = timers.get(userMessage.sessionId)?.armedAt
+        ?? gates.get(userMessage.sessionId)?.armedAt
+        ?? inflight.get(userMessage.sessionId)?.armedAt;
       if (since !== undefined && userMessage.createdAt >= since) invalidate(userMessage.sessionId);
     }
   };
@@ -238,6 +394,7 @@ export const createSessionAssistRuntime = ({
   const stop = () => {
     stopped = true;
     for (const sessionId of timers.keys()) clearTimer(sessionId);
+    gates.clear();
     ready.clear();
     for (const { controller } of inflight.values()) controller.abort();
   };

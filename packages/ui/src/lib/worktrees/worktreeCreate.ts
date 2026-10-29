@@ -1,4 +1,5 @@
 import { checkIsGitRepository, getGitBranches, getGitStatus } from '@/lib/gitApi';
+import { getRuntimeKey, subscribeRuntimeEndpointChanged } from '@/lib/runtime-switch';
 import type { CreateWorktreeArgs, ProjectRef } from '@/lib/worktrees/worktreeManager';
 import { createWorktree } from '@/lib/worktrees/worktreeManager';
 import { getRootBranch, resolveProjectRoot } from '@/lib/worktrees/worktreeStatus';
@@ -49,7 +50,8 @@ export const resolveRootTrackingRemote = async (projectDirectory: string): Promi
   const rootBranch = await getRootBranch(projectDirectory);
 
   try {
-    const branchState = await getGitBranches(projectDirectory);
+    // Only the root branch's upstream is read: local refs answer that.
+    const branchState = await getGitBranches(projectDirectory, { remote: 'local' });
     const tracking = branchState.branches?.[rootBranch]?.tracking || null;
     const parsed = parseTrackingRef(tracking);
     if (parsed?.remote) {
@@ -94,6 +96,7 @@ const withWorktreeUpstreamDefaults = async (
   args: CreateWorktreeArgs,
   options?: { resolvedRootTrackingRemote?: string | null }
 ): Promise<CreateWorktreeArgs> => {
+  if (args.changeRequestSource) return args;
   const localBranch = resolveLocalBranchName(args);
   const resolvedRemote = options?.resolvedRootTrackingRemote;
   const defaults = resolvedRemote === undefined
@@ -169,11 +172,22 @@ export const createWorktreeWithDefaults = async (
   args: CreateWorktreeArgs,
   options?: { resolvedRootTrackingRemote?: string | null }
 ) => {
-  const isGitRepository = await checkIsGitRepository(project.path);
-  if (!isGitRepository) {
-    throw new WorktreeRequiresGitRepositoryError();
+  const runtime = getRuntimeKey();
+  let cancelled = false;
+  const unsubscribe = subscribeRuntimeEndpointChanged(() => { cancelled = true; });
+  const assertCurrent = () => { if (cancelled || getRuntimeKey() !== runtime) throw new Error('Server changed during worktree creation'); };
+  try {
+    const isGitRepository = await checkIsGitRepository(project.path);
+    assertCurrent();
+    if (!isGitRepository) {
+      throw new WorktreeRequiresGitRepositoryError();
+    }
+    const remoteArgs = await withWorktreeRemoteStartRef(project, args);
+    assertCurrent();
+    const resolvedArgs = await withWorktreeUpstreamDefaults(project.path, remoteArgs, options);
+    assertCurrent();
+    return await createWorktree(project, resolvedArgs);
+  } finally {
+    unsubscribe();
   }
-  const remoteArgs = await withWorktreeRemoteStartRef(project, args);
-  const resolvedArgs = await withWorktreeUpstreamDefaults(project.path, remoteArgs, options);
-  return createWorktree(project, resolvedArgs);
 };

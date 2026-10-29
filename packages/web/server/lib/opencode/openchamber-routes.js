@@ -1,3 +1,6 @@
+import { publicEnterprisePolicy } from '../enterprise-mode.js';
+import { withUserEnv } from '../injected-env.js';
+
 const SYSTEMD_SERVICE_UNIT_PATTERN = /^[A-Za-z0-9:_.@-]+\.service$/;
 
 function resolveSystemdServiceUnit(environment) {
@@ -15,6 +18,11 @@ function resolveSystemdServiceUnit(environment) {
 function quotePosixShell(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
+
+const LAUNCHD_SERVICE_ID = 'dev.openchamber.web';
+
+const resolveLaunchdPlistPath = (pathModule, osModule) =>
+  pathModule.join(osModule.homedir(), 'Library', 'LaunchAgents', `${LAUNCHD_SERVICE_ID}.plist`);
 
 /**
  * `echo` in batch treats `& | < > ( ) ^` as syntax and `%var%` as expansion,
@@ -38,7 +46,7 @@ const buildWindowsUpdateScript = ({ logPreamble, updateCmd, restartCmd }) => [
   // npm, pnpm and yarn are .cmd shims on Windows. Without `call`, a batch
   // file hands control to them for good and the restart below never runs.
   // Read from a file, cmd expands `%x%` and drops a lone `%`, so a `%` in a
-  // host or UI password would change the restart command. Doubling keeps it.
+  // host would change the restart command. Doubling keeps it.
   `call ${updateCmd.replace(/%/g, '%%')}`,
   'if %ERRORLEVEL% EQU 0 (',
   '  echo Update successful, restarting OpenChamber...',
@@ -46,9 +54,8 @@ const buildWindowsUpdateScript = ({ logPreamble, updateCmd, restartCmd }) => [
   ') else (',
   '  echo Update failed',
   ')',
-  // The restart command carries the server's own flags, `--ui-password`
-  // included, so the file does not outlive the run. Deleting the running
-  // batch file on its last line is safe: cmd has already read it.
+  // The file has no use after the run. Deleting the running batch file on
+  // its last line is safe: cmd has already read it.
   'del "%~f0"',
   '',
 ].join('\r\n');
@@ -56,6 +63,7 @@ const buildWindowsUpdateScript = ({ logPreamble, updateCmd, restartCmd }) => [
 export const registerOpenChamberRoutes = (app, dependencies) => {
   const {
     fs,
+    os,
     path,
     process,
     server,
@@ -70,6 +78,45 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
   } = dependencies;
 
   let desktopRestartError = null;
+
+  /**
+   * How this server was launched, read from its instance file. A foreground
+   * server outside systemd has no process that can restart it after an
+   * install, so it cannot update itself.
+   */
+  const readLaunchState = async () => {
+    const currentPort = server.address()?.port || 3000;
+    const instanceFilePath = path.join(openchamberDataDir, 'run', `openchamber-${currentPort}.json`);
+    let storedOptions = { port: currentPort, daemon: true };
+    try {
+      const content = await fs.promises.readFile(instanceFilePath, 'utf8');
+      storedOptions = JSON.parse(content);
+    } catch {
+    }
+    const launchMode = storedOptions.launchMode === 'foreground' ? 'foreground' : 'daemon';
+    const isForegroundService = launchMode === 'foreground';
+    const isDarwin = process.platform === 'darwin';
+    const systemdServiceUnit = isForegroundService && !isDarwin ? resolveSystemdServiceUnit(process.env) : null;
+    const osModule = os || (await import('os'));
+    const launchdPlistPath = isDarwin ? resolveLaunchdPlistPath(path, osModule) : null;
+    // launchd sets XPC_SERVICE_NAME to the job label, so a manual
+    // `serve --foreground` on a Mac that also has startup enabled is not
+    // mistaken for the LaunchAgent.
+    const isLaunchdService = Boolean(
+      isDarwin
+      && isForegroundService
+      && process.env?.XPC_SERVICE_NAME === LAUNCHD_SERVICE_ID
+      && launchdPlistPath
+      && fs.existsSync(launchdPlistPath),
+    );
+    return { storedOptions, launchMode, isForegroundService, systemdServiceUnit, isLaunchdService, launchdPlistPath };
+  };
+
+  // Whether an administrator turned on enterprise mode, and by which source.
+  // Pinned endpoints and keys never leave the server.
+  app.get('/api/openchamber/enterprise-policy', (_req, res) => {
+    res.json(publicEnterprisePolicy());
+  });
 
   app.get('/api/openchamber/update-check', async (req, res) => {
     try {
@@ -119,8 +166,20 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
           updateOwner: 'electron-updater',
         };
       } else {
-        const { checkForUpdates } = await import('../package-manager.js');
+        const { checkForUpdates, isUnmanagedInstall } = await import('../package-manager.js');
         updateInfo = await checkForUpdates(updateRequest);
+        // Tell clients up front that the install route will refuse, so they
+        // show manual steps instead of an Update button that fails.
+        if (updateInfo?.available && updateRequest.appType === 'web') {
+          if (isUnmanagedInstall()) {
+            updateInfo = { ...updateInfo, installBlocked: 'manual-install' };
+          } else {
+            const { isForegroundService, systemdServiceUnit, isLaunchdService } = await readLaunchState();
+            if (isForegroundService && !systemdServiceUnit && !isLaunchdService) {
+              updateInfo = { ...updateInfo, installBlocked: 'service-manager' };
+            }
+          }
+        }
       }
       res.json(updateInfo);
     } catch (error) {
@@ -146,6 +205,12 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         const updateInfo = await desktopUpdater.install();
         if (!updateInfo?.available) {
           return res.status(400).json({ error: 'No update available' });
+        }
+        if (updateInfo.installBlocked === 'desktop-host') {
+          return res.status(409).json({
+            code: 'DESKTOP_UPDATE_LOCAL_ONLY',
+            error: 'Update OpenChamber on the computer it runs on.',
+          });
         }
 
         res.json({
@@ -174,6 +239,7 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         checkForUpdates,
         getUpdateCommand,
         detectPackageManagerDetails,
+        isUnmanagedInstall,
       } = await import('../package-manager.js');
 
       const updateInfo = await checkForUpdates();
@@ -181,9 +247,16 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         return res.status(400).json({ error: 'No update available' });
       }
 
+      // A global install would add a second copy and leave this one as it is.
+      if (isUnmanagedInstall()) {
+        return res.status(409).json({
+          error: 'This copy can\'t update itself. Install the new version the way you installed it.',
+        });
+      }
+
       const pmDetails = detectPackageManagerDetails();
       const pm = pmDetails.packageManager;
-      const updateCmd = getUpdateCommand(pm);
+      const updateCmd = getUpdateCommand(pm, { targetVersion: updateInfo.version });
       const isContainer =
         fs.existsSync('/.dockerenv') ||
         Boolean(process.env.CONTAINER) ||
@@ -215,64 +288,56 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         return;
       }
 
-      const currentPort = server.address()?.port || 3000;
-      const instanceFilePath = path.join(openchamberDataDir, 'run', `openchamber-${currentPort}.json`);
-      let storedOptions = { port: currentPort, daemon: true };
-      try {
-        const content = await fs.promises.readFile(instanceFilePath, 'utf8');
-        storedOptions = JSON.parse(content);
-      } catch {
-      }
-      const launchMode = storedOptions.launchMode === 'foreground' ? 'foreground' : 'daemon';
-      const isForegroundService = launchMode === 'foreground';
-      const systemdServiceUnit = isForegroundService ? resolveSystemdServiceUnit(process.env) : null;
+      const { storedOptions, launchMode, isForegroundService, systemdServiceUnit, isLaunchdService, launchdPlistPath } = await readLaunchState();
 
       if (isForegroundService) {
-        if (!systemdServiceUnit) {
+        if (!systemdServiceUnit && !isLaunchdService) {
           return res.status(409).json({
             error: 'Foreground servers must be updated by their service manager. Set OPENCHAMBER_SYSTEMD_UNIT when running under systemd, or run openchamber update and restart the service.',
           });
         }
 
-        const updateJobName = `openchamber-update-${Date.now()}`;
-        const updateLogPath = `journalctl --user-unit ${updateJobName}.service`;
-        const updateScript = [
-          'set -eu',
-          updateCmd,
-          `systemctl --user restart ${quotePosixShell(systemdServiceUnit)}`,
-        ].join('\n');
-        const systemdRun = spawnSync('systemd-run', [
-          '--user',
-          `--unit=${updateJobName}`,
-          '--collect',
-          '--service-type=exec',
-          `--setenv=PATH=${process.env.PATH || ''}`,
-          '/bin/sh',
-          '-c',
-          updateScript,
-        ], {
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'pipe'],
-          timeout: 5000,
-        });
+        if (systemdServiceUnit) {
+          const updateJobName = `openchamber-update-${Date.now()}`;
+          const updateLogPath = `journalctl --user-unit ${updateJobName}.service`;
+          const updateScript = [
+            'set -eu',
+            updateCmd,
+            `systemctl --user restart ${quotePosixShell(systemdServiceUnit)}`,
+          ].join('\n');
+          const systemdRun = spawnSync('systemd-run', [
+            '--user',
+            `--unit=${updateJobName}`,
+            '--collect',
+            '--service-type=exec',
+            `--setenv=PATH=${process.env.PATH || ''}`,
+            '/bin/sh',
+            '-c',
+            updateScript,
+          ], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 5000,
+          });
 
-        if (systemdRun.status !== 0) {
-          const detail = (systemdRun.stderr || systemdRun.stdout || '').trim();
-          return res.status(409).json({
-            error: detail || `Could not queue update job for ${systemdServiceUnit}`,
+          if (systemdRun.status !== 0) {
+            const detail = (systemdRun.stderr || systemdRun.stdout || '').trim();
+            return res.status(409).json({
+              error: detail || `Could not queue update job for ${systemdServiceUnit}`,
+            });
+          }
+
+          return res.json({
+            success: true,
+            message: 'Update queued; OpenChamber will restart after installation completes',
+            version: updateInfo.version,
+            packageManager: pm,
+            autoRestart: true,
+            restartManager: 'systemd',
+            jobId: updateJobName,
+            logPath: updateLogPath,
           });
         }
-
-        return res.json({
-          success: true,
-          message: 'Update queued; OpenChamber will restart after installation completes',
-          version: updateInfo.version,
-          packageManager: pm,
-          autoRestart: true,
-          restartManager: 'systemd',
-          jobId: updateJobName,
-          logPath: updateLogPath,
-        });
       }
 
       const isWindows = process.platform === 'win32';
@@ -282,43 +347,41 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         return `"${stringValue.replace(/"/g, '""')}"`;
       };
 
-      const cliPath = path.resolve(__dirname, '..', 'bin', 'cli.js');
-      const restartParts = [
-        isWindows ? quoteCmd(process.execPath) : quotePosix(process.execPath),
-        isWindows ? quoteCmd(cliPath) : quotePosix(cliPath),
-        'serve',
-        '--port',
-        String(storedOptions.port),
-      ];
-      let restartCmdPrimary = restartParts.join(' ');
-      let restartCmdFallback = `openchamber serve --port ${storedOptions.port}`;
-      if (storedOptions.host) {
-        if (isWindows) {
-          const escapedHost = storedOptions.host.replace(/"/g, '""');
-          restartCmdPrimary += ` --host "${escapedHost}"`;
-          restartCmdFallback += ` --host "${escapedHost}"`;
-        } else {
-          const escapedHost = storedOptions.host.replace(/'/g, "'\\''");
-          restartCmdPrimary += ` --host '${escapedHost}'`;
-          restartCmdFallback += ` --host '${escapedHost}'`;
+      let restartCmd = '';
+      if (isLaunchdService) {
+        const quotedPlistPath = quotePosixShell(launchdPlistPath);
+        restartCmd = `launchctl kickstart -k gui/$(id -u)/${LAUNCHD_SERVICE_ID} || launchctl bootstrap gui/$(id -u) ${quotedPlistPath}`;
+      } else {
+        const cliPath = path.resolve(__dirname, '..', 'bin', 'cli.js');
+        const restartParts = [
+          isWindows ? quoteCmd(process.execPath) : quotePosix(process.execPath),
+          isWindows ? quoteCmd(cliPath) : quotePosix(cliPath),
+          'serve',
+          '--port',
+          String(storedOptions.port),
+        ];
+        let restartCmdPrimary = restartParts.join(' ');
+        let restartCmdFallback = `openchamber serve --port ${storedOptions.port}`;
+        if (storedOptions.host) {
+          if (isWindows) {
+            const escapedHost = storedOptions.host.replace(/"/g, '""');
+            restartCmdPrimary += ` --host "${escapedHost}"`;
+            restartCmdFallback += ` --host "${escapedHost}"`;
+          } else {
+            const escapedHost = storedOptions.host.replace(/'/g, "'\\''");
+            restartCmdPrimary += ` --host '${escapedHost}'`;
+            restartCmdFallback += ` --host '${escapedHost}'`;
+          }
         }
-      }
-      if (storedOptions.uiPassword) {
-        if (isWindows) {
-          const escapedPw = storedOptions.uiPassword.replace(/"/g, '""');
-          restartCmdPrimary += ` --ui-password "${escapedPw}"`;
-          restartCmdFallback += ` --ui-password "${escapedPw}"`;
-        } else {
-          const escapedPw = storedOptions.uiPassword.replace(/'/g, "'\\''");
-          restartCmdPrimary += ` --ui-password '${escapedPw}'`;
-          restartCmdFallback += ` --ui-password '${escapedPw}'`;
+        // The UI password reaches the restarted server through the update
+        // child's environment (OPENCHAMBER_UI_PASSWORD), never as a flag: the
+        // command line shows in the process list and is written to the log.
+        if (storedOptions.apiOnly === true) {
+          restartCmdPrimary += ' --api-only';
+          restartCmdFallback += ' --api-only';
         }
+        restartCmd = `(${restartCmdPrimary}) || (${restartCmdFallback})`;
       }
-      if (storedOptions.apiOnly === true) {
-        restartCmdPrimary += ' --api-only';
-        restartCmdFallback += ' --api-only';
-      }
-      const restartCmd = isForegroundService ? '' : `(${restartCmdPrimary}) || (${restartCmdFallback})`;
       const updateLogPath = path.join(openchamberDataDir, 'update-install.log');
       const logPreamble = [
         '',
@@ -410,7 +473,12 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         const child = spawnChild(shell, [shellFlag, script], {
           detached: true,
           stdio: logFd !== null ? ['ignore', logFd, logFd] : 'ignore',
-          env: process.env,
+          // The restarted server's password is this one's on purpose: handed
+          // over as the user's own, since `serve` drops what the record marks
+          // as another instance's.
+          env: storedOptions.uiPassword
+            ? withUserEnv(process.env, { OPENCHAMBER_UI_PASSWORD: storedOptions.uiPassword })
+            : process.env,
           windowsHide: true,
         });
         child.unref();
@@ -438,13 +506,13 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
 
   app.get('/api/openchamber/models-metadata', async (_req, res) => {
     try {
-      const { getModelsMetadata } = await import('./models-metadata.js');
+      const { getModelsMetadata, toClientModelsMetadata } = await import('./models-metadata.js');
       const { metadata, fromCache, stale } = await getModelsMetadata({
         url: modelsDevApiUrl,
         ttlMs: modelsMetadataCacheTtl,
       });
       res.setHeader('Cache-Control', fromCache && !stale ? 'public, max-age=60' : 'public, max-age=300');
-      res.json(metadata);
+      res.json(toClientModelsMetadata(metadata));
     } catch (error) {
       console.warn('Failed to fetch models.dev metadata via server:', error);
       const statusCode = error?.name === 'TimeoutError' || error?.name === 'AbortError' ? 504 : 502;

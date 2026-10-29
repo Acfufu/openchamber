@@ -3,6 +3,7 @@ import { runtimeFetch } from '@/lib/runtime-fetch';
 
 import { toast } from '@/components/ui';
 import { copyTextToClipboard } from '@/lib/clipboard';
+import { getDisambiguatingFolders } from '@/lib/path-utils';
 
 import {
   DropdownMenu,
@@ -21,19 +22,24 @@ import {
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ActionToolbar, ToolbarTooltipButton, type ToolbarAction, type ToolbarGroup } from '@/components/ui/action-toolbar';
 import { CodeMirrorEditor } from '@/components/ui/CodeMirrorEditor';
 import { GoToLineDialog } from './GoToLineDialog';
+import { FilePathLabel } from './files/FilePathLabel';
+import { DocumentSymbolsPanel } from './DocumentSymbolsPanel';
+import { GitignoredToggleButton } from '@/components/layout/GitignoredToggleButton';
+import { useZoneInteractive } from '@/components/layout/zoneInteractiveContext';
 import { MarkdownPreviewSearch } from './MarkdownPreviewSearch';
-import { PreviewToggleButton } from './PreviewToggleButton';
 import { createFileContentPoller } from './fileContentPoller';
-import { hasFileStatChanged } from './fileStatChange';
+import { hasFileStatChanged, openFilePollStep } from './fileStatChange';
+import { pendingFileNavigationStep } from './pendingFileNavigation';
 import { JsonTreeView } from '@/components/ui/JsonTreeView';
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { languageByExtension, loadLanguageByExtension } from '@/lib/codemirror/languageByExtension';
 import { createFlexokiCodeMirrorTheme } from '@/lib/codemirror/flexokiTheme';
-import { shikiHighlightExtension } from '@/lib/codemirror/shikiHighlight';
-import { getResolvedShikiTheme } from '@/lib/shiki/appThemeRegistry';
+import { codeHighlightExtension } from '@/lib/codemirror/codeHighlight';
+import { syncVimMappings } from '@/lib/codemirror/vimModeExtension';
+import { getCodeTokenTheme } from '@/lib/shiki/appThemeRegistry';
 import { File as PierreFile, VirtualizerContext, WorkerPoolContext } from '@pierre/diffs/react';
 import { useWorkerPool } from '@/contexts/DiffWorkerProvider';
 import { useFileViewVirtualizer, type FileViewVirtualizer } from './useFileViewVirtualizer';
@@ -50,37 +56,80 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useFileSearchStore } from '@/stores/useFileSearchStore';
 import { useDeviceInfo } from '@/lib/device';
 import { cn, getRevealLabelKey } from '@/lib/utils';
-import { getLanguageFromExtension, getImageMimeType, isBinaryFile, isDrawioFile, isImageFile, isPdfFile, isSvgFile, looksLikeBinaryText } from '@/lib/toolHelpers';
+import { getLanguageFromExtension, getImageMimeType, isAudioFile, isBinaryFile, isDelimitedTableFile, isDrawioFile, isExcalidrawFile, isFontFile, isImageFile, isMermaidFile, isPdfFile, isSvgFile, isVideoFile, looksLikeBinaryText } from '@/lib/toolHelpers';
 import { shouldAllowFileDraftSave, shouldScheduleFileAutosave } from '@/lib/fileEditorAutosave';
+import { MAX_OPEN_FILE_BYTES } from '@/lib/fileOpenLimits';
+import { formatFileSize } from '@/lib/fileSize';
 import { LARGE_FILE_CHAR_THRESHOLD, initialFileTextMode, makeFileContentCacheKey, prepareFileEditorContent, serializeEditorContent, type FileLineEnding } from './fileEditorContent';
-import { getRuntimeUrlResolver } from '@/lib/runtime-url';
-import { acquireRuntimeUrlAuthToken, refreshRuntimeUrlAuthToken, subscribeRuntimeUrlAuthToken } from '@/lib/runtime-auth';
-import { getRuntimeApiBaseUrl, getRuntimeKey } from '@/lib/runtime-switch';
-import { getOutsideFileGrant, resolveOutsideFileReadOptions } from '@/lib/outsideFileGrants';
+import { getRuntimeKey } from '@/lib/runtime-switch';
 import { subscribeToFileContentInvalidation } from '@/lib/fileContentInvalidation';
+import { isFilePathMoveInFlight, rebaseMovedPath, rebaseMovedPathKeys, subscribeToFilePathMoves } from '@/lib/filePathMoves';
 import { DiagramEditor } from '@/components/diagram';
+import { EMPTY_CANVAS_READ, shouldShowFileCanvas, type FileCanvasHandle } from '@/components/views/files/fileCanvas';
+import { GuestFileEditor } from '@/components/views/files/GuestFileEditor';
+import { findGuestFileEditor, useGuestFileEditor } from '@/lib/guests/file-editors';
+import { useGuestsStore } from '@/lib/guests/store';
+import { GUEST_FILE_EDITOR_CONTENT_MAX } from '@openchamber/sdk';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
+import { highlightSelectionMatches } from '@codemirror/search';
+import { codeFolding } from '@/lib/codemirror/codeFolding';
+import { bracketAids, multipleCursors } from '@/lib/codemirror/editingAids';
+import { gitChangeGutter, setGitChangeBaseline } from '@/lib/codemirror/gitChangeGutter';
+import { importLinks, resolveRelativeImport } from '@/lib/codemirror/importLinks';
+import { indentGuides } from '@/lib/codemirror/indentGuides';
+import { isLintedJsonPath, jsonSyntaxLint } from '@/lib/codemirror/jsonSyntaxLint';
+import { stickyScope } from '@/lib/codemirror/stickyScope';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
-import { useUIStore } from '@/stores/useUIStore';
+import { normalizeContextPanelDirectoryKey, useUIStore } from '@/stores/useUIStore';
 import { useFilesViewTabsStore } from '@/stores/useFilesViewTabsStore';
 import { useGitStatus, useGitStore } from '@/stores/useGitStore';
 import { DirectoryRequests } from './files/directoryRequests';
+import { useFileTreeUpload } from './files/useFileTreeUpload';
+import { moveWorkspacePath } from './files/moveWorkspacePath';
 import { areDirectoryNodesEqual, buildFileTreeStatusIndex } from './files/fileTreeStatus';
+import { BinaryArtifact } from './files/previews/BinaryArtifact';
+import { PdfArtifact } from './files/previews/PdfArtifact';
+import { FontArtifact } from './files/previews/FontArtifact';
+import { ImageArtifact, type ImageNeighbor } from './files/previews/ImageArtifact';
+import { imageNeighborsOf } from './files/imageNeighbors';
+import { MediaArtifact } from './files/previews/MediaArtifact';
+import { TableArtifact } from './files/previews/TableArtifact';
+import { useMarkdownLocalAssets } from './files/previews/useMarkdownLocalAssets';
+import { useHtmlPreviewUrl } from './files/useHtmlPreviewUrl';
+import { useRawAssetUrl } from './files/useRawAssetUrl';
+import { useHtmlPreviewAnnotation } from './files/useHtmlPreviewAnnotation';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController } from '@/components/comments';
+import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
+import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, isWholeFileComment, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection, useWholeFileComment } from '@/components/comments';
 import { opencodeClient } from '@/lib/opencode/client';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
+import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
+import {
+  FileTreeChevron,
+  FileTreeFileMarkers,
+  FileTreeFolderBadge,
+  FileTreeIndentGuides,
+} from './files/FileTreeRowParts';
+import {
+  fileTreeRowPaddingLeft,
+  fileTreeRowStateClassName,
+  type FileTreeGitStatus,
+} from './files/fileTreeRow';
 import { Icon } from "@/components/icon/Icon";
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import { ensurePierreThemeRegistered } from '@/lib/shiki/appThemeRegistry';
+import { DIFFS_HIGHLIGHTER, toDiffsLanguage } from '@/lib/shiki/diffsHighlighter';
 import { getDefaultTheme } from '@/lib/theme/themes';
-import { isBrowserClientRuntime, openDesktopFileInApp, openDesktopPath } from '@/lib/desktop';
+import { isBrowserClientRuntime, isDesktopLocalOriginActive, openDesktopFileInApp, openDesktopPath } from '@/lib/desktop';
+import { registerCloseTabTarget } from '@/lib/closeTabTarget';
+import { isFileMissingError } from '@/lib/api/files-errors';
 import { useOpenInAppsStore } from '@/stores/useOpenInAppsStore';
 import { useKeybind, useKeybinds } from '@/hooks/useKeybind';
 import { isEditableEventTarget } from '@/hooks/keyboard-shortcut-dom';
@@ -89,6 +138,8 @@ import { useI18n } from '@/lib/i18n';
 import { sessionEvents } from '@/lib/sessionEvents';
 import { syncScheduledTaskLoops } from '@/lib/scheduledTasksApi';
 import { useProjectsStore } from '@/stores/useProjectsStore';
+import { watchFileOnScreen } from '@/lib/watchedFiles';
+
 
 type FileNode = {
   name: string;
@@ -150,7 +201,7 @@ const OpenInAppListIcon = ({ label, iconDataUrl }: { label: string; iconDataUrl?
     <span
       className={cn(
         'size-4 rounded-sm flex items-center justify-center',
-        'bg-[var(--surface-muted)] text-[9px] font-medium text-muted-foreground'
+        'oc-tile-inset text-[0.5625rem] font-medium text-muted-foreground'
       )}
     >
       {initial}
@@ -242,21 +293,14 @@ const getDisplayPath = (root: string | null, path: string): string => {
 
 const DEFAULT_IGNORED_DIR_NAMES = new Set(['node_modules']);
 
-type FileStatus = 'open' | 'modified' | 'git-modified' | 'git-added' | 'git-deleted';
+// A folder before the name tells apart open files that share it.
+const FileNameText: React.FC<{ name: string; folder?: string }> = ({ name, folder }) => (
+  folder ? (
+    <span dir="ltr"><span className="text-muted-foreground opacity-70">{folder}/</span>{name}</span>
+  ) : <>{name}</>
+);
 
-const FileStatusDot: React.FC<{ status: FileStatus }> = ({ status }) => {
-  const color = {
-    open: 'var(--status-info)',
-    modified: 'var(--status-warning)',
-    'git-modified': 'var(--status-warning)',
-    'git-added': 'var(--status-success)',
-    'git-deleted': 'var(--status-error)',
-  }[status];
-
-  return <span className="size-2 rounded-full" style={{ backgroundColor: color }} />;
-};
-
-const ScrollingFileName: React.FC<{ name: string }> = ({ name }) => {
+const ScrollingFileName: React.FC<{ name: string; folder?: string }> = ({ name, folder }) => {
   const containerRef = React.useRef<HTMLSpanElement | null>(null);
   const textRef = React.useRef<HTMLSpanElement | null>(null);
   const [overflowing, setOverflowing] = React.useState(false);
@@ -280,18 +324,20 @@ const ScrollingFileName: React.FC<{ name: string }> = ({ name }) => {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [name]);
+  }, [name, folder]);
 
+  const text = <FileNameText name={name} folder={folder} />;
   return (
     <span ref={containerRef} className="relative block min-w-0 flex-1 overflow-hidden whitespace-nowrap">
-      <span ref={textRef} aria-hidden="true" className="invisible absolute whitespace-nowrap">{name}</span>
+      <span ref={textRef} aria-hidden="true" className="invisible absolute whitespace-nowrap">{text}</span>
       {overflowing ? (
-        <span className="open-file-name-marquee-track">
-          <span className="open-file-name-marquee-item">{name}</span>
-          <span className="open-file-name-marquee-item" aria-hidden="true">{name}</span>
+        // Keyed by the file, so each newly opened name scrolls past once.
+        <span key={`${folder}/${name}`} className="open-file-name-marquee-track">
+          <span className="open-file-name-marquee-item">{text}</span>
+          <span className="open-file-name-marquee-item" aria-hidden="true">{text}</span>
         </span>
       ) : (
-        <span className="block min-w-0 truncate">{name}</span>
+        <span className="block min-w-0 truncate">{text}</span>
       )}
     </span>
   );
@@ -310,26 +356,25 @@ const isDirectoryReadError = (error: unknown): boolean => {
   return normalized.includes('is a directory') || normalized.includes('eisdir');
 };
 
-const isFileMissingError = (error: unknown): boolean => {
-  const message = error instanceof Error ? error.message : String(error ?? '');
-  const normalized = message.toLowerCase();
-  return normalized.includes('file not found')
-    || normalized.includes('enoent')
-    || normalized.includes('no such file')
-    || normalized.includes('does not exist');
-};
-
 const MAX_CONTENT_POLL_BYTES = 200_000;
-
-const getFileIcon = (filePath: string, extension?: string): React.ReactNode => {
-  return <FileTypeIcon filePath={filePath} extension={extension} />;
-};
+/** The open file's check while OpenCode watches it: only for a watch lost on an OpenCode restart. */
+const WATCHED_FILE_POLL_MS = 30_000;
 
 const isMarkdownFile = (path: string): boolean => {
   if (!path) return false;
-  const ext = path.toLowerCase().split('.').pop();
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.excalidraw.md')) return false;
+  const ext = lower.split('.').pop();
   return ext === 'md' || ext === 'markdown';
 };
+
+/**
+ * Files an extension's file editor opens. For callbacks and loaders; render
+ * code reads the reactive `useGuestFileEditor` instead.
+ */
+const opensInFileCanvas = (path: string | null | undefined): boolean => Boolean(
+  path && findGuestFileEditor(useGuestsStore.getState().guests, path),
+);
 
 const isJsonFile = (path: string): boolean => {
   if (!path) return false;
@@ -351,7 +396,10 @@ interface FileRowProps {
   isMobile: boolean;
   isBrowserClient: boolean;
   alwaysShowActions: boolean;
-  status?: FileStatus | null;
+  depth: number;
+  /** Open in a tab of this view. */
+  isOpen: boolean;
+  status?: FileTreeGitStatus | null;
   badge?: { modified: number; added: number } | null;
   permissions: {
     canRename: boolean;
@@ -369,6 +417,8 @@ interface FileRowProps {
   onToggle: (path: string) => void;
   onRevealPath: (path: string) => void;
   onOpenDialog: (type: 'createFile' | 'createFolder' | 'rename' | 'delete', data: { path: string; name?: string; type?: 'file' | 'directory' }) => void;
+  canUpload: boolean;
+  onPickFiles: (directory: string) => void;
 }
 
 const FileRow: React.FC<FileRowProps> = ({
@@ -379,6 +429,8 @@ const FileRow: React.FC<FileRowProps> = ({
   isMobile,
   isBrowserClient,
   alwaysShowActions,
+  depth,
+  isOpen,
   status,
   badge,
   permissions,
@@ -391,13 +443,16 @@ const FileRow: React.FC<FileRowProps> = ({
   onToggle,
   onRevealPath,
   onOpenDialog,
+  canUpload,
+  onPickFiles,
 }) => {
   const { t } = useI18n();
   const isDir = node.type === 'directory';
   const { canRename, canCreateFile, canCreateFolder, canDelete, canReveal } = permissions;
   const canDownload = !isDir && Boolean(downloadFile);
   const canRevealPath = canReveal && !isBrowserClient;
-  const hasMenuActions = canRename || canCreateFile || canCreateFolder || canDelete || canDownload || canRevealPath;
+  const canUploadHere = isDir && canUpload;
+  const hasMenuActions = canRename || canCreateFile || canCreateFolder || canUploadHere || canDelete || canDownload || canRevealPath;
 
   const handleContextMenu = React.useCallback((event?: React.MouseEvent) => {
     if (!hasMenuActions) {
@@ -431,7 +486,7 @@ const FileRow: React.FC<FileRowProps> = ({
     <>
       {canRename && (
         <Item onClick={(e: React.MouseEvent) => { e.stopPropagation(); onOpenDialog('rename', node); }}>
-          <Icon name="edit" className="mr-2 size-4" /> {t('sidebarFilesTree.menu.rename')}
+          <Icon name="edit" className="me-2 size-4" /> {t('sidebarFilesTree.menu.rename')}
         </Item>
       )}
       <Item onClick={(e: React.MouseEvent) => {
@@ -444,7 +499,7 @@ const FileRow: React.FC<FileRowProps> = ({
           toast.error(t('sidebarFilesTree.toast.copyFailed'));
         });
       }}>
-        <Icon name="file-copy" className="mr-2 size-4" /> {t('sidebarFilesTree.menu.copyPath')}
+        <Icon name="link" className="me-2 size-4" /> {t('sidebarFilesTree.menu.copyPath')}
       </Item>
       <Item onClick={(e: React.MouseEvent) => {
         e.stopPropagation();
@@ -457,7 +512,7 @@ const FileRow: React.FC<FileRowProps> = ({
           toast.error(t('sidebarFilesTree.toast.copyFailed'));
         });
       }}>
-        <Icon name="file-copy-2" className="mr-2 size-4" /> {t('filesView.tree.menu.copyRelativePath')}
+        <Icon name="file-copy-2" className="me-2 size-4" /> {t('filesView.tree.menu.copyRelativePath')}
       </Item>
       {!isDir && downloadFile && (
         <Item onClick={(e: React.MouseEvent) => {
@@ -467,25 +522,41 @@ const FileRow: React.FC<FileRowProps> = ({
             toast.error(t('sidebarFilesTree.toast.operationFailed'));
           });
         }}>
-          <Icon name="download" className="mr-2 size-4" /> {t(isBrowserClient ? 'sidebarFilesTree.menu.download' : 'sidebarFilesTree.menu.save')}
+          <Icon name="download" className="me-2 size-4" /> {t(isBrowserClient ? 'sidebarFilesTree.menu.download' : 'sidebarFilesTree.menu.save')}
         </Item>
       )}
       {canRevealPath && (
         <Item onClick={(e: React.MouseEvent) => { e.stopPropagation(); onRevealPath(node.path); }}>
-          <Icon name="folder-received" className="mr-2 size-4" /> {t(getRevealLabelKey())}
+          <Icon name="folder-received" className="me-2 size-4" /> {t(getRevealLabelKey())}
         </Item>
       )}
-      {isDir && (canCreateFile || canCreateFolder) && (
+      {/* The OS opens it with whatever app owns the type: Word for a .docx, Typora for a .md. */}
+      {!isDir && canRevealPath && isDesktopLocalOriginActive() && (
+        <Item onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          void openDesktopPath(node.path).then((opened) => {
+            if (!opened) toast.error(t('sidebarFilesTree.toast.operationFailed'));
+          });
+        }}>
+          <Icon name="external-link" className="me-2 size-4" /> {t('sidebarFilesTree.menu.openInDefaultApp')}
+        </Item>
+      )}
+      {isDir && (canCreateFile || canCreateFolder || canUploadHere) && (
         <>
           <Separator />
           {canCreateFile && (
             <Item onClick={(e: React.MouseEvent) => { e.stopPropagation(); onOpenDialog('createFile', node); }}>
-              <Icon name="file-add" className="mr-2 size-4" /> {t('sidebarFilesTree.menu.newFile')}
+              <Icon name="file-add" className="me-2 size-4" /> {t('sidebarFilesTree.menu.newFile')}
             </Item>
           )}
           {canCreateFolder && (
             <Item onClick={(e: React.MouseEvent) => { e.stopPropagation(); onOpenDialog('createFolder', node); }}>
-              <Icon name="folder-add" className="mr-2 size-4" /> {t('sidebarFilesTree.menu.newFolder')}
+              <Icon name="folder-add" className="me-2 size-4" /> {t('sidebarFilesTree.menu.newFolder')}
+            </Item>
+          )}
+          {canUploadHere && (
+            <Item onClick={(e: React.MouseEvent) => { e.stopPropagation(); onPickFiles(node.path); }}>
+              <Icon name="upload-2" className="me-2 size-4" /> {t('sidebarFilesTree.menu.uploadFiles')}
             </Item>
           )}
         </>
@@ -497,7 +568,7 @@ const FileRow: React.FC<FileRowProps> = ({
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); onOpenDialog('delete', node); }}
             className="text-destructive focus:text-destructive"
           >
-            <Icon name="delete-bin" className="mr-2 size-4" /> {t('sidebarFilesTree.menu.delete')}
+            <Icon name="delete-bin" className="me-2 size-4" /> {t('sidebarFilesTree.menu.delete')}
           </Item>
         </>
       )}
@@ -507,23 +578,21 @@ const FileRow: React.FC<FileRowProps> = ({
   return (
     <ContextMenu open={rightClickMenuPath === node.path} onOpenChange={(open) => setRightClickMenuPath(open ? node.path : null)}>
       <ContextMenuTrigger render={<div className="group relative flex items-center" onContextMenu={!isMobile ? handleContextMenu : undefined} />}>
+      <FileTreeIndentGuides depth={depth} />
       <button
         type="button"
         onClick={handleInteraction}
         onContextMenu={!isMobile ? handleContextMenu : undefined}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-foreground transition-colors pr-8 select-none',
-          isActive ? 'bg-interactive-selection/70' : 'hover:bg-interactive-hover/40'
+          'flex w-full items-center gap-1.5 rounded-md py-1 pe-8 text-start transition-colors select-none',
+          fileTreeRowStateClassName(isActive)
         )}
+        style={{ paddingLeft: fileTreeRowPaddingLeft(depth) }}
       >
         {isDir ? (
-          isExpanded ? (
-            <Icon name="folder-open" className="size-4 flex-shrink-0 text-muted-foreground" />
-          ) : (
-            <Icon name="folder-3" className="size-4 flex-shrink-0 text-muted-foreground" />
-          )
+          <FileTreeChevron expanded={isExpanded} />
         ) : (
-          getFileIcon(node.path, node.extension)
+          <FileTypeIcon filePath={node.path} extension={node.extension} className="ms-0.5 size-3.5" />
         )}
         <span
           className="min-w-0 flex-1 truncate typography-meta"
@@ -531,17 +600,12 @@ const FileRow: React.FC<FileRowProps> = ({
         >
           {node.name}
         </span>
-        {!isDir && status && <FileStatusDot status={status} />}
-        {isDir && badge && (
-          <span className="text-xs flex items-center gap-1 ml-auto mr-1">
-            {badge.modified > 0 && <span className="text-[var(--status-warning)]">M{badge.modified}</span>}
-            {badge.added > 0 && <span className="text-[var(--status-success)]">+{badge.added}</span>}
-          </span>
-        )}
+        {!isDir && <FileTreeFileMarkers isOpen={isOpen} status={status} />}
+        {isDir && badge && <FileTreeFolderBadge badge={badge} />}
       </button>
       {hasMenuActions && (
         <div className={cn(
-          "absolute right-1 top-1/2 -translate-y-1/2",
+          "absolute inset-e-1 top-1/2 -translate-y-1/2",
           alwaysShowActions ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100"
         )}>
           <DropdownMenu
@@ -651,6 +715,13 @@ const Dialogs: React.FC<DialogsProps> = ({
 interface FilesViewProps {
   visible?: boolean;
   mode?: 'full' | 'editor-only';
+  /**
+   * For a host whose tab strip owns the open files (the context panel):
+   * closing a file here, by Cmd/Ctrl+W or after the unsaved-changes prompt,
+   * closes the host's tab, which picks the next file the way its close
+   * button does. Without it the view closes the file in its own state.
+   */
+  onCloseFile?: (path: string) => void;
 }
 
 type FileEditorPosition = {
@@ -706,74 +777,23 @@ const FilePositionEditor = ({
   );
 };
 
-/**
- * Keeps a token-bearing asset preview (image/HTML/PDF) authenticated. While
- * `assetKey` is set this registers an active url-token consumer (so runtime-auth
- * proactively refreshes the shared token before it expires) and subscribes to
- * token replacements, bumping `nonce` so the iframe/img remounts with the fresh
- * token — but only when the token actually changed, not on every interval.
- */
-const useAssetAuthRefresh = (
-  assetKey: string,
-  setFileError: React.Dispatch<React.SetStateAction<string | null>>,
-  errorFallback: string,
-): { readyKey: string; nonce: number } => {
-  const [readyKey, setReadyKey] = React.useState('');
-  const [nonce, setNonce] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!assetKey) {
-      setReadyKey('');
-      return;
-    }
-
-    let cancelled = false;
-    setReadyKey('');
-    const apiBaseUrl = getRuntimeApiBaseUrl();
-    const release = acquireRuntimeUrlAuthToken(apiBaseUrl);
-
-    void refreshRuntimeUrlAuthToken(apiBaseUrl)
-      .then((token) => {
-        if (cancelled || !token) return;
-        setReadyKey(assetKey);
-        setFileError(null);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setFileError(error instanceof Error ? error.message : errorFallback);
-        setReadyKey(assetKey);
-      });
-
-    const unsubscribe = subscribeRuntimeUrlAuthToken(() => {
-      if (cancelled) return;
-      // Token was refreshed underneath us — remount the asset with the fresh URL.
-      setReadyKey(assetKey);
-      setNonce((n) => n + 1);
-      setFileError(null);
-    });
-
-    return () => {
-      cancelled = true;
-      release();
-      unsubscribe();
-    };
-  }, [assetKey, setFileError, errorFallback]);
-
-  return { readyKey, nonce };
-};
-
-export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = true }) => {
+export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = true, onCloseFile }) => {
   const { t } = useI18n();
-  const { files, runtime } = useRuntimeAPIs();
+  const { files, runtime, git } = useRuntimeAPIs();
   const { currentTheme, availableThemes, lightThemeId, darkThemeId } = useThemeSystem();
   const { isMobile, isTablet, screenWidth } = useDeviceInfo();
   const isBrowserClient = isBrowserClientRuntime(runtime.platform);
   const alwaysShowActions = isMobile || isTablet;
   const showHidden = useDirectoryShowHidden();
   const showGitignored = useFilesViewShowGitignored();
+  const zoneInteractive = useZoneInteractive();
 
-  const currentDirectory = useEffectiveDirectory() ?? '';
+  // The panel's tabs belong to the open view's folder; the files come from it too, except in a
+  // draft waiting for a new space, which shows the space's (`panelContentDirectory`).
+  const panelDirectory = useEffectiveDirectory() ?? '';
+  const currentDirectory = panelContentDirectory(useDraftSpaceTarget(), panelDirectory) ?? '';
   const root = normalizePath(currentDirectory.trim());
+  const panelRoot = normalizePath(panelDirectory.trim());
   const treeEnabled = isMobile || mode === 'full';
   const treeActive = treeEnabled && visible;
   const runtimeKey = useGitStore((state) => state.runtimeKey);
@@ -797,6 +817,37 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const [showMobilePageContent, setShowMobilePageContent] = React.useState(false);
   const [wrapLines, setWrapLines] = React.useState(true);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  // The canvas lives in one place at a time (docked or fullscreen), so moving
+  // it carries unsaved edits over through the draft, as the source toggle does.
+  // An extension editor answers asynchronously; if it cannot, the canvas stays
+  // where it is rather than remounting without the user's edits.
+  const changeFullscreen = React.useCallback((next: boolean) => {
+    if (!canvasDirtyRef.current) {
+      setIsFullscreen(next);
+      return;
+    }
+    const pathAtToggle = selectedFilePathRef.current;
+    // Bytes have no text draft to travel through, so a binary editor's
+    // unsaved changes are saved before it moves.
+    if (binaryCanvasRef.current) {
+      void saveDraftRef.current?.().then((saved) => {
+        if (saved && selectedFilePathRef.current === pathAtToggle) setIsFullscreen(next);
+      });
+      return;
+    }
+    void Promise.resolve(canvasEditorRef.current?.getContent('handoff') ?? EMPTY_CANVAS_READ).then((read) => {
+      if (selectedFilePathRef.current !== pathAtToggle) return;
+      if (!read.ok) {
+        toast.error(read.message);
+        return;
+      }
+      if (read.snapshot && 'content' in read.snapshot) {
+        setDraftContent(read.snapshot.content);
+        setCanvasDirty(false);
+      }
+      setIsFullscreen(next);
+    });
+  }, []);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const toolbarDropdownOpenCountRef = React.useRef(0);
 
@@ -815,11 +866,22 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const [jsonViewMode, setJsonViewMode] = React.useState<'tree' | 'text'>('tree');
   const [htmlViewMode, setHtmlViewMode] = React.useState<PreviewViewMode>('edit');
   const [drawioViewMode, setDrawioViewMode] = React.useState<PreviewViewMode>('preview');
+  const [canvasViewMode, setCanvasViewMode] = React.useState<PreviewViewMode>('preview');
+  const [svgViewMode, setSvgViewMode] = React.useState<PreviewViewMode>('preview');
+  const [mermaidViewMode, setMermaidViewMode] = React.useState<PreviewViewMode>('preview');
+  const [tableViewMode, setTableViewMode] = React.useState<'table' | 'text'>('table');
+  // Byte size of the open file, for the artifact meta line.
+  const [artifactSize, setArtifactSize] = React.useState<number | null>(null);
   const [drawioRemountNonce, setDrawioRemountNonce] = React.useState(0);
+  const [canvasRemountNonce, setCanvasRemountNonce] = React.useState(0);
   const textViewModeByPathRef = React.useRef<Record<string, TextViewMode>>({});
   const mdViewModeByPathRef = React.useRef<Record<string, PreviewViewMode>>({});
   const htmlViewModeByPathRef = React.useRef<Record<string, PreviewViewMode>>({});
+  const svgViewModeByPathRef = React.useRef<Record<string, PreviewViewMode>>({});
+  const mermaidViewModeByPathRef = React.useRef<Record<string, PreviewViewMode>>({});
+  const tableViewModeByPathRef = React.useRef<Record<string, 'table' | 'text'>>({});
   const drawioViewModeByPathRef = React.useRef<Record<string, PreviewViewMode>>({});
+  const canvasViewModeByPathRef = React.useRef<Record<string, PreviewViewMode>>({});
 
   const lightTheme = React.useMemo(
     () => availableThemes.find((theme) => theme.metadata.id === lightThemeId) ?? getDefaultTheme(false),
@@ -842,6 +904,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const expandedPathSet = React.useMemo(() => new Set(expandedPaths), [expandedPaths]);
   const removeOpenPath = useFilesViewTabsStore((state) => state.removeOpenPath);
   const removeOpenPathsByPrefix = useFilesViewTabsStore((state) => state.removeOpenPathsByPrefix);
+  const removeUnselectedOpenPath = useFilesViewTabsStore((state) => state.removeUnselectedOpenPath);
   const removeExpandedPathsByPrefix = useFilesViewTabsStore((state) => state.removeExpandedPathsByPrefix);
   const setSelectedPath = useFilesViewTabsStore((state) => state.setSelectedPath);
   const toggleExpandedPath = useFilesViewTabsStore((state) => state.toggleExpandedPath);
@@ -861,6 +924,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }, []);
 
   const openFiles = React.useMemo(() => openPaths.map(toFileNode), [openPaths, toFileNode]);
+  const openFileFolders = React.useMemo(
+    () => getDisambiguatingFolders(openPaths.map((path) => getDisplayPath(root, path))),
+    [openPaths, root],
+  );
+  const getOpenFileFolder = (path: string) => openFileFolders.get(getDisplayPath(root, path));
   const effectiveSelectedPath = React.useMemo(() => {
     if (selectedPath) {
       const comparableSelected = toComparablePath(selectedPath);
@@ -872,7 +940,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }, [openPaths, selectedPath]);
   const selectedFile = React.useMemo(() => (effectiveSelectedPath ? toFileNode(effectiveSelectedPath) : null), [effectiveSelectedPath, toFileNode]);
   const selectedFilePath = selectedFile?.path ?? '';
-  const [, setOutsideFileGrantRevision] = React.useState(0);
+  const selectedFilePathRef = React.useRef(selectedFilePath);
+  selectedFilePathRef.current = selectedFilePath;
 
   React.useEffect(() => {
     if (!root || !selectedPath) return;
@@ -884,33 +953,28 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }, [openPaths, root, selectedPath, setSelectedPath]);
 
   const selectedFileIsOutsideWorkspace = Boolean(root && selectedFilePath && !isPathWithinRoot(selectedFilePath, root));
-  const selectedOutsideFileGrant = selectedFileIsOutsideWorkspace ? getOutsideFileGrant(selectedFilePath) : undefined;
   const selectedFileReadOptions = React.useMemo(
     () => ({
-      allowOutsideWorkspace: mode === 'editor-only' && selectedFileIsOutsideWorkspace,
-      outsideFileGrant: selectedOutsideFileGrant,
+      allowOutsideWorkspace: selectedFileIsOutsideWorkspace,
       directory: root || undefined,
     }),
-    [mode, selectedFileIsOutsideWorkspace, selectedOutsideFileGrant, root],
+    [selectedFileIsOutsideWorkspace, root],
   );
-  const resolveFileReadOptions = React.useCallback(async (path: string) => {
-    const previousGrant = getOutsideFileGrant(path);
-    const readOptions = await resolveOutsideFileReadOptions(path, root, mode === 'editor-only');
-    if (readOptions.outsideFileGrant && readOptions.outsideFileGrant !== previousGrant) {
-      setOutsideFileGrantRevision((revision) => revision + 1);
-    }
-    return readOptions;
-  }, [mode, root]);
+  const resolveFileReadOptions = React.useCallback((path: string) => ({
+    allowOutsideWorkspace: Boolean(root && !isPathWithinRoot(path, root)),
+  }), [root]);
 
   // Editor tabs horizontal scroll fades
   const editorTabsScrollRef = React.useRef<HTMLDivElement>(null);
-  const [editorTabsOverflow, setEditorTabsOverflow] = React.useState<{ left: boolean; right: boolean }>({ left: false, right: false });
+  const [editorTabsOverflow, setEditorTabsOverflow] = React.useState<{ start: boolean; end: boolean }>({ start: false, end: false });
   const updateEditorTabsOverflow = React.useCallback(() => {
     const el = editorTabsScrollRef.current;
     if (!el) return;
+    // scrollLeft is negative in RTL; its magnitude is the distance from the start.
+    const fromStart = Math.abs(el.scrollLeft);
     setEditorTabsOverflow({
-      left: el.scrollLeft > 2,
-      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+      start: fromStart > 2,
+      end: fromStart + el.clientWidth < el.scrollWidth - 2,
     });
   }, []);
   const updateEditorTabsOverflowRef = React.useRef(updateEditorTabsOverflow);
@@ -945,7 +1009,25 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const [desktopImageSrc, setDesktopImageSrc] = React.useState<string>('');
 
   const [loadedFilePath, setLoadedFilePath] = React.useState<string | null>(null);
-  const filePositionKey = JSON.stringify([getRuntimeKey(), root, loadedFilePath]);
+  const loadedFilePathRef = React.useRef(loadedFilePath);
+  loadedFilePathRef.current = loadedFilePath;
+  // Set when a move or rename lands on the loaded file (`lib/filePathMoves.ts`):
+  // once the tabs point at `to`, the editor adopts it with its unsaved edits
+  // instead of re-reading the file.
+  const pendingPathMoveRef = React.useRef<{ from: string; to: string } | null>(null);
+  // Editors are keyed by the path the file was opened under, so adopting a
+  // moved path does not remount them and drop their undo history or edits.
+  const [documentPathAlias, setDocumentPathAlias] = React.useState<{ path: string; documentPath: string } | null>(null);
+  const editorDocumentPath = documentPathAlias && documentPathAlias.path === loadedFilePath
+    ? documentPathAlias.documentPath
+    : loadedFilePath;
+  // The path whose last read failed. Requests waiting for that file to load
+  // (a line jump, a focus) end here instead of waiting forever.
+  const [failedFilePath, setFailedFilePath] = React.useState<string | null>(null);
+  // The path the open-file poll saw missing since its last load; only that
+  // observation lets the poll reload a failed file once it is back.
+  const missingSeenPathRef = React.useRef<string | null>(null);
+  const filePositionKey = JSON.stringify([getRuntimeKey(), root, editorDocumentPath]);
 
   const [draftContent, setDraftContent] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
@@ -956,7 +1038,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const diagramXmlRef = React.useRef('');
   const diagramSavedXmlRef = React.useRef('');
   const pendingDrawioPreviewFrameRef = React.useRef<number | null>(null);
+  const pendingCanvasPreviewFrameRef = React.useRef<number | null>(null);
   const diagramEditorRef = React.useRef<React.ComponentRef<typeof DiagramEditor>>(null);
+  const canvasEditorRef = React.useRef<FileCanvasHandle | null>(null);
+  const [canvasDirty, setCanvasDirty] = React.useState(false);
+  const canvasDirtyRef = React.useRef(false);
+  canvasDirtyRef.current = canvasDirty;
+  // Set during render once the selected file's editor is known: callbacks
+  // declared above that point (save, autosave, fullscreen) read it here.
+  const binaryCanvasRef = React.useRef(false);
+  const saveDraftRef = React.useRef<(() => Promise<boolean>) | null>(null);
   const lastLoadedFileStatRef = React.useRef<FileStatSnapshot | null>(null);
   const lastLoadedFileContentRef = React.useRef('');
   const lastLoadedFileRevisionRef = React.useRef(0);
@@ -965,6 +1056,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const [fileContentRevision, setFileContentRevision] = React.useState(0);
   const [autoSaveStatus, setAutoSaveStatus] = React.useState<'idle' | 'saved'>('idle');
   const [diagramSaved, setDiagramSaved] = React.useState(false);
+  const [canvasSaved, setCanvasSaved] = React.useState(false);
   const [contentDetectedBinary, setContentDetectedBinary] = React.useState(false);
   const autoSaveEnabled = useUIStore((state) => state.autoSaveEnabled);
   const setAutoSaveEnabled = useUIStore((state) => state.setAutoSaveEnabled);
@@ -977,9 +1069,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const copiedPathTimeoutRef = React.useRef<number | null>(null);
   const editorViewRef = React.useRef<EditorView | null>(null);
   const editorWrapperRef = React.useRef<HTMLDivElement | null>(null);
+  // The canvas has no CodeMirror wrapper; Cmd/Ctrl+S must reach it too.
+  const canvasWrapperRef = React.useRef<HTMLDivElement | null>(null);
+  // Last drawing change, so autosave waits until the user stops drawing. A ref:
+  // strokes arrive every frame and must not re-render this view.
+  const canvasLastEditAtRef = React.useRef(0);
   const [editorViewReadyNonce, setEditorViewReadyNonce] = React.useState(0);
   const pendingNavigationRafRef = React.useRef<number | null>(null);
-  const pendingNavigationCycleRef = React.useRef<{ key: string; attempts: number }>({ key: '', attempts: 0 });
+  const pendingNavigationCycleRef = React.useRef<{ key: string; attempts: number; targetShown: boolean }>({ key: '', attempts: 0, targetShown: false });
 
   React.useEffect(() => {
     return () => {
@@ -999,6 +1096,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const [copiedContent, setCopiedContent] = React.useState(false);
   const [copiedPath, setCopiedPath] = React.useState(false);
   const [isGoToLineOpen, setIsGoToLineOpen] = React.useState(false);
+  const [isSymbolsOpen, setIsSymbolsOpen] = React.useState(false);
   // In-preview find for the rendered Markdown preview (Ctrl/Cmd+F).
   const [mdPreviewFindOpen, setMdPreviewFindOpen] = React.useState(false);
   const [mdPreviewFindFocusNonce, setMdPreviewFindFocusNonce] = React.useState(0);
@@ -1073,9 +1171,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   // Line selection state for commenting
   const [lineSelection, setLineSelection] = React.useState<SelectedLineRange | null>(null);
-  const isSelectingRef = React.useRef(false);
-  const selectionStartRef = React.useRef<number | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
 
   // Session/config for sending comments
   const pendingFileNavigation = useUIStore((state) => state.pendingFileNavigation);
@@ -1083,19 +1178,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const pendingFileFocusPath = useUIStore((state) => state.pendingFileFocusPath);
   const setPendingFileFocusPath = useUIStore((state) => state.setPendingFileFocusPath);
   const fileEditorKeymap = useUIStore((state) => state.fileEditorKeymap);
+  const fileEditorVimMappings = useUIStore((state) => state.fileEditorVimMappings);
+  // Vim mappings live in the Vim keymap, which is global; editing them in
+  // Settings applies to open editors on the next key press.
+  React.useEffect(() => {
+    if (fileEditorKeymap === 'vim') syncVimMappings(fileEditorVimMappings);
+  }, [fileEditorKeymap, fileEditorVimMappings]);
   const settingsDefaultFileViewerPreview = useConfigStore((state) => state.settingsDefaultFileViewerPreview);
   const showMessageTTSButtons = useConfigStore((state) => state.showMessageTTSButtons);
-
-  // Global mouseup to end drag selection
-  React.useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      isSelectingRef.current = false;
-      selectionStartRef.current = null;
-      setIsDragging(false);
-    };
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -1140,8 +1230,20 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     startEdit,
     deleteDraft,
   } = fileCommentController;
+  // Whole-file comments show under the toolbar, never between the lines.
+  const filesLineDrafts = React.useMemo(() => filesFileDrafts.filter((draft) => !isWholeFileComment(draft)), [filesFileDrafts]);
+  const wholeFileComment = useWholeFileComment({ fileLabel: selectedFile?.path ?? '', source: 'file' });
+
+  const { isDragging, lineNumbersConfig, isDragReleaseClick } = useLineNumberDragSelection({
+    lineSelection,
+    setLineSelection,
+    onClear: cancel,
+    isMobile,
+  });
 
   React.useEffect(() => {
+    // A moved file is the same document under a new path: it keeps its draft.
+    if (pendingPathMoveRef.current?.to === selectedFile?.path) return;
     setLineSelection(null);
     reset();
     setDraftContent('');
@@ -1156,6 +1258,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (!lineSelection && !editingDraftId) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      if (isDragReleaseClick()) return;
       const target = e.target as HTMLElement;
 
       if (target.closest('[data-comment-input="true"]') || target.closest('[data-comment-card="true"]')) return;
@@ -1176,7 +1279,27 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [cancel, commentText, editingDraftId, lineSelection]);
+  }, [cancel, commentText, editingDraftId, isDragReleaseClick, lineSelection]);
+
+  // Touch devices: while the comment bar is open, the line range is shown by
+  // the highlightLines decoration. Any native text selection left in the
+  // editor makes Android/iOS draw their copy/paste toolbar right over the bar,
+  // so collapse it. Desktop keeps its selection untouched.
+  React.useEffect(() => {
+    if (!isMobile || !lineSelection) return;
+    const view = editorViewRef.current;
+    if (!view) return;
+
+    const main = view.state.selection.main;
+    if (!main.empty) {
+      view.dispatch({ selection: { anchor: main.head } });
+    }
+
+    const domSelection = document.getSelection();
+    if (domSelection && !domSelection.isCollapsed && domSelection.anchorNode && view.contentDOM.contains(domSelection.anchorNode)) {
+      domSelection.removeAllRanges();
+    }
+  }, [isMobile, lineSelection]);
 
   const handleSaveComment = React.useCallback((text: string, range?: { start: number; end: number }) => {
     const finalRange = range ?? lineSelection ?? undefined;
@@ -1224,9 +1347,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     return directoryRequests.run(normalizedDir, async (ownsRequest) => {
       const isCurrentRequest = () => ownsRequest() && treeScopeRef.current === scope && getRuntimeKey() === requestRuntime;
       try {
+        const respectGitignore = !showGitignored;
         const entries = files.listDirectory
-          ? (await files.listDirectory(normalizedDir)).entries
-          : await opencodeClient.listLocalDirectory(normalizedDir);
+          ? (await files.listDirectory(normalizedDir, { respectGitignore })).entries
+          : await opencodeClient.listLocalDirectory(normalizedDir, { respectGitignore });
         if (!isCurrentRequest()) return;
         const mapped = mapDirectoryEntries(normalizedDir, entries);
         loadedDirsRef.current = new Set(loadedDirsRef.current);
@@ -1259,7 +1383,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         }));
       }
     }, force);
-  }, [directoryRequests, files, mapDirectoryEntries, removeExpandedPathsByPrefix, root, treeActive]);
+  }, [directoryRequests, files, mapDirectoryEntries, removeExpandedPathsByPrefix, root, showGitignored, treeActive]);
 
   const refreshRoot = React.useCallback(async () => {
     if (!root) {
@@ -1291,6 +1415,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     loadedDirsRef.current.delete(normalized);
     await loadDirectory(normalized, true);
   }, [loadDirectory, refreshRoot]);
+
+  const {
+    canUpload,
+    uploadingDirectory,
+    pickFiles,
+    uploadElements,
+  } = useFileTreeUpload({ root, refreshDirectory });
+  const isUploading = uploadingDirectory !== null;
 
   const lastFileScopeRef = React.useRef<string>('');
   const lastFilesViewTreeKeyRef = React.useRef<string>('');
@@ -1457,33 +1589,29 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       const oldPath = dialogData.path;
       const parentDir = oldPath.split('/').slice(0, -1).join('/');
       const prefix = parentDir ? `${parentDir}/` : '';
-      const newPath = normalizePath(`${prefix}${dialogInputValue.trim()}`);
+      const newName = dialogInputValue.trim();
+      const newPath = normalizePath(`${prefix}${newName}`);
 
-      await files.rename(oldPath, newPath)
-        .then(async (result) => {
-          if (result.success) {
-            toast.success(t('sidebarFilesTree.toast.renamedSuccessfully'));
-            await refreshDirectory(parentDir);
-            if (root) {
-              removeOpenPathsByPrefix(root, oldPath);
-            }
-            if (selectedFile?.path === oldPath || selectedFile?.path.startsWith(`${oldPath}/`)) {
-              if (root) {
-                setSelectedPath(root, null);
-              }
-              setFileContent('');
-              setFileError(null);
-              setDesktopImageSrc('');
-              setLoadedFilePath(null);
-              if (isMobile) {
-                setShowMobilePageContent(false);
-              }
-            }
-          }
+      // Open tabs and the editor, unsaved edits included, follow the new name.
+      try {
+        const result = await moveWorkspacePath(files, { tabs: panelRoot, files: root }, oldPath, newPath);
+        if (result === 'moved') {
+          toast.success(t('sidebarFilesTree.toast.renamedSuccessfully'));
+          await refreshDirectory(parentDir);
           finishDialogOperation();
-        })
-        .catch(() => failDialogOperation(t('sidebarFilesTree.toast.operationFailed')))
-        .finally(done);
+        } else if (result === 'conflict') {
+          failDialogOperation(t('sidebarFilesTree.toast.nameTaken', {
+            name: newName,
+            folder: getDisplayPath(root, parentDir) || t('sidebarFilesTree.dialog.rootFallback'),
+          }));
+        } else {
+          failDialogOperation(t('sidebarFilesTree.toast.operationFailed'));
+        }
+      } catch {
+        failDialogOperation(t('sidebarFilesTree.toast.operationFailed'));
+      } finally {
+        done();
+      }
       return;
     }
 
@@ -1525,7 +1653,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
 
     done();
-  }, [activeDialog, dialogData, dialogInputValue, files, refreshDirectory, isMobile, removeOpenPathsByPrefix, root, selectedFile?.path, setSelectedPath, t]);
+  }, [activeDialog, dialogData, dialogInputValue, files, panelRoot, refreshDirectory, isMobile, removeOpenPathsByPrefix, root, selectedFile?.path, setSelectedPath, t]);
 
   React.useEffect(() => {
     if (!currentDirectory) {
@@ -1585,7 +1713,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   // `fresh` bypasses the content cache and HTTP cache so external-change polling
   // compares against the file on disk rather than a cached copy.
   const readFile = React.useCallback(async (path: string, cacheOptions?: { fresh?: boolean }): Promise<string> => {
-    const options = await resolveFileReadOptions(path);
+    const options = resolveFileReadOptions(path);
     if (files.readFile) {
       const result = await files.readFile(path, {
         ...options,
@@ -1599,15 +1727,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (options.allowOutsideWorkspace) {
       params.set('allowOutsideWorkspace', 'true');
     }
-    if (options.outsideFileGrant) {
-      params.set('outsideFileGrant', options.outsideFileGrant);
-    }
     if (root) {
       params.set('directory', root);
     }
     const response = await runtimeFetch(
       `/api/fs/read?${params.toString()}`,
-      cacheOptions?.fresh ? { cache: 'no-store' } : undefined,
+      { cache: cacheOptions?.fresh ? 'no-store' : 'default', signal: AbortSignal.timeout(30_000) },
     );
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }));
@@ -1618,7 +1743,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   const readFileStat = React.useCallback(async (path: string): Promise<FileStatSnapshot | null> => {
     if (files.statFile) {
-      const options = await resolveFileReadOptions(path);
+      const options = resolveFileReadOptions(path);
       const result = await files.statFile(path, { ...options, directory: root || undefined });
       return {
         path: result.path,
@@ -1639,14 +1764,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
     void Promise.all(paths.map(async (path) => {
       try {
-        const options = await resolveFileReadOptions(path);
+        const options = resolveFileReadOptions(path);
         const stat = await files.statFile?.(path, { ...options, directory: root || undefined });
         if (!cancelled && stat && !stat.isFile) {
-          removeOpenPathsByPrefix(root, path);
+          removeUnselectedOpenPath(root, path);
         }
       } catch (error) {
         if (!cancelled && isFileMissingError(error)) {
-          removeOpenPathsByPrefix(root, path);
+          removeUnselectedOpenPath(root, path);
         }
       }
     }));
@@ -1654,9 +1779,25 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     return () => {
       cancelled = true;
     };
-  }, [files, openPaths, removeOpenPathsByPrefix, resolveFileReadOptions, root]);
+  }, [files, openPaths, removeUnselectedOpenPath, resolveFileReadOptions, root]);
 
-  const isDirty = draftContent !== fileContent;
+  const isDirty = draftContent !== fileContent || canvasDirty;
+
+
+  const applyLoadedTextContent = React.useCallback((content: string, remountCanvas = true) => {
+    const { content: editorContent, lineEnding } = prepareFileEditorContent(content);
+    if (remountCanvas && opensInFileCanvas(selectedFilePathRef.current)) {
+      setCanvasRemountNonce((nonce) => nonce + 1);
+    }
+    lastLoadedFileContentRef.current = content;
+    lastLoadedFileRevisionRef.current += 1;
+    setLoadedFileLineEnding(lineEnding);
+    setFileContent(editorContent);
+    diagramXmlRef.current = editorContent;
+    diagramSavedXmlRef.current = editorContent;
+    setDraftContent(editorContent);
+    return editorContent;
+  }, []);
 
   const saveDraft = React.useCallback(async () => {
     if (!selectedFile || !files.writeFile) {
@@ -1664,7 +1805,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return false;
     }
 
-    const selectedIsBinary = isBinaryFile(selectedFile.path) || contentDetectedBinary;
+    // A binary file saves only through the extension editor that owns it.
+    const selectedIsBinary = (isBinaryFile(selectedFile.path) || contentDetectedBinary) && !binaryCanvasRef.current;
     if (!shouldAllowFileDraftSave({
       selectedFilePath: selectedFile.path,
       loadedFilePath,
@@ -1691,18 +1833,60 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return true;
     }
 
+    // The file is moving: a write now would recreate it at the old path. Once
+    // the editor adopts the new path, autosave runs again and saves there.
+    if (pendingPathMoveRef.current || isFilePathMoveInFlight(selectedFile.path)) {
+      return false;
+    }
+
     setIsSaving(true);
 
     try {
-      const contentToWrite = serializeEditorContent(draftContent, loadedFileLineEnding);
-      const result = await files.writeFile(selectedFile.path, contentToWrite);
-      if (!result?.success) {
-        toast.error(t('filesView.toast.writeFileFailed'));
+      // One snapshot: what is written and what is later marked saved are the
+      // same state, so edits made during the write stay unsaved. A canvas that
+      // cannot answer fails the save instead of writing the stale draft.
+      const canvas = canvasDirty ? canvasEditorRef.current : null;
+      // A canvas that went away (its extension was paused or removed) took its
+      // edits with it; left set, the flag would keep autosave writing forever.
+      if (canvasDirty && !canvas) setCanvasDirty(false);
+      const canvasRead = canvas ? await canvas.getContent('save') : EMPTY_CANVAS_READ;
+      if (!canvasRead.ok) {
+        toast.error(canvasRead.message);
         return false;
       }
-      setFileContent(draftContent);
-      lastLoadedFileContentRef.current = contentToWrite;
-      lastLoadedFileRevisionRef.current += 1;
+      const canvasSnapshot = canvasRead.snapshot;
+      if (canvasSnapshot && 'bytes' in canvasSnapshot) {
+        // Bytes go through the atomic upload write, replacing the file.
+        if (!files.uploadFile) {
+          toast.error(t('filesView.toast.savingNotSupported'));
+          return false;
+        }
+        // No baseline while writing: the poll records the new stat instead of
+        // reading our own write as an external change and reloading the editor.
+        lastLoadedFileStatRef.current = null;
+        const written = await files.uploadFile(selectedFile.path, new Blob([canvasSnapshot.bytes]), { overwrite: true });
+        if (!written?.success) {
+          toast.error(t('filesView.toast.writeFileFailed'));
+          return false;
+        }
+        canvasEditorRef.current?.markSaved(canvasSnapshot.signature);
+      } else {
+        // The file keeps the line endings it was loaded with, drawn or typed.
+        const contentToWrite = serializeEditorContent(canvasSnapshot ? canvasSnapshot.content : draftContent, loadedFileLineEnding);
+        const result = await files.writeFile(selectedFile.path, contentToWrite);
+        if (!result?.success) {
+          toast.error(t('filesView.toast.writeFileFailed'));
+          return false;
+        }
+        if (canvasSnapshot) {
+          applyLoadedTextContent(contentToWrite, false);
+          canvasEditorRef.current?.markSaved(canvasSnapshot.signature);
+        } else {
+          setFileContent(draftContent);
+          lastLoadedFileContentRef.current = contentToWrite;
+          lastLoadedFileRevisionRef.current += 1;
+        }
+      }
       if (root && isPathWithinRoot(selectedFile.path, root)) {
         const relativePath = getDisplayPath(root, selectedFile.path);
         if (relativePath) {
@@ -1738,7 +1922,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     } finally {
       setIsSaving(false);
     }
-  }, [contentDetectedBinary, draftContent, fileContent, fileLoading, files, isDirty, loadedFileLineEnding, loadedFilePath, readFileStat, root, selectedFile, t]);
+  }, [applyLoadedTextContent, contentDetectedBinary, draftContent, canvasDirty, fileContent, fileLoading, files, isDirty, loadedFileLineEnding, loadedFilePath, readFileStat, root, selectedFile, t]);
+  saveDraftRef.current = saveDraft;
 
   React.useEffect(() => {
     if (autoSaveEnabled) {
@@ -1757,7 +1942,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   React.useEffect(() => {
     const canWrite = Boolean(selectedFile && files.writeFile);
-    const selectedIsBinary = Boolean(selectedFile?.path && (isBinaryFile(selectedFile.path) || contentDetectedBinary));
+    const selectedIsBinary = Boolean(selectedFile?.path && (isBinaryFile(selectedFile.path) || contentDetectedBinary)) && !binaryCanvasRef.current;
     if (!shouldScheduleFileAutosave({
       autoSaveEnabled,
       isDirty,
@@ -1767,17 +1952,29 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       selectedFilePath: selectedFile?.path,
       loadedFilePath,
       isNonEditableBinary: selectedIsBinary,
+      wouldEmptyFile: draftContent === '' && fileContent !== '',
     })) {
       return;
     }
 
-    autoSaveTimerRef.current = setTimeout(() => {
-      void saveDraft().then((saved) => {
-        if (!saved) return;
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus('idle'), 2000);
-      });
-    }, AUTO_SAVE_DELAY);
+    // Drawing changes no dependency here (the draft stays put while the canvas
+    // is dirty), so the timer re-arms itself until the canvas has been quiet
+    // for the full delay, like typing does.
+    const schedule = (delay: number) => {
+      autoSaveTimerRef.current = setTimeout(() => {
+        const quietFor = Date.now() - canvasLastEditAtRef.current;
+        if (quietFor < AUTO_SAVE_DELAY) {
+          schedule(AUTO_SAVE_DELAY - quietFor);
+          return;
+        }
+        void saveDraft().then((saved) => {
+          if (!saved) return;
+          setAutoSaveStatus('saved');
+          setTimeout(() => setAutoSaveStatus('idle'), 2000);
+        });
+      }, delay);
+    };
+    schedule(AUTO_SAVE_DELAY);
 
     return () => {
       if (autoSaveTimerRef.current) {
@@ -1785,29 +1982,35 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         autoSaveTimerRef.current = null;
       }
     };
-  }, [autoSaveEnabled, contentDetectedBinary, draftContent, fileLoading, isDirty, loadedFilePath, selectedFile, files.writeFile, isSaving, saveDraft]);
+  }, [autoSaveEnabled, contentDetectedBinary, draftContent, fileContent, fileLoading, isDirty, loadedFilePath, selectedFile, files.writeFile, isSaving, saveDraft]);
 
   // Reset auto-save status when switching files
   React.useEffect(() => {
     setAutoSaveStatus('idle');
   }, [selectedFile?.path]);
 
-  useKeybinds({
-    save_file: (event) => {
-      if (!(event.target instanceof Node) || !editorWrapperRef.current?.contains(event.target)) return false;
+  const saveNow = React.useCallback(() => {
+    // Cancel pending auto-save because the explicit save should run immediately.
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    if (!isSaving) {
+      void saveDraft().then((saved) => {
+        if (!saved) return;
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus('idle'), 2000);
+      });
+    }
+  }, [isSaving, saveDraft]);
 
-      // Cancel pending auto-save because the explicit save should run immediately.
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-      if (!isSaving) {
-        void saveDraft().then((saved) => {
-          if (!saved) return;
-          setAutoSaveStatus('saved');
-          setTimeout(() => setAutoSaveStatus('idle'), 2000);
-        });
-      }
+  useKeybinds({
+    // An extension editor's frame never forwards key events here; it sends
+    // its own save request (`GuestFileEditor` → `saveNow`).
+    save_file: (event) => {
+      if (!(event.target instanceof Node)) return false;
+      if (!editorWrapperRef.current?.contains(event.target) && !canvasWrapperRef.current?.contains(event.target)) return false;
+      saveNow();
     },
     find_in_file: (event) => {
       if (!(event.target instanceof Node)) return false;
@@ -1832,18 +2035,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     },
   });
 
-  const applyLoadedTextContent = React.useCallback((content: string) => {
-    const { content: editorContent, lineEnding } = prepareFileEditorContent(content);
-    lastLoadedFileContentRef.current = content;
-    lastLoadedFileRevisionRef.current += 1;
-    setLoadedFileLineEnding(lineEnding);
-    setFileContent(editorContent);
-    diagramXmlRef.current = editorContent;
-    diagramSavedXmlRef.current = editorContent;
-    setDraftContent(editorContent);
-    return editorContent;
-  }, []);
-
   const loadSelectedFile = React.useCallback(async (node: FileNode) => {
     const loadId = activeFileLoadIdRef.current + 1;
     activeFileLoadIdRef.current = loadId;
@@ -1856,17 +2047,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return activeFileLoadIdRef.current === loadId && currentPath === node.path;
     };
 
+    pendingPathMoveRef.current = null;
+    setDocumentPathAlias(null);
     setFileError(null);
+    setFailedFilePath(null);
+    missingSeenPathRef.current = null;
     setDesktopImageSrc('');
     setLoadedFilePath(null);
     setContentDetectedBinary(false);
     setFileLoading(true);
-
-    // Prime asset URLs; read and stat resolve again immediately before their calls.
-    await resolveFileReadOptions(node.path);
-    if (!isCurrentLoad()) {
-      return;
-    }
 
     const selectedIsImage = isImageFile(node.path);
     const isSvg = isSvgFile(node.path);
@@ -1911,6 +2100,22 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
+    // A file past the size limit shows as a failed read instead of being
+    // pulled in whole; a file whose size is unknown is read as before.
+    const sizeStat = await readFileStat(node.path).catch(() => null);
+    if (!isCurrentLoad()) {
+      return;
+    }
+    if (sizeStat && sizeStat.size > MAX_OPEN_FILE_BYTES) {
+      setFileContent('');
+      setDraftContent('');
+      setFileError(t('contextFileOpen.failure.tooLargeSize', { size: formatFileSize(MAX_OPEN_FILE_BYTES) }));
+      setFailedFilePath(node.path);
+      lastLoadedFileStatRef.current = null;
+      setFileLoading(false);
+      return;
+    }
+
     await readFile(node.path)
       .then((content) => {
         if (!isCurrentLoad()) {
@@ -1925,7 +2130,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         }
         const editorContent = applyLoadedTextContent(content);
         const hasOwnPreviewMode = isMarkdownFile(node.path) || isHtmlFile(node.path)
-          || isJsonFile(node.path) || isDrawioFile(node.path);
+          || isJsonFile(node.path) || isDrawioFile(node.path) || isSvgFile(node.path)
+          || isMermaidFile(node.path) || isDelimitedTableFile(node.path)
+          || opensInFileCanvas(node.path);
         setTextViewMode(hasOwnPreviewMode ? 'edit' : initialFileTextMode(editorContent, textViewModeByPathRef.current[node.path]));
         setLoadedFilePath(node.path);
         void readFileStat(node.path)
@@ -1970,22 +2177,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           }
           return;
         }
-        if (isFileMissingError(error)) {
-          if (root) {
-            removeOpenPathsByPrefix(root, node.path);
-          }
-          setFileContent('');
-          setDraftContent('');
-          setFileError(null);
-          lastLoadedFileStatRef.current = null;
-          if (isMobile) {
-            setShowMobilePageContent(false);
-          }
-          return;
-        }
+        // A missing file keeps its tab and shows the error like any other
+        // failed read; the host's tab still names this path.
         setFileContent('');
         setDraftContent('');
         setFileError(error instanceof Error ? error.message : t('filesView.error.readFileFailed'));
+        setFailedFilePath(node.path);
         lastLoadedFileStatRef.current = null;
       })
       .finally(() => {
@@ -1993,7 +2190,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           setFileLoading(false);
         }
       });
-  }, [applyLoadedTextContent, expandPaths, isMobile, loadDirectory, readFile, readFileStat, removeOpenPathsByPrefix, resolveFileReadOptions, root, runtime.isDesktop, searchQuery, setSelectedPath, t]);
+  }, [applyLoadedTextContent, expandPaths, isMobile, loadDirectory, readFile, readFileStat, root, runtime.isDesktop, searchQuery, setSelectedPath, t]);
 
   const ensurePathVisible = React.useCallback(async (targetPath: string, includeTarget: boolean) => {
     if (!visible || !root) {
@@ -2046,6 +2243,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setFileContent('');
     diagramXmlRef.current = '';
     diagramSavedXmlRef.current = '';
+    setCanvasDirty(false);
     setDraftContent('');
     setLoadedFilePath(null);
     if (isMobile) {
@@ -2061,7 +2259,43 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     void ensurePathVisible(selectedFile.path, false);
   }, [ensurePathVisible, selectedFile?.path]);
 
+  React.useEffect(() => subscribeToFilePathMoves(({ runtimeKey, from, to }) => {
+    if (runtimeKey !== getRuntimeKey()) return;
+    // View modes (preview or source, table or text) follow the file.
+    textViewModeByPathRef.current = rebaseMovedPathKeys(textViewModeByPathRef.current, from, to);
+    mdViewModeByPathRef.current = rebaseMovedPathKeys(mdViewModeByPathRef.current, from, to);
+    htmlViewModeByPathRef.current = rebaseMovedPathKeys(htmlViewModeByPathRef.current, from, to);
+    svgViewModeByPathRef.current = rebaseMovedPathKeys(svgViewModeByPathRef.current, from, to);
+    mermaidViewModeByPathRef.current = rebaseMovedPathKeys(mermaidViewModeByPathRef.current, from, to);
+    tableViewModeByPathRef.current = rebaseMovedPathKeys(tableViewModeByPathRef.current, from, to);
+    drawioViewModeByPathRef.current = rebaseMovedPathKeys(drawioViewModeByPathRef.current, from, to);
+    canvasViewModeByPathRef.current = rebaseMovedPathKeys(canvasViewModeByPathRef.current, from, to);
+    const pending = pendingPathMoveRef.current;
+    const heldPath = pending?.to ?? loadedFilePathRef.current;
+    const movedPath = heldPath ? rebaseMovedPath(heldPath, from, to) : null;
+    if (heldPath && movedPath) {
+      pendingPathMoveRef.current = { from: pending?.from ?? heldPath, to: movedPath };
+    }
+  }), []);
+
   React.useEffect(() => {
+    // Adopt a moved file before anything reloads it, visible or not: the
+    // draft stays, only the path the editor saves to changes.
+    const pendingMove = pendingPathMoveRef.current;
+    if (pendingMove && selectedFile?.path === pendingMove.to) {
+      pendingPathMoveRef.current = null;
+      if (loadedFilePath === pendingMove.from) {
+        setDocumentPathAlias({ path: pendingMove.to, documentPath: editorDocumentPath ?? pendingMove.from });
+        setLoadedFilePath(pendingMove.to);
+        return;
+      }
+    } else if (pendingMove && loadedFilePath !== pendingMove.from) {
+      // Another file finished loading while the move landed (the user
+      // switched tabs mid-move): nothing is left to adopt, and a stale hold
+      // would block every save of the file now open.
+      pendingPathMoveRef.current = null;
+    }
+
     if (!visible) return;
     if (!selectedFile) {
       activeFileLoadIdRef.current += 1;
@@ -2082,7 +2316,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         loadingFilePathRef.current = null;
       }
     });
-  }, [fileContentRevision, loadSelectedFile, loadedFilePath, selectedFile, visible]);
+  }, [editorDocumentPath, fileContentRevision, loadSelectedFile, loadedFilePath, selectedFile, visible]);
 
   // Sync isDirty to a ref so the polling interval can read the latest value
   // without isDirty in its dependency array (avoids interval restart on every edit/save).
@@ -2111,13 +2345,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   // Poll open file for external changes. Metadata is compared first so an
   // unchanged file never reads content, and a changed text file swaps content
-  // in place; only other files fall back to a full reload.
+  // in place; only other files fall back to a full reload. A file that is
+  // missing shows the read error, and loads again once it is back.
   React.useEffect(() => {
-    if (!visible || !selectedFile?.path || loadedFilePath !== selectedFile.path) {
+    if (!visible || !selectedFile?.path || (loadedFilePath !== selectedFile.path && failedFilePath !== selectedFile.path)) {
       return;
     }
 
     const selectedPath = selectedFile.path;
+    const showsFailure = failedFilePath === selectedPath;
     const requestRuntime = getRuntimeKey();
     const requestScope = fileScopeRef.current;
     // draw.io preview edits live in the XML refs, not the draft buffer, so an
@@ -2147,8 +2383,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
     let cancelled = false;
     let polling = false;
+    // A change reported while a check runs gets a check of its own after it.
+    let pollAgain = false;
     const poll = () => {
-      if (document.hidden || polling) {
+      if (document.hidden) {
+        return;
+      }
+      if (polling) {
+        pollAgain = true;
         return;
       }
 
@@ -2156,6 +2398,18 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       void readFileStat(selectedPath)
         .then(async (latestStat) => {
           if (cancelled || getRuntimeKey() !== requestRuntime || fileScopeRef.current !== requestScope || !latestStat) {
+            return;
+          }
+
+          const sawMissing = missingSeenPathRef.current === selectedPath;
+          const step = openFilePollStep({ stat: 'found', showsFailure, sawMissing, hasUnsavedChanges: hasUnsavedChanges(), moving: false });
+          if (step === 'reload') {
+            lastLoadedFileStatRef.current = null;
+            setLoadedFilePath(null);
+            setFileContentRevision((revision) => revision + 1);
+            return;
+          }
+          if (step !== 'check-changes') {
             return;
           }
 
@@ -2185,22 +2439,91 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
           lastLoadedFileStatRef.current = latestStat;
           // Reset loadedFilePath so the effect above triggers a single reload.
+          // A PDF, media or font preview holds its URL per revision, so the
+          // revision is what makes it load the new bytes.
           setLoadedFilePath(null);
+          setFileContentRevision((revision) => revision + 1);
         })
-        .catch(() => {})
+        .catch((error) => {
+          if (cancelled || getRuntimeKey() !== requestRuntime || fileScopeRef.current !== requestScope) return;
+          // Unsaved edits stay on screen; saving writes the file back.
+          const stat = isFileMissingError(error) ? 'missing' : 'failed';
+          const sawMissing = missingSeenPathRef.current === selectedPath;
+          const moving = isFilePathMoveInFlight(selectedPath) || pendingPathMoveRef.current !== null;
+          if (openFilePollStep({ stat, showsFailure, sawMissing, hasUnsavedChanges: hasUnsavedChanges(), moving }) !== 'show-missing') {
+            return;
+          }
+          missingSeenPathRef.current = selectedPath;
+          lastLoadedFileStatRef.current = null;
+          setFileContent('');
+          setDraftContent('');
+          setFileError(error instanceof Error ? error.message : t('filesView.error.readFileFailed'));
+          setFailedFilePath(selectedPath);
+        })
         .finally(() => {
           polling = false;
+          if (pollAgain && !cancelled) {
+            pollAgain = false;
+            poll();
+          }
         });
     };
     poll();
-    const interval = window.setInterval(poll, 2000);
+    let interval = window.setInterval(poll, 2000);
+    // Once OpenCode watches the file, its change event starts the check and
+    // the poll only covers a watch OpenCode lost on a restart.
+    const watch = root ? watchFileOnScreen(root, selectedPath, poll) : null;
+    void watch?.watching.then((watching) => {
+      if (!watching || cancelled) return;
+      window.clearInterval(interval);
+      interval = window.setInterval(poll, WATCHED_FILE_POLL_MS);
+    });
+    const handleVisibilityChange = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       cancelled = true;
       contentPoller?.dispose();
       window.clearInterval(interval);
+      watch?.stop();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [applyLoadedTextContent, contentDetectedBinary, loadedFilePath, readFile, readFileStat, selectedFile?.path, visible]);
+  }, [applyLoadedTextContent, contentDetectedBinary, failedFilePath, loadedFilePath, readFile, readFileStat, root, selectedFile?.path, t, visible]);
+
+  // Closes `path` once nothing stands in the way (no unsaved edits, or the
+  // prompt was answered), moving to `nextFile` when it was the one on screen.
+  const closeOpenFile = React.useCallback((path: string, nextFile: FileNode | null) => {
+    if (onCloseFile) {
+      onCloseFile(path);
+      return;
+    }
+
+    if (root) {
+      removeOpenPath(root, path);
+    }
+
+    if (selectedFile?.path !== path) {
+      return;
+    }
+
+    if (nextFile) {
+      void handleSelectFile(nextFile);
+      return;
+    }
+
+    if (root) {
+      setSelectedPath(root, null);
+    }
+    setFileContent('');
+    setFileError(null);
+    setDesktopImageSrc('');
+    setLoadedFilePath(null);
+    if (isMobile) {
+      setShowMobilePageContent(false);
+    }
+  }, [handleSelectFile, isMobile, onCloseFile, removeOpenPath, root, selectedFile?.path, setSelectedPath]);
 
   const discardAndContinue = React.useCallback(() => {
     const nextFile = pendingSelectFileRef.current;
@@ -2215,28 +2538,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setConfirmDiscardOpen(false);
 
     // Discard draft by reverting back to last loaded content
+    setCanvasDirty(false);
+    setCanvasRemountNonce((nonce) => nonce + 1);
     setDraftContent(fileContent);
 
     if (closePath) {
-      if (root) {
-        removeOpenPath(root, closePath);
-      }
-      if (selectedFile?.path === closePath) {
-        if (nextFile) {
-          void handleSelectFile(nextFile);
-        } else {
-          if (root) {
-            setSelectedPath(root, null);
-          }
-          setFileContent('');
-          setFileError(null);
-          setDesktopImageSrc('');
-          setLoadedFilePath(null);
-          if (isMobile) {
-            setShowMobilePageContent(false);
-          }
-        }
-      }
+      closeOpenFile(closePath, nextFile);
       return;
     }
 
@@ -2245,7 +2552,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
-  }, [fileContent, handleSelectFile, isMobile, removeOpenPath, root, selectedFile?.path, setSelectedPath]);
+  }, [closeOpenFile, fileContent, handleSelectFile]);
 
   const saveAndContinue = React.useCallback(async () => {
     const nextFile = pendingSelectFileRef.current;
@@ -2266,25 +2573,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setConfirmDiscardOpen(false);
 
     if (closePath) {
-      if (root) {
-        removeOpenPath(root, closePath);
-      }
-      if (selectedFile?.path === closePath) {
-        if (nextFile) {
-          await handleSelectFile(nextFile);
-        } else {
-          if (root) {
-            setSelectedPath(root, null);
-          }
-          setFileContent('');
-          setFileError(null);
-          setDesktopImageSrc('');
-          setLoadedFilePath(null);
-          if (isMobile) {
-            setShowMobilePageContent(false);
-          }
-        }
-      }
+      closeOpenFile(closePath, nextFile);
       return;
     }
 
@@ -2293,7 +2582,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
-  }, [handleSelectFile, isMobile, removeOpenPath, root, saveDraft, selectedFile?.path, setSelectedPath]);
+  }, [closeOpenFile, handleSelectFile, saveDraft]);
 
   const handleCloseFile = React.useCallback((path: string) => {
     const isActive = selectedFile?.path === path;
@@ -2306,41 +2595,28 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
-    if (root) {
-      removeOpenPath(root, path);
-    }
+    closeOpenFile(path, nextFile);
+  }, [closeOpenFile, getNextOpenFile, isDirty, openFiles, selectedFile?.path]);
 
-    if (!isActive) {
-      return;
-    }
-
-    if (nextFile) {
-      void handleSelectFile(nextFile);
-      return;
-    }
-
-    if (root) {
-      setSelectedPath(root, null);
-    }
-    setFileContent('');
-    setFileError(null);
-    setDesktopImageSrc('');
-    setLoadedFilePath(null);
-    if (isMobile) {
-      setShowMobilePageContent(false);
-    }
-  }, [getNextOpenFile, handleSelectFile, isDirty, isMobile, openFiles, removeOpenPath, root, selectedFile?.path, setSelectedPath]);
+  // While a file is open here, Cmd/Ctrl+W closes its tab (asking first when
+  // it has unsaved edits) instead of the whole window.
+  const handleCloseFileRef = React.useRef(handleCloseFile);
+  React.useEffect(() => {
+    handleCloseFileRef.current = handleCloseFile;
+  }, [handleCloseFile]);
+  const closeTargetPath = selectedFile?.path ?? null;
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!visible || !closeTargetPath) return;
+    return registerCloseTabTarget(() => handleCloseFileRef.current(closeTargetPath), rootRef);
+  }, [closeTargetPath, visible]);
 
   const openPathSet = React.useMemo(() => new Set(openPaths), [openPaths]);
   const statusIndex = React.useMemo(() => buildFileTreeStatusIndex(treeEnabled ? gitStatus?.files ?? [] : []), [gitStatus?.files, treeEnabled]);
-  const getFileStatus = React.useCallback((path: string): FileStatus | null => {
-    // Check open status
-    if (openPathSet.has(path)) return 'open';
-
-    // Check git status
+  const getFileStatus = React.useCallback((path: string): FileTreeGitStatus | null => {
     const relative = path.startsWith(root + '/') ? path.slice(root.length + 1) : path;
     return statusIndex.statusByPath.get(relative) ?? null;
-  }, [openPathSet, statusIndex, root]);
+  }, [statusIndex, root]);
 
   const getFolderBadge = React.useCallback((dirPath: string): { modified: number; added: number } | null => {
     if (!gitStatus?.files) return null;
@@ -2367,22 +2643,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   function renderTree(dirPath: string, depth: number): React.ReactNode {
     const nodes = childrenByDir[dirPath] ?? [];
 
-    return nodes.map((node, index) => {
+    return nodes.map((node) => {
       const isDir = node.type === 'directory';
       const isExpanded = isDir && expandedPathSet.has(node.path);
       const isActive = selectedFile?.path === node.path;
-      const isLast = index === nodes.length - 1;
 
       return (
-        <li key={node.path} className="relative">
-          {depth > 0 && (
-            <>
-              <span className="absolute top-3.5 left-[-12px] w-3 h-px bg-border/40" />
-              {isLast && (
-                <span className="absolute top-3.5 bottom-0 left-[-13px] w-[2px] bg-background" />
-              )}
-            </>
-          )}
+        <li key={node.path}>
           <FileRow
             node={node}
             root={root}
@@ -2391,6 +2658,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             isMobile={isMobile}
             isBrowserClient={isBrowserClient}
             alwaysShowActions={alwaysShowActions}
+            depth={depth}
+            isOpen={!isDir && openPathSet.has(node.path)}
             status={!isDir ? getFileStatus(node.path) : undefined}
             badge={isDir ? getFolderBadge(node.path) : undefined}
             permissions={fileRowPermissions}
@@ -2403,11 +2672,17 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             onToggle={toggleDirectory}
             onRevealPath={handleRevealPath}
             onOpenDialog={handleOpenDialog}
+            canUpload={canUpload && !isUploading}
+            onPickFiles={pickFiles}
           />
           {isDir && isExpanded && (
-            <ul className="flex flex-col gap-1 ml-3 pl-3 border-l border-border/40 relative">
+            <ul className="flex flex-col">
               {loadErrorsByDir[node.path] ? (
-                <li className="flex items-center gap-2 px-2 py-1 typography-meta text-muted-foreground">
+                <li
+                  className="relative flex items-center gap-2 py-1 pe-2 typography-meta text-muted-foreground"
+                  style={{ paddingLeft: fileTreeRowPaddingLeft(depth + 1) }}
+                >
+                  <FileTreeIndentGuides depth={depth + 1} />
                   <span className="min-w-0 flex-1 truncate text-[var(--status-error)]" title={loadErrorsByDir[node.path]}>{loadErrorsByDir[node.path]}</span>
                   <Button variant="ghost" size="xs" className="h-6 gap-1" onClick={() => void refreshDirectory(node.path)}>
                     <Icon name="refresh" className="size-3.5" />
@@ -2425,12 +2700,63 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   const isSelectedImage = Boolean(selectedFile?.path && isImageFile(selectedFile.path));
   const isSelectedSvg = Boolean(selectedFile?.path && isSvgFile(selectedFile.path));
+  // SVG is text with a picture in it: the toggle decides which one is shown.
+  const isSvgSource = isSelectedSvg && svgViewMode === 'edit';
   const isSelectedPdf = Boolean(selectedFile?.path && isPdfFile(selectedFile.path));
+  const isSelectedVideo = Boolean(selectedFile?.path && isVideoFile(selectedFile.path));
+  const isSelectedMedia = isSelectedVideo || Boolean(selectedFile?.path && isAudioFile(selectedFile.path));
+  const isSelectedFont = Boolean(selectedFile?.path && isFontFile(selectedFile.path));
   const isSelectedBinary = Boolean(
     selectedFile?.path
     && (isBinaryFile(selectedFile.path) || contentDetectedBinary)
   );
-  const isUnsupportedBinary = isSelectedBinary && !isSelectedImage && !isSelectedPdf;
+  const isUnsupportedBinary = isSelectedBinary && !isSelectedImage && !isSelectedPdf && !isSelectedMedia && !isSelectedFont;
+  // Everything the viewer shows as an artifact rather than as text.
+  const isSelectedNonText = isSelectedBinary || (isSelectedImage && !isSvgSource);
+
+  // The image viewer steps through the images of the shown image's folder, in
+  // the tree's order and with its hidden and gitignored settings. The folder is
+  // read again for every image shown, so files added or removed meanwhile
+  // count; the last listing keeps the arrows on screen while it is read. An
+  // image the listing leaves out (a gitignored one with those hidden) gets no
+  // arrows.
+  const imageFolder = visible && selectedFile && isSelectedImage && !isSvgSource ? getParentDirectoryPath(selectedFile.path) : '';
+  const [imageFolderListing, setImageFolderListing] = React.useState<{ scope: string; folder: string; readFor: string; entries: FileNode[] } | null>(null);
+  const imageFolderListingCurrent = Boolean(imageFolder && imageFolderListing?.scope === treeScope && imageFolderListing.folder === imageFolder);
+  const imageFolderHasSelected = Boolean(imageFolderListingCurrent && imageFolderListing?.entries.some((entry) => entry.path === selectedFilePath));
+  const imageFolderNeedsRead = Boolean(imageFolder) && !(imageFolderListingCurrent && imageFolderListing?.readFor === selectedFilePath);
+  React.useEffect(() => {
+    if (!imageFolderNeedsRead) return;
+    let cancelled = false;
+    const scope = treeScope;
+    const folder = imageFolder;
+    const readFor = selectedFilePath;
+    const respectGitignore = !showGitignored;
+    const read = files.listDirectory
+      ? files.listDirectory(folder, { respectGitignore }).then((result) => result.entries)
+      : opencodeClient.listLocalDirectory(folder, { respectGitignore });
+    read.then((entries) => {
+      if (cancelled || treeScopeRef.current !== scope) return;
+      setImageFolderListing({ scope, folder, readFor, entries: mapDirectoryEntries(folder, entries) });
+    }).catch((error) => {
+      // Without the listing the viewer simply shows no arrows.
+      if (!cancelled) console.warn('Failed to list the image folder:', error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [files, imageFolder, imageFolderNeedsRead, mapDirectoryEntries, selectedFilePath, showGitignored, treeScope]);
+  const imageNeighbors = React.useMemo(() => {
+    if (!imageFolderHasSelected || !imageFolderListing || !panelRoot) return null;
+    const neighbors = imageNeighborsOf(imageFolderListing.entries, selectedFilePath);
+    if (!neighbors) return null;
+    // Opened like a single click in the tree: one preview tab follows the steps.
+    const toNeighbor = (node: FileNode): ImageNeighbor => ({
+      name: node.name,
+      open: () => useUIStore.getState().openContextFile(panelRoot, node.path, { preview: true }),
+    });
+    return { previous: toNeighbor(neighbors.previous), next: toNeighbor(neighbors.next) };
+  }, [imageFolderHasSelected, imageFolderListing, panelRoot, selectedFilePath]);
   const pendingNavigationTargetPath = React.useMemo(
     () => normalizePath(pendingFileNavigation?.path ?? ''),
     [pendingFileNavigation?.path],
@@ -2442,9 +2768,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       && selectedFilePath === pendingNavigationTargetPath
       && !fileLoading
       && !fileError
-      && !isSelectedImage
-      && !isSelectedPdf
-      && !isUnsupportedBinary,
+      && !isSelectedNonText,
   );
 
   const displaySelectedPath = React.useMemo(() => {
@@ -2455,17 +2779,62 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const canCopyPath = Boolean(selectedFile && displaySelectedPath.length > 0);
   // Keep image/SVG on the preview path: `isBinaryFile` excludes `.svg`, so binary
   // alone would flip canEdit/isTextFile true and show a dead edit toggle + no-op Save.
-  const canEdit = Boolean(selectedFile && !selectedFileIsOutsideWorkspace && !isSelectedBinary && !isSelectedImage && files.writeFile);
-  const isMarkdown = Boolean(selectedFile?.path && isMarkdownFile(selectedFile.path));
-  const isJson = Boolean(selectedFile?.path && isJsonFile(selectedFile.path));
-  const isHtml = Boolean(selectedFile?.path && isHtmlFile(selectedFile.path));
-  const isDrawio = Boolean(selectedFile?.path && isDrawioFile(selectedFile.path));
-  const isTextFile = Boolean(selectedFile && !isSelectedBinary && !isSelectedImage);
-  const canUseShikiFileView = isTextFile && !isMarkdown && !isDrawio && !(isHtml && htmlViewMode === 'preview');
+  const canEdit = Boolean(selectedFile && !selectedFileIsOutsideWorkspace && !isSelectedBinary && (!isSelectedImage || isSelectedSvg) && files.writeFile);
+  const isTextFile = Boolean(selectedFile && !isSelectedBinary && (!isSelectedImage || isSelectedSvg));
+  // An active extension's editor claims a text file ahead of the host's own
+  // previews.
+  const matchedGuestFileEditor = useGuestFileEditor(selectedFile?.path);
+  // Text editors take text files; binary editors take any matching file.
+  const guestFileEditor = matchedGuestFileEditor && (isTextFile || matchedGuestFileEditor.editor.content === 'binary')
+    ? matchedGuestFileEditor
+    : null;
+  const claimedByGuest = guestFileEditor !== null;
+  const enterpriseMode = useEnterpriseMode();
+  const binaryCanvas = guestFileEditor?.editor.content === 'binary';
+  binaryCanvasRef.current = binaryCanvas;
+  const isMarkdown = !claimedByGuest && Boolean(selectedFile?.path && isMarkdownFile(selectedFile.path));
+  const isJson = !claimedByGuest && Boolean(selectedFile?.path && isJsonFile(selectedFile.path));
+  const isHtml = !claimedByGuest && Boolean(selectedFile?.path && isHtmlFile(selectedFile.path));
+  // The draw.io editor is diagrams.net's own page in a frame, and the diagram
+  // is handed to it. Enterprise mode keeps file contents away from third
+  // parties, so there a .drawio file opens as its XML like any text file.
+  const isDrawio = !claimedByGuest && !enterpriseMode && Boolean(selectedFile?.path && isDrawioFile(selectedFile.path));
+  const isMermaid = !claimedByGuest && Boolean(selectedFile?.path && isMermaidFile(selectedFile.path));
+  const isTable = !claimedByGuest && Boolean(selectedFile?.path && isDelimitedTableFile(selectedFile.path));
+  const hasCanvas = claimedByGuest;
+  // A binary editor checks the bytes it reads too; the stat size spares a read.
+  const canMountCanvas = claimedByGuest && (binaryCanvas
+    ? artifactSize === null || artifactSize <= GUEST_FILE_EDITOR_CONTENT_MAX
+    : draftContent.length <= GUEST_FILE_EDITOR_CONTENT_MAX);
+  // Excalidraw drawings open in the Excalidraw extension. Without it they show
+  // their text and a pointer to the Integrations card, where the runtime can
+  // install extensions at all.
+  const guestCatalogStatus = useGuestsStore((state) => state.status);
+  const suggestExcalidrawExtension = !claimedByGuest && isTextFile && guestCatalogStatus !== 'unsupported'
+    && Boolean(selectedFile?.path && isExcalidrawFile(selectedFile.path));
+  const canUseShikiFileView = isTextFile && !isMarkdown && !isDrawio && !hasCanvas
+    && !(isHtml && htmlViewMode === 'preview')
+    && !(isSelectedSvg && svgViewMode === 'preview')
+    && !(isMermaid && mermaidViewMode === 'preview')
+    && !(isTable && tableViewMode === 'table');
   const isEditingFile = (isMarkdown && mdViewMode === 'edit')
     || (isHtml && htmlViewMode === 'edit')
+    || (hasCanvas && (canvasViewMode === 'edit' || !canMountCanvas))
+    || (isSelectedSvg && svgViewMode === 'edit')
+    || (isMermaid && mermaidViewMode === 'edit')
+    || (isTable && tableViewMode === 'text')
     || (isJson && jsonViewMode === 'text')
-    || (!isMarkdown && !isHtml && !isJson && textViewMode === 'edit');
+    || (!isMarkdown && !isHtml && !isJson && !hasCanvas && !isSelectedSvg && !isMermaid && !isTable && textViewMode === 'edit');
+  // The CodeMirror source is on screen. A draw.io file shows it whenever its diagram is not;
+  // a read-only file in its source mode shows the code preview instead.
+  const sourceEditorShown = (isDrawio ? drawioViewMode !== 'preview' : isEditingFile)
+    && !(canUseShikiFileView && textViewMode === 'view');
+  // Go to line and symbols drive that editor: they close when a preview replaces it.
+  React.useEffect(() => {
+    if (sourceEditorShown) return;
+    setIsGoToLineOpen(false);
+    setIsSymbolsOpen(false);
+  }, [sourceEditorShown]);
   const staticLanguageExtension = React.useMemo(
     () => (selectedFilePath ? languageByExtension(selectedFilePath) : null),
     [selectedFilePath],
@@ -2493,6 +2862,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     };
   }, [selectedFile?.path, staticLanguageExtension]);
 
+  // The selection effect below sets the mode again in the same commit, so a
+  // read-only text file still opens in the read-only code editor; a pending
+  // line jump relies on that editor (`pendingFileNavigationStep`).
   React.useEffect(() => {
     if (!canEdit && textViewMode === 'edit') {
       setTextViewMode('view');
@@ -2535,6 +2907,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
     setHtmlViewMode(htmlViewModeByPathRef.current[selectedPath] ?? htmlDefault);
     setDrawioViewMode(drawioViewModeByPathRef.current[selectedPath] ?? (settingsDefaultFileViewerPreview ? 'preview' : 'edit'));
+    // Artifacts an agent produces are opened to be looked at: the picture,
+    // the diagram, the table come first regardless of the text-first setting.
+    setCanvasViewMode(canvasViewModeByPathRef.current[selectedPath] ?? 'preview');
+    setSvgViewMode(svgViewModeByPathRef.current[selectedPath] ?? 'preview');
+    setMermaidViewMode(mermaidViewModeByPathRef.current[selectedPath] ?? 'preview');
+    setTableViewMode(tableViewModeByPathRef.current[selectedPath] ?? 'table');
 
     let jsonDefault: 'tree' | 'text' = settingsDefaultFileViewerPreview ? 'tree' : 'text';
     try {
@@ -2572,6 +2950,41 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const getMdViewMode = React.useCallback((): PreviewViewMode => {
     return mdViewMode;
   }, [mdViewMode]);
+
+  const saveSvgViewMode = React.useCallback((mode: PreviewViewMode) => {
+    const selectedPath = selectedFile?.path;
+    if (selectedPath) svgViewModeByPathRef.current[selectedPath] = mode;
+    setSvgViewMode(mode);
+  }, [selectedFile?.path]);
+
+  const saveMermaidViewMode = React.useCallback((mode: PreviewViewMode) => {
+    const selectedPath = selectedFile?.path;
+    if (selectedPath) mermaidViewModeByPathRef.current[selectedPath] = mode;
+    setMermaidViewMode(mode);
+  }, [selectedFile?.path]);
+
+  const saveTableViewMode = React.useCallback((mode: 'table' | 'text') => {
+    const selectedPath = selectedFile?.path;
+    if (selectedPath) tableViewModeByPathRef.current[selectedPath] = mode;
+    setTableViewMode(mode);
+  }, [selectedFile?.path]);
+
+  // Size for the artifact meta line. Text loads already stat the file; the
+  // artifact kinds never read content, so they ask once here.
+  React.useEffect(() => {
+    const selectedPath = selectedFile?.path;
+    setArtifactSize(null);
+    if (!selectedPath || loadedFilePath !== selectedPath) return;
+    let cancelled = false;
+    void readFileStat(selectedPath)
+      .then((stat) => {
+        if (!cancelled && stat) setArtifactSize(stat.size);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fileContentRevision, loadedFilePath, readFileStat, selectedFile?.path]);
 
   const mdPreviewFocusTargetPath = selectedFile && isMarkdown && getMdViewMode() === 'preview' && !fileLoading
     ? selectedFile.path
@@ -2637,8 +3050,58 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
   }, [draftContent, fileContent, root, selectedFile?.path]);
 
+  const saveCanvasViewMode = React.useCallback((mode: PreviewViewMode) => {
+    const selectedPath = selectedFile?.path;
+    const rememberMode = () => {
+      if (selectedPath) canvasViewModeByPathRef.current[selectedPath] = mode;
+    };
+    if (mode === 'edit') {
+      if (!canvasDirtyRef.current) {
+        rememberMode();
+        setCanvasDirty(false);
+        setCanvasViewMode(mode);
+        return;
+      }
+      // Unsaved canvas edits move into the text draft; if the canvas cannot
+      // hand them over, it stays open rather than dropping them.
+      void Promise.resolve(canvasEditorRef.current?.getContent('handoff') ?? EMPTY_CANVAS_READ).then((read) => {
+        if (selectedFilePathRef.current !== selectedPath) return;
+        if (!read.ok) {
+          toast.error(read.message);
+          return;
+        }
+        rememberMode();
+        setDraftContent(read.snapshot && 'content' in read.snapshot ? read.snapshot.content : fileContent);
+        setCanvasDirty(false);
+        setCanvasViewMode(mode);
+      });
+      return;
+    }
+    if (!canMountCanvas) {
+      if (guestFileEditor) toast.error(t('filesView.fileEditor.tooLarge', { editor: guestFileEditor.editor.title }));
+      return;
+    }
+    rememberMode();
+    setCanvasDirty(false);
+    const pathAtToggle = selectedPath;
+    if (pendingCanvasPreviewFrameRef.current !== null) {
+      cancelAnimationFrame(pendingCanvasPreviewFrameRef.current);
+    }
+    pendingCanvasPreviewFrameRef.current = requestAnimationFrame(() => {
+      pendingCanvasPreviewFrameRef.current = null;
+      if (root && pathAtToggle && useFilesViewTabsStore.getState().byRoot[root]?.selectedPath !== pathAtToggle) {
+        return;
+      }
+      setCanvasRemountNonce((value) => value + 1);
+      setCanvasViewMode('preview');
+    });
+  }, [canMountCanvas, fileContent, guestFileEditor, root, selectedFile?.path, t]);
+
   const saveDiagramXml = React.useCallback(async (path: string, xml: string) => {
     if (!files.writeFile || xml === diagramSavedXmlRef.current) {
+      return false;
+    }
+    if (pendingPathMoveRef.current || isFilePathMoveInFlight(path)) {
       return false;
     }
 
@@ -2699,6 +3162,25 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     return diagramXmlRef.current || draftContent || fileContent;
   }, [draftContent, fileContent, isDrawio]);
 
+  const handleCanvasUnsupported = React.useCallback(() => {
+    const path = selectedFilePathRef.current;
+    if (path) {
+      canvasViewModeByPathRef.current[path] = 'edit';
+    }
+    setCanvasDirty(false);
+    setCanvasViewMode('edit');
+    if (guestFileEditor) toast.error(t('filesView.fileEditor.unsupported', { editor: guestFileEditor.editor.title }));
+  }, [guestFileEditor, t]);
+
+  React.useEffect(() => {
+    return () => {
+      if (pendingCanvasPreviewFrameRef.current !== null) {
+        cancelAnimationFrame(pendingCanvasPreviewFrameRef.current);
+        pendingCanvasPreviewFrameRef.current = null;
+      }
+    };
+  }, [canvasViewMode, selectedFile?.path]);
+
   const getHtmlViewMode = React.useCallback((): PreviewViewMode => {
     return htmlViewMode;
   }, [htmlViewMode]);
@@ -2719,12 +3201,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         if (isDrawioFile(path)) {
           drawioViewModeByPathRef.current[path] = previewMode;
         }
+        if (opensInFileCanvas(path)) {
+          canvasViewModeByPathRef.current[path] = previewMode;
+        }
       }
 
       setTextViewMode('edit');
       setMdViewMode(previewMode);
       setHtmlViewMode(previewMode);
       setDrawioViewMode(previewMode);
+      setCanvasViewMode(previewMode);
       setJsonViewMode(nextJsonMode);
 
       try {
@@ -2789,39 +3275,54 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     const targetPath = normalizePath(pendingFileNavigation.path);
     if (!targetPath) {
       setPendingFileNavigation(null);
-      pendingNavigationCycleRef.current = { key: '', attempts: 0 };
+      pendingNavigationCycleRef.current = { key: '', attempts: 0, targetShown: false };
       return;
     }
 
     const navigationKey = `${targetPath}:${pendingFileNavigation.line}:${pendingFileNavigation.column ?? 1}`;
     if (pendingNavigationCycleRef.current.key !== navigationKey) {
-      pendingNavigationCycleRef.current = { key: navigationKey, attempts: 0 };
+      pendingNavigationCycleRef.current = { key: navigationKey, attempts: 0, targetShown: false };
+    }
+    const selectedPath = selectedFile?.path ?? null;
+    if (selectedPath === targetPath) {
+      pendingNavigationCycleRef.current.targetShown = true;
     }
 
-    if (selectedFile?.path !== targetPath) {
-      if (confirmDiscardOpen) {
-        return;
+    const step = pendingFileNavigationStep({
+      selectedPath,
+      targetPath,
+      targetShown: pendingNavigationCycleRef.current.targetShown,
+      targetSettled: !fileLoading && (loadedFilePath === targetPath || failedFilePath === targetPath),
+      showsText: failedFilePath !== targetPath && !fileError && !isSelectedImage && !isSelectedPdf && !isUnsupportedBinary,
+      canEdit,
+      textViewMode,
+    });
+
+    if (step === 'select-target') {
+      if (!confirmDiscardOpen) {
+        void handleSelectFile(toFileNode(targetPath));
       }
-      void handleSelectFile(toFileNode(targetPath));
       return;
     }
 
-    if (fileLoading || loadedFilePath !== targetPath) {
+    if (step === 'wait') {
       return;
     }
 
-    if (fileError || isSelectedImage || isSelectedPdf || isUnsupportedBinary) {
+    if (step === 'end') {
       setPendingFileNavigation(null);
-      pendingNavigationCycleRef.current = { key: '', attempts: 0 };
+      pendingNavigationCycleRef.current = { key: '', attempts: 0, targetShown: false };
       return;
     }
 
-    if (!canEdit) {
-      return;
-    }
-
-    if (textViewMode !== 'edit') {
+    if (step === 'show-editor') {
       setTextViewMode('edit');
+      return;
+    }
+
+    // The jump focuses the editor, which does nothing inside a zone that is
+    // still opening (inert); it runs once the zone settles.
+    if (!zoneInteractive) {
       return;
     }
 
@@ -2872,12 +3373,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
 
     setPendingFileNavigation(null);
-    pendingNavigationCycleRef.current = { key: '', attempts: 0 };
+    pendingNavigationCycleRef.current = { key: '', attempts: 0, targetShown: false };
   }, [
     canEdit,
     confirmDiscardOpen,
     draftContent,
     editorViewReadyNonce,
+    failedFilePath,
     fileError,
     fileLoading,
     isSelectedImage,
@@ -2891,10 +3393,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setPendingFileNavigation,
     textViewMode,
     toFileNode,
+    zoneInteractive,
   ]);
 
   React.useEffect(() => {
-    if (!pendingFileFocusPath || !root) {
+    // Focus inside a zone that is still opening (inert) does nothing.
+    if (!pendingFileFocusPath || !root || !zoneInteractive) {
       return;
     }
 
@@ -2912,7 +3416,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
-    if (fileLoading || loadedFilePath !== targetPath) {
+    if (fileLoading || (loadedFilePath !== targetPath && failedFilePath !== targetPath)) {
       return;
     }
 
@@ -2920,13 +3424,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     // JSON tree, images, PDFs) never mount a CodeMirror editor, so the request
     // must clear regardless — otherwise it lingers and replays on every
     // dependency change.
-    if (!fileError && !isSelectedImage && !isSelectedPdf && !isUnsupportedBinary && canEdit && textViewMode === 'edit') {
+    if (failedFilePath !== targetPath && !fileError && !isSelectedImage && !isSelectedPdf && !isUnsupportedBinary && canEdit && textViewMode === 'edit') {
       editorViewRef.current?.focus();
     }
 
     setPendingFileFocusPath(null);
   }, [
     canEdit,
+    failedFilePath,
     fileError,
     fileLoading,
     isSelectedImage,
@@ -2938,10 +3443,21 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     selectedFile?.path,
     setPendingFileFocusPath,
     textViewMode,
+    zoneInteractive,
   ]);
 
   const nudgeEditorSelectionAboveKeyboard = React.useCallback((view: EditorView | null) => {
-    if (!isMobile || !view || !view.hasFocus || typeof window === 'undefined') {
+    if (!isMobile || !view || typeof window === 'undefined') {
+      return;
+    }
+
+    // The inline comment bar is a block widget inside the editor; once its
+    // textarea takes focus the editor itself loses focus, so track the bar.
+    const activeElement = document.activeElement;
+    const commentInput = !view.hasFocus && activeElement instanceof HTMLElement && view.dom.contains(activeElement)
+      ? activeElement.closest<HTMLElement>('[data-comment-input="true"]')
+      : null;
+    if (!view.hasFocus && !commentInput) {
       return;
     }
 
@@ -2956,8 +3472,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
-    const head = view.state.selection.main.head;
-    const cursorRect = view.coordsAtPos(head);
+    const cursorRect = commentInput
+      ? commentInput.getBoundingClientRect()
+      : view.coordsAtPos(view.state.selection.main.head);
     if (!cursorRect) {
       return;
     }
@@ -3011,16 +3528,133 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setIsGoToLineOpen(true);
   });
 
+  useKeybind('open_document_symbols', (event) => {
+    if (!canEdit || textViewMode !== 'edit' || isMobile) {
+      return false;
+    }
+    const target = event.target as Element | null;
+    if (target?.closest('[role="dialog"]')) return false;
+    if (!(target instanceof Node) || !editorWrapperRef.current?.contains(target)) return false;
+    setIsSymbolsOpen(true);
+  });
+
   const editorFontSize = useUIStore((state) => state.editorFontSize);
+  // The rendered preview follows the editor's font size, so zoom and the
+  // Editor Font Size setting resize both modes. At the default 13 px it
+  // renders at the old 14 px body and 12 px code.
+  // SAFETY: CSS custom properties are valid inline styles; React's type lists only standard ones.
+  const previewFontStyle = React.useMemo(() => ({
+    '--text-markdown': `${editorFontSize + 1}px`,
+    '--text-code': `${editorFontSize - 1}px`,
+  } as React.CSSProperties), [editorFontSize]);
+
+  // Git change markers compare the open file with its HEAD version. The
+  // server answers an empty original both for a new file and for one git does
+  // not track at all (ignored, outside the repo's HEAD), so an empty baseline
+  // counts only when git status lists the file as new.
+  const selectedRelativePath = selectedFile?.path && root && selectedFile.path.startsWith(`${root}/`)
+    ? selectedFile.path.slice(root.length + 1)
+    : null;
+  // Refetch when the file's own status or the branch changes (a commit,
+  // checkout or stash moves its HEAD version), not on every status refresh:
+  // the selector returns a string, so unrelated refreshes do not re-render.
+  const gitBaselineKey = useGitStore((state) => {
+    if (!selectedRelativePath || !root) return null;
+    // Keyed like the tree's own git status lookup.
+    const status = state.directories.get(currentDirectory)?.status;
+    const entry = status?.files.find((file) => file.path === selectedRelativePath) ?? null;
+    return JSON.stringify([selectedRelativePath, status?.current ?? null, entry]);
+  });
+  const [gitBaseline, setGitBaseline] = React.useState<{ path: string; text: string | null } | null>(null);
+  React.useEffect(() => {
+    if (!selectedRelativePath || !root || !gitBaselineKey) {
+      setGitBaseline(null);
+      return;
+    }
+    let cancelled = false;
+    git.getGitFileDiff(root, { path: selectedRelativePath })
+      .then((diff) => {
+        if (cancelled) return;
+        const entry = useGitStore.getState().directories.get(currentDirectory)?.status?.files
+          .find((file) => file.path === selectedRelativePath);
+        const isNewInGit = entry !== undefined
+          && (entry.index === '?' || entry.index === 'A' || entry.working_dir === '?');
+        const usable = !diff.isBinary && !diff.submodule && (diff.original !== '' || isNewInGit);
+        setGitBaseline({ path: selectedRelativePath, text: usable ? diff.original : null });
+      })
+      .catch(() => {
+        if (!cancelled) setGitBaseline({ path: selectedRelativePath, text: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // gitBaselineKey carries the status fields that decide a refetch.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDirectory, git, gitBaselineKey, root]);
+  const gitBaselineRef = React.useRef(gitBaseline);
+  gitBaselineRef.current = gitBaseline;
+  const applyGitBaseline = React.useCallback((view: EditorView | null) => {
+    if (!view) return;
+    const baseline = gitBaselineRef.current;
+    setGitChangeBaseline(view, baseline && baseline.path === selectedRelativePath ? baseline.text : null);
+  }, [selectedRelativePath]);
+  React.useEffect(() => {
+    applyGitBaseline(editorViewRef.current);
+  }, [applyGitBaseline, gitBaseline]);
+
+  // Typing into a file opened as a preview keeps its tab, as in VS Code. Only
+  // user edits count: loading or syncing a file also changes the document.
+  const pinPreviewOnEditRef = React.useRef<() => void>(() => {});
+  pinPreviewOnEditRef.current = () => {
+    if (!selectedFile?.path || !panelRoot) return;
+    const directoryKey = normalizeContextPanelDirectoryKey(panelRoot);
+    const state = useUIStore.getState();
+    const previewTab = state.contextPanelByDirectory[directoryKey]?.tabs
+      .find((tab) => tab.preview && tab.targetPath === selectedFile.path);
+    if (previewTab) state.pinContextPanelTab(directoryKey, previewTab.id);
+  };
+  const pinPreviewOnEditExtension = React.useMemo(() => EditorView.updateListener.of((update) => {
+    if (!update.docChanged) return;
+    const edited = update.transactions.some((transaction) => (
+      transaction.isUserEvent('input') || transaction.isUserEvent('delete')
+      || transaction.isUserEvent('undo') || transaction.isUserEvent('redo') || transaction.isUserEvent('move')
+    ));
+    if (edited) pinPreviewOnEditRef.current();
+  }), []);
+
+  // Cmd/Ctrl+click on a relative import opens the file it names. The handler
+  // reads the latest render through a ref, so the extension keeps its identity.
+  const openRelativeImportRef = React.useRef<(specifier: string) => void>(() => {});
+  openRelativeImportRef.current = (specifier) => {
+    const fromFile = selectedFile?.path;
+    if (!fromFile || !panelRoot) return;
+    void resolveRelativeImport(fromFile, specifier, async (directory) => {
+      try {
+        const listing = await files.listDirectory(directory);
+        return new Map(listing.entries.map((entry) => [entry.name, entry.isDirectory]));
+      } catch {
+        return null;
+      }
+    }).then((resolution) => {
+      if (resolution.status === 'found') {
+        useUIStore.getState().openContextFile(panelRoot, resolution.path);
+        return;
+      }
+      toast.error(resolution.status === 'missing'
+        ? t('filesView.editor.importNotFound', { path: specifier })
+        : t('filesView.editor.importLookupFailed', { path: specifier }));
+    });
+  };
+  const importLinksExtension = React.useMemo(() => importLinks((specifier) => openRelativeImportRef.current(specifier)), []);
 
   const editorExtensions = React.useMemo(() => {
     if (!selectedFile?.path) {
       return [createFlexokiCodeMirrorTheme(currentTheme, { fontSize: editorFontSize })];
     }
 
-    // Shiki token colors (worker-backed) match the Shiki file view exactly.
+    // Token colors from the file view's highlighter (see codeHighlight.ts).
     // Same language resolver as the view, so both agree on the language. When
-    // Shiki is the color source, drop the lezer token colors to avoid a
+    // it is the color source, drop the lezer token colors to avoid a
     // competing highlighter (Keep the lezer language for indentation/folding).
     const shikiLanguage = getLanguageFromExtension(selectedFile.path);
     const extensions = [createFlexokiCodeMirrorTheme(currentTheme, shikiLanguage ? { syntaxColors: false, fontSize: editorFontSize } : { fontSize: editorFontSize })];
@@ -3029,14 +3663,41 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       extensions.push(language);
     }
     if (shikiLanguage) {
-      extensions.push(shikiHighlightExtension({
+      extensions.push(codeHighlightExtension({
         language: shikiLanguage,
         themeName: currentTheme.metadata.id,
-        theme: getResolvedShikiTheme(currentTheme),
+        theme: getCodeTokenTheme(currentTheme),
       }));
     }
     if (wrapLines) {
       extensions.push(EditorView.lineWrapping);
+    }
+    const diffColors = currentTheme.colors.syntax.highlights;
+    extensions.push(
+      gitChangeGutter({
+        added: diffColors?.diffAdded ?? currentTheme.colors.status.success,
+        modified: diffColors?.diffModified ?? currentTheme.colors.status.info,
+        removed: diffColors?.diffRemoved ?? currentTheme.colors.status.error,
+      }, {
+        revert: t('filesView.editor.gitHunk.revert'),
+        close: t('filesView.editor.gitHunk.close'),
+      }),
+      highlightSelectionMatches({ highlightWordAroundCursor: true, minSelectionLength: 2 }),
+      pinPreviewOnEditExtension,
+      bracketAids(),
+      indentGuides(),
+      importLinksExtension,
+    );
+    if (isLintedJsonPath(selectedFile.path)) {
+      extensions.push(jsonSyntaxLint(t('filesView.editor.jsonSyntaxError'), {
+        error: currentTheme.colors.status.error,
+        tooltipBackground: currentTheme.colors.surface.elevated,
+        tooltipForeground: currentTheme.colors.surface.elevatedForeground,
+        border: currentTheme.colors.interactive.border,
+      }));
+    }
+    if (!isMobile) {
+      extensions.push(codeFolding(), multipleCursors({ vimMode: fileEditorKeymap === 'vim' }), stickyScope());
     }
     if (isMobile) {
       extensions.push(EditorView.updateListener.of((update) => {
@@ -3053,31 +3714,65 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       }));
     }
     return extensions;
-  }, [currentTheme, selectedFile?.path, staticLanguageExtension, dynamicLanguageExtension, wrapLines, isMobile, nudgeEditorSelectionAboveKeyboard, editorFontSize]);
+  }, [currentTheme, selectedFile?.path, staticLanguageExtension, dynamicLanguageExtension, wrapLines, isMobile, nudgeEditorSelectionAboveKeyboard, editorFontSize, pinPreviewOnEditExtension, fileEditorKeymap, t, importLinksExtension]);
 
   const pierreTheme = React.useMemo(
     () => ({ light: lightTheme.metadata.id, dark: darkTheme.metadata.id }),
     [lightTheme.metadata.id, darkTheme.metadata.id],
   );
 
-  const pdfAssetAuthKey = selectedFile?.path
-    && isSelectedPdf
-    && (!selectedFileReadOptions.allowOutsideWorkspace || selectedFileReadOptions.outsideFileGrant)
-    ? `${selectedFile.path}|${selectedFileReadOptions.allowOutsideWorkspace ? 'outside' : 'workspace'}|${selectedFileReadOptions.outsideFileGrant ?? ''}|${fileContentRevision}`
-    : '';
+  // PDFs, audio, video and fonts are handed to the browser as a URL it owns
+  // (iframe, media element, FontFace), so they need the scoped URL token.
+  const usesRawAssetUrl = isSelectedPdf || isSelectedMedia || isSelectedFont;
+  const rawAssetRequest = React.useMemo(
+    () => (selectedFile?.path && usesRawAssetUrl
+      ? {
+        runtime: runtimeKey,
+        path: selectedFile.path,
+        directory: root || '',
+        revision: String(fileContentRevision),
+        outsideWorkspace: selectedFileReadOptions.allowOutsideWorkspace,
+      }
+      : null),
+    [runtimeKey, selectedFile?.path, usesRawAssetUrl, root, fileContentRevision, selectedFileReadOptions.allowOutsideWorkspace],
+  );
 
-  const htmlAssetAuthKey = selectedFile?.path && isHtml && htmlViewMode === 'preview' && !runtime.isVSCode
-    ? `${selectedFile.path}|${fileContentRevision}`
-    : '';
+  const htmlPreviewRequest = React.useMemo(
+    () => (selectedFile?.path && isHtml && htmlViewMode === 'preview' && !runtime.isVSCode
+      ? {
+        path: selectedFile.path,
+        directory: root || '',
+        revision: String(fileContentRevision),
+        outsideWorkspace: selectedFileReadOptions.allowOutsideWorkspace,
+      }
+      : null),
+    [selectedFile?.path, isHtml, htmlViewMode, runtime.isVSCode, root, fileContentRevision, selectedFileReadOptions.allowOutsideWorkspace],
+  );
 
   const assetAuthErrorFallback = t('filesView.error.readFileFailed');
-  const { readyKey: htmlAssetAuthReadyKey, nonce: htmlPreviewNonce } =
-    useAssetAuthRefresh(htmlAssetAuthKey, setFileError, assetAuthErrorFallback);
-  const { readyKey: pdfAssetAuthReadyKey, nonce: pdfPreviewNonce } =
-    useAssetAuthRefresh(pdfAssetAuthKey, setFileError, assetAuthErrorFallback);
-
-  const isHtmlAssetAuthLoading = Boolean(htmlAssetAuthKey && htmlAssetAuthReadyKey !== htmlAssetAuthKey);
-  const isPdfAssetAuthLoading = Boolean(pdfAssetAuthKey && pdfAssetAuthReadyKey !== pdfAssetAuthKey);
+  const htmlPreview = useHtmlPreviewUrl(htmlPreviewRequest, assetAuthErrorFallback);
+  const htmlPreviewFrameRef = React.useRef<HTMLIFrameElement | null>(null);
+  const htmlPreviewAnnotation = useHtmlPreviewAnnotation({
+    frameRef: htmlPreviewFrameRef,
+    directory: root,
+    pageKey: htmlPreview.status === 'ready' ? htmlPreview.url : '',
+  });
+  // Like the browser panel, annotation is a pointer tool: phones do not get it.
+  const canAnnotateHtmlPreview = !isMobile && htmlPreview.status === 'ready';
+  // Annotate pressed in the source: the preview of that file starts it once its
+  // page loaded. Another file or leaving the preview drops the request.
+  const annotateWhenLoadedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (htmlViewMode !== 'preview' || annotateWhenLoadedRef.current !== selectedFile?.path) {
+      annotateWhenLoadedRef.current = null;
+    }
+  }, [htmlViewMode, selectedFile?.path]);
+  React.useEffect(() => {
+    if (htmlPreview.status === 'error') setFileError(htmlPreview.message);
+    else if (htmlPreview.status === 'ready') setFileError(null);
+  }, [htmlPreview, setFileError]);
+  const rawAsset = useRawAssetUrl(rawAssetRequest, setFileError, assetAuthErrorFallback);
+  const isPdfAssetAuthLoading = rawAsset.loading;
 
   const imageSrc = selectedFile?.path && isSelectedImage
     ? (isSelectedSvg
@@ -3085,25 +3780,85 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       : desktopImageSrc)
     : '';
 
-  const pdfSrc = selectedFile?.path && isSelectedPdf && pdfAssetAuthKey && pdfAssetAuthReadyKey === pdfAssetAuthKey
-    ? getRuntimeUrlResolver().authenticatedAsset('/api/fs/raw', {
-      path: selectedFile.path,
-      allowOutsideWorkspace: selectedFileReadOptions.allowOutsideWorkspace ? 'true' : undefined,
-      outsideFileGrant: selectedFileReadOptions.outsideFileGrant,
-      directory: root || undefined,
-    })
-    : '';
+  const pdfSrc = rawAsset.src;
 
-  const renderPdfPreview = React.useCallback((file: FileNode) => (
-    <div className="h-full overflow-hidden bg-[var(--surface-background)]">
-      <iframe
-        key={pdfPreviewNonce}
-        src={pdfSrc}
-        className="h-full w-full border-0"
-        title={file.name}
-      />
-    </div>
-  ), [pdfSrc, pdfPreviewNonce]);
+  const downloadButton = selectedFile && files.downloadFile ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        const fn = files.downloadFile;
+        if (!fn || !selectedFile) return;
+        void fn(selectedFile.path, selectedFileReadOptions).catch((error) => {
+          console.error('Download failed:', error);
+          toast.error(t('sidebarFilesTree.toast.operationFailed'));
+        });
+      }}
+    >
+      <Icon name="download" className="me-2 size-4" />
+      {t('filesView.editor.saveFile')}
+    </Button>
+  ) : null;
+
+  // Everything shown as an artifact rather than as editable text. One place
+  // for both the docked and the fullscreen viewer, so they cannot drift.
+  const renderArtifactPreview = (file: FileNode): React.ReactNode => {
+    if (isSelectedImage && !isSvgSource) {
+      return <ImageArtifact src={imageSrc} name={file.name} sizeBytes={artifactSize} neighbors={imageNeighbors} />;
+    }
+    if (isSelectedPdf) {
+      return <PdfArtifact src={pdfSrc} name={file.name} sizeBytes={artifactSize} download={downloadButton} />;
+    }
+    if (isSelectedMedia) {
+      return (
+        <MediaArtifact
+          kind={isSelectedVideo ? 'video' : 'audio'}
+          src={pdfSrc}
+          renewSrc={rawAsset.renew}
+          name={file.name}
+          sizeBytes={artifactSize}
+          download={downloadButton}
+        />
+      );
+    }
+    if (isSelectedFont) {
+      return <FontArtifact src={pdfSrc} name={file.name} sizeBytes={artifactSize} />;
+    }
+    if (isUnsupportedBinary) {
+      return <BinaryArtifact name={file.name} path={file.path} sizeBytes={artifactSize} download={downloadButton} />;
+    }
+    if (isTable && tableViewMode === 'table') {
+      return <TableArtifact path={file.path} content={fileContent} sizeBytes={artifactSize} />;
+    }
+    if (isMermaid && mermaidViewMode === 'preview') {
+      return (
+        // The whole panel is the diagram: the same fill-the-container styling
+        // the fullscreen mermaid dialog uses, not the chat block's capped height.
+        <div className="h-full min-h-0 overflow-hidden">
+          <ErrorBoundary
+            fallback={
+              <div className="m-3 rounded-md bg-destructive/10 px-3 py-2">
+                <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
+                <div className="text-sm text-muted-foreground">{t('filesView.error.switchToEditMode')}</div>
+              </div>
+            }
+          >
+            <SimpleMarkdownRenderer
+              content={`\`\`\`mermaid\n${fileContent}\n\`\`\``}
+              className="markdown-mermaid-fullscreen h-full"
+              enableFileReferences={false}
+              allowMermaidWheelEvents
+            />
+          </ErrorBoundary>
+        </div>
+      );
+    }
+    return null;
+  };
+  const artifactPreview = selectedFile && !fileLoading && !isPdfAssetAuthLoading && !fileError
+    ? renderArtifactPreview(selectedFile)
+    : null;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -3117,7 +3872,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
       setFileError(null);
 
-      const readOptions = await resolveFileReadOptions(selectedFile.path);
+      const readOptions = resolveFileReadOptions(selectedFile.path);
       if (cancelled) {
         return;
       }
@@ -3126,10 +3881,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         ? files.readFileBinary(selectedFile.path, readOptions).then((result) => result.dataUrl)
         : (async () => {
           const response = await runtimeFetch('/api/fs/raw', {
+            signal: AbortSignal.timeout(30_000),
             query: {
               path: selectedFile.path,
               allowOutsideWorkspace: readOptions.allowOutsideWorkspace ? 'true' : undefined,
-              outsideFileGrant: readOptions.outsideFileGrant,
               directory: root || undefined,
             },
           });
@@ -3181,7 +3936,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   const blockWidgets = React.useMemo(() => {
     return buildCodeMirrorCommentWidgets({
-      drafts: filesFileDrafts,
+      drafts: filesLineDrafts,
       editingDraftId,
       commentText,
       onTextChange: setCommentText,
@@ -3201,11 +3956,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       },
       onDelete: deleteDraft,
     });
-  }, [cancel, commentText, deleteDraft, editingDraftId, filesFileDrafts, handleSaveComment, isDragging, lineSelection, selectedFile?.path, setCommentText, startEdit]);
+  }, [cancel, commentText, deleteDraft, editingDraftId, filesLineDrafts, handleSaveComment, isDragging, lineSelection, selectedFile?.path, setCommentText, startEdit]);
 
   const mainViewVirtualizer = useFileViewVirtualizer();
   const fullscreenViewVirtualizer = useFileViewVirtualizer();
   const previewReady = !fileLoading && !fileError && loadedFilePath === selectedFilePath;
+  const showCanvas = React.useMemo(
+    () => Boolean(selectedFilePath) && shouldShowFileCanvas({ hasCanvas, viewMode: canvasViewMode, previewReady, mountable: canMountCanvas }),
+    [canMountCanvas, canvasViewMode, hasCanvas, previewReady, selectedFilePath],
+  );
   const codePreviewActive = previewReady && canUseShikiFileView && textViewMode === 'view'
     && !(isJson && jsonViewMode === 'tree');
   const markdownPreviewActive = previewReady && isMarkdown && getMdViewMode() === 'preview';
@@ -3233,9 +3992,25 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     mdFullscreenPreviewContainerRef.current = node;
     setFullscreenMarkdownScroll(node);
   }, [setFullscreenMarkdownScroll]);
+  // A relative link in a rendered Markdown file opens that file here; on
+  // desktop the context panel owns the tab, on mobile the files surface
+  // consumes the same pending focus path.
+  const openLinkedFile = React.useCallback((absolutePath: string) => {
+    if (!panelRoot) return;
+    useUIStore.getState().openContextFile(panelRoot, absolutePath);
+  }, [panelRoot]);
+  const markdownLocalAssetsActive = isMarkdown && mdViewMode === 'preview' && !fileLoading;
+  const markdownColorScheme = currentTheme.metadata.variant === 'light' ? 'light' : 'dark';
+  const markdownDocumentAssets = useMarkdownLocalAssets({
+    filePath: selectedFile?.path ?? null,
+    workspaceRoot: root || null,
+    onOpenFile: openLinkedFile,
+    enabled: markdownLocalAssetsActive,
+    colorScheme: markdownColorScheme,
+  });
   const shikiWorkerPool = useWorkerPool('unified');
   // Large code previews use the full draft with viewport virtualization and
-  // the shared Shiki worker pool. The threshold does not disable editing.
+  // the shared diff worker pool. The threshold does not disable editing.
   const isLargeFile = draftContent.length > LARGE_FILE_CHAR_THRESHOLD;
   const largeFileCacheKey = React.useMemo(
     () => (isLargeFile && codePreviewActive ? makeFileContentCacheKey(draftContent) : undefined),
@@ -3246,7 +4021,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     const fileContents = {
       name: file.name,
       contents: content,
-      lang: getLanguageFromExtension(file.path) || undefined,
+      lang: toDiffsLanguage(getLanguageFromExtension(file.path)),
     };
     const pierreFile = (key: string) => (
       <PierreFile
@@ -3257,6 +4032,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           overflow: wrapLines ? 'wrap' : 'scroll',
           theme: pierreTheme,
           themeType: currentTheme.metadata.variant === 'dark' ? 'dark' : 'light',
+          preferredHighlighter: DIFFS_HIGHLIGHTER,
           onPostRender: restoreScroll,
         }}
         className={isLargeFile ? 'block w-full' : 'block h-full w-full'}
@@ -3269,7 +4045,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
 
     // Large files render through pierre's Virtualizer (viewport-only DOM) and
-    // the shared Shiki worker pool. The pool is created lazily: until it is
+    // the shared diff worker pool. The pool is created lazily: until it is
     // ready the key carries a 'pending' suffix so the file remounts with the
     // worker-backed highlighter instead of silently staying on the main thread.
     return (
@@ -3283,7 +4059,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     );
   }, [currentTheme.metadata.variant, isLargeFile, largeFileCacheKey, pierreTheme, shikiWorkerPool, wrapLines]);
 
-  const renderFloatingFileControls = ({
+  const renderFileToolbar = ({
     exitFullscreenOnly = false,
     layout = 'floating',
   }: { exitFullscreenOnly?: boolean; layout?: 'floating' | 'docked' } = {}) => {
@@ -3293,422 +4069,464 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
     const docked = layout === 'docked';
     const saveShortcut = formatShortcutForDisplay(getEffectiveShortcutCombo('save_file'));
-    const wrapperCls = docked
-      ? 'pointer-events-auto flex flex-wrap items-center gap-1'
-      : 'pointer-events-auto flex items-center gap-1 rounded-lg border border-[var(--interactive-border)] bg-[var(--surface-elevated)] p-1 shadow-sm';
 
-    const withTooltip = (label: React.ReactNode, trigger: React.ReactElement) => (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex">
-            {trigger}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6}>{label}</TooltipContent>
-      </Tooltip>
+    // `announce` is for the "More actions" menu: the menu closes on select, so
+    // the button's check-mark feedback would never be seen there.
+    const copyContents = async (announce: boolean) => {
+      const result = await copyTextToClipboard(fileContent);
+      if (!result.ok) {
+        toast.error(t('filesView.toast.copyFailed'));
+        return;
+      }
+      if (announce) {
+        toast.success(t('filesView.editor.toast.contentsCopied'));
+        return;
+      }
+      setCopiedContent(true);
+      if (copiedContentTimeoutRef.current !== null) {
+        window.clearTimeout(copiedContentTimeoutRef.current);
+      }
+      copiedContentTimeoutRef.current = window.setTimeout(() => {
+        setCopiedContent(false);
+      }, 1200);
+    };
+
+    const copyPath = async (announce: boolean) => {
+      const result = await copyTextToClipboard(displaySelectedPath);
+      if (!result.ok) {
+        toast.error(t('filesView.toast.copyFailed'));
+        return;
+      }
+      if (announce) {
+        toast.success(t('sidebarFilesTree.toast.pathCopied'));
+        return;
+      }
+      setCopiedPath(true);
+      if (copiedPathTimeoutRef.current !== null) {
+        window.clearTimeout(copiedPathTimeoutRef.current);
+      }
+      copiedPathTimeoutRef.current = window.setTimeout(() => {
+        setCopiedPath(false);
+      }, 1200);
+    };
+
+    const downloadSelectedFile = () => {
+      const fn = files.downloadFile;
+      if (fn) void fn(selectedFile.path, selectedFileReadOptions).catch((error) => {
+        console.error('Download failed:', error);
+        toast.error(t('sidebarFilesTree.toast.operationFailed'));
+      });
+    };
+
+    const toggleTTS = () => {
+      if (isTTSPlaying) {
+        stopTTS();
+      } else if (fileContent.trim()) {
+        void playTTS(fileContent);
+      }
+    };
+
+    const saveCanvas = async () => {
+      const saved = await saveDraft();
+      if (!saved) return;
+      setCanvasSaved(true);
+      setTimeout(() => setCanvasSaved(false), 1500);
+    };
+
+    const saveDiagram = async () => {
+      const xml = diagramEditorRef.current?.getXml();
+      if (diagramAutoSaveTimerRef.current) {
+        clearTimeout(diagramAutoSaveTimerRef.current);
+        diagramAutoSaveTimerRef.current = null;
+      }
+      if (selectedFile?.path && xml) {
+        const saved = await saveDiagramXml(selectedFile.path, xml);
+        if (!saved) return;
+        setDiagramSaved(true);
+        setTimeout(() => setDiagramSaved(false), 1500);
+      }
+    };
+
+    const openInAppMenuItems = (
+      <>
+        {/* Always first: whatever app the OS has for this file type. */}
+        <DropdownMenuItem
+          className="flex items-center gap-2"
+          onClick={() => {
+            if (!selectedFile?.path) return;
+            void openDesktopPath(selectedFile.path).then((opened) => {
+              if (!opened) toast.error(t('sidebarFilesTree.toast.operationFailed'));
+            });
+          }}
+        >
+          <Icon name="external-link" className="size-4" />
+          <span className="typography-ui-label text-foreground">{t('sidebarFilesTree.menu.openInDefaultApp')}</span>
+        </DropdownMenuItem>
+        {openInApps.length > 0 ? <DropdownMenuSeparator /> : null}
+        {openInApps.map((app) => (
+          <DropdownMenuItem
+            key={app.id}
+            className="flex items-center gap-2"
+            onClick={() => void handleOpenInApp(app)}
+          >
+            <OpenInAppListIcon label={app.label} iconDataUrl={app.iconDataUrl} />
+            <span className="typography-ui-label text-foreground">{app.label}</span>
+          </DropdownMenuItem>
+        ))}
+        {openInCacheStale ? (
+          <DropdownMenuItem
+            className="flex items-center gap-2"
+            onClick={() => void loadOpenInApps(true)}
+          >
+            <Icon name="refresh" className="size-4" />
+            <span className="typography-ui-label text-foreground">{t('filesView.editor.refreshApps')}</span>
+          </DropdownMenuItem>
+        ) : null}
+      </>
     );
 
+    // Which buttons the row has depends on what the file is, never on the
+    // mode it shows: an action the current mode cannot do switches to the
+    // source editor first, so changing modes moves no button.
+    // `isTextFile` holds in every mode; `isSelectedNonText` counts an SVG preview as an image.
+    // A read-only file shows its source in the code preview, not an editor, except
+    // Markdown, draw.io and canvases, which open CodeMirror read-only.
+    const hasSourceEditor = isTextFile && !(hasCanvas && binaryCanvas) && (canEdit || isMarkdown || isDrawio || hasCanvas);
+    const mdPreview = isMarkdown && getMdViewMode() === 'preview';
+
+    const openSourceEditor = () => {
+      if (sourceEditorShown) return;
+      if (hasCanvas) saveCanvasViewMode('edit');
+      else if (isDrawio) saveDrawioViewMode('edit');
+      else if (isMarkdown) saveMdViewMode('edit');
+      else if (isHtml) saveHtmlViewMode('edit');
+      else if (isJson) saveJsonViewMode('text');
+      else if (isSelectedSvg) saveSvgViewMode('edit');
+      else if (isMermaid) saveMermaidViewMode('edit');
+      else if (isTable) saveTableViewMode('text');
+      else saveTextViewMode('edit');
+    };
+
+    const previewLabel = t('documentToolbar.preview');
+    const previewToggle = (preview: boolean, setPreview: (preview: boolean) => void): ToolbarAction => ({
+      id: 'mode',
+      label: previewLabel,
+      icon: 'eye',
+      pressed: preview,
+      onSelect: () => setPreview(!preview),
+      pinned: true,
+    });
+    const modeAction: ToolbarAction | null = hasCanvas
+      // Bytes have no source view.
+      ? (binaryCanvas ? null : previewToggle(canvasViewMode === 'preview', (on) => saveCanvasViewMode(on ? 'preview' : 'edit')))
+      : isDrawio ? previewToggle(drawioViewMode === 'preview', (on) => saveDrawioViewMode(on ? 'preview' : 'edit'))
+      : isMarkdown ? previewToggle(mdPreview, (on) => saveMdViewMode(on ? 'preview' : 'edit'))
+      : isHtml ? previewToggle(getHtmlViewMode() === 'preview', (on) => saveHtmlViewMode(on ? 'preview' : 'edit'))
+      : isSelectedSvg ? previewToggle(svgViewMode === 'preview', (on) => saveSvgViewMode(on ? 'preview' : 'edit'))
+      : isMermaid ? previewToggle(mermaidViewMode === 'preview', (on) => saveMermaidViewMode(on ? 'preview' : 'edit'))
+      : isTable ? {
+        id: 'mode',
+        label: t('documentToolbar.tableView'),
+        icon: 'table-2',
+        pressed: tableViewMode === 'table',
+        onSelect: () => saveTableViewMode(tableViewMode === 'table' ? 'text' : 'table'),
+        pinned: true,
+      }
+      : isJson ? {
+        id: 'mode',
+        label: t('documentToolbar.treeView'),
+        icon: 'node-tree',
+        pressed: jsonViewMode === 'tree',
+        onSelect: () => saveJsonViewMode(jsonViewMode === 'tree' ? 'text' : 'tree'),
+        pinned: true,
+      }
+      : canUseShikiFileView && canEdit ? previewToggle(textViewMode === 'view', (on) => saveTextViewMode(on ? 'view' : 'edit'))
+      : null;
+
+    // Annotation needs the rendered page: from the source it switches to the
+    // preview and starts once the page has loaded.
+    const annotateAction: ToolbarAction | null = isHtml && !isMobile && !runtime.isVSCode ? {
+      id: 'annotate',
+      label: t('contextPanel.browser.annotate.toggle'),
+      icon: 'markup',
+      pressed: htmlPreviewAnnotation.isAnnotating,
+      onSelect: () => {
+        if (canAnnotateHtmlPreview) {
+          htmlPreviewAnnotation.toggle();
+          return;
+        }
+        annotateWhenLoadedRef.current = selectedFile.path;
+        saveHtmlViewMode('preview');
+      },
+      pinned: true,
+    } : null;
+
+    const searchOpen = mdPreview ? mdPreviewFindOpen : (sourceEditorShown && isSearchOpen);
+    const searchAction: ToolbarAction | null = hasSourceEditor ? {
+      id: 'search',
+      label: t('filesView.editor.findInFile'),
+      icon: 'search',
+      pressed: searchOpen,
+      onSelect: () => {
+        // The Markdown preview has its own find bar; every other mode searches the source.
+        if (mdPreview) {
+          if (mdPreviewFindOpen) {
+            setMdPreviewFindOpen(false);
+            return;
+          }
+          setMdPreviewFindOpen(true);
+          setMdPreviewFindFocusNonce((value) => value + 1);
+          return;
+        }
+        openSourceEditor();
+        setIsSearchOpen(!searchOpen);
+      },
+    } : null;
+
+    const goToLineAction: ToolbarAction | null = hasSourceEditor ? {
+      id: 'go-to-line',
+      label: t('filesView.editor.goToLine'),
+      icon: 'hashtag',
+      pressed: isGoToLineOpen,
+      onSelect: () => {
+        openSourceEditor();
+        setIsGoToLineOpen((open) => !sourceEditorShown || !open);
+      },
+      buttonAttributes: { 'data-go-to-line-toggle': '' },
+    } : null;
+
+    const symbolsAction: ToolbarAction | null = hasSourceEditor && !isMobile ? {
+      id: 'symbols',
+      label: t('filesView.editor.symbols'),
+      icon: 'braces',
+      pressed: isSymbolsOpen,
+      onSelect: () => {
+        openSourceEditor();
+        setIsSymbolsOpen((open) => !sourceEditorShown || !open);
+      },
+      buttonAttributes: { 'data-document-symbols-toggle': '' },
+    } : null;
+
+    const wrapAction: ToolbarAction | null = isTextFile ? {
+      id: 'wrap',
+      label: t('documentToolbar.wrapLines'),
+      icon: 'text-wrap',
+      pressed: wrapLines,
+      onSelect: () => setWrapLines(!wrapLines),
+    } : null;
+
+    const readAloudAction: ToolbarAction | null = isMarkdown && showMessageTTSButtons ? {
+      id: 'read-aloud',
+      label: isTTSPlaying ? t('filesView.tts.stopSpeaking') : t('filesView.tts.readAloud'),
+      icon: 'volume-up',
+      iconClassName: isTTSPlaying ? 'text-[var(--primary-text)]' : undefined,
+      onSelect: toggleTTS,
+    } : null;
+
+    const copyPathLabel = t('filesView.editor.copyFilePathTitle', { path: displaySelectedPath });
+    const fileActions: ToolbarGroup = [
+      {
+        id: 'comment-on-file',
+        label: t('inlineComment.actions.commentOnFile'),
+        icon: 'chat-1',
+        pressed: wholeFileComment.isOpen,
+        onSelect: wholeFileComment.toggle,
+      },
+      // Every item hands the path to this machine's OS. A remote server, WSL
+      // included, keeps its files elsewhere, so the menu would only fail there.
+      isDesktopLocalOriginActive() && {
+        id: 'open-in-app',
+        label: t('filesView.editor.openInDesktopApp'),
+        icon: 'external-link',
+        menu: openInAppMenuItems,
+      },
+      canCopy && {
+        id: 'copy-contents',
+        label: t('filesView.editor.copyFileContents'),
+        icon: 'file-copy',
+        done: copiedContent,
+        onSelect: () => void copyContents(false),
+        onMenuSelect: () => void copyContents(true),
+      },
+      canCopyPath && {
+        id: 'copy-path',
+        label: copyPathLabel,
+        icon: 'link',
+        done: copiedPath,
+        onSelect: () => void copyPath(false),
+        onMenuSelect: () => void copyPath(true),
+      },
+      Boolean(files.downloadFile) && {
+        id: 'download',
+        label: t('filesView.editor.saveFile'),
+        icon: 'download',
+        onSelect: downloadSelectedFile,
+      },
+    ];
+
+    const fullscreenAction: ToolbarAction | null = exitFullscreenOnly
+      ? { id: 'fullscreen', label: t('filesView.editor.exitFullscreen'), icon: 'fullscreen-exit', onSelect: () => changeFullscreen(false), pinned: true }
+      : !isMobile && mode === 'full'
+        ? {
+          id: 'fullscreen',
+          label: isFullscreen ? t('filesView.editor.exitFullscreen') : t('filesView.editor.fullscreen'),
+          icon: isFullscreen ? 'fullscreen-exit' : 'fullscreen',
+          onSelect: () => changeFullscreen(!isFullscreen),
+          pinned: true,
+        }
+        : null;
+
+    const autoSaveAction: ToolbarAction | null = canEdit && isTextFile ? {
+      id: 'auto-save',
+      label: t('documentToolbar.autoSave'),
+      icon: 'save-3',
+      pressed: autoSaveEnabled,
+      onSelect: () => setAutoSaveEnabled(!autoSaveEnabled),
+    } : null;
+
+    const statusContent = hasCanvas && canvasViewMode === 'preview' ? (
+      <ToolbarTooltipButton label={t('filesView.fileEditor.save')} icon="save-3" done={canvasSaved} onClick={() => void saveCanvas()} />
+    ) : isDrawio && drawioViewMode === 'preview' ? (
+      <ToolbarTooltipButton label={t('filesView.diagram.saveDiagram')} icon="save-3" done={diagramSaved} onClick={() => void saveDiagram()} />
+    ) : isSaving ? (
+      <span className="flex items-center gap-1 px-1 text-muted-foreground typography-meta">
+        <Icon name="loader-4" className="size-3.5 animate-spin" />
+        {t('filesView.editor.saving')}
+      </span>
+    ) : autoSaveEnabled && autoSaveStatus === 'saved' && !isDirty ? (
+      <span className="flex items-center gap-1 px-1 text-[color:var(--status-success)] typography-meta">
+        <Icon name="check" className="size-3.5" />
+        {t('filesView.editor.saved')}
+      </span>
+    ) : isDirty ? (
+      <ToolbarTooltipButton
+        label={t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut })}
+        icon="save-3"
+        onClick={() => void saveDraft()}
+      />
+    ) : null;
+    // A canvas or diagram saves through its own button even where text cannot be edited.
+    // Save state sits after the path, which gives up the width it takes:
+    // the buttons never move when it appears.
+    const status = (canEdit && isTextFile) || hasCanvas || isDrawio ? statusContent : null;
+
+    const toolbar = (
+      <ActionToolbar
+        className={docked ? 'flex-1' : undefined}
+        start={docked ? (
+          // Mobile hosts already show the file name in their own header;
+          // a truncated duplicate here just eats toolbar width.
+          displaySelectedPath && !isMobile ? (
+            <FilePathLabel path={displaySelectedPath} className="typography-meta text-muted-foreground" />
+          ) : null
+        ) : undefined}
+        status={status}
+        inline={hasSourceEditor ? (
+          // Rendered with the row, not with its button, so it still opens when
+          // that button has moved into the "More actions" menu.
+          <GoToLineDialog
+            open={isGoToLineOpen}
+            onOpenChange={setIsGoToLineOpen}
+            viewRef={editorViewRef}
+            variant="inline"
+          />
+        ) : null}
+        groups={[
+          [modeAction, annotateAction],
+          [searchAction, goToLineAction, symbolsAction, wrapAction, readAloudAction],
+          fileActions,
+        ]}
+        menuOnly={[autoSaveAction]}
+        trailing={[fullscreenAction]}
+        fold={docked}
+        onMenuOpenChange={handleToolbarDropdownOpenChange}
+      />
+    );
+
+    if (docked) return toolbar;
     return (
-      <div className={wrapperCls}>
-        {canEdit && isEditingFile && (
-          <>
-            {isSaving ? (
-              <span className="flex items-center gap-1 px-1 text-muted-foreground typography-meta">
-                <Icon name="loader-4" className="size-3.5 animate-spin" />
-                {t('filesView.editor.saving')}
-              </span>
-            ) : autoSaveEnabled && autoSaveStatus === 'saved' && !isDirty ? (
-              <span className="flex items-center gap-1 px-1 text-[color:var(--status-success)] typography-meta">
-                <Icon name="check" className="size-3.5" />
-                {t('filesView.editor.saved')}
-              </span>
-            ) : isDirty ? withTooltip(t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut }),
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void saveDraft()}
-                className="h-6 gap-1 px-1 text-muted-foreground opacity-80 hover:bg-transparent hover:opacity-100 focus-visible:bg-transparent active:bg-transparent"
-                title={t(autoSaveEnabled ? 'filesView.editor.saveNowTitle' : 'filesView.editor.saveNowManualTitle', { shortcut: saveShortcut })}
-                aria-label={t('filesView.editor.saveAria', { shortcut: saveShortcut })}
-              >
-                <Icon name="save-3" className="size-4" />
-              </Button>
-            ) : null}
-            {withTooltip(autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave'),
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
-                className={cn(
-                  'size-6 p-0 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent',
-                  autoSaveEnabled ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-65 hover:opacity-100'
-                )}
-                title={autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave')}
-                aria-label={autoSaveEnabled ? t('filesView.editor.autoSaveOn') : t('filesView.editor.manualSave')}
-              >
-                {autoSaveEnabled ? <Icon name="file-check-fill" className="size-4" /> : <Icon name="file-check" className="size-4" />}
-              </Button>
-            )}
-          </>
-        )}
-
-        <DropdownMenu onOpenChange={handleToolbarDropdownOpenChange}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="size-6 p-0 text-foreground opacity-100 hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-                    title={t('filesView.editor.openInDesktopApp')}
-                    aria-label={t('filesView.editor.openInDesktopApp')}
-                  >
-                    <Icon name="file-transfer" className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>{t('filesView.editor.openInDesktopApp')}</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" className="w-56 max-h-[70vh] overflow-y-auto">
-            {openInApps.map((app) => (
-              <DropdownMenuItem
-                key={app.id}
-                className="flex items-center gap-2"
-                onClick={() => void handleOpenInApp(app)}
-              >
-                <OpenInAppListIcon label={app.label} iconDataUrl={app.iconDataUrl} />
-                <span className="typography-ui-label text-foreground">{app.label}</span>
-              </DropdownMenuItem>
-            ))}
-            {openInCacheStale ? (
-              <DropdownMenuItem
-                className="flex items-center gap-2"
-                onClick={() => void loadOpenInApps(true)}
-              >
-                <Icon name="refresh" className="size-4" />
-                <span className="typography-ui-label text-foreground">{t('filesView.editor.refreshApps')}</span>
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {!isSelectedImage && !isSelectedPdf && !isUnsupportedBinary && (
-          <>
-            {withTooltip(wrapLines ? t('filesView.editor.disableLineWrap') : t('filesView.editor.enableLineWrap'),
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setWrapLines(!wrapLines)}
-                className={cn(
-                  'size-6 p-0 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent',
-                  wrapLines ? 'text-foreground opacity-100' : 'text-muted-foreground opacity-65 hover:opacity-100'
-                )}
-                title={wrapLines ? t('filesView.editor.disableLineWrap') : t('filesView.editor.enableLineWrap')}
-              >
-                <Icon name="text-wrap" className="size-4" />
-              </Button>
-            )}
-            {textViewMode === 'edit' && (
-              <>
-                {withTooltip(t('filesView.editor.findInFile'),
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(event) => {
-                      setIsSearchOpen(!isSearchOpen);
-                      event.currentTarget.blur();
-                    }}
-                    className="size-6 p-0 text-foreground opacity-100 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-                    title={t('filesView.editor.findInFile')}
-                  >
-                    <Icon name="search" className="size-4" />
-                  </Button>
-                )}
-                {withTooltip(t('filesView.editor.goToLine'),
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(event) => {
-                      setIsGoToLineOpen((open) => !open);
-                      event.currentTarget.blur();
-                    }}
-                    className="size-6 p-0 text-foreground opacity-100 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-                    title={t('filesView.editor.goToLine')}
-                  >
-                    <Icon name="menu-fold-2" className="size-4" />
-                  </Button>
-                )}
-                <GoToLineDialog
-                  open={isGoToLineOpen}
-                  onOpenChange={setIsGoToLineOpen}
-                  view={editorViewRef.current}
-                  variant="inline"
-                />
-              </>
-            )}
-          </>
-        )}
-
-        {canUseShikiFileView && canEdit && !isJson && !isHtml && (
-          <PreviewToggleButton
-            currentMode={textViewMode === 'view' ? 'preview' : 'edit'}
-            onToggle={() => {
-              saveTextViewMode(textViewMode === 'view' ? 'edit' : 'view');
-            }}
-          />
-        )}
-
-        {isMarkdown && (
-          withTooltip(
-            t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => saveMdViewMode(getMdViewMode() === 'preview' ? 'edit' : 'preview')}
-              className={cn(
-                'size-6 p-0 transition-colors hover:bg-[var(--interactive-hover)] focus-visible:bg-[var(--interactive-hover)] active:bg-[var(--interactive-hover)]',
-                getMdViewMode() === 'preview'
-                  ? 'bg-[var(--interactive-selection)] text-[var(--interactive-selection-foreground)] hover:bg-[var(--interactive-selection)] focus-visible:bg-[var(--interactive-selection)] active:bg-[var(--interactive-selection)]'
-                  : 'text-muted-foreground opacity-65 hover:opacity-100'
-              )}
-              title={t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode')}
-              aria-label={t(getMdViewMode() === 'preview' ? 'filesView.editor.switchToEditMode' : 'filesView.editor.switchToPreviewMode')}
-            >
-              <Icon name={getMdViewMode() === 'preview' ? 'eye' : 'eye-off'} className="size-4" />
-            </Button>
-          )
-        )}
-
-        {isHtmlFile(selectedFile?.path ?? '') && (
-          <PreviewToggleButton
-            currentMode={getHtmlViewMode()}
-            onToggle={() => {
-              saveHtmlViewMode(getHtmlViewMode() === 'preview' ? 'edit' : 'preview');
-            }}
-          />
-        )}
-
-        {isMarkdown && getMdViewMode() === 'preview' && (
-          withTooltip(t('filesView.editor.findInFile'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMdPreviewFindOpen(true);
-                setMdPreviewFindFocusNonce((value) => value + 1);
-              }}
-              className="size-6 p-0 text-foreground opacity-100 transition-opacity hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={t('filesView.editor.findInFile')}
-            >
-              <Icon name="search" className="size-4" />
-            </Button>
-          )
-        )}
-
-        {isMarkdown && getMdViewMode() === 'preview' && showMessageTTSButtons && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="size-6 p-0 text-muted-foreground opacity-65 hover:bg-transparent hover:opacity-100 focus-visible:bg-transparent active:bg-transparent"
-                aria-label={isTTSPlaying ? t('filesView.tts.stopSpeaking') : t('filesView.tts.readAloud')}
-                onClick={() => {
-                  if (isTTSPlaying) {
-                    stopTTS();
-                  } else if (fileContent.trim()) {
-                    void playTTS(fileContent);
-                  }
-                }}
-              >
-                {isTTSPlaying ? (
-                  <Icon name="stop" className="size-4 text-[color:var(--status-success)]" />
-                ) : (
-                  <Icon name="volume-up" className="size-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={8}>
-              {isTTSPlaying ? t('filesView.tts.stopSpeaking') : t('filesView.tts.readAloud')}
-            </TooltipContent>
-          </Tooltip>
-        )}
-
-        {isDrawio && (
-          <>
-            <PreviewToggleButton
-              currentMode={drawioViewMode}
-              onToggle={() => saveDrawioViewMode(drawioViewMode === 'preview' ? 'edit' : 'preview')}
-            />
-            {drawioViewMode === 'preview' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  const xml = diagramEditorRef.current?.getXml();
-                  if (diagramAutoSaveTimerRef.current) {
-                    clearTimeout(diagramAutoSaveTimerRef.current);
-                    diagramAutoSaveTimerRef.current = null;
-                  }
-                  if (selectedFile?.path && xml) {
-                    const saved = await saveDiagramXml(selectedFile.path, xml);
-                    if (!saved) return;
-                    setDiagramSaved(true);
-                    setTimeout(() => setDiagramSaved(false), 1500);
-                  }
-                }}
-                className="size-6 p-0 text-foreground hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-                title={t('filesView.diagram.saveDiagram')}
-              >
-                {diagramSaved ? (
-                  <Icon name="check" className="size-4 text-[color:var(--status-success)]" />
-                ) : (
-                  <Icon name="save-3" className="size-4" />
-                )}
-              </Button>
-            )}
-          </>
-        )}
-
-        {isJson && (
-          withTooltip(jsonViewMode === 'tree' ? t('filesView.editor.switchToTextView') : t('filesView.editor.switchToTreeView'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => saveJsonViewMode(jsonViewMode === 'tree' ? 'text' : 'tree')}
-              className="size-6 p-0 text-muted-foreground opacity-65 hover:bg-transparent hover:opacity-100 focus-visible:bg-transparent active:bg-transparent"
-              title={jsonViewMode === 'tree' ? t('filesView.editor.switchToTextView') : t('filesView.editor.switchToTreeView')}
-            >
-              {jsonViewMode === 'tree' ? (
-                <Icon name="code-sslash" className="size-4" />
-              ) : (
-                <Icon name="node-tree" className="size-4" />
-              )}
-            </Button>
-          )
-        )}
-
-        {canCopy && (
-          withTooltip(t('filesView.editor.copyFileContents'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                const result = await copyTextToClipboard(fileContent);
-                if (result.ok) {
-                  setCopiedContent(true);
-                  if (copiedContentTimeoutRef.current !== null) {
-                    window.clearTimeout(copiedContentTimeoutRef.current);
-                  }
-                  copiedContentTimeoutRef.current = window.setTimeout(() => {
-                    setCopiedContent(false);
-                  }, 1200);
-                } else {
-                  toast.error(t('filesView.toast.copyFailed'));
-                }
-              }}
-              className="size-6 p-0 hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={t('filesView.editor.copyFileContents')}
-              aria-label={t('filesView.editor.copyFileContents')}
-            >
-              {copiedContent ? (
-                <Icon name="check" className="size-4 text-[color:var(--status-success)]" />
-              ) : (
-                <Icon name="clipboard" className="size-4" />
-              )}
-            </Button>
-          )
-        )}
-
-        {canCopyPath && (
-          withTooltip(t('filesView.editor.copyFilePathTitle', { path: displaySelectedPath }),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                const result = await copyTextToClipboard(displaySelectedPath);
-                if (result.ok) {
-                  setCopiedPath(true);
-                  if (copiedPathTimeoutRef.current !== null) {
-                    window.clearTimeout(copiedPathTimeoutRef.current);
-                  }
-                  copiedPathTimeoutRef.current = window.setTimeout(() => {
-                    setCopiedPath(false);
-                  }, 1200);
-                } else {
-                  toast.error(t('filesView.toast.copyFailed'));
-                }
-              }}
-              className="size-6 p-0 hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={t('filesView.editor.copyFilePathTitle', { path: displaySelectedPath })}
-              aria-label={t('filesView.editor.copyFilePathTitle', { path: displaySelectedPath })}
-            >
-              {copiedPath ? (
-                <Icon name="check" className="size-4 text-[color:var(--status-success)]" />
-              ) : (
-                <Icon name="file-copy-2" className="size-4" />
-              )}
-            </Button>
-          )
-        )}
-
-        {files.downloadFile && (
-          withTooltip(t('filesView.editor.saveFile'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const fn = files.downloadFile;
-                if (fn) void fn(selectedFile.path).catch((error) => {
-                  console.error('Download failed:', error);
-                  toast.error(t('sidebarFilesTree.toast.operationFailed'));
-                });
-              }}
-              className="size-6 p-0 hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={t('filesView.editor.saveFile')}
-              aria-label={t('filesView.editor.saveFile')}
-            >
-              <Icon name="download" className="size-4" />
-            </Button>
-          )
-        )}
-
-        {exitFullscreenOnly ? (
-          withTooltip(t('filesView.editor.exitFullscreen'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsFullscreen(false)}
-              className="size-6 p-0 hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={t('filesView.editor.exitFullscreen')}
-              aria-label={t('filesView.editor.exitFullscreen')}
-            >
-              <Icon name="fullscreen-exit" className="size-4" />
-            </Button>
-          )
-        ) : (!isMobile && mode === 'full' && (
-          withTooltip(isFullscreen ? t('filesView.editor.exitFullscreen') : t('filesView.editor.fullscreen'),
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="size-6 p-0 hover:bg-transparent focus-visible:bg-transparent active:bg-transparent"
-              title={isFullscreen ? t('filesView.editor.exitFullscreen') : t('filesView.editor.fullscreen')}
-              aria-label={isFullscreen ? t('filesView.editor.exitFullscreen') : t('filesView.editor.fullscreen')}
-            >
-              {isFullscreen ? (
-                <Icon name="fullscreen-exit" className="size-4" />
-              ) : (
-                <Icon name="fullscreen" className="size-4" />
-              )}
-            </Button>
-          )
-        ))}
+      <div className="pointer-events-auto rounded-lg border border-[var(--interactive-border)] bg-[var(--surface-elevated)] p-1 shadow-sm">
+        {toolbar}
       </div>
     );
   };
+
+  // A binary editor reads the file itself at mount, so a reload of the file
+  // (the poll found an external change and nothing was unsaved) remounts it.
+  // The first load of a path mounts the editor anyway; only a repeat reloads.
+  const lastLoadedPathRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!loadedFilePath) return;
+    if (binaryCanvasRef.current && lastLoadedPathRef.current === loadedFilePath) setCanvasRemountNonce((nonce) => nonce + 1);
+    lastLoadedPathRef.current = loadedFilePath;
+  }, [loadedFilePath]);
+
+  const loadCanvasBytes = React.useCallback(async (): Promise<Uint8Array<ArrayBuffer>> => {
+    const path = selectedFilePathRef.current;
+    if (!path) throw new Error('No file is open.');
+    const readOptions = resolveFileReadOptions(path);
+    const response = await runtimeFetch('/api/fs/raw', {
+      signal: AbortSignal.timeout(60_000),
+      cache: 'no-store',
+      query: {
+        path,
+        allowOutsideWorkspace: readOptions.allowOutsideWorkspace ? 'true' : undefined,
+        directory: root || undefined,
+      },
+    });
+    if (!response.ok) throw new Error(t('filesView.error.readFileFailed'));
+    return new Uint8Array(await response.arrayBuffer());
+  }, [resolveFileReadOptions, root, t]);
+
+  const handleCanvasLoadProblem = React.useCallback((message: string) => {
+    const path = selectedFilePathRef.current;
+    if (path) canvasViewModeByPathRef.current[path] = 'edit';
+    setCanvasDirty(false);
+    setCanvasViewMode('edit');
+    toast.error(message);
+  }, []);
+
+  const canvasInFullscreen = mode === 'full' && isFullscreen;
+  const canvasKey = selectedFile
+    ? `${editorDocumentPath ?? selectedFile.path}:${canvasRemountNonce}:${canvasInFullscreen ? 'fullscreen' : 'docked'}`
+    : '';
+  const canvasElement = showCanvas && selectedFile && guestFileEditor ? (
+    <div ref={canvasWrapperRef} className="h-full overflow-hidden" style={{ minHeight: '400px' }}>
+      <GuestFileEditor
+        key={`${canvasKey}:${guestFileEditor.guestId}:${guestFileEditor.editor.id}`}
+        ref={canvasEditorRef}
+        guestId={guestFileEditor.guestId}
+        editorId={guestFileEditor.editor.id}
+        title={guestFileEditor.editor.title}
+        contentKind={binaryCanvas ? 'binary' : 'text'}
+        path={displaySelectedPath || selectedFile.path}
+        content={draftContent}
+        loadBytes={loadCanvasBytes}
+        readOnly={!selectedFile || selectedFileIsOutsideWorkspace || !files.writeFile || (binaryCanvas && !files.uploadFile)}
+        onDirtyChange={setCanvasDirty}
+        onEdit={() => { canvasLastEditAtRef.current = Date.now(); }}
+        onSaveRequest={saveNow}
+        onUnsupported={handleCanvasUnsupported}
+        onTooLarge={() => handleCanvasLoadProblem(t('filesView.fileEditor.tooLarge', { editor: guestFileEditor.editor.title }))}
+        onLoadFailed={() => handleCanvasLoadProblem(t('filesView.error.readFileFailed'))}
+      />
+    </div>
+  ) : null;
+
+  const openExcalidrawExtensionCard = React.useCallback(() => {
+    const ui = useUIStore.getState();
+    ui.requestSettingsJump('integrations', 'integrations.extensions.excalidraw');
+    ui.setSettingsDialogOpen(true);
+  }, []);
+
+  // Above the scroller, so an editor opened far down the file is on screen.
+  // The fullscreen overlay shows it instead while it is open: one editor at a time.
+  const wholeFileCommentPanel = wholeFileComment.editor || wholeFileComment.cards ? (
+    <div className="max-h-[50%] shrink-0 overflow-y-auto border-b border-border/40">
+      {wholeFileComment.editor}
+      {wholeFileComment.cards}
+    </div>
+  ) : null;
 
   const fileViewer = (
     <div
@@ -3732,7 +4550,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               variant="outline"
               onClick={() => void saveAndContinue()}
               disabled={isSaving}
-              className="border-[var(--status-success-border)] bg-[var(--status-success-background)] text-[var(--status-success)] hover:bg-[rgb(var(--status-success)/0.2)]"
+              className="border-[var(--status-success-border)] bg-[var(--status-success-background)] text-[var(--status-success)] hover:bg-[var(--status-success)]/20"
             >
               {t('filesView.unsaved.saveChanges')}
             </Button>
@@ -3749,7 +4567,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               type="button"
               onClick={() => setShowMobilePageContent(false)}
               aria-label={t('filesView.editor.back')}
-              className="inline-flex size-7 flex-shrink-0 items-center justify-center mr-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="inline-flex size-7 flex-shrink-0 items-center justify-center me-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Icon name="arrow-left-s" className="size-5" />
             </button>
@@ -3761,11 +4579,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex min-w-0 max-w-full items-center gap-1 text-left typography-ui-label font-medium"
+                    className="inline-flex min-w-0 max-w-full items-center gap-1 text-start typography-ui-label font-medium"
                     aria-label={t('filesView.editor.openFilesAria')}
                   >
                     <FileTypeIcon filePath={selectedFile.path} extension={selectedFile.extension} className="size-3.5 flex-shrink-0" />
-                    <ScrollingFileName name={selectedFile.name} />
+                    <ScrollingFileName name={selectedFile.name} folder={getOpenFileFolder(selectedFile.path)} />
                     <Icon name="arrow-down-s" className="size-4 flex-shrink-0 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
@@ -3792,7 +4610,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                       >
                         <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
                           <FileTypeIcon filePath={file.path} extension={file.extension} className="size-3.5 flex-shrink-0" />
-                          <ScrollingFileName name={file.name} />
+                          <ScrollingFileName name={file.name} folder={getOpenFileFolder(file.path)} />
                         </span>
                         <button
                           type="button"
@@ -3822,11 +4640,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           ) : (
             openFiles.length > 0 ? (
               <div className="relative min-w-0 flex-1">
-                {editorTabsOverflow.left && (
-                  <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r from-background to-transparent" />
+                {editorTabsOverflow.start && (
+                  <div className="pointer-events-none absolute inset-s-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r rtl:bg-gradient-to-l from-background to-transparent" />
                 )}
-                {editorTabsOverflow.right && (
-                  <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-l from-background to-transparent" />
+                {editorTabsOverflow.end && (
+                  <div className="pointer-events-none absolute inset-e-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-l rtl:bg-gradient-to-r from-background to-transparent" />
                 )}
                 <div
                   ref={editorTabsScrollRef}
@@ -3835,6 +4653,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 >
                   {openFiles.map((file) => {
                     const isActive = selectedFile?.path === file.path;
+                    const folder = getOpenFileFolder(file.path);
                     return (
                       <div
                         key={file.path}
@@ -3854,9 +4673,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                               void handleSelectFile(file);
                             }
                           }}
-                          className="max-w-[12rem] truncate text-left"
+                          className={cn(!folder && 'max-w-[12rem]', 'truncate text-start')}
                         >
-                          {file.name}
+                          <FileNameText name={file.name} folder={folder} />
                         </button>
                         <button
                           type="button"
@@ -3884,27 +4703,26 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         </div>
         ) : null}
 
-        {/* Row 2: Docked editor toolbar. */}
+        {/* Row 2: Docked editor toolbar. 40px with 24px buttons, the same band
+            the context panel's file tree draws beside it, so the two line up. */}
         {selectedFile ? (
-          <div className="flex min-w-0 items-center gap-3 border-t border-border/40 bg-[var(--surface-subtle)] px-3 py-1">
-            {/* Mobile hosts already show the file name in their own header;
-                a truncated duplicate here just eats toolbar width. */}
-            {displaySelectedPath && !isMobile ? (
-              <span
-                className="min-w-0 flex-1 truncate typography-meta text-muted-foreground"
-                title={displaySelectedPath}
-              >
-                {displaySelectedPath}
-              </span>
-            ) : null}
-            <div className="ml-auto min-w-0 shrink-0 overflow-x-auto">
-              {renderFloatingFileControls({ layout: 'docked' })}
-            </div>
+          <div className="flex h-8 min-w-0 shrink-0 items-center border-t border-border/40 px-2">
+            {renderFileToolbar({ layout: 'docked' })}
           </div>
         ) : null}
 
       </div>
 
+      {!(mode === 'full' && isFullscreen) && wholeFileCommentPanel}
+      {suggestExcalidrawExtension ? (
+        <div className="flex flex-shrink-0 items-center gap-2 border-b border-border/40 bg-[var(--surface-muted)] px-3 py-1.5 typography-ui text-muted-foreground">
+          <Icon name="information" className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{t('filesView.excalidraw.installHint')}</span>
+          <Button type="button" size="xs" variant="outline" onClick={openExcalidrawExtensionCard}>
+            {t('filesView.excalidraw.installAction')}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex-1 min-h-0 min-w-0 relative">
         <ScrollableOverlay ref={setMainPreviewScroller} outerClassName="h-full min-w-0" className={cn('h-full min-w-0', isLargeFile && '[overflow-anchor:none]')}>
           {!selectedFile ? (
@@ -3920,44 +4738,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               )
           ) : fileError ? (
             <div className="p-3 typography-ui text-[color:var(--status-error)]">{fileError}</div>
-          ) : isSelectedImage ? (
-            <div className="flex h-full items-center justify-center p-3">
-              <img
-                key={selectedFile.path}
-                src={imageSrc}
-                alt={selectedFile?.name ?? t('filesView.editor.imageAltFallback')}
-                className="max-w-full max-h-[70vh] object-contain rounded-md border border-border/30 bg-primary/10"
-              />
-            </div>
-          ) : isSelectedPdf ? (
-            renderPdfPreview(selectedFile)
-          ) : isUnsupportedBinary ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-              <div className="typography-ui-header text-foreground">{t('filesView.editor.cannotPreviewBinary')}</div>
-              <div className="max-w-md typography-ui text-muted-foreground">{t('filesView.editor.binaryFileDescription')}</div>
-              {files.downloadFile ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const fn = files.downloadFile;
-                    if (!fn || !selectedFile) return;
-                    void fn(selectedFile.path).catch((error) => {
-                      console.error('Download failed:', error);
-                      toast.error(t('sidebarFilesTree.toast.operationFailed'));
-                    });
-                  }}
-                >
-                  <Icon name="download" className="mr-2 size-4" />
-                  {t('filesView.editor.saveFile')}
-                </Button>
-              ) : null}
-            </div>
+) : showCanvas ? (
+            // Ahead of the built-in previews: a binary editor may claim an image or PDF.
+            // Shown fullscreen instead while the overlay is open: one canvas instance.
+            canvasInFullscreen ? <div className="h-full" /> : canvasElement
+          ) : artifactPreview ? (
+            artifactPreview
           ) : selectedFile && isDrawio && drawioViewMode === 'preview' ? (
             <div className="h-full overflow-hidden" style={{ minHeight: '400px' }}>
               <DiagramEditor
-                key={`${selectedFile.path}:${drawioRemountNonce}`}
+                key={`${editorDocumentPath ?? selectedFile.path}:${drawioRemountNonce}`}
                 ref={diagramEditorRef}
                 xml={diagramEditorXml}
                 onChange={handleDiagramChange}
@@ -3966,7 +4756,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           ) : selectedFile && isJson && jsonViewMode === 'tree' ? (
             <ErrorBoundary
               fallback={
-                <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+                <div className="rounded-md bg-destructive/10 px-3 py-2">
                   <div className="mb-1 font-medium text-destructive">{t('filesView.error.jsonViewerUnavailable')}</div>
                   <div className="text-sm text-muted-foreground">
                     {t('filesView.error.switchToTextMode')}
@@ -3976,7 +4766,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             >
               <div className="h-full overflow-auto">
                 <JsonTreeView
+                  className="h-full"
                   jsonString={fileContent}
+                  // Config files under a .json name (tsconfig, opencode.json) carry
+                  // comments and trailing commas; the editor's check accepts them too.
+                  format="jsonc"
                   maxHeight="100%"
                   initiallyExpandedDepth={2}
                 />
@@ -3999,13 +4793,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                   fileContent={fileContent}
                 />
                 {fileContent.length > 500 * 1024 && (
-                  <div className="mb-3 rounded-md border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
+                  <div className="mb-3 rounded-md bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
                     {t('filesView.warning.largeFilePreviewLimited', { sizeKb: Math.round(fileContent.length / 1024) })}
                   </div>
                 )}
                 <ErrorBoundary
                   fallback={
-                    <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+                    <div className="rounded-md bg-destructive/10 px-3 py-2">
                       <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
                       <div className="text-sm text-muted-foreground">
                         {t('filesView.error.switchToEditMode')}
@@ -4013,12 +4807,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                     </div>
                   }
                 >
-                  <SimpleMarkdownRenderer
-                    content={fileContent}
-                    className="typography-markdown-body"
-                    stripFrontmatter
-                    enableFileReferences={false}
-                  />
+                  <div style={previewFontStyle}>
+                    <SimpleMarkdownRenderer
+                      content={fileContent}
+                      documentAssets={markdownDocumentAssets}
+                      className="typography-markdown-body"
+                      frontmatter="properties"
+                      enableFileReferences={false}
+                      allowRawHtml
+                    />
+                  </div>
                 </ErrorBoundary>
               </div>
               {!isFullscreen && (
@@ -4031,25 +4829,28 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               )}
             </div>
           ) : selectedFile && isHtml && htmlViewMode === 'preview' ? (
-            isHtmlAssetAuthLoading ? (
+            !runtime.isVSCode && htmlPreview.status === 'loading' ? (
               <div className="flex h-full items-center justify-center text-muted-foreground typography-ui-label">
                 {t('common.loading')}
               </div>
             ) : (
             <div className="h-full overflow-hidden">
+              {/* No allow-same-origin: the page is untrusted and must not run as the app. */}
               <iframe
-                key={htmlPreviewNonce}
-                src={!runtime.isVSCode && htmlAssetAuthReadyKey === htmlAssetAuthKey ? (() => {
-                  const encoded = selectedFile.path.split('/').map((segment) => encodeURIComponent(segment)).join('/');
-                  return getRuntimeUrlResolver().authenticatedAsset(`/api/fs/serve${encoded.startsWith('/') ? encoded : `/${encoded}`}`);
-                })() : undefined}
+                ref={htmlPreviewFrameRef}
+                onLoad={() => {
+                  if (annotateWhenLoadedRef.current !== selectedFile.path) return;
+                  annotateWhenLoadedRef.current = null;
+                  if (!htmlPreviewAnnotation.isAnnotating) htmlPreviewAnnotation.toggle();
+                }}
+                src={htmlPreview.status === 'ready' ? htmlPreview.url : undefined}
                 srcDoc={runtime.isVSCode ? (() => {
                   const basePath = selectedFile.path.substring(0, selectedFile.path.lastIndexOf('/') + 1);
                   if (!basePath) return fileContent;
                   return fileContent.replace(/<head([^>]*)>/i, `<head$1><base href="${basePath}">`);
                 })() : undefined}
                 className="w-full h-full border-none"
-                sandbox="allow-scripts allow-same-origin allow-forms"
+                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
                 title={t('filesView.editor.htmlPreviewTitle')}
               />
             </div>
@@ -4061,10 +4862,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               className={cn('relative h-full', shouldMaskEditorForPendingNavigation && 'overflow-hidden')}
               ref={editorWrapperRef}
             >
+              {!isFullscreen && (
+                <DocumentSymbolsPanel open={isSymbolsOpen} onOpenChange={setIsSymbolsOpen} viewRef={editorViewRef} />
+              )}
               <div className={cn('h-full', shouldMaskEditorForPendingNavigation && 'invisible')}>
                 <FilePositionEditor
                   key={filePositionKey}
                   positionKey={filePositionKey}
+                  detached={!visible}
                   value={draftContent}
                   onChange={setDraftContent}
                   readOnly={!canEdit}
@@ -4074,6 +4879,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                   blockWidgets={blockWidgets}
                   onViewReady={(view) => {
                     editorViewRef.current = view;
+                    applyGitBaseline(view);
                     setEditorViewReadyNonce((value) => value + 1);
                     window.requestAnimationFrame(() => {
                       nudgeEditorSelectionAboveKeyboard(view);
@@ -4094,84 +4900,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                       end: Math.max(lineSelection.start, lineSelection.end),
                     }
                     : undefined}
-                  lineNumbersConfig={{
-                    domEventHandlers: {
-                      mousedown: (view: EditorView, line: { from: number; to: number }, event: Event) => {
-                        if (!(event instanceof MouseEvent)) {
-                          return false;
-                        }
-                        if (event.button !== 0) {
-                          return false;
-                        }
-                        event.preventDefault();
-
-                        const lineNumber = view.state.doc.lineAt(line.from).number;
-
-                        if (
-                          lineSelection &&
-                          !event.shiftKey &&
-                          Math.min(lineSelection.start, lineSelection.end) === lineNumber &&
-                          Math.max(lineSelection.start, lineSelection.end) === lineNumber
-                        ) {
-                          setLineSelection(null);
-                          cancel();
-                          isSelectingRef.current = false;
-                          selectionStartRef.current = null;
-                          setIsDragging(false);
-                          return true;
-                        }
-
-                        // Mobile: tap-to-extend selection
-                          if (isMobile && lineSelection && !event.shiftKey) {
-                            const start = Math.min(lineSelection.start, lineSelection.end, lineNumber);
-                            const end = Math.max(lineSelection.start, lineSelection.end, lineNumber);
-                            setLineSelection({ start, end });
-                            isSelectingRef.current = false;
-                            selectionStartRef.current = null;
-                            setIsDragging(false);
-                            return true;
-                          }
-
-                          isSelectingRef.current = true;
-                          selectionStartRef.current = lineNumber;
-                          setIsDragging(true);
-
-                          if (lineSelection && event.shiftKey) {
-                          const start = Math.min(lineSelection.start, lineNumber);
-                          const end = Math.max(lineSelection.end, lineNumber);
-                          setLineSelection({ start, end });
-                        } else {
-                          setLineSelection({ start: lineNumber, end: lineNumber });
-                        }
-
-                        return true;
-                      },
-                      mouseover: (view: EditorView, line: { from: number; to: number }, event: Event) => {
-                        if (!(event instanceof MouseEvent)) {
-                          return false;
-                        }
-                        if (event.buttons !== 1) {
-                          return false;
-                        }
-                        if (!isSelectingRef.current || selectionStartRef.current === null) {
-                          return false;
-                        }
-
-                        const lineNumber = view.state.doc.lineAt(line.from).number;
-                          const start = Math.min(selectionStartRef.current, lineNumber);
-                          const end = Math.max(selectionStartRef.current, lineNumber);
-                          setLineSelection({ start, end });
-                          setIsDragging(true);
-                          return false;
-                        },
-                        mouseup: () => {
-                          isSelectingRef.current = false;
-                          selectionStartRef.current = null;
-                          setIsDragging(false);
-                          return false;
-                        },
-                      },
-                  }}
+                  lineNumbersConfig={lineNumbersConfig}
                 />
               </div>
               {shouldMaskEditorForPendingNavigation && (
@@ -4191,6 +4920,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
 
   const hasTree = Boolean(root && childrenByDir[root]);
   const rootLoadError = root ? loadErrorsByDir[root] : null;
+  const isSearchActive = debouncedSearchQuery.trim().length > 0;
 
   const treePanel = treeEnabled ? (
     <section className={cn(
@@ -4200,19 +4930,19 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       <div className={cn("flex flex-col gap-2 py-2", isMobile ? "px-3" : "px-2")}>
         <div className="flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
-            <Icon name="search" className="pointer-events-none absolute left-2 top-2 size-4 text-muted-foreground" />
+            <Icon name="search" className="pointer-events-none absolute inset-s-2 top-2 size-4 text-muted-foreground" />
             <Input
               ref={searchInputRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('filesView.tree.search.placeholder')}
-              className="h-8 pl-8 pr-8 typography-meta"
+              className="h-8 ps-8 pe-8 typography-meta"
             />
             {searchQuery.trim().length > 0 && (
               <button
                 type="button"
                 aria-label={t('filesView.tree.search.clearAria')}
-                className="absolute right-2 top-2 inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                className="absolute inset-e-2 top-2 inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   setSearchQuery('');
                   searchInputRef.current?.focus();
@@ -4222,50 +4952,39 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               </button>
             )}
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenDialog('createFile', { path: currentDirectory, type: 'directory' })}
-                  className="size-8 p-0 flex-shrink-0"
-                  title={t('filesView.tree.actions.newFileTitle')}
-                  aria-label={t('filesView.tree.actions.newFileTitle')}
-                >
-                  <Icon name="file-add" className="size-4" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>{t('filesView.tree.actions.newFileTitle')}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenDialog('createFolder', { path: currentDirectory, type: 'directory' })}
-                  className="size-8 p-0 flex-shrink-0"
-                  title={t('filesView.tree.actions.newFolderTitle')}
-                  aria-label={t('filesView.tree.actions.newFolderTitle')}
-                >
-                  <Icon name="folder-add" className="size-4" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>{t('filesView.tree.actions.newFolderTitle')}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex flex-shrink-0">
-                <Button variant="ghost" size="sm" onClick={() => void refreshRoot()} className="size-8 p-0 flex-shrink-0" title={t('filesView.tree.actions.refreshTitle')} aria-label={t('filesView.tree.actions.refreshTitle')}>
-                  <Icon name="refresh" className="size-4" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>{t('filesView.tree.actions.refreshTitle')}</TooltipContent>
-          </Tooltip>
+          {/* Beside the 32px search field, so the row keeps one height. */}
+          <ToolbarTooltipButton
+            label={t('filesView.tree.actions.newFileTitle')}
+            icon="file-add"
+            className="size-8"
+            iconClassName="size-4"
+            onClick={() => handleOpenDialog('createFile', { path: currentDirectory, type: 'directory' })}
+          />
+          <ToolbarTooltipButton
+            label={t('filesView.tree.actions.newFolderTitle')}
+            icon="folder-add"
+            className="size-8"
+            iconClassName="size-4"
+            onClick={() => handleOpenDialog('createFolder', { path: currentDirectory, type: 'directory' })}
+          />
+          {canUpload && (
+            <ToolbarTooltipButton
+              label={t('sidebarFilesTree.actions.uploadFilesTitle')}
+              icon={isUploading ? 'loader-4' : 'upload-2'}
+              className="size-8"
+              iconClassName={cn('size-4', isUploading && 'animate-spin')}
+              disabled={!root || isUploading}
+              onClick={() => pickFiles(root)}
+            />
+          )}
+          <GitignoredToggleButton className="size-8" iconClassName="size-4" />
+          <ToolbarTooltipButton
+            label={t('filesView.tree.actions.refreshTitle')}
+            icon="refresh"
+            className="size-8"
+            iconClassName="size-4"
+            onClick={() => void refreshRoot()}
+          />
         </div>
       </div>
 
@@ -4276,6 +4995,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               <Icon name="loader-4" className="size-4 animate-spin" />
               {t('filesView.tree.search.searching')}
             </li>
+          ) : isSearchActive && searchResults.length === 0 ? (
+            <li className="px-2 py-1 typography-meta text-muted-foreground">{t('mobile.files.search.empty')}</li>
           ) : searchResults.length > 0 ? (
             searchResults.map((node) => {
               const isActive = selectedFile?.path === node.path;
@@ -4285,14 +5006,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                     type="button"
                     onClick={() => void handleSelectFile(node)}
                     className={cn(
-                      'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-foreground transition-colors',
-                      isActive ? 'bg-interactive-selection/70' : 'hover:bg-interactive-hover/40'
+                      'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-start transition-colors',
+                      fileTreeRowStateClassName(isActive)
                     )}
                   >
-                    {getFileIcon(node.path, node.extension)}
+                    <FileTypeIcon filePath={node.path} extension={node.extension} className="size-3.5" />
                     <span
-                      className="min-w-0 flex-1 truncate typography-meta"
-                      style={{ direction: 'rtl', textAlign: 'left' }}
+                      className="oc-ui-start-align min-w-0 flex-1 truncate typography-meta"
+                      style={{ direction: 'rtl' }}
                       title={node.path}
                     >
                       {node.relativePath ?? node.path}
@@ -4322,10 +5043,11 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   // Fullscreen file viewer overlay
   const fullscreenViewer = mode === 'full' && isFullscreen && selectedFile && (
     <div className="absolute inset-0 z-50 flex flex-col bg-background">
+      {wholeFileCommentPanel}
       {/* Fullscreen content */}
       <div className="flex-1 min-h-0 min-w-0 relative">
-        <div className="absolute right-4 top-4 z-30">
-          {renderFloatingFileControls({ exitFullscreenOnly: true })}
+        <div className="absolute inset-e-4 top-4 z-30">
+          {renderFileToolbar({ exitFullscreenOnly: true })}
         </div>
         <ScrollableOverlay ref={setFullscreenPreviewScroller} outerClassName="h-full min-w-0" className={cn('h-full min-w-0', isLargeFile && '[overflow-anchor:none]')}>
           {(fileLoading || isPdfAssetAuthLoading) ? (
@@ -4339,40 +5061,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               )
           ) : fileError ? (
             <div className="p-4 typography-ui text-[color:var(--status-error)]">{fileError}</div>
-          ) : isSelectedImage ? (
-            <div className="flex h-full items-center justify-center p-4">
-              <img
-                key={selectedFile.path}
-                src={imageSrc}
-                alt={selectedFile.name}
-                className="max-w-full max-h-full object-contain rounded-md border border-border/30 bg-primary/10"
-              />
-            </div>
-          ) : isSelectedPdf ? (
-            renderPdfPreview(selectedFile)
-          ) : isUnsupportedBinary ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-              <div className="typography-ui-header text-foreground">{t('filesView.editor.cannotPreviewBinary')}</div>
-              <div className="max-w-md typography-ui text-muted-foreground">{t('filesView.editor.binaryFileDescription')}</div>
-              {files.downloadFile ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const fn = files.downloadFile;
-                    if (!fn || !selectedFile) return;
-                    void fn(selectedFile.path).catch((error) => {
-                      console.error('Download failed:', error);
-                      toast.error(t('sidebarFilesTree.toast.operationFailed'));
-                    });
-                  }}
-                >
-                  <Icon name="download" className="mr-2 size-4" />
-                  {t('filesView.editor.saveFile')}
-                </Button>
-              ) : null}
-            </div>
+) : showCanvas ? (
+            canvasElement
+          ) : artifactPreview ? (
+            artifactPreview
           ) : isMarkdown && getMdViewMode() === 'preview' ? (
             // The find bar is a sibling of the scroll container, never a child:
             // inside it, its own "1/3" and "No matches" text would be walked and
@@ -4392,13 +5084,13 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 />
               ) : null}
               {fileContent.length > 500 * 1024 && (
-                  <div className="mb-3 rounded-md border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
+                  <div className="mb-3 rounded-md bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
                     {t('filesView.warning.largeFilePreviewLimited', { sizeKb: Math.round(fileContent.length / 1024) })}
                   </div>
                 )}
               <ErrorBoundary
                 fallback={
-                  <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
+                  <div className="rounded-md bg-destructive/10 px-3 py-2">
                     <div className="mb-1 font-medium text-destructive">{t('filesView.error.previewUnavailable')}</div>
                     <div className="text-sm text-muted-foreground">
                       {t('filesView.error.switchToEditMode')}
@@ -4406,12 +5098,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                   </div>
                 }
               >
-                <SimpleMarkdownRenderer
-                  content={fileContent}
-                  className="typography-markdown-body"
-                  stripFrontmatter
-                  enableFileReferences={false}
-                />
+                <div style={previewFontStyle}>
+                  <SimpleMarkdownRenderer
+                    content={fileContent}
+                    documentAssets={markdownDocumentAssets}
+                    className="typography-markdown-body"
+                    frontmatter="properties"
+                    enableFileReferences={false}
+                    allowRawHtml
+                  />
+                </div>
               </ErrorBoundary>
             </div>
               <MarkdownPreviewSearch
@@ -4419,13 +5115,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 open={mdPreviewFindOpen}
                 onOpenChange={setMdPreviewFindOpen}
                 focusNonce={mdPreviewFindFocusNonce}
-                className="right-4 top-16"
+                className="inset-e-4 top-16"
               />
             </div>
           ) : canUseShikiFileView && textViewMode === 'view' ? (
             renderShikiFileView(selectedFile, draftContent, fullscreenViewVirtualizer, restoreFullscreenCodeScroll)
           ) : (
             <div className={cn('relative h-full', shouldMaskEditorForPendingNavigation && 'overflow-hidden')}>
+              <DocumentSymbolsPanel open={isSymbolsOpen} onOpenChange={setIsSymbolsOpen} viewRef={editorViewRef} />
               <div className={cn('h-full', shouldMaskEditorForPendingNavigation && 'invisible')}>
               <FilePositionEditor
                 key={`${filePositionKey}:fullscreen`}
@@ -4438,6 +5135,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 className="h-full"
                 onViewReady={(view) => {
                   editorViewRef.current = view;
+                  applyGitBaseline(view);
                   window.requestAnimationFrame(() => {
                     nudgeEditorSelectionAboveKeyboard(view);
                   });
@@ -4465,7 +5163,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   );
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-background relative">
+    // Marks Files as a surface with its own Cmd/Ctrl+F, so Changes and the
+    // walkthrough leave the key alone while focus is in here.
+    <div ref={rootRef} data-find-surface="" className="flex h-full min-h-0 overflow-hidden bg-background relative">
       <Dialogs
         activeDialog={activeDialog}
         dialogData={dialogData}
@@ -4476,6 +5176,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         onClose={handleCloseDialog}
         inputRef={dialogInputRef}
       />
+      {uploadElements}
       {fullscreenViewer}
       {isMobile ? (
         showMobilePageContent ? (

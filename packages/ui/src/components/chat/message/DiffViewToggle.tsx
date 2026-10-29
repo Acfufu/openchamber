@@ -1,8 +1,7 @@
 import React from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Icon } from "@/components/icon/Icon";
-import { cn } from '@/lib/utils';
+import { ToolbarTooltipButton } from '@/components/ui/action-toolbar';
+import { useI18n } from '@/lib/i18n';
 
 export type DiffViewMode = 'side-by-side' | 'unified';
 
@@ -12,7 +11,9 @@ interface DiffViewToggleProps {
     className?: string;
 }
 
+/** Side by side as a toggle: the fill says it is on, so the icon and label never flip. */
 export const DiffViewToggle: React.FC<DiffViewToggleProps> = ({ mode, onModeChange, className }) => {
+    const { t } = useI18n();
     const handleClick = React.useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
             event.stopPropagation();
@@ -22,18 +23,12 @@ export const DiffViewToggle: React.FC<DiffViewToggleProps> = ({ mode, onModeChan
     );
 
     return (
-        <Button
-            size="sm"
-            variant="ghost"
-            className={cn('h-5 w-5 p-0 opacity-60 hover:opacity-100', className)}
+        <ToolbarTooltipButton
+            label={t('diffView.layout.sideBySide')}
+            icon="layout-column"
+            pressed={mode === 'side-by-side'}
+            className={className}
             onClick={handleClick}
-            title={mode === 'side-by-side' ? 'Switch to unified view' : 'Switch to side-by-side view'}
-        >
-            {mode === 'side-by-side' ? (
-                <Icon name="align-justify" className="h-3 w-3" />
-            ) : (
-                <Icon name="layout-column" className="h-3 w-3" />
-            )}
-        </Button>
+        />
     );
 };

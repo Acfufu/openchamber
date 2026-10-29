@@ -28,10 +28,10 @@ import path from 'path';
 
 import fsp from 'fs/promises';
 
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 
 import { getRepositoryRoot } from '../git/service.js';
-import { isThoughtLevelHonorable, THOUGHT_LEVEL_VALUES, thoughtLevelUnsupportedError } from '../small-model/call.js';
+import { THOUGHT_LEVEL_VALUES, thoughtLevelUnsupportedError } from '../small-model/index.js';
 import { normalizeLanguage } from '../walkthrough/languages.js';
 import { buildCatalogDigest, buildPageContext } from './digest.js';
 import { buildCatalogPrompt, buildPagePrompt, PROMPT_VERSION, RESPONSE_FORMAT_INSTRUCTION } from './prompt.js';
@@ -81,16 +81,17 @@ const normalizeThoughtLevel = (value) => {
 };
 
 /**
- * Family check against the resolved model: an unhonorable family × level
- * combination is rejected before the manifest write (start) and again after
- * every retry's model re-resolution — the mapping table can change across a
- * server upgrade between run start and a retry, and a level must never reach
- * the chain unvalidated.
+ * Variant-list check against the freshly described model: a level the model's
+ * catalog does not list is rejected before the manifest write (start) and
+ * again after every retry's model re-resolution — the catalog can change
+ * across a server upgrade between run start and a retry, and a level must
+ * never reach the chain unvalidated.
  */
-const assertThoughtLevelSupported = ({ providerID, modelID, thoughtLevel }) => {
-  if (!isThoughtLevelHonorable({ providerID, modelID, thoughtLevel })) {
-    throw thoughtLevelUnsupportedError(providerID, modelID, thoughtLevel);
-  }
+const assertThoughtLevelSupported = ({ model, thoughtLevel }) => {
+  if (thoughtLevel == null) return;
+  const listed = Array.isArray(model?.variants) ? model.variants : [];
+  if (thoughtLevel === 'off' || listed.includes(thoughtLevel)) return;
+  throw thoughtLevelUnsupportedError(model.providerID, model.modelID, thoughtLevel);
 };
 
 /** Fixed pause between page-call attempts; an abort during the pause wins. */
@@ -659,7 +660,7 @@ export const createRepoWikiRuntime = ({
         const diagrams = options.diagrams != null ? options.diagrams === true : true;
         const modelRef = resolveModelRef({ requestedModel: options.model, manifest: existing });
         const model = await describeResolvedModel({ directory, modelRef });
-        assertThoughtLevelSupported({ providerID: model.providerID, modelID: model.modelID, thoughtLevel });
+        assertThoughtLevelSupported({ model, thoughtLevel });
         const commit = await getCurrentCommit(repoRoot);
         const branch = await getCurrentBranch(repoRoot);
 
@@ -733,8 +734,8 @@ export const createRepoWikiRuntime = ({
         const model = await describeResolvedModel({ directory, modelRef });
         // The retry follows the manifest's recorded level against the same
         // recorded model; the re-check keeps the rejection invariant
-        // path-independent even if the mapping table changed since run start.
-        assertThoughtLevelSupported({ providerID: model.providerID, modelID: model.modelID, thoughtLevel: manifest.thoughtLevel ?? null });
+        // path-independent even if the catalog changed since run start.
+        assertThoughtLevelSupported({ model, thoughtLevel: manifest.thoughtLevel ?? null });
 
         manifest.run = {
           status: 'running',

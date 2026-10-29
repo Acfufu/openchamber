@@ -3,6 +3,7 @@ import {
   replaceRepositoryWorktrees,
   type ProjectRef,
 } from '@/lib/worktrees/worktreeManager';
+import { checkoutHoldsSubfolder } from '@/lib/worktrees/worktreePaths';
 import type { WorktreeMetadata } from '@/types/worktree';
 import { normalizePath } from '@/lib/pathNormalization';
 
@@ -24,7 +25,9 @@ export type StartSessionWorktreeMenuLoadResult = {
 };
 
 type SessionWorktreeMenuState = {
-  refreshState: 'loading' | 'error' | null;
+  // A refresh runs quietly over the cached list: a "refreshing" line made the
+  // submenu jump as it came and went. Only a failure with nothing to show is said.
+  refreshState: 'error' | null;
   showNewWorktreeAction: boolean;
 };
 
@@ -247,6 +250,16 @@ export const buildSessionWorktreeMenuTargets = (args: {
     if (!normalizedPath || targetsByPath.has(normalizedPath)) {
       return;
     }
+    // The repository root of a project at `repo/app` lies outside the project,
+    // so a session moved there would leave it. It stays listed as the current
+    // place of a session already there.
+    if (
+      normalizedProjectPath
+      && normalizedPath !== normalizedSourceDirectory
+      && checkoutHoldsSubfolder(normalizedPath, normalizedProjectPath)
+    ) {
+      return;
+    }
     targetsByPath.set(normalizedPath, {
       ...target,
       metadata: cloneMetadata({
@@ -313,6 +326,25 @@ export const buildSessionWorktreeMenuTargets = (args: {
   return [...primaryTargets, ...linkedTargets];
 };
 
+// A restored session can keep a source directory whose worktree was deleted:
+// that path no longer matches any known worktree or configured project root,
+// so directory-based resolution fails. The session's worktree metadata still
+// records the owning project root in projectDirectory, so fall back to it
+// before giving up. Without an owner the menu cannot list sibling worktrees.
+export const resolveSessionWorktreeMenuProject = (
+  args: StartSessionWorktreeMenuLoadArgs,
+  deps: Pick<WorktreeTopologyRefreshDependencies, 'projects' | 'resolveProject'>,
+): ProjectRef | null => {
+  const projectById = args.projectId
+    ? deps.projects.find((candidate) => candidate.id === args.projectId) ?? null
+    : null;
+  if (projectById) return projectById;
+  const projectBySourceDirectory = args.sourceDirectory ? deps.resolveProject(args.sourceDirectory) : null;
+  if (projectBySourceDirectory) return projectBySourceDirectory;
+  const worktreeProjectDirectory = args.currentWorktree?.projectDirectory ?? null;
+  return worktreeProjectDirectory ? deps.resolveProject(worktreeProjectDirectory) : null;
+};
+
 export const startSessionWorktreeMenuLoad = (
   args: StartSessionWorktreeMenuLoadArgs,
   deps: StartSessionWorktreeMenuLoadDependencies,
@@ -324,10 +356,7 @@ export const startSessionWorktreeMenuLoad = (
     publishedWorktreesByProject,
     runtimeKey,
   });
-  const projectById = args.projectId
-    ? deps.projects.find((candidate) => candidate.id === args.projectId) ?? null
-    : null;
-  const project = projectById ?? (args.sourceDirectory ? deps.resolveProject(args.sourceDirectory) : null);
+  const project = resolveSessionWorktreeMenuProject(args, deps);
   const normalizedProjectPath = normalizePath(project?.path ?? null);
   const cachedTargets = buildSessionWorktreeMenuTargets({
     projectPath: normalizedProjectPath,
@@ -399,13 +428,10 @@ export const commitDiscoveredRawWorktreesByProject = (args: {
 
 export const getSessionWorktreeMenuState = (args: {
   targets: ReadonlyArray<SessionWorktreeMenuTarget>;
-  isRefreshing: boolean;
   loadFailed: boolean;
 }): SessionWorktreeMenuState => {
   return {
-    refreshState: args.isRefreshing
-      ? 'loading'
-      : (args.loadFailed && args.targets.length === 0 ? 'error' : null),
+    refreshState: args.loadFailed && args.targets.length === 0 ? 'error' : null,
     showNewWorktreeAction: true,
   };
 };

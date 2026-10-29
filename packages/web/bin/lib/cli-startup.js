@@ -7,6 +7,7 @@ import { EXIT_CODE, TunnelCliError } from './cli-errors.js';
 import { getDataDir } from './cli-paths.js';
 import { hasUiPasswordConfigured } from './cli-network.js';
 import { searchPathFor } from './cli-executables.js';
+import { injectedEnvKeys } from '../../server/lib/injected-env.js';
 
 const STARTUP_SERVICE_ID = 'dev.openchamber.web';
 
@@ -79,9 +80,12 @@ function getWindowsStartupWrapperPath() {
 }
 
 function collectStartupEnv(options = {}) {
+  // Variables OpenChamber itself put into this shell (the desktop app's
+  // terminal, an agent's shell) describe that instance, not the service.
+  const injected = injectedEnvKeys(process.env);
   const env = options.envSnapshot === false ? {} : Object.fromEntries(
     Object.entries(process.env)
-      .filter(([key, value]) => shouldPersistStartupEnv(key, value))
+      .filter(([key, value]) => !injected.has(key) && shouldPersistStartupEnv(key, value))
       .map(([key, value]) => [key, String(value)])
   );
 
@@ -160,15 +164,61 @@ function removeStartupEnvFile() {
   try { fs.unlinkSync(getStartupEnvFilePath()); } catch {}
 }
 
+const PNPM_STORE_SEGMENT = `${path.sep}.pnpm${path.sep}`;
+const PACKAGE_SEGMENT = `${path.sep}node_modules${path.sep}@openchamber${path.sep}web${path.sep}`;
+
+// pnpm keeps every installed version in its own store directory and links the
+// current one into node_modules. A startup service pointed at the store path
+// keeps launching the old version after an update, so prefer the link.
+function stablePnpmEntrypoint(resolved, exists = fs.existsSync) {
+  const storeIndex = resolved.indexOf(PNPM_STORE_SEGMENT);
+  if (storeIndex < 0) return null;
+  const packageIndex = resolved.indexOf(PACKAGE_SEGMENT, storeIndex);
+  if (packageIndex < 0) return null;
+  const stable = path.join(
+    resolved.slice(0, storeIndex),
+    '@openchamber',
+    'web',
+    resolved.slice(packageIndex + PACKAGE_SEGMENT.length),
+  );
+  return exists(stable) ? stable : null;
+}
+
+// pnpm 11 and later install a global package into a new directory under
+// global/v11 on every update and delete the old one. A link beside it, named
+// after the installed packages, moves to each new directory, and pnpm's shim
+// starts the CLI through that link. Resolving it would pin the service to a
+// directory the next update deletes.
+function isPnpmGlobalLinkEntrypoint(invoked) {
+  const packageIndex = invoked.indexOf(PACKAGE_SEGMENT);
+  if (packageIndex < 0) return false;
+  const linkPath = invoked.slice(0, packageIndex);
+  const layoutDir = path.dirname(linkPath);
+  if (!/^v\d+$/.test(path.basename(layoutDir)) || path.basename(path.dirname(layoutDir)) !== 'global') {
+    return false;
+  }
+  try {
+    return fs.lstatSync(linkPath).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 function resolveCliEntrypoint() {
   const entry = typeof process.argv[1] === 'string' && process.argv[1].trim().length > 0
     ? process.argv[1]
     : path.join(__dirname, 'cli.js');
+  const invoked = path.resolve(entry);
+  if (isPnpmGlobalLinkEntrypoint(invoked)) {
+    return invoked;
+  }
+  let resolved;
   try {
-    return fs.realpathSync(entry);
+    resolved = fs.realpathSync(entry);
   } catch {
     return path.resolve(entry);
   }
+  return stablePnpmEntrypoint(resolved) ?? resolved;
 }
 
 function buildStartupArgs(options = {}) {
@@ -230,9 +280,7 @@ function buildMacosLaunchAgent(options = {}) {
   <array>
 ${argXml}
   </array>
-${envXml}  <key>ProcessType</key>
-  <string>Background</string>
-  <key>RunAtLoad</key>
+${envXml}  <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
@@ -261,6 +309,8 @@ ExecStart="${systemdEscapeArg(process.execPath)}" ${args}
 WorkingDirectory=${systemdUnitPath(os.homedir())}
 Restart=always
 RestartSec=5
+# A graceful shutdown on SIGTERM exits 143; a stop is not a failure.
+SuccessExitStatus=143
 
 [Install]
 WantedBy=default.target
@@ -363,6 +413,26 @@ function getStartupStatus() {
   };
 }
 
+// The process id of the running Linux startup service, or null when it is not
+// running or startup integration here is not a systemd user service.
+function getStartupServicePid() {
+  if (process.platform !== 'linux') {
+    return null;
+  }
+  let result;
+  try {
+    result = runStartupCommand('systemctl', ['--user', 'show', '--property=MainPID', '--value', 'openchamber.service'], { allowFailure: true });
+  } catch {
+    return null;
+  }
+  const pid = Number.parseInt((result.stdout || '').trim(), 10);
+  return result.status === 0 && pid > 0 ? pid : null;
+}
+
+function restartStartupService() {
+  runStartupCommand('systemctl', ['--user', 'restart', 'openchamber.service']);
+}
+
 function enableStartupService(options = {}) {
   const paths = getStartupServicePaths();
   if (!paths.servicePath) {
@@ -385,7 +455,10 @@ function enableStartupService(options = {}) {
     fs.mkdirSync(path.dirname(paths.servicePath), { recursive: true, mode: 0o700 });
     fs.writeFileSync(paths.servicePath, buildSystemdUserService(options), { mode: 0o600 });
     runStartupCommand('systemctl', ['--user', 'daemon-reload']);
-    runStartupCommand('systemctl', ['--user', 'enable', '--now', 'openchamber.service']);
+    runStartupCommand('systemctl', ['--user', 'enable', 'openchamber.service']);
+    // `enable --now` leaves a running service alone, so it would keep the old
+    // unit and the old release.
+    restartStartupService();
     return getStartupStatus();
   }
 
@@ -432,7 +505,11 @@ function disableStartupService() {
 
 
 export {
+  stablePnpmEntrypoint,
+  buildSystemdUserService,
   getStartupStatus,
+  getStartupServicePid,
+  restartStartupService,
   enableStartupService,
   disableStartupService,
   buildWindowsStartupTaskCommand,

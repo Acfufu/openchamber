@@ -23,7 +23,7 @@
 
 import fsp from 'fs/promises';
 import path from 'path';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 
 import { isGeneratedArtifact } from '../walkthrough/generated.js';
 

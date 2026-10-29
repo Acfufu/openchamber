@@ -1,10 +1,62 @@
+import { OpenCode } from '@opencode/client';
 import * as gitService from './gitService';
-import type { BridgeResponse } from './bridge';
+import type { BridgeContext, BridgeResponse } from './bridge';
 
 type BridgeMessageInput = {
   id: string;
   type: string;
   payload?: unknown;
+};
+
+// A removal should not hang on an unresponsive OpenCode server: disposal is
+// best-effort and `gitService.removeWorktree` swallows its failure.
+const WORKTREE_INSTANCE_DISPOSE_TIMEOUT_MS = 5_000;
+
+/**
+ * Builds the best-effort disposal hook for the extension's active runtime. The
+ * API URL and auth headers are read at call time, and the client is created
+ * per call so a restarted managed process is always addressed correctly.
+ *
+ * A session of a project opened on a folder of its repository runs in that
+ * folder of the worktree (`<worktree>/ai`), which is a location of its own, so
+ * every running location inside the worktree is evicted along with its root.
+ * When the location list cannot be read, the root is still evicted and the
+ * list error is rethrown for the removal wrapper to log. The web server's git
+ * routes do the same.
+ */
+const toLocationKey = (directory: string): string => directory.replace(/\\/g, '/').replace(/\/+$/, '');
+
+const createWorktreeInstanceDisposer = (ctx?: BridgeContext) => {
+  return async (worktreeDirectory: string): Promise<void> => {
+    const apiUrl = ctx?.manager?.getApiUrl();
+    if (!apiUrl) {
+      throw new Error('OpenCode API URL is not available');
+    }
+    // OpenCode 2 has no instance route; evicting the location drops its cached
+    // services (file watchers, LSP, MCP), which is what held the folder.
+    const client = OpenCode.make({
+      baseUrl: apiUrl.replace(/\/+$/, ''),
+      headers: ctx?.manager?.getOpenCodeAuthHeaders() || {},
+      fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(WORKTREE_INSTANCE_DISPOSE_TIMEOUT_MS) }),
+    });
+    const root = toLocationKey(worktreeDirectory);
+    const errors: unknown[] = [];
+    const inside = await client.debug.location.list().then(
+      (locations) => locations.map((location) => location.directory)
+        .filter((directory) => toLocationKey(directory).startsWith(`${root}/`)),
+      (error) => {
+        errors.push(error);
+        return [];
+      },
+    );
+    const evictions = await Promise.allSettled([worktreeDirectory, ...inside].map((directory) => (
+      client.debug.location.evict({ location: { directory } })
+    )));
+    for (const eviction of evictions) {
+      if (eviction.status === 'rejected') errors.push(eviction.reason);
+    }
+    if (errors.length > 0) throw errors[0];
+  };
 };
 
 const requireDirectory = (id: string, type: string, directory?: string): BridgeResponse | null => {
@@ -18,7 +70,7 @@ const isValidCommitHash = (hash: string | undefined): hash is string => (
   typeof hash === 'string' && /^[0-9a-fA-F]{7,40}$/.test(hash)
 );
 
-export async function handleStandardGitBridgeMessage(message: BridgeMessageInput): Promise<BridgeResponse | null> {
+export async function handleStandardGitBridgeMessage(message: BridgeMessageInput, ctx?: BridgeContext): Promise<BridgeResponse | null> {
   const { id, type, payload } = message;
 
   switch (type) {
@@ -156,11 +208,20 @@ export async function handleStandardGitBridgeMessage(message: BridgeMessageInput
         const removed = await gitService.removeWorktree(directory!, {
           directory: worktreeDirectory,
           deleteLocalBranch: removePayload?.body?.deleteLocalBranch === true || removePayload?.deleteLocalBranch === true,
+          disposeInstance: createWorktreeInstanceDisposer(ctx),
         });
         return { id, type, success: true, data: { success: Boolean(removed) } };
       }
 
       return { id, type, success: false, error: `Unsupported method: ${normalizedMethod}` };
+    }
+
+    case 'api:git/worktrees/snapshot': {
+      const { directory, ref } = (payload || {}) as { directory?: string; ref?: string };
+      const dirError = requireDirectory(id, type, directory);
+      if (dirError) return dirError;
+      const result = await gitService.snapshotWorktree(directory!, { ref });
+      return { id, type, success: true, data: result };
     }
 
     case 'api:git/worktrees/validate': {
@@ -184,6 +245,15 @@ export async function handleStandardGitBridgeMessage(message: BridgeMessageInput
       const dirError = requireDirectory(id, type, directory);
       if (dirError) return dirError;
       const result = await gitService.previewWorktreeCreate(directory!, (payload || {}) as gitService.CreateGitWorktreePayload);
+      return { id, type, success: true, data: result };
+    }
+
+    case 'api:git/repository-prefix': {
+      // SAFETY: the webview sends `{ directory }` for this message type; `requireDirectory` rejects a missing one.
+      const { directory } = (payload || {}) as { directory?: string };
+      const dirError = requireDirectory(id, type, directory);
+      if (dirError) return dirError;
+      const result = await gitService.resolveRepositoryPrefix(directory!);
       return { id, type, success: true, data: result };
     }
 

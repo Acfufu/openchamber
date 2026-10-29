@@ -1,3 +1,6 @@
+import { registerNotificationEmitRoutes } from '../notifications/emit-route.js';
+import { registerHttpResponseDiagnostics } from './core-routes.js';
+
 export const createBootstrapRuntime = (dependencies) => {
   const {
     createUiAuth,
@@ -19,6 +22,7 @@ export const createBootstrapRuntime = (dependencies) => {
       serverStartedAt,
       gracefulShutdown,
       getHealthSnapshot,
+      readOpenCodeLoad,
       getServerPort,
       getTunnelUrl,
       verboseRequestLogs,
@@ -63,8 +67,13 @@ export const createBootstrapRuntime = (dependencies) => {
       getCachedZenModels,
       setAutoAcceptSession,
       agentToolRuntime,
+      limitFailoverRuntime,
+      pluginNotificationEmitter,
       desktopUpdater,
+      skipBodyParsing,
     } = options;
+
+    registerHttpResponseDiagnostics(app);
 
     const uiAuthController = createUiAuth({
       password: uiPassword,
@@ -88,11 +97,20 @@ export const createBootstrapRuntime = (dependencies) => {
       getTunnelUrl,
       tunnelAuthController,
       uiAuthController,
+      readOpenCodeLoad,
     });
 
-    registerCommonRequestMiddleware(app, { express, verboseRequestLogs });
+    registerCommonRequestMiddleware(app, { express, verboseRequestLogs, skipBodyParsing });
 
     registerAgentToolRoutes(app, { express, agentToolRuntime });
+    limitFailoverRuntime?.registerRoutes(app, express);
+
+    const notificationEmitRoutes = registerNotificationEmitRoutes(app, {
+      express,
+      isAgentToolRequestAuthorized: (req) => agentToolRuntime?.authorizeRequest?.(req) === true,
+      emitter: pluginNotificationEmitter,
+    });
+    notificationEmitRoutes.registerPluginRoute();
 
     registerAuthAndAccessRoutes(app, {
       express,
@@ -109,6 +127,8 @@ export const createBootstrapRuntime = (dependencies) => {
       readSettingsFromDiskMigrated,
       normalizeTunnelSessionTtlMs,
     });
+
+    notificationEmitRoutes.registerApiRoute();
 
     registerTtsRoutes(app, { sayTTSCapability });
 
@@ -131,12 +151,8 @@ export const createBootstrapRuntime = (dependencies) => {
       writeSseEvent,
       getSessionActivitySnapshot: sessionRuntime.getSessionActivitySnapshot,
       getSessionStateSnapshot: sessionRuntime.getSessionStateSnapshot,
-      getSessionAttentionSnapshot: sessionRuntime.getSessionAttentionSnapshot,
+      getPendingBlockingRequestsSnapshot: sessionRuntime.getPendingBlockingRequestsSnapshot,
       getSessionState: sessionRuntime.getSessionState,
-      getSessionAttentionState: sessionRuntime.getSessionAttentionState,
-      markSessionViewed: sessionRuntime.markSessionViewed,
-      markSessionUnviewed: sessionRuntime.markSessionUnviewed,
-      markUserMessageSent: sessionRuntime.markUserMessageSent,
       setPushInitialized,
       setAutoAcceptSession,
     });

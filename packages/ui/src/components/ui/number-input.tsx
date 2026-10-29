@@ -79,7 +79,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
       const handleCaptureClick = (event: MouseEvent) => {
         event.preventDefault()
         event.stopPropagation()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         ;(event as any).stopImmediatePropagation?.()
         swallowNextClickCleanupRef.current?.()
       }
@@ -259,7 +259,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
         <div
           className={cn(
             // NOTE: mobile.css enforces min-height:36px on buttons; match it to avoid clipping.
-            "flex h-8 shrink-0 items-stretch overflow-x-hidden overflow-y-hidden rounded-lg border border-border bg-transparent select-none overscroll-contain",
+            "oc-surface-elevated flex h-8 shrink-0 items-stretch overflow-x-hidden overflow-y-hidden rounded-lg border border-border bg-surface-elevated select-none overscroll-contain",
             "[-webkit-user-select:none] [-webkit-touch-callout:none]",
             "disabled:pointer-events-none disabled:opacity-50",
             containerClassName
@@ -272,10 +272,10 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
             onTouchStart={handleMobileTouchActivate(handleMobileDecrement)}
             onClick={handleMobileClickActivate(handleMobileDecrement)}
             className={cn(
-              "grid h-full min-h-0 w-9 shrink-0 place-items-center overflow-x-hidden overflow-y-hidden border-r border-border p-0 leading-none touch-none",
+              "grid h-full min-h-0 w-9 shrink-0 place-items-center overflow-x-hidden overflow-y-hidden border-e border-border p-0 leading-none touch-none",
               "text-muted-foreground",
               "disabled:pointer-events-none disabled:opacity-50",
-              !decrementDisabled && "active:bg-interactive-hover"
+              !decrementDisabled && "active:bg-interactive-active"
             )}
           >
             <Icon name="subtract" className="block h-4 w-4" />
@@ -284,7 +284,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
           <div
             className={cn(
               "flex h-full min-w-0 flex-1 items-center justify-center bg-transparent px-1.5",
-              "text-center text-[16px] leading-none text-foreground [font-variant-numeric:tabular-nums]",
+              "text-center text-[1rem] leading-none text-foreground [font-variant-numeric:tabular-nums]",
               className
             )}
             aria-live="polite"
@@ -299,10 +299,10 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
             onTouchStart={handleMobileTouchActivate(handleMobileIncrement)}
             onClick={handleMobileClickActivate(handleMobileIncrement)}
             className={cn(
-              "grid h-full min-h-0 w-9 shrink-0 place-items-center overflow-x-hidden overflow-y-hidden border-l border-border p-0 leading-none touch-none",
+              "grid h-full min-h-0 w-9 shrink-0 place-items-center overflow-x-hidden overflow-y-hidden border-s border-border p-0 leading-none touch-none",
               "text-muted-foreground",
               "disabled:pointer-events-none disabled:opacity-50",
-              !incrementDisabled && "active:bg-interactive-hover"
+              !incrementDisabled && "active:bg-interactive-active"
             )}
           >
             <Icon name="add" className="block h-4 w-4" />
@@ -314,7 +314,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     return (
       <div
         className={cn(
-          "flex h-8 shrink-0 items-stretch overflow-x-hidden overflow-y-hidden rounded-md border border-border bg-transparent",
+          "oc-surface-elevated flex h-8 shrink-0 items-stretch overflow-x-hidden overflow-y-hidden rounded-md border border-border bg-surface-elevated",
           "disabled:pointer-events-none disabled:opacity-50",
           "transition-[background-color,border-color,box-shadow] duration-150 ease-in-out",
           containerClassName
@@ -326,7 +326,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
           disabled={decrementDisabled}
           onClick={() => commitValue(committedValueRef.current - step)}
           className={cn(
-            "flex h-full w-7 shrink-0 items-center justify-center overflow-x-hidden overflow-y-hidden border-r border-border p-0 leading-none touch-manipulation",
+            "flex h-full w-7 shrink-0 items-center justify-center overflow-x-hidden overflow-y-hidden border-e border-border p-0 leading-none touch-manipulation",
             "text-muted-foreground hover:bg-interactive-hover hover:text-foreground",
             "disabled:pointer-events-none disabled:opacity-50",
             "transition-colors duration-150 ease-in-out"
@@ -351,7 +351,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
           autoCapitalize="off"
           className={cn(
             "h-full min-w-0 w-10 flex-1 bg-transparent px-1.5 text-center typography-ui-label leading-none text-foreground [font-variant-numeric:tabular-nums]",
-            "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground",
+            "placeholder:text-muted-foreground selection:bg-interactive-selection selection:text-interactive-selection-foreground",
             "appearance-none outline-none [appearance:textfield] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "disabled:pointer-events-none disabled:cursor-not-allowed",
             className
@@ -363,7 +363,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
           disabled={incrementDisabled}
           onClick={() => commitValue(committedValueRef.current + step)}
           className={cn(
-            "flex h-full w-7 shrink-0 items-center justify-center overflow-x-hidden overflow-y-hidden border-l border-border p-0 leading-none touch-manipulation",
+            "flex h-full w-7 shrink-0 items-center justify-center overflow-x-hidden overflow-y-hidden border-s border-border p-0 leading-none touch-manipulation",
             "text-muted-foreground hover:bg-interactive-hover hover:text-foreground",
             "disabled:pointer-events-none disabled:opacity-50",
             "transition-colors duration-150 ease-in-out"

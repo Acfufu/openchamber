@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { Message, Part, Session } from '@opencode-ai/sdk/v2';
+import type { Message, Part, Session } from '@/lib/opencode/model';
+import type { MessagePage } from '@/lib/opencode/client';
 import type { StartBtwInput } from './btw';
+import { normalizePath } from '@/lib/pathNormalization';
 
-let forkSessionImpl: (sessionId: string, messageId?: string, directory?: string | null) => Promise<Session>;
-let getSessionMessagesImpl: (id: string, limit?: number, directory?: string | null) => Promise<Array<{ info: Message; parts: Part[] }>>;
+type ForkOptions = { before?: string; directory?: string | null };
+let forkSessionImpl: (sessionId: string, options?: ForkOptions) => Promise<Session>;
+let getSessionMessagesImpl: (id: string, options?: { limit?: number }, directory?: string | null) => Promise<MessagePage>;
 let sendMessageImpl: (...args: unknown[]) => Promise<unknown>;
 let deleteSessionImpl: (sessionId: string) => Promise<boolean>;
 let updateSessionTitleImpl: (sessionId: string, title: string) => Promise<void>;
@@ -22,11 +25,10 @@ const sessionMessageReads: string[] = [];
 
 mock.module('@/lib/opencode/client', () => ({
   opencodeClient: {
-    forkSession: (sessionId: string, messageId?: string, directory?: string | null) =>
-      forkSessionImpl(sessionId, messageId, directory),
-    getSessionMessages: (id: string, limit?: number, directory?: string | null) => {
+    forkSession: (sessionId: string, options?: ForkOptions) => forkSessionImpl(sessionId, options),
+    getSessionMessages: (id: string, options?: { limit?: number }, directory?: string | null) => {
       sessionMessageReads.push(id);
-      return getSessionMessagesImpl(id, limit, directory);
+      return getSessionMessagesImpl(id, options, directory);
     },
   },
 }));
@@ -54,11 +56,13 @@ mock.module('@/stores/useGlobalSessionsStore', () => ({
 mock.module('@/sync/sync-refs', () => ({
   registerSessionDirectory: (sessionId: string, directory: string) => { registeredDirectories.push(`${sessionId}:${directory}`); },
   getSyncMessages: () => parentSyncMessages,
+  getAllSyncSessionMap: () => new Map(),
   getSyncChildStores: () => ({
-    children: new Map([['/project', {
+    // Mirrors ChildStoreManager.getChild: keys are normalized paths.
+    getChild: (directory: string) => (normalizePath(directory) === '/project' || normalizePath(directory) === 'C:/project' ? {
       getState: () => ({ session: childStoreSessions }),
       setState: (patch: { session: Session[] }) => { childStoreSessions.length = 0; childStoreSessions.push(...patch.session); },
-    }]]),
+    } : undefined),
   }),
 }));
 
@@ -66,6 +70,9 @@ const { preparePendingBtwSend, btwSessionTitle, startBtwSession, destroyBtwSessi
   await import('@/lib/btw');
 const { useBtwStore } = await import('@/stores/useBtwStore');
 const { useSelectionStore } = await import('@/sync/selection-store');
+const { useUIStore } = await import('@/stores/useUIStore');
+const { usePermissionStore } = await import('@/stores/permissionStore');
+const writtenModes: Array<[string, string]> = [];
 
 const makeSession = (id: string, directory?: string): Session => ({
   id,
@@ -76,15 +83,17 @@ const makeSession = (id: string, directory?: string): Session => ({
   version: 1,
 }) as unknown as Session;
 
+const page = (items: Array<{ info: Message; parts: Part[] }>): MessagePage => ({ items, cursor: {} });
+
 const record = (id: string, created = 1): { info: Message; parts: Part[] } => ({
-  info: { id, sessionID: 'fork-1', role: 'user', time: { created }, agent: 'plan', model: { providerID: 'provider', modelID: 'model' } },
+  info: { id, sessionID: 'fork-1', role: 'user', time: { created } },
   parts: [],
 });
 
-// SAFETY: `findLastCompletedAssistantMessageID` reads only `id`, `role` and
-// `time`, which are the fields spelled out here.
-const assistantMessage = (id: string, completed?: number) =>
-  ({ id, sessionID: 'parent-1', role: 'assistant', time: { created: 1, completed } }) as Message;
+// SAFETY: `findLastCompletedAssistantMessageID` reads only `id`, `role`,
+// `time` and `finish`, which are the fields spelled out here.
+const assistantMessage = (id: string, completed?: number, finish: string | undefined = completed === undefined ? undefined : 'stop') =>
+  ({ id, sessionID: 'parent-1', role: 'assistant', time: { created: 1, completed }, finish }) as Message;
 
 // SAFETY: same narrow read as `assistantMessage`.
 const userMessage = (id: string) =>
@@ -108,9 +117,12 @@ beforeEach(() => {
   metadataPatches.length = 0;
   parentSyncMessages.length = 0;
   sessionMessageReads.length = 0;
+  writtenModes.length = 0;
+  useUIStore.setState({ permissionDefaultMode: 'auto' });
+  usePermissionStore.setState({ setSessionMode: async (sessionId, mode) => { writtenModes.push([sessionId, mode]); } });
   useBtwStore.setState({ byParent: {} });
   forkSessionImpl = () => Promise.reject(new Error('no forkSession stub'));
-  getSessionMessagesImpl = () => Promise.resolve([record('msg-boundary')]);
+  getSessionMessagesImpl = () => Promise.resolve(page([record('msg-boundary')]));
   sendMessageImpl = () => Promise.resolve();
   deleteSessionImpl = () => Promise.resolve(true);
   updateSessionTitleImpl = () => Promise.resolve();
@@ -156,6 +168,11 @@ describe('findLastCompletedAssistantMessageID', () => {
     expect(findLastCompletedAssistantMessageID(messages)).toBe('msg-1');
   });
 
+  test('skips a completed step that ended in a tool call mid-turn', () => {
+    const messages = [assistantMessage('msg-1', 10), userMessage('msg-2'), assistantMessage('msg-3', 20, 'tool-calls')];
+    expect(findLastCompletedAssistantMessageID(messages)).toBe('msg-1');
+  });
+
   test('a session with no completed assistant turn has no fork point', () => {
     expect(findLastCompletedAssistantMessageID([userMessage('msg-1')])).toBe(null);
   });
@@ -163,10 +180,11 @@ describe('findLastCompletedAssistantMessageID', () => {
 
 describe('startBtwSession', () => {
   test('forks, marks the fork, links the parent, and routes the question to the fork', async () => {
-    forkSessionImpl = (sessionId, messageId, directory) => {
+    forkSessionImpl = (sessionId, options) => {
       expect(sessionId).toBe('parent-1');
-      expect(messageId).toBe(undefined);
-      return Promise.resolve(makeSession('fork-1', directory ?? '/project'));
+      // No parent turns at all: an omitted `before` forks the whole transcript.
+      expect(options?.before).toBeUndefined();
+      return Promise.resolve(makeSession('fork-1', options?.directory ?? '/project'));
     };
     let sentText: unknown = null;
     let sentOptions: unknown = null;
@@ -193,23 +211,66 @@ describe('startBtwSession', () => {
     expect(useBtwStore.getState().byParent).toEqual({ 'parent-1': { creating: false } });
   });
 
+  test('a fork in a space starts in the Settings default, which no server writes for it', async () => {
+    forkSessionImpl = (_sessionId, options) => Promise.resolve(makeSession('fork-1', options?.directory ?? undefined));
+
+    await startBtwSession({ ...startInput, directory: '/spaces/0123456789ab/project' });
+
+    expect(writtenModes).toEqual([['fork-1', 'auto']]);
+  });
+
+  test('a failed write of the default keeps the fork, a failed write of a choice ends it', async () => {
+    forkSessionImpl = (_sessionId, options) => Promise.resolve(makeSession('fork-1', options?.directory ?? undefined));
+    usePermissionStore.setState({ setSessionMode: () => Promise.reject(new Error('write failed')) });
+    const deleted: string[] = [];
+    deleteSessionImpl = (sessionId) => { deleted.push(sessionId); return Promise.resolve(true); };
+
+    const session = await startBtwSession({ ...startInput, directory: '/spaces/0123456789ab/project' });
+    expect(session.id).toBe('fork-1');
+    expect(deleted).toEqual([]);
+
+    let failed = false;
+    await startBtwSession({ ...startInput, parentSessionId: 'parent-2', directory: '/spaces/0123456789ab/project', permissionMode: 'auto' })
+      .catch(() => { failed = true; });
+    expect(failed).toBe(true);
+    expect(deleted).toEqual(['fork-1']);
+  });
+
+  test('a fork on the host leaves the default to the server; a choice is written anywhere', async () => {
+    forkSessionImpl = (_sessionId, options) => Promise.resolve(makeSession('fork-1', options?.directory ?? undefined));
+
+    await startBtwSession(startInput);
+    expect(writtenModes).toEqual([]);
+
+    await startBtwSession({ ...startInput, parentSessionId: 'parent-2', permissionMode: 'ask' });
+    expect(writtenModes).toEqual([['fork-1', 'ask']]);
+  });
+
+  test('inserts a fork returned with a native Windows path into the normalized directory store', async () => {
+    forkSessionImpl = () => Promise.resolve(makeSession('fork-1', 'C:\\project'));
+
+    await startBtwSession({ ...startInput, directory: 'C:/project' });
+
+    expect(childStoreSessions.map((s) => s.id)).toEqual(['fork-1']);
+  });
+
   test('forks at the last completed assistant turn, not at the in-flight one', async () => {
     parentSyncMessages.push(assistantMessage('msg-1', 10), userMessage('msg-2'), assistantMessage('msg-3'));
-    const forkPoints: Array<string | undefined> = [];
-    forkSessionImpl = (_sessionId, messageId) => {
-      forkPoints.push(messageId);
+    const boundaries: Array<string | undefined> = [];
+    forkSessionImpl = (_sessionId, options) => {
+      boundaries.push(options?.before);
       return Promise.resolve(makeSession('fork-1', '/project'));
     };
 
     await startBtwSession(startInput);
 
-    expect(forkPoints).toEqual(['msg-1']);
+    expect(boundaries).toEqual(['msg-1']);
   });
 
   test('the boundary falls back to the fork point when the cloned tail reads empty', async () => {
     parentSyncMessages.push(assistantMessage('msg-1', 10));
     forkSessionImpl = () => Promise.resolve(makeSession('fork-1', '/project'));
-    getSessionMessagesImpl = () => Promise.resolve([]);
+    getSessionMessagesImpl = () => Promise.resolve(page([]));
 
     await startBtwSession(startInput);
 
@@ -266,7 +327,7 @@ describe('startBtwSession', () => {
 
   test('an empty parent produces a marker without a boundary', async () => {
     forkSessionImpl = () => Promise.resolve(makeSession('fork-1', '/project'));
-    getSessionMessagesImpl = () => Promise.resolve([]);
+    getSessionMessagesImpl = () => Promise.resolve(page([]));
     await startBtwSession(startInput);
     expect(metadataPatches[0]?.result).toEqual({ openchamber: { kind: 'btw', originalSessionID: 'parent-1' } });
   });

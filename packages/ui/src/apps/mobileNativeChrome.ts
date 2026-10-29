@@ -1,6 +1,8 @@
+import { registerPlugin } from '@capacitor/core';
 import React from 'react';
 
 import { observeNativeKeyboardHeight, resetHardwareKeyboardDetection, startHardwareKeyboardBridge } from '@/lib/hardwareKeyboard';
+import { KEYBOARD_EASING_CSS, KEYBOARD_HIDE_MS, KEYBOARD_SHOW_MS } from '@/lib/mobileKeyboardTiming';
 
 /** True when running inside the native Capacitor shell (iOS/Android app). */
 export const isCapacitorMobileApp = (): boolean => {
@@ -11,6 +13,17 @@ export const isCapacitorMobileApp = (): boolean => {
   if (maybeCapacitor?.isNativePlatform?.() === true) return true;
   return window.location.protocol === 'capacitor:';
 };
+
+interface WindowLayoutPlugin {
+  get(): Promise<{ edgeToEdge: boolean }>;
+}
+
+/**
+ * Android only (WindowLayoutPlugin.java). The OS version comes from native code because
+ * hardened WebViews (GrapheneOS's Vanadium) report "Android 10" in the user agent on
+ * every release.
+ */
+const WindowLayout = registerPlugin<WindowLayoutPlugin>('WindowLayout');
 
 export const useNativeMobileChrome = (): void => {
   React.useEffect(() => {
@@ -54,7 +67,14 @@ export const useNativeMobileChrome = (): void => {
           const themeBg =
             (isDark ? localStorage.getItem('splashBgDark') : localStorage.getItem('splashBgLight')) ||
             (isDark ? '#171515' : '#fffdf4');
-          await StatusBar.setOverlaysWebView({ overlay: false }).catch(() => undefined);
+          const overlayOff = await StatusBar.setOverlaysWebView({ overlay: false }).then(() => true, () => false);
+          // Before Android 15 that call moves the WebView below the status bar natively, so
+          // the page must not reserve the strip again. Marked only once the call succeeded:
+          // until then the WebView still sits under the bar and needs the injected inset.
+          const edgeToEdge = await WindowLayout.get().then(({ edgeToEdge }) => edgeToEdge, () => true);
+          if (overlayOff && !edgeToEdge) {
+            root.classList.add('oc-android-below-status-bar');
+          }
           await StatusBar.setBackgroundColor({ color: themeBg }).catch(() => undefined);
           // Capacitor Style is named for the CONTENT: Style.Light = dark text (light bg),
           // Style.Dark = light text (dark bg). So dark theme → Style.Dark, light theme → Style.Light.
@@ -159,11 +179,12 @@ export const useNativeMobileChrome = (): void => {
       // height (--oc-kb-layout) snaps exactly once per open/close at the moment the
       // resize is invisible. visualViewport tracking was tried but doesn't shrink
       // under WKWebView's `resize: 'none'`, so these events are the reliable signal.
-      const KB_ANIM_MS = 250;
-      // Dismissal reads faster than the rise — run the hide leg shorter (kept in
-      // sync with the .oc-kb-hide transition-duration override in mobile.css).
-      const KB_HIDE_MS = 200;
-      const KB_ANIM_EASING = 'cubic-bezier(0.38, 0.7, 0.125, 1)';
+      // Durations and curve are shared with the composer morph and the
+      // scroller inset tween (mobileKeyboardTiming.ts); the hide leg is also
+      // mirrored by the .oc-kb-hide transition-duration override in mobile.css.
+      const KB_ANIM_MS = KEYBOARD_SHOW_MS;
+      const KB_HIDE_MS = KEYBOARD_HIDE_MS;
+      const KB_ANIM_EASING = KEYBOARD_EASING_CSS;
       let settleTimer: number | null = null;
       let caretTimer: number | null = null;
       let keyboardHeight = 0;
@@ -191,6 +212,10 @@ export const useNativeMobileChrome = (): void => {
         const movers: Array<{ el: HTMLElement; factor: number }> = [];
         const composer = document.querySelector<HTMLElement>('.oc-mobile-composer');
         if (composer) movers.push({ el: composer, factor: 1 });
+        // Status row, recap hint and scroll-to-end button sit on the slot's
+        // top edge outside the form; they ride the same slide.
+        const riders = document.querySelector<HTMLElement>('.oc-composer-riders');
+        if (riders) movers.push({ el: riders, factor: 1 });
         // The centered draft title moves half the shift — exactly where the
         // center lands after the shell snap (see mobile.css notes).
         const draftCenter = document.querySelector<HTMLElement>('.oc-draft-center');
@@ -232,14 +257,14 @@ export const useNativeMobileChrome = (): void => {
             el.style.transition = `transform ${KB_ANIM_MS}ms ${KB_ANIM_EASING}`;
             el.style.transform = `translateY(${-slide * factor}px)`;
         }
-        // Reserve the keyboard strip inside the chat scroller NOW and re-pin
-        // immediately (settled = one cheap scrollTop write over already-mounted
-        // rows), so the chat bottom moves as the keyboard STARTS rising instead
-        // of waiting for it to finish. `slide` (keyboard minus the safe inset
-        // the shell gives up) is exactly the strip the scroller loses at
-        // settle, so pin position and settle stay geometry-neutral.
+        // Reserve the keyboard strip inside the chat scroller NOW, in one
+        // write: the transcript's geometry is final from the first frame and
+        // the chat's follow glide (keyboardFollowGlide, started by the anim
+        // event below) moves scrollTop to the new end on the keyboard curve.
+        // `slide` (keyboard minus the safe inset the shell gives up) is exactly
+        // the strip the scroller loses at settle, so the glide's destination
+        // and the settle snap stay geometry-neutral.
         setVar('--oc-kb-scroll-inset', slide);
-        dispatchKb('oc:keyboard-settled', { open: true });
         dispatchKb('oc:keyboard-anim', { phase: 'show', slide, durationMs: KB_ANIM_MS, easing: KB_ANIM_EASING });
         settleTimer = window.setTimeout(() => {
           settleTimer = null;
@@ -281,7 +306,11 @@ export const useNativeMobileChrome = (): void => {
         const slide = Math.max(0, keyboardHeight - safeBottomPx);
         root.classList.remove('oc-keyboard-open');
         setInset(0);
-        setVar('--oc-kb-scroll-inset', 0);
+        // The scroller keeps its keyboard padding until the keyboard has
+        // landed: the follow glide moves scrollTop down to where the end will
+        // be, and the settle write below then only clamps it to the value it
+        // already has. Releasing the padding here would drop the transcript
+        // at frame 0 while the composer was still sliding.
         if (layoutApplied) {
           // Settled-open → restore the full-height layout NOW (still hidden behind
           // the keyboard) and FLIP the movers to their raised position without
@@ -309,6 +338,7 @@ export const useNativeMobileChrome = (): void => {
           settleTimer = null;
           root.classList.remove('oc-kb-animating', 'oc-kb-hide');
           clearKbMovers();
+          setVar('--oc-kb-scroll-inset', 0);
           dispatchKb('oc:keyboard-settled', { open: false });
         }, KB_HIDE_MS + 20);
       };
@@ -360,7 +390,7 @@ export const useNativeMobileChrome = (): void => {
       disposed = true;
       cleanup.forEach((remove) => remove());
       resetHardwareKeyboardDetection();
-      root.classList.remove('oc-capacitor-app', 'oc-keyboard-open', 'oc-kb-animating', 'oc-kb-hide', 'oc-kb-caret-hold', 'oc-platform-android');
+      root.classList.remove('oc-capacitor-app', 'oc-keyboard-open', 'oc-kb-animating', 'oc-kb-hide', 'oc-kb-caret-hold', 'oc-platform-android', 'oc-android-below-status-bar');
       root.style.removeProperty('--oc-keyboard-inset');
       root.style.removeProperty('--oc-kb-shift');
       root.style.removeProperty('--oc-kb-layout');

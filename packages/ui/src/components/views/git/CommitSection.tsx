@@ -16,9 +16,11 @@ interface CommitSectionProps {
   onInsertHighlights: (highlights: string[]) => void;
   onGenerateMessage: () => void;
   isGeneratingMessage: boolean;
-  onCommit: () => void;
-  onCommitAndPush: () => void;
+  /** The button pressed, when there is one: the celebration starts from it. */
+  onCommit: (origin?: HTMLElement) => void;
+  onCommitAndPush: (origin?: HTMLElement) => void;
   commitAction: CommitAction;
+  networkOperationBlocked?: boolean;
   hasPendingIndexMutation?: boolean;
   gitmojiEnabled: boolean;
   onOpenGitmojiPicker: () => void;
@@ -35,6 +37,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
   onCommit,
   onCommitAndPush,
   commitAction,
+  networkOperationBlocked = false,
   hasPendingIndexMutation = false,
   gitmojiEnabled,
   onOpenGitmojiPicker,
@@ -118,7 +121,7 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
           <Button
             size="sm"
             variant="outline"
-            onClick={onCommit}
+            onClick={(event) => onCommit(event.currentTarget)}
             disabled={!canCommit || isGeneratingMessage}
             className="commit-actions__btn whitespace-nowrap"
             aria-label={t('gitView.commit.commitAria')}
@@ -142,8 +145,8 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => onCommitAndPush()}
-                  disabled={!canCommit || isGeneratingMessage}
+                  onClick={(event) => onCommitAndPush(event.currentTarget)}
+                  disabled={!canCommit || isGeneratingMessage || networkOperationBlocked}
                   className="h-7 w-7 p-0"
                   aria-label={t('gitView.commit.pushAria')}
                 >
@@ -162,8 +165,8 @@ export const CommitSection: React.FC<CommitSectionProps> = ({
             <Button
               size="sm"
               variant="default"
-              onClick={() => onCommitAndPush()}
-              disabled={!canCommit || isGeneratingMessage}
+              onClick={(event) => onCommitAndPush(event.currentTarget)}
+              disabled={!canCommit || isGeneratingMessage || networkOperationBlocked}
               className="commit-actions__btn"
               aria-label={t('gitView.commit.pushAria')}
             >

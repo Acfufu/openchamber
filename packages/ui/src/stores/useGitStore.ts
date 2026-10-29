@@ -6,11 +6,13 @@ import type {
   GitBranch,
   GitLogResponse,
   GitIdentitySummary,
+  GitFileDiffResponse,
+  GitSubmoduleState,
 } from '@/lib/api/types';
 import { getDeferredSafeStorage } from '@/stores/utils/safeStorage';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { GitDirectoriesUnsupportedError, listGitDirectories } from '@/lib/gitApiHttp';
-import { subscribeGitStatusInvalidations } from '@/lib/gitStatusInvalidation';
+import { notifyGitStatusInvalidated, subscribeGitStatusInvalidations } from '@/lib/gitStatusInvalidation';
 import { getWorktreeBootstrapState } from '@/lib/worktrees/worktreeBootstrap';
 
 const LOG_STALE_THRESHOLD = 10000;
@@ -36,13 +38,27 @@ type GitStatusRequestOptions = { mode?: 'light'; fresh?: boolean };
 // scan (`null`), or a runtime without the discovery route (`'unsupported'`).
 export type NestedRepoDiscovery = string[] | null | 'unsupported';
 
+/** Two-sided file contents; `submodule` is set when the path is a submodule, whose contents are only commit lines. */
+type CachedGitDiff = {
+  original: string;
+  modified: string;
+  isBinary?: boolean;
+  submodule: GitSubmoduleState | null;
+};
+
+/**
+ * Cache entry: the diff, when it was fetched, and its UTF-8 byte size measured
+ * once at insertion so eviction never re-encodes cached contents.
+ */
+type CachedGitDiffEntry = CachedGitDiff & { fetchedAt: number; sizeBytes: number };
+
 interface DirectoryGitState {
   isGitRepo: boolean | null;
   status: GitStatus | null;
   branches: GitBranch | null;
   log: GitLogResponse | null;
   identity: GitIdentitySummary | null;
-  diffCache: Map<string, { original: string; modified: string; fetchedAt: number; isBinary?: boolean }>;
+  diffCache: Map<string, CachedGitDiffEntry>;
   indexRevision: number;
   lastRepoCheckAt: number;
   lastStatusFetch: number;
@@ -78,8 +94,8 @@ interface GitStore {
   restoreStatus: (directory: string, status: GitStatus | null) => void;
   bumpIndexRevision: (directory: string) => void;
 
-  getDiff: (directory: string, filePath: string) => { original: string; modified: string; fetchedAt: number; isBinary?: boolean } | null;
-  setDiff: (directory: string, filePath: string, diff: { original: string; modified: string; isBinary?: boolean }, expectedRuntimeKey?: string) => void;
+  getDiff: (directory: string, filePath: string) => CachedGitDiff & { fetchedAt: number } | null;
+  setDiff: (directory: string, filePath: string, diff: CachedGitDiff, expectedRuntimeKey?: string) => void;
   clearDiffCache: (directory: string, filePaths?: string[]) => void;
   fetchAllDiffs: (directory: string, git: GitAPI) => Promise<void>;
   prefetchDiffs: (directory: string, git: GitAPI, filePaths: string[], options?: { maxFiles?: number }) => Promise<void>;
@@ -104,16 +120,17 @@ interface GitStore {
   selectNestedRepo: (root: string, repository: string) => void;
   clearNestedRepoSelection: (root: string) => void;
 
+  /**
+   * Re-probes a directory whose repository state just changed under the app
+   * (Git was initialized in it), skipping the cached non-repository answer.
+   * Resolves to whether the directory is now a repository.
+   */
+  recheckRepository: (directory: string, git: GitAPI) => Promise<boolean>;
+
   refresh: (git: GitAPI, options?: { force?: boolean }) => Promise<void>;
   resetForRuntimeSwitch: (runtimeKey: string) => void;
 }
 
-interface GitFileDiffResponse {
-  original: string;
-  modified: string;
-  path: string;
-  isBinary?: boolean;
-}
 
 interface GitAPI {
   checkIsGitRepository: (directory: string) => Promise<boolean>;
@@ -374,15 +391,15 @@ const seedNestedRepoSelection = (runtimeKey: string): Map<string, string> => {
 
 // LRU eviction helper for diff cache
 const evictDiffCacheIfNeeded = (
-  diffCache: Map<string, { original: string; modified: string; fetchedAt: number; isBinary?: boolean }>,
+  diffCache: Map<string, CachedGitDiffEntry>,
   maxEntries: number = DIFF_CACHE_MAX_ENTRIES,
   maxTotalSize: number = DIFF_CACHE_MAX_TOTAL_SIZE_BYTES
-): Map<string, { original: string; modified: string; fetchedAt: number; isBinary?: boolean }> => {
-  // Calculate total size
+): Map<string, CachedGitDiffEntry> => {
+  // Sizes were measured at insertion; the eviction path must not re-encode
+  // cached contents on every call.
   let totalSize = 0;
   for (const entry of diffCache.values()) {
-    totalSize += new TextEncoder().encode(entry.original ?? '').byteLength
-      + new TextEncoder().encode(entry.modified ?? '').byteLength;
+    totalSize += entry.sizeBytes;
   }
 
   // If within limits, return as-is
@@ -394,20 +411,18 @@ const evictDiffCacheIfNeeded = (
   const entries = Array.from(diffCache.entries())
     .sort((a, b) => a[1].fetchedAt - b[1].fetchedAt);
 
-  const newCache = new Map<string, { original: string; modified: string; fetchedAt: number; isBinary?: boolean }>();
+  const newCache = new Map<string, CachedGitDiffEntry>();
   let newTotalSize = 0;
 
   // Keep entries from newest to oldest until limits are reached
   for (let i = entries.length - 1; i >= 0; i--) {
     const [path, entry] = entries[i];
-    const entrySize = new TextEncoder().encode(entry.original ?? '').byteLength
-      + new TextEncoder().encode(entry.modified ?? '').byteLength;
 
     if (newCache.size >= maxEntries) break;
-    if (newTotalSize + entrySize > maxTotalSize) continue;
+    if (newTotalSize + entry.sizeBytes > maxTotalSize) continue;
 
     newCache.set(path, entry);
-    newTotalSize += entrySize;
+    newTotalSize += entry.sizeBytes;
   }
 
   return newCache;
@@ -423,9 +438,8 @@ const evictGlobalDiffCachesIfNeeded = (directories: Map<string, DirectoryGitStat
   let totalSize = 0;
   for (const [directory, state] of directories) {
     for (const [path, entry] of state.diffCache) {
-      const size = diffEntrySize(entry);
-      entries.push({ directory, path, fetchedAt: entry.fetchedAt, size });
-      totalSize += size;
+      entries.push({ directory, path, fetchedAt: entry.fetchedAt, size: entry.sizeBytes });
+      totalSize += entry.sizeBytes;
     }
   }
   if (entries.length <= DIFF_CACHE_MAX_GLOBAL_ENTRIES && totalSize <= DIFF_CACHE_MAX_TOTAL_SIZE_BYTES) return directories;
@@ -453,18 +467,22 @@ const haveDiffStatsChanged = (
   if (!previous && !next) return false;
   if (!previous || !next) return true;
 
-  const paths = new Set([...Object.keys(previous), ...Object.keys(next)]);
-  for (const path of paths) {
-    const prevEntry = previous[path];
-    const nextEntry = next[path];
+  for (const scope of ['staged', 'working'] as const) {
+    const previousScope = previous[scope] ?? {};
+    const nextScope = next[scope] ?? {};
+    const paths = new Set([...Object.keys(previousScope), ...Object.keys(nextScope)]);
+    for (const path of paths) {
+      const prevEntry = previousScope[path];
+      const nextEntry = nextScope[path];
 
-    if (!prevEntry && !nextEntry) continue;
-    if (!prevEntry || !nextEntry) return true;
-    if (
-      prevEntry.insertions !== nextEntry.insertions ||
-      prevEntry.deletions !== nextEntry.deletions
-    ) {
-      return true;
+      if (!prevEntry && !nextEntry) continue;
+      if (!prevEntry || !nextEntry) return true;
+      if (
+        prevEntry.insertions !== nextEntry.insertions ||
+        prevEntry.deletions !== nextEntry.deletions
+      ) {
+        return true;
+      }
     }
   }
 
@@ -499,6 +517,9 @@ const hasStatusChanged = (oldStatus: GitStatus | null, newStatus: GitStatus | nu
   if (oldStatus.current !== newStatus.current) return true;
   if (oldStatus.tracking !== newStatus.tracking) return true;
   if (oldStatus.isClean !== newStatus.isClean) return true;
+  // The first commit changes nothing else a status compares, and the
+  // repository a root resolves to depends on it.
+  if (oldStatus.unborn !== newStatus.unborn) return true;
   if (
     newStatus.upstreamComparison !== undefined
     && haveRemoteComparisonChanged(oldStatus.upstreamComparison, newStatus.upstreamComparison)
@@ -549,21 +570,26 @@ const getChangedFilePaths = (oldStatus: GitStatus | null, newStatus: GitStatus |
 
   // Only compare diffStats when light mode provides them (non-undefined)
   if (newStatus.diffStats !== undefined) {
-    const oldStats = oldStatus?.diffStats ?? {};
-    const newStats = newStatus.diffStats ?? {};
-    const allStatPaths = new Set<string>([...Object.keys(oldStats), ...Object.keys(newStats)]);
+    const oldStats = oldStatus?.diffStats;
+    const newStats = newStatus.diffStats;
 
-    for (const filePath of allStatPaths) {
-      const oldEntry = oldStats[filePath];
-      const newEntry = newStats[filePath];
+    for (const scope of ['staged', 'working'] as const) {
+      const oldScope = oldStats?.[scope] ?? {};
+      const newScope = newStats[scope] ?? {};
+      const allStatPaths = new Set<string>([...Object.keys(oldScope), ...Object.keys(newScope)]);
 
-      if (!oldEntry || !newEntry) {
-        changed.add(filePath);
-        continue;
-      }
+      for (const filePath of allStatPaths) {
+        const oldEntry = oldScope[filePath];
+        const newEntry = newScope[filePath];
 
-      if (oldEntry.insertions !== newEntry.insertions || oldEntry.deletions !== newEntry.deletions) {
-        changed.add(filePath);
+        if (!oldEntry || !newEntry) {
+          changed.add(filePath);
+          continue;
+        }
+
+        if (oldEntry.insertions !== newEntry.insertions || oldEntry.deletions !== newEntry.deletions) {
+          changed.add(filePath);
+        }
       }
     }
   }
@@ -636,6 +662,40 @@ const toUnstagedStatusFile = (file: GitStatus['files'][number]): GitStatus['file
 
 const isCleanStatusFile = (file: GitStatus['files'][number]): boolean =>
   isBlankStatusCode(file.index) && isBlankStatusCode(file.working_dir);
+
+/**
+ * Mirrors an optimistic stage/unstage on the scoped line stats. Staging makes
+ * the index match the working tree and unstaging resets it to HEAD, so the
+ * path's whole known diff moves into the destination scope; an entry already
+ * there is merged. Without this the moved row reads the empty scope and shows
+ * +0/-0 until the delayed status reconcile lands.
+ */
+const moveDiffStatsScope = (
+  diffStats: NonNullable<GitStatus['diffStats']>,
+  paths: Set<string>,
+  direction: 'stage' | 'unstage',
+): NonNullable<GitStatus['diffStats']> => {
+  const staged = { ...diffStats.staged };
+  const working = { ...diffStats.working };
+  const [from, to] = direction === 'stage'
+    ? [working, staged] as const
+    : [staged, working] as const;
+
+  let moved = false;
+  for (const path of paths) {
+    const entry = from[path];
+    if (!entry) continue;
+    delete from[path];
+    const existing = to[path];
+    to[path] = {
+      insertions: (existing?.insertions ?? 0) + entry.insertions,
+      deletions: (existing?.deletions ?? 0) + entry.deletions,
+    };
+    moved = true;
+  }
+
+  return moved ? { staged, working } : diffStats;
+};
 
 const initialGitRuntimeKey = activeGitRuntimeKey;
 
@@ -917,6 +977,10 @@ export const useGitStore = create<GitStore>()(
 
         bumpStatusMutationRevision(get().runtimeKey, directory);
 
+        const nextDiffStats = previousStatus.diffStats
+          ? moveDiffStatsScope(previousStatus.diffStats, normalizedPaths, direction)
+          : previousStatus.diffStats;
+
         const nextDirectories = new Map(directories);
         nextDirectories.set(directory, {
           ...dirState,
@@ -924,6 +988,7 @@ export const useGitStore = create<GitStore>()(
             ...previousStatus,
             files: nextFiles,
             isClean: nextFiles.length === 0,
+            diffStats: nextDiffStats,
           },
           indexRevision: dirState.indexRevision + 1,
           lastStatusChange: Date.now(),
@@ -1102,11 +1167,12 @@ export const useGitStore = create<GitStore>()(
 
       setDiff: (directory, filePath, diff, expectedRuntimeKey) => {
         if (expectedRuntimeKey && expectedRuntimeKey !== get().runtimeKey) return;
-        if (diffEntrySize(diff) > DIFF_CACHE_MAX_TOTAL_SIZE_BYTES) return;
+        const sizeBytes = diffEntrySize(diff);
+        if (sizeBytes > DIFF_CACHE_MAX_TOTAL_SIZE_BYTES) return;
         const newDirectories = new Map(get().directories);
         const dirState = newDirectories.get(directory) ?? createEmptyDirectoryState();
         const newDiffCache = new Map(dirState.diffCache);
-        newDiffCache.set(filePath, { ...diff, fetchedAt: Date.now() });
+        newDiffCache.set(filePath, { ...diff, fetchedAt: Date.now(), sizeBytes });
         // Apply LRU eviction to prevent memory bloat
         const evictedCache = evictDiffCacheIfNeeded(newDiffCache);
         newDirectories.set(directory, { ...dirState, diffCache: evictedCache });
@@ -1170,8 +1236,12 @@ export const useGitStore = create<GitStore>()(
             continue;
           }
           // Skip large files during prefetch — they'll be fetched on-demand when user clicks
-          const stats = diffStats?.[filePath];
-          if (stats && (stats.insertions + stats.deletions) > DIFF_PREFETCH_LARGE_FILE_THRESHOLD) {
+          const stagedStats = diffStats?.staged?.[filePath];
+          const workingStats = diffStats?.working?.[filePath];
+          const changedLineCount =
+            (stagedStats?.insertions ?? 0) + (stagedStats?.deletions ?? 0)
+            + (workingStats?.insertions ?? 0) + (workingStats?.deletions ?? 0);
+          if (changedLineCount > DIFF_PREFETCH_LARGE_FILE_THRESHOLD) {
             continue;
           }
           dedupedPaths.push(filePath);
@@ -1189,7 +1259,7 @@ export const useGitStore = create<GitStore>()(
         const token = startRequest(directory, 'diff');
 
         let nextIndex = 0;
-        const results: Array<{ path: string; diff: { original: string; modified: string; isBinary?: boolean } }> = [];
+        const results: Array<{ path: string; diff: CachedGitDiff }> = [];
 
         const takeNext = () => {
           const current = nextIndex;
@@ -1216,7 +1286,7 @@ export const useGitStore = create<GitStore>()(
             const response = await Promise.race([fetchPromise, timeoutPromise]);
             return {
               path: filePath,
-              diff: { original: response.original ?? '', modified: response.modified ?? '', isBinary: response.isBinary },
+              diff: { original: response.original ?? '', modified: response.modified ?? '', isBinary: response.isBinary, submodule: response.submodule },
             };
           } finally {
             clearTimeout(timeout);
@@ -1258,7 +1328,8 @@ export const useGitStore = create<GitStore>()(
         results.forEach((result) => {
           newDiffCache.set(result.path, {
             ...result.diff,
-            fetchedAt: now
+            fetchedAt: now,
+            sizeBytes: diffEntrySize(result.diff),
           });
         });
 
@@ -1336,7 +1407,15 @@ export const useGitStore = create<GitStore>()(
       selectNestedRepo: (root, repository) => {
         if (!root || !repository) return;
         const next = new Map(get().nestedRepoSelection);
-        next.set(root, repository);
+        // Picking the root itself (offered when it has no commits yet) is no
+        // nested selection: the root resolves to itself without one, and
+        // auto-select stays free to pick again if the root stops being a
+        // repository.
+        if (repository === root) {
+          next.delete(root);
+        } else {
+          next.set(root, repository);
+        }
         set({ nestedRepoSelection: next });
         writeCachedNestedRepoSelection(getRuntimeKey(), Object.fromEntries(next));
       },
@@ -1357,6 +1436,17 @@ export const useGitStore = create<GitStore>()(
         nextStale.set(root, forRoot);
         set({ staleClearedSelections: nextStale });
         writeCachedNestedRepoSelection(getRuntimeKey(), Object.fromEntries(next));
+      },
+
+      recheckRepository: async (directory, git) => {
+        // Drops adapter caches and fences off a probe started before the change.
+        notifyGitStatusInvalidated(directory);
+        const newDirectories = new Map(get().directories);
+        const dirState = newDirectories.get(directory) ?? createEmptyDirectoryState();
+        newDirectories.set(directory, { ...dirState, lastRepoCheckAt: 0 });
+        set({ directories: newDirectories });
+        await get().fetchStatus(directory, git, { force: true });
+        return get().directories.get(directory)?.isGitRepo === true;
       },
 
       ensureStatus: async (directory, git) => {
@@ -1455,13 +1545,24 @@ export const useIsGitRepo = (directory: string | null) => {
   });
 };
 
-// Resolves the directory the Git tab operates on. A root that is itself a git
-// repository is always used directly; otherwise a per-root nested-repo
-// selection (when present) becomes the effective directory.
+// A repository with no commit yet. Its `.git` hides nothing: a fresh
+// `git init` above real repositories must not make them unreachable (#4886).
+const isUnbornRepository = (state: DirectoryGitState | undefined): boolean =>
+  state?.isGitRepo === true && state.status?.unborn === true;
+
+export const useIsUnbornGitRepo = (directory: string | null) => {
+  return useGitStore((state) => (directory ? isUnbornRepository(state.directories.get(directory)) : false));
+};
+
+// Resolves the directory the Git tab operates on. A root repository with
+// commits is always used directly; otherwise (no repository, or one with no
+// commits yet) a per-root nested-repo selection, when present, becomes the
+// effective directory.
 export const useEffectiveGitDirectory = (root: string | null) => {
   return useGitStore((state) => {
     if (!root) return null;
-    if (state.directories.get(root)?.isGitRepo === true) {
+    const rootState = state.directories.get(root);
+    if (rootState?.isGitRepo === true && !isUnbornRepository(rootState)) {
       return root;
     }
     return state.nestedRepoSelection.get(root) ?? root;
@@ -1505,9 +1606,14 @@ export const useGitBranchLabel = (directory: string | null) => {
 const allBranchesCacheRef = { current: new Map<string, string | null>() };
 const EMPTY_BRANCHES = new Map<string, string | null>();
 
+// While disabled the hook hands back the last map it returned while enabled,
+// not an empty one: a surface animating out (the mobile sessions drawer) keeps
+// its branch lines through the exit instead of dropping them mid-slide, and
+// the stable reference means a closed surface never re-renders on git changes.
 export const useGitAllBranches = (enabled = true) => {
+  const heldRef = React.useRef(EMPTY_BRANCHES);
   return useGitStore((state) => {
-    if (!enabled) return EMPTY_BRANCHES;
+    if (!enabled) return heldRef.current;
     const prev = allBranchesCacheRef.current;
     let same = prev.size === state.directories.size;
     if (same) {
@@ -1515,20 +1621,26 @@ export const useGitAllBranches = (enabled = true) => {
         if (prev.get(dir) !== (dirState.status?.current ?? null)) { same = false; break; }
       }
     }
-    if (same) return prev;
+    if (same) {
+      heldRef.current = prev;
+      return prev;
+    }
     const result = new Map<string, string | null>();
     for (const [dir, dirState] of state.directories) {
       result.set(dir, dirState.status?.current ?? null);
     }
     allBranchesCacheRef.current = result;
+    heldRef.current = result;
     return result;
   });
 };
 
-export const useGitRepoStatusMap = (directories: string[]) => {
+/** `enabled: false` holds the last result instead of following the store. */
+export const useGitRepoStatusMap = (directories: string[], enabled = true) => {
   const cacheRef = React.useRef<Map<string, { isGitRepo: boolean | null; branch: string | null }>>(new Map());
   return useGitStore((state) => {
     const prev = cacheRef.current;
+    if (!enabled) return prev;
     let same = prev.size === directories.length;
     if (same) {
       for (const dir of directories) {

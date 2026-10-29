@@ -8,15 +8,21 @@ import {
   updateConfigUpdateMessage,
 } from "@/lib/configUpdate";
 import { emitConfigChange, scopeMatches, subscribeToConfigChanges } from "@/lib/configSync";
+import { waitForOpenCodeConnection } from "@/stores/waitForOpenCodeConnection";
 import { createDeferredSafeJSONStorage } from "./utils/safeStorage";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { runtimeFetch } from "@/lib/runtime-fetch";
 import { runBackgroundNetworkTask } from '@/lib/background-network';
-import { noteDeferredRestartFromPayload } from "@/lib/opencode/deferredRestart";
 
 
 export type CommandScope = 'user' | 'project';
 
+/**
+ * The command entity as OpenChamber persists it, i.e. the OpenCode 2 shape the
+ * config routes read and write. `template` is the markdown body of a `.md`
+ * command; `model` is the joined `provider/model#variant` string; `subagent`
+ * runs the command in a child session instead of the current one.
+ */
 export interface CommandConfig {
   name: string;
   description?: string;
@@ -24,15 +30,29 @@ export interface CommandConfig {
   model?: string | null;
   source?: string;
   template?: string;
+  subagent?: boolean;
   scope?: CommandScope;
 }
 
 export interface Command extends CommandConfig {
   isBuiltIn?: boolean;
+  /** The file OpenChamber would rewrite on the next save. */
+  path?: string | null;
+  /** The file still uses v1 spellings; the next save rewrites it in v2. */
+  legacy?: boolean;
 }
 
 // Built-in commands provided by OpenCode (not defined in user config directories)
 const BUILTIN_COMMAND_NAMES = new Set(['init', 'review']);
+
+/** What `GET /api/config/commands/:name/config` answers. */
+interface CommandEntityEnvelope {
+  source: 'md' | 'json' | 'none';
+  scope: CommandScope | null;
+  path: string | null;
+  legacy: boolean;
+  config: Omit<CommandConfig, 'name' | 'scope' | 'source'>;
+}
 
 export const isCommandBuiltIn = (command: Command): boolean => {
   return BUILTIN_COMMAND_NAMES.has(command.name);
@@ -78,6 +98,9 @@ const buildCommandsSignature = (commands: Command[]): string => {
       command.description ?? '',
       command.agent ?? '',
       command.model ?? '',
+      command.template ?? '',
+      String(command.subagent === true),
+      String(command.legacy === true),
       String(command.isBuiltIn === true),
     ].join('|'))
     .join('||');
@@ -169,20 +192,14 @@ const getRequestDirectory = (): string | null => {
   return null;
 };
 
-const MAX_HEALTH_WAIT_MS = 20000;
-const FAST_HEALTH_POLL_INTERVAL_MS = 300;
-const FAST_HEALTH_POLL_ATTEMPTS = 4;
-const SLOW_HEALTH_POLL_BASE_MS = 800;
-const SLOW_HEALTH_POLL_INCREMENT_MS = 200;
-const SLOW_HEALTH_POLL_MAX_MS = 2000;
-
-export interface CommandDraft {
+interface CommandDraft {
   name: string;
   scope: CommandScope;
   description?: string;
   agent?: string | null;
   model?: string | null;
   template?: string;
+  subagent?: boolean;
 }
 
 interface CommandsStore {
@@ -287,16 +304,18 @@ export const useCommandsStore = create<CommandsStore>()(
                 const queryParams = directory ? `?directory=${encodeURIComponent(directory)}` : '';
 
                 // Ensure the list is scoped to the same directory we use for config source detection.
-                const commands = await readCommandMetadata(generation, (signal) => opencodeClient.listCommandsWithDetails(directory, signal));
+                // v2 keeps skills in their own catalog, so every command here is a real command file.
+                const commands = await readCommandMetadata(generation, (signal) => opencodeClient.listCommands(directory, signal));
                 if (generation !== commandsGeneration) return false;
 
-                const configurableCommands = commands.filter((cmd) => cmd.source !== 'skill');
                 const commandsWithScope = await Promise.all(
-                  configurableCommands.map((cmd) => readCommandMetadata(generation, async (signal) => {
+                  commands.map((cmd) => readCommandMetadata(generation, async (signal) => {
                     if (generation !== commandsGeneration) return cmd;
                     try {
-                      // Force no-cache
-                      const response = await runtimeFetch(`/api/config/commands/${encodeURIComponent(cmd.name)}${queryParams}`, {
+                      // The v2 `CommandInfo` OpenCode lists carries only a name
+                      // and description, so the editable fields come from the
+                      // command's own stored entry.
+                      const response = await runtimeFetch(`/api/config/commands/${encodeURIComponent(cmd.name)}/config${queryParams}`, {
                         signal,
                         headers: {
                           'Cache-Control': 'no-cache',
@@ -305,26 +324,20 @@ export const useCommandsStore = create<CommandsStore>()(
                       });
 
                       if (response.ok) {
-                        const data = await response.json();
-
-                        // Prioritize explicit scope
-                        let scope = data.scope;
-
-                        // Fallback to deducing from sources
-                        if (!scope && data.sources) {
-                          const sources = data.sources;
-                          scope = (sources.md?.exists ? sources.md.scope : undefined)
-                            ?? (sources.json?.exists ? sources.json.scope : undefined)
-                            ?? sources.md?.scope
-                            ?? sources.json?.scope;
-                        }
-
-                        if (scope === 'project' || scope === 'user') {
-                          return { ...cmd, scope: scope as CommandScope };
-                        }
-
-                        // Explicitly set null scope if not found
-                        return { ...cmd, scope: undefined };
+                        // SAFETY: `/api/config/commands/:name/config` is
+                        // OpenChamber's own route; it normalizes the entry
+                        // through `config-v2.js` before answering.
+                        const data = await response.json() as CommandEntityEnvelope;
+                        const scope = data.scope === 'project' || data.scope === 'user' ? data.scope : undefined;
+                        return {
+                          ...cmd,
+                          ...data.config,
+                          name: cmd.name,
+                          description: data.config?.description ?? cmd.description,
+                          scope,
+                          path: data.path,
+                          legacy: data.legacy === true,
+                        };
                       }
                     } catch (err) {
                       if (generation !== commandsGeneration) return cmd;
@@ -386,6 +399,7 @@ export const useCommandsStore = create<CommandsStore>()(
             if (config.description) commandConfig.description = config.description;
             if (config.agent) commandConfig.agent = config.agent;
             if (config.model) commandConfig.model = config.model;
+            if (config.subagent !== undefined) commandConfig.subagent = config.subagent;
             if (config.scope) commandConfig.scope = config.scope;
 
             const directory = resolveDirectory(requestedDirectory);
@@ -413,12 +427,6 @@ export const useCommandsStore = create<CommandsStore>()(
 
             if (payload?.requiresManualRestart) {
               upsertCommandLocal(set, get, config.name, config, directory);
-              return true;
-            }
-
-            if (noteDeferredRestartFromPayload(payload, 'commands', { id: config.name })) {
-              upsertCommandLocal(set, get, config.name, config, directory);
-              emitConfigChange("commands", { source: CONFIG_EVENT_SOURCE });
               return true;
             }
 
@@ -454,6 +462,7 @@ export const useCommandsStore = create<CommandsStore>()(
             if (config.agent !== undefined) commandConfig.agent = config.agent;
             if (config.model !== undefined) commandConfig.model = config.model;
             if (config.template !== undefined) commandConfig.template = config.template;
+            if (config.subagent !== undefined) commandConfig.subagent = config.subagent;
 
             const directory = resolveDirectory(requestedDirectory);
             const queryParams = directory ? `?directory=${encodeURIComponent(directory)}` : '';
@@ -480,12 +489,6 @@ export const useCommandsStore = create<CommandsStore>()(
 
             if (payload?.requiresManualRestart) {
               upsertCommandLocal(set, get, name, config, directory);
-              return true;
-            }
-
-            if (noteDeferredRestartFromPayload(payload, 'commands', { id: name })) {
-              upsertCommandLocal(set, get, name, config, directory);
-              emitConfigChange("commands", { source: CONFIG_EVENT_SOURCE });
               return true;
             }
 
@@ -538,12 +541,6 @@ export const useCommandsStore = create<CommandsStore>()(
               return true;
             }
 
-            if (noteDeferredRestartFromPayload(payload, 'commands', { id: name })) {
-              removeCommandLocal(set, get, name, directory);
-              emitConfigChange("commands", { source: CONFIG_EVENT_SOURCE });
-              return true;
-            }
-
             if (payload?.requiresReload) {
               startConfigUpdate("Deleting command configuration…");
               await performFullConfigRefresh({
@@ -590,50 +587,6 @@ export const useCommandsStore = create<CommandsStore>()(
 
 if (typeof window !== "undefined") {
   window.__zustand_commands_store__ = useCommandsStore;
-}
-
-async function waitForOpenCodeConnection(delayMs?: number) {
-  const initialPause = typeof delayMs === "number" && delayMs > 0
-    ? Math.min(delayMs, FAST_HEALTH_POLL_INTERVAL_MS)
-    : 0;
-
-  if (initialPause > 0) {
-    await sleep(initialPause);
-  }
-
-  const start = Date.now();
-  let attempt = 0;
-  let lastError: unknown = null;
-
-  while (Date.now() - start < MAX_HEALTH_WAIT_MS) {
-    attempt += 1;
-    updateConfigUpdateMessage(`Waiting for OpenCode… (attempt ${attempt})`);
-
-    try {
-      const isHealthy = await opencodeClient.checkHealth();
-      if (isHealthy) {
-        return;
-      }
-      lastError = new Error("OpenCode health check reported not ready");
-    } catch (error) {
-      lastError = error;
-    }
-
-    const elapsed = Date.now() - start;
-
-    const waitMs =
-      attempt <= FAST_HEALTH_POLL_ATTEMPTS && elapsed < 1200
-        ? FAST_HEALTH_POLL_INTERVAL_MS
-        : Math.min(
-            SLOW_HEALTH_POLL_BASE_MS +
-              Math.max(0, attempt - FAST_HEALTH_POLL_ATTEMPTS) * SLOW_HEALTH_POLL_INCREMENT_MS,
-            SLOW_HEALTH_POLL_MAX_MS,
-          );
-
-    await sleep(waitMs);
-  }
-
-  throw lastError || new Error("OpenCode did not become ready in time");
 }
 
 async function performFullConfigRefresh(options: { message?: string; delayMs?: number } = {}) {

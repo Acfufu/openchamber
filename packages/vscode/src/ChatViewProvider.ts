@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import { scheduleCachedStateRetries } from './webviewCachedStateRetry';
+import { clearSettingsShortcutFocus, handleSettingsShortcutFocus } from './settingsShortcutFocus';
 import { handleBridgeMessage, type BridgeRequest, type BridgeResponse } from './bridge';
 import { getThemeKindName } from './theme';
 import type { OpenCodeManager, ConnectionStatus } from './opencode';
 import { getWebviewShikiThemes } from './shikiThemes';
-import { getWebviewHtml } from './webviewHtml';
+import { getCspBootstrapHtml, getWebviewHtml } from './webviewHtml';
 import { openSseProxy } from './sseProxy';
 import { resolveWebviewDevServerUrl } from './webviewDevServer';
 import { normalizeWindowsDriveLetter } from './pathUtils';
@@ -103,9 +104,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   ) {
     this._clearPendingMessages();
     this._view = webviewView;
+    const webview = webviewView.webview;
 
     const distUri = vscode.Uri.joinPath(this._extensionUri, 'dist');
 
+    webviewView.webview.html = getCspBootstrapHtml();
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [this._extensionUri, distUri],
@@ -125,7 +128,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._lastActiveEditorFilePayload = null;
     void this._broadcastActiveEditorFile();
 
+    webviewView.onDidChangeVisibility(() => {
+      if (!webviewView.visible) clearSettingsShortcutFocus(webview);
+      if (this._view === webviewView) this.notifyViewerStateChanged();
+    });
+
     webviewView.onDidDispose(() => {
+      clearSettingsShortcutFocus(webview);
       for (const [streamId, stream] of this._sseStreams) {
         if (stream.view !== webviewView) continue;
         stream.controller.abort();
@@ -146,7 +155,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
 
     webviewView.webview.onDidReceiveMessage(async (message: (BridgeRequest & { _msgId?: string }) | { type: 'bridge:ack'; _msgId: string }) => {
+      if (handleSettingsShortcutFocus(message, webview, 'chat')) return;
       if (message.type === 'webview:ready') {
+        clearSettingsShortcutFocus(webview);
         for (const [streamId, stream] of this._sseStreams) {
           if (stream.view !== webviewView) continue;
           stream.controller.abort();
@@ -373,16 +384,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  public showSettings() {
-    if (this._view) {
-      // Reveal the webview panel
-      this._view.show(true);
-      
-      this._view.webview.postMessage({
-        type: 'command',
-        command: 'showSettings'
-      });
-    }
+  public openSession(sessionId: string) {
+    this._view?.webview.postMessage({
+      type: 'command',
+      command: 'openSession',
+      payload: { sessionId },
+    });
   }
 
   public postMessage(message: unknown): void {
@@ -428,15 +435,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return true;
   }
 
-  public notifyWindowFocusChanged(focused: boolean): void {
+  /** Tells the webview whether the user can see it: VS Code focused and the view shown. */
+  public notifyViewerStateChanged(): void {
     if (!this._view) {
       return;
     }
 
     this._view.webview.postMessage({
       type: 'command',
-      command: 'windowFocusChanged',
-      payload: { focused },
+      command: 'viewerStateChanged',
+      payload: { windowFocused: vscode.window.state.focused, surfaceVisible: this._view.visible },
     });
   }
 
@@ -519,7 +527,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       status: this._cachedStatus,
       error: this._cachedError,
     });
-    this.notifyWindowFocusChanged(vscode.window.state.focused);
+    this.notifyViewerStateChanged();
   }
 
   private _scheduleBroadcast(): void {

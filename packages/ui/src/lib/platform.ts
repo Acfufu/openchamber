@@ -7,39 +7,6 @@ export const isCapacitorApp = (): boolean => {
   return capacitor?.isNativePlatform?.() === true || window.location.protocol === 'capacitor:';
 };
 
-// TEMPORARY WORKAROUND — Windows ARM64: native opencode.exe fails with a Bun
-// FFI/TinyCC dlopen error (https://github.com/anomalyco/opencode/issues/19130).
-// Suppress OpenCode update UI on ARM64 so it can't self-upgrade to the broken
-// ARM64 build. Remove this helper and its call sites when resolved upstream.
-export const isWindowsArm64 = (): boolean => {
-  if (typeof window === 'undefined') return false;
-
-  const electronArch = window.__OPENCHAMBER_ELECTRON__?.arch?.toLowerCase?.();
-  if (electronArch === 'arm64' || electronArch === 'aarch64') {
-    const platform = (navigator.platform || '').toLowerCase();
-    return platform.includes('win');
-  }
-
-  const vscodeArch = (window as { __VSCODE_CONFIG__?: { arch?: string } }).__VSCODE_CONFIG__?.arch?.toLowerCase?.();
-  if (vscodeArch === 'arm64' || vscodeArch === 'aarch64') {
-    const platform = (navigator.platform || '').toLowerCase();
-    return platform.includes('win');
-  }
-
-  const nav = (navigator as Navigator & { userAgentData?: { architecture?: string; platform?: string } }).userAgentData;
-  if (nav?.architecture?.toLowerCase?.() === 'arm64' || nav?.architecture?.toLowerCase?.() === 'aarch64') {
-    const platform = (nav.platform || navigator.platform || '').toLowerCase();
-    return platform.includes('win');
-  }
-
-  const ua = navigator.userAgent.toLowerCase();
-  if ((ua.includes('aarch64') || ua.includes('arm64') || ua.includes('armv')) && ua.includes('windows')) {
-    return true;
-  }
-
-  return false;
-};
-
 /**
  * True when running inside the native Capacitor shell on an iPad.
  * Capacitor reports 'ios' for both iPhone and iPad; iPadOS WKWebView
@@ -48,14 +15,23 @@ export const isWindowsArm64 = (): boolean => {
  */
 export const isIPadApp = (): boolean => {
   if (typeof window === 'undefined' || !isCapacitorApp()) return false;
-  if (getClientPlatform() !== 'ios') return false;
+  return getClientPlatform() === 'ios' && isIPadDevice();
+};
+
+/**
+ * True on an iPad in any runtime (Safari, Home Screen app, Capacitor).
+ * iPadOS sends a Mac user agent; real touch points are the tell, since no
+ * Mac has them.
+ */
+export const isIPadDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
   const userAgent = navigator.userAgent || '';
   const maxTouchPoints = navigator.maxTouchPoints ?? 0;
   return /iPad/i.test(userAgent)
     || (/Macintosh|MacIntel/i.test(userAgent) && maxTouchPoints > 1);
 };
 
-export type ClientPlatform = 'ios' | 'android' | 'vscode' | 'desktop' | 'web';
+type ClientPlatform = 'ios' | 'android' | 'vscode' | 'desktop' | 'web';
 
 /**
  * The runtime surface this client is. Used by the push presence model: only 'ios'/'android'

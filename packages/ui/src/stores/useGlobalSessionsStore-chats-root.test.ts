@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from '@/lib/opencode/model';
 import { opencodeClient } from '@/lib/opencode/client';
 import { switchRuntimeEndpoint } from '@/lib/runtime-switch';
-import { persistSessions, readDirCache } from '@/sync/persist-cache';
+import { flushPendingSessionWrites, persistSessions, readDirCache } from '@/sync/persist-cache';
 import { ensureChatsRootDirectory } from '@/lib/chatDirectories';
 import { useGlobalSessionsStore } from './useGlobalSessionsStore';
 
@@ -42,8 +42,9 @@ const deferred = <T>() => {
   return { promise, resolve, reject };
 };
 const chat = (id: string): Session => ({
-  id, slug: id, projectID: 'openchamber:chats', directory: '/srv/chats/day/session-' + id,
-  title: id, version: '1', time: { created: 1, updated: 2 },
+  id, projectID: 'openchamber:chats', directory: '/srv/chats/day/session-' + id,
+  title: id, cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+  time: { created: 1, updated: 2 },
 });
 const scope = 'openchamber:managed-chats';
 let runtime = 0;
@@ -63,7 +64,7 @@ afterEach(() => {
 });
 const seed = async () => {
   persistSessions(scope, [chat('saved')]);
-  await new Promise((resolve) => setTimeout(resolve, 70));
+  flushPendingSessionWrites();
   useGlobalSessionsStore.getState().resetForRuntimeSwitch();
 };
 
@@ -72,19 +73,20 @@ describe('global load owns chats-root readiness', () => {
     await seed();
     const root = deferred<{ home: string; chatsRoot: string }>();
     home.mockImplementationOnce(() => root.promise);
-    const list = spyOn(opencodeClient.getSdkClient().experimental.session, 'list').mockImplementation(async () => {
+    const list = spyOn(opencodeClient, 'listSessionsPage').mockImplementation(async () => {
       expect(useGlobalSessionsStore.getState().activeSessions.map((session) => session.id)).toEqual(['saved']);
       throw new Error('offline');
     });
     try {
       const first = useGlobalSessionsStore.getState().loadSessions();
       const second = useGlobalSessionsStore.getState().loadSessions();
-      expect(useGlobalSessionsStore.getState().status).toBe('idle');
+      expect(useGlobalSessionsStore.getState().status).toBe('loading');
       expect(list.mock.calls).toHaveLength(0);
       root.resolve({ home: '/home/user', chatsRoot: '/srv/chats' });
       await Promise.all([first, second]);
       expect(home.mock.calls).toHaveLength(1);
       expect(useGlobalSessionsStore.getState().status).toBe('error');
+      expect(useGlobalSessionsStore.getState().hasLoaded).toBe(false);
       expect(useGlobalSessionsStore.getState().activeSessions.map((session) => session.id)).toEqual(['saved']);
       expect(readDirCache(scope).sessions?.map((session) => session.id)).toEqual(['saved']);
     } finally { list.mockRestore(); }
@@ -95,9 +97,7 @@ describe('global load owns chats-root readiness', () => {
     home.mockRejectedValueOnce(new Error('root offline'));
     await useGlobalSessionsStore.getState().loadSessions();
     expect(readDirCache(scope).sessions?.map((session) => session.id)).toEqual(['saved']);
-    const list = spyOn(opencodeClient.getSdkClient().experimental.session, 'list').mockResolvedValue({
-      data: [{ ...chat('saved'), project: null }], request: new Request('https://store-chats.test'), response: new Response('[]'),
-    });
+    const list = spyOn(opencodeClient, 'listSessionsPage').mockResolvedValue({ sessions: [chat('saved')], cursor: {} });
     try {
       await useGlobalSessionsStore.getState().loadSessions();
       expect(useGlobalSessionsStore.getState().status).toBe('ready');
@@ -109,12 +109,12 @@ describe('global load owns chats-root readiness', () => {
     await seed();
     await ensureChatsRootDirectory();
     useGlobalSessionsStore.getState().upsertSession(chat('created'));
-    await new Promise((resolve) => setTimeout(resolve, 70));
+    flushPendingSessionWrites();
     expect(readDirCache(scope).sessions?.map((session) => session.id).sort()).toEqual(['created', 'saved']);
     useGlobalSessionsStore.getState().removeSessions(['saved']);
-    await new Promise((resolve) => setTimeout(resolve, 70));
+    flushPendingSessionWrites();
     expect(readDirCache(scope).sessions?.map((session) => session.id)).toEqual(['created']);
-    const list = spyOn(opencodeClient.getSdkClient().experimental.session, 'list').mockRejectedValue(new Error('offline'));
+    const list = spyOn(opencodeClient, 'listSessionsPage').mockRejectedValue(new Error('offline'));
     try {
       await useGlobalSessionsStore.getState().loadSessions();
       expect(useGlobalSessionsStore.getState().activeSessions.map((session) => session.id)).toEqual(['created']);
@@ -124,16 +124,14 @@ describe('global load owns chats-root readiness', () => {
   test('a directory refresh before the global load retires the old seed even if the full load fails', async () => {
     await seed();
     const refreshed = { ...chat('refreshed'), directory: chat('saved').directory };
-    const list = spyOn(opencodeClient.getSdkClient().experimental.session, 'list').mockResolvedValue({
-      data: [{ ...refreshed, project: null }], request: new Request('https://store-chats.test'), response: new Response('[]'),
-    });
+    const list = spyOn(opencodeClient, 'listSessionsPage').mockResolvedValue({ sessions: [refreshed], cursor: {} });
     try {
       await useGlobalSessionsStore.getState().refreshSessionsForDirectories([refreshed.directory]);
       expect(useGlobalSessionsStore.getState().activeSessions.map((session) => session.id)).toEqual(['refreshed']);
       list.mockRejectedValue(new Error('offline'));
       await useGlobalSessionsStore.getState().loadSessions();
       expect(useGlobalSessionsStore.getState().activeSessions.map((session) => session.id)).toEqual(['refreshed']);
-      await new Promise((resolve) => setTimeout(resolve, 70));
+      flushPendingSessionWrites();
       expect(readDirCache(scope).sessions?.map((session) => session.id)).toEqual(['refreshed']);
     } finally { list.mockRestore(); }
   });
@@ -142,7 +140,7 @@ describe('global load owns chats-root readiness', () => {
     await seed();
     const archived = { ...chat('archived'), time: { created: 1, updated: 2, archived: 3 } };
     useGlobalSessionsStore.getState().upsertSession(archived);
-    const list = spyOn(opencodeClient.getSdkClient().experimental.session, 'list').mockRejectedValue(new Error('offline'));
+    const list = spyOn(opencodeClient, 'listSessionsPage').mockRejectedValue(new Error('offline'));
     try {
       await useGlobalSessionsStore.getState().loadSessions();
       const state = useGlobalSessionsStore.getState();

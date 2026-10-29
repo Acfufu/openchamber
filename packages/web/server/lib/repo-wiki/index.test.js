@@ -714,7 +714,9 @@ describe('repo-wiki runtime', () => {
 });
 
 describe('repo-wiki thought level', () => {
-  const zhipuDescribe = async () => ({ ...describedModel, providerID: 'zhipu', modelID: 'glm-4.7' });
+  // glm lists thinking levels as catalog variants; the described model must
+  // carry them for a level to be honorable.
+  const zhipuDescribe = async () => ({ ...describedModel, providerID: 'zhipu', modelID: 'glm-4.7', variants: ['low', 'medium', 'high'] });
   const standardPagesModelCall = (record) => async (args) => {
     record.push(args);
     if (args.prompt.includes('Repository digest:')) {

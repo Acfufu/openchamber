@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getRuntimeKey, subscribeRuntimeEndpointWillChange } from '@/lib/runtime-switch';
 import { normalizePath } from '@/lib/pathNormalization';
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from "@/lib/opencode/model"
 import type { collectSessionTitleTurns } from '@/lib/sessionTitle';
 
 type TitleTarget = { runtimeKey: string; directory: string; sessionID: string };
@@ -14,7 +14,7 @@ const useTitleGenerations = create<{ pending: ReadonlyMap<string, PendingTitle> 
 export async function generateAndSaveSessionTitle(input: {
   signal: AbortSignal;
   prepare: (signal: AbortSignal) => Promise<{ session: Session; turns: ReturnType<typeof collectSessionTitleTurns> }>;
-  generate: (turns: ReturnType<typeof collectSessionTitleTurns>, signal: AbortSignal) => Promise<string>;
+  generate: (session: Session, turns: ReturnType<typeof collectSessionTitleTurns>, signal: AbortSignal) => Promise<string>;
   readSession: () => Promise<Session>;
   saveTitle: (title: string, signal: AbortSignal) => Promise<void>;
 }): Promise<void> {
@@ -23,7 +23,7 @@ export async function generateAndSaveSessionTitle(input: {
   const { session, turns } = await input.prepare(signal);
   signal.throwIfAborted();
   if (!turns.length) throw new Error('No completed turns');
-  const title = await input.generate(turns, signal);
+  const title = await input.generate(session, turns, signal);
   signal.throwIfAborted();
   const current = await input.readSession();
   signal.throwIfAborted();

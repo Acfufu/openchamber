@@ -122,25 +122,8 @@ const isPathInside = (candidatePath: string, parentPath: string): boolean => {
 
 export const normalizeFsPath = (value: string) => value.replace(/\\/g, '/');
 
-const execGitCheckIgnore = async (args: string[], cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number } | null> => {
-  if (GIT_CHECK_IGNORE_TIMEOUT_MS <= 0) {
-    return execGit(args, cwd);
-  }
-
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      execGit(args, cwd),
-      new Promise<null>((resolve) => {
-        timeout = setTimeout(() => resolve(null), GIT_CHECK_IGNORE_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-  }
-};
+const execGitCheckIgnore = (args: string[], cwd: string) =>
+  execGit(args, cwd, { timeoutMs: GIT_CHECK_IGNORE_TIMEOUT_MS });
 
 const gitCheckIgnoreNames = async (cwd: string, names: string[]): Promise<Set<string>> => {
   if (names.length === 0) {
@@ -148,9 +131,6 @@ const gitCheckIgnoreNames = async (cwd: string, names: string[]): Promise<Set<st
   }
 
   const result = await execGitCheckIgnore(['check-ignore', '--', ...names], cwd);
-  if (!result) {
-    return new Set();
-  }
   if (result.exitCode !== 0 || !result.stdout) {
     return new Set();
   }
@@ -169,9 +149,6 @@ const gitCheckIgnorePaths = async (cwd: string, paths: string[]): Promise<Set<st
   }
 
   const result = await execGitCheckIgnore(['check-ignore', '--', ...paths], cwd);
-  if (!result) {
-    return new Set();
-  }
   if (result.exitCode !== 0 || !result.stdout) {
     return new Set();
   }
@@ -234,6 +211,8 @@ const FILE_SEARCH_EXCLUDED_DIRS = new Set([
   'tmp',
   'logs',
 ]);
+
+const FILE_SEARCH_MAX_VISITED_FILES = 10_000;
 
 const shouldSkipSearchDirectory = (name: string, includeHidden: boolean) => {
   if (!name) {
@@ -322,11 +301,19 @@ const searchFilesystemFiles = async (
   const rootUri = vscode.Uri.file(rootPath);
   const queue: vscode.Uri[] = [rootUri];
   const visited = new Set<string>([normalizeFsPath(rootUri.fsPath)]);
-  const collectLimit = matchAll ? limit : Math.max(limit * 3, 200);
+  // An empty query stops at `limit` candidates: any file serves. A query
+  // must keep walking until the tree or the inspected-file ceiling is
+  // reached: weak shallow matches otherwise exhaust a candidate budget
+  // before exact deeper matches are ever visited. Mirrors the web server's
+  // `search.js` ceiling; keep the two in agreement.
   const candidates: Array<{ name: string; path: string; relativePath: string; extension?: string; score: number }> = [];
+  let inspectedFiles = 0;
+  const reachedSearchStop = () => (matchAll
+    ? candidates.length >= limit
+    : inspectedFiles >= FILE_SEARCH_MAX_VISITED_FILES);
   const MAX_CONCURRENCY = 10;
 
-  while (queue.length > 0 && candidates.length < collectLimit) {
+  while (queue.length > 0 && !reachedSearchStop()) {
     if (deadline && Date.now() > deadline) {
       break;
     }
@@ -375,6 +362,7 @@ const searchFilesystemFiles = async (
 
         const relativePath = normalizeFsPath(path.relative(rootPath, absolute) || path.basename(absolute));
         const extension = entryName.includes('.') ? entryName.split('.').pop()?.toLowerCase() : undefined;
+        inspectedFiles += 1;
 
         if (matchAll) {
           candidates.push({
@@ -397,13 +385,13 @@ const searchFilesystemFiles = async (
           }
         }
 
-        if (candidates.length >= collectLimit) {
+        if (reachedSearchStop()) {
           queue.length = 0;
           break;
         }
       }
 
-      if (candidates.length >= collectLimit) {
+      if (reachedSearchStop()) {
         break;
       }
     }

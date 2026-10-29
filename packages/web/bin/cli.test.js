@@ -8,11 +8,12 @@ import { spawn } from 'child_process';
 import { pathToFileURL } from 'url';
 
 import { isModuleCliExecution, normalizeCliEntryPath } from './cli-entry.js';
+import { INJECTED_ENV_KEY, assignInjectedEnv } from '../server/lib/injected-env.js';
 import { requestJson } from './lib/cli-http.js';
 import { requestControlAction } from './lib/cli-control.js';
 import { inspectTunnelAttachability } from './lib/cli-lifecycle.js';
 import { startupCommand } from './lib/commands-startup.js';
-import { formatGoal } from './lib/commands-schedule.js';
+import { formatGoal, scheduleCommand } from './lib/commands-schedule.js';
 import {
   buildSessionCreatePayload,
   buildSessionPromptPayload,
@@ -26,6 +27,7 @@ import { DEFAULT_TUNNEL_PROVIDER_CAPABILITIES } from './lib/cli-tunnel-capabilit
 import {
   TUNNEL_PROVIDER_CLOUDFLARE,
   TUNNEL_PROVIDER_NGROK,
+  TUNNEL_PROVIDER_TAILSCALE,
 } from '../server/lib/tunnels/types.js';
 import {
   assertAuthenticatedNetworkExposure,
@@ -198,12 +200,39 @@ describe('cli args', () => {
     expect(DEFAULT_TUNNEL_PROVIDER_CAPABILITIES.map((provider) => provider.provider)).toEqual([
       TUNNEL_PROVIDER_CLOUDFLARE,
       TUNNEL_PROVIDER_NGROK,
+      TUNNEL_PROVIDER_TAILSCALE,
     ]);
+  });
+
+  it('parses --https-port as a number and refuses anything else', () => {
+    expect(parseArgs(['tunnel', 'start', '--https-port', '8443']).options.httpsPort).toBe(8443);
+    expect(() => parseArgs(['tunnel', 'start', '--https-port', 'abc'])).toThrow('Missing or invalid value for --https-port.');
   });
 
   it('accepts legacy daemon flags as no-ops', () => {
     expect(parseArgs(['serve', '--daemon']).removedFlagErrors).toEqual([]);
     expect(parseArgs(['serve', '-d']).removedFlagErrors).toEqual([]);
+  });
+
+  it('rejects a flag that only another command reads', () => {
+    expect(parseArgs(['serve', '--daily', '09:30']).removedFlagErrors).toEqual([
+      'Unknown option for serve: --daily (used by: schedule)',
+    ]);
+    expect(parseArgs(['--port', '8080', '--lines', '5']).removedFlagErrors).toEqual([
+      'Unknown option for serve: --lines (used by: logs)',
+    ]);
+    expect(parseArgs(['status', '--token', 'x']).removedFlagErrors).toEqual([
+      'Unknown option for status: --token (used by: tunnel)',
+    ]);
+  });
+
+  it('accepts command-owned flags on their own commands and global flags anywhere', () => {
+    expect(parseArgs(['schedule', 'create', '--daily', '09:30', '--prompt', 'hi', '--project', 'p']).removedFlagErrors).toEqual([]);
+    expect(parseArgs(['session', 'send', '--session', 's', '--message', 'hi', '--wait', '--timeout', '30']).removedFlagErrors).toEqual([]);
+    expect(parseArgs(['tunnel', 'start', '--provider', 'cloudflare', '--mode', 'quick', '--dry-run']).removedFlagErrors).toEqual([]);
+    expect(parseArgs(['logs', '--lines', '20', '--no-follow']).removedFlagErrors).toEqual([]);
+    expect(parseArgs(['--port', '8080']).command).toBe('serve');
+    expect(parseArgs(['serve', '--hostname', 'h', '--port', '3000', '--json', '--quiet']).removedFlagErrors).toEqual([]);
   });
 
   it('parses explicit connect-url server overrides', () => {
@@ -736,15 +765,31 @@ describe('serve UI password resolution', () => {
 
 describe('serve host resolution', () => {
   it('uses OPENCHAMBER_HOST when --host is not provided', () => {
-    const previous = process.env.OPENCHAMBER_HOST;
+    const previous = { OPENCHAMBER_HOST: process.env.OPENCHAMBER_HOST, [INJECTED_ENV_KEY]: process.env[INJECTED_ENV_KEY] };
+    delete process.env[INJECTED_ENV_KEY];
     process.env.OPENCHAMBER_HOST = '192.0.2.20';
     try {
       expect(resolveServeHost(undefined)).toBe('192.0.2.20');
     } finally {
-      if (typeof previous === 'string') {
-        process.env.OPENCHAMBER_HOST = previous;
-      } else {
-        delete process.env.OPENCHAMBER_HOST;
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it('ignores an OPENCHAMBER_HOST that OpenChamber put into the shell', () => {
+    const previous = { OPENCHAMBER_HOST: process.env.OPENCHAMBER_HOST, [INJECTED_ENV_KEY]: process.env[INJECTED_ENV_KEY] };
+    delete process.env[INJECTED_ENV_KEY];
+    delete process.env.OPENCHAMBER_HOST;
+    assignInjectedEnv(process.env, { OPENCHAMBER_HOST: '0.0.0.0' });
+    try {
+      expect(resolveServeHost(undefined)).toBe('127.0.0.1');
+      expect(resolveServeHost('192.0.2.21')).toBe('192.0.2.21');
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
       }
     }
   });
@@ -808,6 +853,27 @@ describe('compatibility exports', () => {
       }));
     });
   });
+
+  it('starts Tailscale in its own first mode, Serve, when no mode is given', async () => {
+    await withTempOpenChamberDataDir(async () => {
+      const output = await captureStdout(async () => {
+        await commands.tunnel({
+          json: true,
+          dryRun: true,
+          explicitPort: true,
+          port: 3003,
+          provider: 'tailscale',
+          httpsPort: 8443,
+        }, 'start');
+      });
+
+      expect(JSON.parse(output)).toEqual(expect.objectContaining({
+        provider: 'tailscale',
+        mode: 'serve',
+        httpsPort: 8443,
+      }));
+    });
+  });
 });
 
 describe('CLI HTTP helpers', () => {
@@ -832,7 +898,23 @@ describe('CLI HTTP helpers', () => {
     }
   });
 
-  it('retries UI-authenticated API requests with the stored instance password', async () => {
+  it('reports the enabled state the server saved and fails when it did not change', async () => {
+    const originalFetch = globalThis.fetch;
+    let saved = { task: { id: 'loop:user:mine', name: 'mine', enabled: true }, enabled: true };
+    globalThis.fetch = async () => createMockJsonResponse(saved);
+    const options = { port: 45680, explicitPort: true, directory: '/repo', task: 'loop:user:mine', json: true };
+    try {
+      const output = await captureStdout(() => scheduleCommand(options, 'enable'));
+      expect(JSON.parse(output)).toMatchObject(saved);
+
+      saved = { task: { id: 'loop:user:mine', name: 'mine', enabled: false }, enabled: false };
+      await expect(scheduleCommand(options, 'enable')).rejects.toThrow('mine is still disabled.');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it.each(['oc_ui_session', 'oc_ui_session_3000'])('retries UI-authenticated API requests with the %s cookie', async (cookieName) => {
     await withTempOpenChamberDataDir(async () => {
       const port = 45678;
       fs.writeFileSync(await getInstanceFilePath(port), JSON.stringify({ port, uiPassword: 'secret' }, null, 2));
@@ -844,11 +926,11 @@ describe('CLI HTTP helpers', () => {
           expect(JSON.parse(options.body)).toEqual({ password: 'secret' });
           return {
             ok: true,
-            headers: { get: (name) => name.toLowerCase() === 'set-cookie' ? 'oc_ui_session=session-token; Path=/; HttpOnly' : null },
+            headers: { get: (name) => name.toLowerCase() === 'set-cookie' ? `${cookieName}=session-token; Path=/; HttpOnly` : null },
             json: async () => ({ authenticated: true }),
           };
         }
-        if (options.headers?.Cookie === 'oc_ui_session=session-token') {
+        if (options.headers?.Cookie === `${cookieName}=session-token`) {
           return createMockJsonResponse({ ok: true });
         }
         return {
@@ -866,6 +948,7 @@ describe('CLI HTTP helpers', () => {
 
         expect(response.ok).toBe(true);
         expect(body).toEqual({ ok: true });
+        expect(calls.at(-1).options.headers.Cookie).toBe(`${cookieName}=session-token`);
         expect(calls.map((call) => new URL(call.url).pathname)).toEqual([
           '/api/openchamber/tunnel/start',
           '/auth/session',
@@ -877,7 +960,7 @@ describe('CLI HTTP helpers', () => {
     });
   });
 
-  it('prefers the stored instance password over a non-explicit env password', async () => {
+  it.each(['oc_ui_session', 'oc_ui_session_3000'])('uses the stored password and getSetCookie for %s', async (cookieName) => {
     await withTempOpenChamberDataDir(async () => {
       const port = 45679;
       fs.writeFileSync(await getInstanceFilePath(port), JSON.stringify({ port, uiPassword: 'stored-secret' }, null, 2));
@@ -887,11 +970,11 @@ describe('CLI HTTP helpers', () => {
           expect(JSON.parse(options.body)).toEqual({ password: 'stored-secret' });
           return {
             ok: true,
-            headers: { getSetCookie: () => ['oc_ui_session=session-token; Path=/; HttpOnly'] },
+            headers: { getSetCookie: () => [`${cookieName}=session-token; Path=/; HttpOnly`] },
             json: async () => ({ authenticated: true }),
           };
         }
-        if (options.headers?.Cookie === 'oc_ui_session=session-token') {
+        if (options.headers?.Cookie === `${cookieName}=session-token`) {
           return createMockJsonResponse({ ok: true });
         }
         return {
@@ -1331,6 +1414,28 @@ describe('lifecycle commands with unmanaged explicit ports', () => {
           expect.objectContaining({ runtime: 'unmanaged', port: server.port, pid: null }),
         ]);
       } finally {
+        await server.close();
+      }
+    });
+  });
+
+  it('status --json reports the address a registered server was asked to bind', async () => {
+    await withTempOpenChamberDataDir(async () => {
+      const server = await startMockOpenChamberServer();
+      const child = spawnOpenChamberLikeIdleProcess();
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        fs.writeFileSync(await getPidFilePath(server.port), String(child.pid));
+        fs.writeFileSync(await getInstanceFilePath(server.port), JSON.stringify({ port: server.port, host: '0.0.0.0', launchMode: 'daemon' }, null, 2));
+
+        const output = await captureStdout(() => commands.status({ json: true }));
+
+        // The probe answers on loopback; the bind address comes from the registry.
+        expect(JSON.parse(output).instances).toEqual([
+          expect.objectContaining({ runtime: 'cli', port: server.port, launchMode: 'daemon', bindHost: '0.0.0.0' }),
+        ]);
+      } finally {
+        child.kill('SIGKILL');
         await server.close();
       }
     });

@@ -5,7 +5,7 @@
  * (e.g. faster-whisper, whisper.cpp) using the OpenAI Node SDK.
  */
 
-import OpenAI, { toFile } from 'openai';
+import { loadOpenAI } from './openai-sdk.js';
 import { normalizeCustomOpenAIBaseURL } from './base-url.js';
 
 /**
@@ -31,11 +31,15 @@ export async function transcribeAudio({ audioBuffer, mimeType, model, baseURL, a
     throw new Error('Custom server URL is required');
   }
 
+  // Only the key the user typed for this server goes to it. The server's own
+  // OPENAI_API_KEY belongs to whoever runs it and must not follow a URL that
+  // any signed-in user can set (TTS draws the same line in service.js).
   const clientOpts = {
-    apiKey: apiKey || process.env.OPENAI_API_KEY || 'not-required',
+    apiKey: apiKey || 'not-required',
   };
   clientOpts.baseURL = normalizedBaseURL;
 
+  const OpenAI = await loadOpenAI();
   const client = new OpenAI(clientOpts);
 
   // Derive a sensible filename extension from the MIME type so the server
@@ -43,7 +47,7 @@ export async function transcribeAudio({ audioBuffer, mimeType, model, baseURL, a
   const ext = mimeTypeToExt(mimeType);
   const filename = `audio.${ext}`;
 
-  const file = await toFile(audioBuffer, filename, { type: mimeType });
+  const file = await OpenAI.toFile(audioBuffer, filename, { type: mimeType });
 
   const result = await client.audio.transcriptions.create({
     file,

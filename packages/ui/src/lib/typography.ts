@@ -2,9 +2,9 @@ export const SEMANTIC_TYPOGRAPHY = {
   markdown: '0.875rem',
   code: '0.75rem',
   uiHeader: '0.875rem',
-  uiLabel: '0.8125rem',
-  meta: '0.8125rem',
-  micro: '0.8125rem',
+  uiLabel: '0.84375rem',
+  meta: '0.78125rem',
+  micro: '0.75rem',
   /** Settings page / detail-pane title — larger than section headers */
   settingsPageTitle: '1.0625rem',
 } as const;

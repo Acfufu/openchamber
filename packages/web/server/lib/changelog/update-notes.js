@@ -2,7 +2,7 @@
 //
 // The repo publishes `changelog/index.json` on `main`: one object per release,
 // newest first, with the app notes grouped as New / Improvements / Fixes /
-// Misc. This module fetches it and renders the releases between the installed
+// SDK / Misc. This module fetches it and renders the releases between the installed
 // version (exclusive) and the offered one (inclusive) as the Markdown the
 // dialog already understands: a `## [x.y.z] - YYYY-MM-DD` header per release,
 // the release title in bold, the intro, then the groups.
@@ -10,12 +10,13 @@
 // Any failure (network, 404, unexpected shape) yields null: the update is
 // still offered, only without notes.
 
-export const CHANGELOG_INDEX_URL = 'https://raw.githubusercontent.com/openchamber/openchamber/main/changelog/index.json';
+const CHANGELOG_INDEX_URL = 'https://raw.githubusercontent.com/openchamber/openchamber/main/changelog/index.json';
 
 const GROUPS = [
   ['new', 'New'],
   ['improvements', 'Improvements'],
   ['fixes', 'Fixes'],
+  ['sdk', 'SDK'],
   ['misc', 'Misc'],
 ];
 

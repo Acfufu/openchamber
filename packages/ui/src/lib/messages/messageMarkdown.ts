@@ -1,5 +1,5 @@
-import type { Part } from '@opencode-ai/sdk/v2';
-import { readContextPart, type ContextPartPayload } from './contextParts';
+import type { Metadata, Part } from '@/lib/opencode/model';
+import { changeRequestCheckSource, changeRequestCommentSource, readContextPart, type ContextPartPayload } from './contextParts';
 import { extractTerminalContexts } from './terminalContext';
 
 /** Preserve both the source and the reply when a model context needs a limit. */
@@ -41,32 +41,40 @@ function formatContext(payload: ContextPartPayload, originalText: string, fieldL
     case 'browser-annotation':
       return quoteContext(`Browser annotation on ${payload.pageUrl}:`, payload.prompt, payload.text, fieldLimit);
     case 'pr-comment':
-      return quoteContext(`GitHub PR comment, ${payload.label}:`, payload.body, payload.text, fieldLimit);
+      return quoteContext(`${changeRequestCommentSource(payload.provider)}, ${payload.label}:`, payload.body, payload.text, fieldLimit);
     case 'pr-check':
-      return quoteContext(`GitHub PR check, ${payload.label}:`, payload.output, payload.text, fieldLimit, '');
+      return quoteContext(`${changeRequestCheckSource(payload.provider)}, ${payload.label}:`, payload.output, payload.text, fieldLimit, '');
     case 'terminal':
       return quoteContext(`Terminal ${payload.terminalLabel}, lines ${payload.startLine}-${payload.endLine}:`, payload.output, '', fieldLimit, '');
-    case 'github-issue':
-    case 'github-pr':
-    case 'linear-issue':
+    case 'repository-issue':
+    case 'repository-discussion':
+    case 'change-request':
+    case 'tracker-item':
+    case 'guest-issue':
+    case 'guest-pr':
+    case 'session':
+    case 'session-message':
       return fieldLimit ? excerptMarkdown(originalText, fieldLimit) : originalText;
   }
 }
 
-/** User-attached synthetic parts are content; other synthetic prompts are optional. */
+/**
+ * The model-facing text of a message's own parts. Attached context is no
+ * longer a part — it arrives as its own synthetic message — so render it with
+ * `formatContextMessage`.
+ */
 export function formatMessageText(
   parts: readonly Part[],
-  options: { user?: boolean; excludeSynthetic?: boolean; fieldLimit?: number } = {},
+  options: { user?: boolean; fieldLimit?: number } = {},
 ): string {
   const blocks: string[] = [];
   for (const part of parts) {
-    if (part.type !== 'text' || (options.excludeSynthetic && part.ignored)) continue;
+    if (part.type !== 'text') continue;
     const context = options.user ? readContextPart(part) : null;
     if (context) {
       blocks.push(formatContext(context, part.text, options.fieldLimit));
       continue;
     }
-    if (options.excludeSynthetic && part.synthetic) continue;
     if (!options.user) {
       blocks.push(options.fieldLimit ? excerptMarkdown(part.text, options.fieldLimit) : part.text);
       continue;
@@ -78,4 +86,14 @@ export function formatMessageText(
     }
   }
   return blocks.map((block) => block.trim()).filter(Boolean).join('\n\n');
+}
+
+/** One attached context item (a synthetic message) as model-facing Markdown. */
+export function formatContextMessage(
+  message: { text: string; metadata?: Metadata },
+  fieldLimit?: number,
+): string {
+  const payload = readContextPart(message);
+  if (payload) return formatContext(payload, message.text, fieldLimit);
+  return fieldLimit ? excerptMarkdown(message.text, fieldLimit) : message.text;
 }
