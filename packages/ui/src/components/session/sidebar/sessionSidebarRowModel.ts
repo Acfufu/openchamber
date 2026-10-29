@@ -669,8 +669,9 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     const groupDrafts = search ? EMPTY_DRAFTS : args.draftsByGroupKey?.get(groupKey) ?? EMPTY_DRAFTS;
     // With Detailed rows the works of the project root take two lines too:
     // its sessions and drafts, in its folders as well. A worktree's own
-    // sessions and drafts are part of its work and stay one line.
-    const detailedWorks = args.detailedZoneRows === true && group.isMain === true;
+    // sessions and drafts are part of its work and stay one line, and so do
+    // Chats, which are one-line rows whatever the setting.
+    const detailedWorks = args.detailedZoneRows === true && group.isMain === true && limits?.renderContext !== 'tree-chat';
     // Their second line names the branch as a zone row's does: the project
     // root's, which every session there shares.
     const detailedMeta = detailedWorks && group.branch ? { branchLabel: group.branch } : undefined;
