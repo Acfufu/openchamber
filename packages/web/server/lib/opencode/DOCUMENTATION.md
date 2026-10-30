@@ -1086,8 +1086,10 @@ the folder's OpenCode location; the reads OpenCode answers without one
 (`isGlobalRead` in `../opencode-trust`, which the trust gate also uses: the
 session list, session and message reads, events) pass, so the worktree's
 sessions stay listed while the user repairs it. Mutations stay closed:
-moving a session starts both its
-source and destination locations. A repair that completes the
+moving a session starts both its source and destination locations. The gate
+checks the destination from the body (`readMoveDestination` in
+`../opencode-trust`) and reads the session's current folder fresh, so moves
+into or out of a failed checkout remain closed. A repair that completes the
 checkout (`onCheckoutHydrated`) evicts the folder's locations before the record
 turns ready, so OpenCode opens the repaired folder afresh. The shared draft
 creator keeps the project directory selected until creation returns, because

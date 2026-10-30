@@ -64,3 +64,13 @@ export declare function createOpenCodeTrust(options: {
   storePath: string;
   homeDirectory?: string;
 }): OpenCodeTrust;
+
+/** The session a request moves, decoded, or null when it is no move. */
+export declare function sessionMoveOf(method: string, pathname: string): string | null;
+
+/** The folder a move opens, resolved the way OpenCode resolves it, or a 400 refusal for a body naming none. */
+export declare function readMoveDestination(
+  readBody: (() => Promise<OpenCodeTrustJsonBody | undefined>) | undefined,
+  sessionDirectory: string | null,
+  homeDirectory?: string,
+): Promise<{ refusal: OpenCodeTrustAnswer; destination?: undefined } | { refusal?: undefined; destination: string | null }>;

@@ -62,6 +62,9 @@ Where the check runs:
   read, answers 400 without reaching OpenCode. Every runtime hands the body to
   `refusalFor` through `readBody`: the proxy parses it, `guardOpenCodeFetch`
   reads a copy, the VS Code bridge decodes its base64 body.
+  The proxy's worktree checkout gate (`../opencode/proxy.js`) resolves the
+  destination with the same `readMoveDestination`, so both gates agree on
+  which folder a move opens.
 - A session route is checked against the session's folder as well, read from
   OpenCode's session record. The `global` owner is the exception: OpenCode
   files MCP elicitation forms under it, it has no session record, and its

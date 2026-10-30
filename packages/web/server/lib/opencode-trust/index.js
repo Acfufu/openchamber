@@ -43,7 +43,8 @@ const GLOBAL_MUTATIONS = [
 // the folder it leaves while that folder exists, which the session check
 // covers. A folder that is gone opens nothing, so moving sessions out of
 // deleted folders still passes.
-const SESSION_MOVE = /^\/api\/session\/[^/]+\/move$/;
+const SESSION_MOVE = /^\/api\/session\/([^/]+)\/move$/;
+const MOVE_BODY_ERROR = 'A session move needs a JSON body naming its directory';
 const moveBodySchema = z.object({ directory: z.string() });
 
 const SESSION_SCOPED = /^\/api\/(?:experimental\/)?session\/([^/]+)\/.+$/;
@@ -92,15 +93,35 @@ const bodyOrNothing = async (readBody) => {
   }
 };
 
-/** The folder a move names, resolved the way OpenCode resolves it. */
-const moveDestination = (directory, sessionDirectory, homeDirectory) => {
-  const value = directory.trim();
+/** The session a request moves, decoded, or null when it is no move. */
+export const sessionMoveOf = (method, pathname) => {
+  if (String(method || '').toUpperCase() !== 'POST') return null;
+  const sessionID = SESSION_MOVE.exec(pathname)?.[1];
+  if (!sessionID) return null;
+  try {
+    return decodeURIComponent(sessionID);
+  } catch {
+    // Not a session OpenCode knows; its lookup answers 404.
+    return sessionID;
+  }
+};
+
+/**
+ * The folder a move opens, read from its body and resolved the way OpenCode
+ * resolves it: `~` from home, a relative path from the session's current
+ * folder. `destination` is null for a relative path of a session OpenCode
+ * does not know, which it answers 404 without opening anything. A body that
+ * names no directory answers a 400 refusal.
+ */
+export const readMoveDestination = async (readBody, sessionDirectory, homeDirectory = os.homedir()) => {
+  const parsed = moveBodySchema.safeParse(await bodyOrNothing(readBody));
+  if (!parsed.success) return { refusal: { status: 400, body: { error: MOVE_BODY_ERROR } } };
+  const value = parsed.data.directory.trim();
   const expanded = value === '~'
     ? homeDirectory
     : value.startsWith('~/') ? path.join(homeDirectory, value.slice(2)) : value;
-  if (sessionDirectory) return path.resolve(sessionDirectory, expanded);
-  // OpenCode answers 404 for a session it does not know and opens nothing.
-  return path.isAbsolute(expanded) ? expanded : null;
+  if (sessionDirectory) return { destination: path.resolve(sessionDirectory, expanded) };
+  return { destination: path.isAbsolute(expanded) ? expanded : null };
 };
 
 const lowercaseKeys = (headers) => Object.fromEntries(
@@ -250,7 +271,7 @@ export const createOpenCodeTrust = ({
     if (isGlobalRoute(normalizedMethod, url.pathname)) return null;
     const directories = directoriesNamedBy(url, lowercaseKeys(headers));
     const sessionID = SESSION_SCOPED.exec(url.pathname)?.[1];
-    const isMove = normalizedMethod === 'POST' && SESSION_MOVE.test(url.pathname);
+    const isMove = sessionMoveOf(normalizedMethod, url.pathname) !== null;
     let sessionDirectory = null;
     if (sessionID && sessionID !== LOCATION_SCOPED_FORM_OWNER && resolveSessionDirectory) {
       try {
@@ -263,9 +284,8 @@ export const createOpenCodeTrust = ({
       if (sessionDirectory) directories.push(sessionDirectory);
     }
     if (isMove) {
-      const parsed = moveBodySchema.safeParse(await bodyOrNothing(readBody));
-      if (!parsed.success) return { status: 400, body: { error: 'A session move needs a JSON body naming its directory' } };
-      const destination = moveDestination(parsed.data.directory, sessionDirectory, homeDirectory);
+      const { refusal, destination } = await readMoveDestination(readBody, sessionDirectory, homeDirectory);
+      if (refusal) return refusal;
       if (destination) directories.unshift(destination);
     }
     if (directories.length === 0) return null;

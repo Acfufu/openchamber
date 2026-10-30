@@ -16,7 +16,7 @@ import { getWorktreeBootstrapStatus, waitForWorktreeRemoval } from '../git/servi
 import { PART_SHELLS_HEADER, parsePartShellsHeader, shellMessagePage } from './message-shells.js';
 import { diagnosticApiRoute, diagnosticErrorMessage } from '../diagnostics/vocabulary.js';
 import { withUnreadBaseline } from '../openchamber-sessions/unread-baseline.js';
-import { OPENCODE_TRUST_ROUTE, isGlobalRead } from '../opencode-trust/index.js';
+import { OPENCODE_TRUST_ROUTE, isGlobalRead, readMoveDestination, sessionMoveOf } from '../opencode-trust/index.js';
 import { createSessionDirectoryResolver } from '../opencode-trust/session-directory.js';
 
 /**
@@ -1095,6 +1095,41 @@ export const registerOpenCodeProxy = (app, deps) => {
     next();
   });
 
+  // Routes that run in a session's own location are checked against the
+  // session's folder, whatever folder the request names.
+  const resolveSessionDirectory = createSessionDirectoryResolver({ fetchImpl: fetch, buildOpenCodeUrl, getOpenCodeAuthHeaders });
+  // A move names its destination in the body, which reaches the proxy
+  // unread. Parsed here, it goes upstream through `replayParsedBody`.
+  const parseJsonBody = express.json({ limit: '64kb' });
+  const readBody = (req, res) => new Promise((resolve, reject) => {
+    parseJsonBody(req, res, (error) => (error ? reject(error) : resolve(req.body)));
+  });
+
+  /**
+   * The folders a request opens in OpenCode that the checkout gate holds: the
+   * one it names, and for a session move the folder it moves into and the one
+   * it leaves (OpenCode opens both). An answer to send instead when the move
+   * cannot be read.
+   */
+  const checkoutGateFolders = async (req, res, url) => {
+    const folders = [];
+    const named = url.searchParams.get('directory') || req.get('x-opencode-directory');
+    if (named) folders.push(named);
+    const movedSessionID = sessionMoveOf(req.method, new URL(req.originalUrl || req.url, 'http://localhost').pathname);
+    if (!movedSessionID) return { folders };
+    let source;
+    try {
+      source = await resolveSessionDirectory(movedSessionID, { fresh: true });
+    } catch {
+      return { refusal: { status: 503, body: { error: 'Could not read the folder of the session being moved' } } };
+    }
+    const { refusal, destination } = await readMoveDestination(() => readBody(req, res), source);
+    if (refusal) return { refusal };
+    if (destination) folders.push(destination);
+    if (source) folders.push(source);
+    return { folders };
+  };
+
   // Any directory-scoped read can initialize OpenCode's cached project/config,
   // before session.create runs. Hold all upstream requests until Git population
   // finishes, independently of the user's optional setup-script wait. A failed
@@ -1104,20 +1139,21 @@ export const registerOpenCodeProxy = (app, deps) => {
   app.use('/api', async (req, res, next) => {
     normalizeForwardedDirectoryHeaders(req.headers);
     const url = new URL(req.url, 'http://localhost');
-    const directory = url.searchParams.get('directory') || req.get('x-opencode-directory');
-    if (!directory) return next();
-
     const deadline = Date.now() + WORKTREE_READY_TIMEOUT_MS;
     try {
+      const { folders, refusal } = await checkoutGateFolders(req, res, url);
+      if (refusal) return res.status(refusal.status).json(refusal.body);
+      if (folders.length === 0) return next();
       while (!res.destroyed && !res.writableEnded && !req.aborted) {
-        const status = await readWorktreeBootstrapStatus(directory);
+        const statuses = await Promise.all(folders.map((folder) => readWorktreeBootstrapStatus(folder)));
         if (res.destroyed || res.writableEnded || req.aborted) return;
-        if (status.status === 'failed') {
+        const failed = statuses.find((status) => status.status === 'failed');
+        if (failed) {
           const pathname = new URL(req.originalUrl || req.url, 'http://localhost').pathname;
           if (isGlobalRead(req.method, pathname)) return next();
-          return res.status(503).json({ error: status.error || 'Worktree bootstrap failed' });
+          return res.status(503).json({ error: failed.error || 'Worktree bootstrap failed' });
         }
-        if (status.status === 'ready' || status.phase === 'git-ready' || status.phase === 'setup-ready') {
+        if (statuses.every((status) => status.status === 'ready' || status.phase === 'git-ready' || status.phase === 'setup-ready')) {
           return next();
         }
         if (Date.now() >= deadline) {
@@ -1134,15 +1170,6 @@ export const registerOpenCodeProxy = (app, deps) => {
   // request that names the folder. A folder whose configuration runs code
   // stays closed to OpenCode until the user trusts that configuration.
   if (openCodeTrust) {
-    // Routes that run in a session's own location are checked against the
-    // session's folder, whatever folder the request names.
-    const resolveSessionDirectory = createSessionDirectoryResolver({ fetchImpl: fetch, buildOpenCodeUrl, getOpenCodeAuthHeaders });
-    // A move names its destination in the body, which reaches the proxy
-    // unread. Parsed here, it goes upstream through `replayParsedBody`.
-    const parseJsonBody = express.json({ limit: '64kb' });
-    const readBody = (req, res) => new Promise((resolve, reject) => {
-      parseJsonBody(req, res, (error) => (error ? reject(error) : resolve(req.body)));
-    });
     app.use('/api', async (req, res, next) => {
       try {
         const refusal = await openCodeTrust.refusalFor({
