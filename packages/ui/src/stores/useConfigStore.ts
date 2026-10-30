@@ -615,6 +615,14 @@ const buildModelMetadataKey = (providerId: string, modelId: string) => {
     return `${normalizedProvider}/${modelId}`;
 };
 
+const runtimeModelReleaseDate = (released: number | undefined): string | undefined => {
+    if (released === undefined || !Number.isFinite(released) || released <= 0) return undefined;
+    const date = new Date(released);
+    if (!Number.isFinite(date.getTime())) return undefined;
+    const iso = date.toISOString();
+    return /^\d{4}-/.test(iso) ? iso.slice(0, 10) : undefined;
+};
+
 /**
  * Fallback metadata for models models.dev does not list (custom providers,
  * proxies). v2 prices a model per context tier; the untiered entry is the base
@@ -630,7 +638,8 @@ const deriveModelMetadata = (providerId: string, model: ProviderModel): ModelMet
     const hasReasoningSignal = modelVariantNames(model).length > 0
         || model.compatibility?.reasoningField !== undefined
         || model.compatibility?.requireReasoning === true;
-    return {
+    const releaseDate = runtimeModelReleaseDate(model.time?.released);
+    const metadata: ModelMetadata = {
         id: model.modelID,
         providerId,
         name: model.name,
@@ -649,6 +658,29 @@ const deriveModelMetadata = (providerId: string, model: ProviderModel): ModelMet
         } : undefined,
         limit: { context: model.limit.context, output: model.limit.output },
     };
+    if (releaseDate) metadata.release_date = releaseDate;
+    return metadata;
+};
+
+const findDescriptiveMetadata = (
+    metadata: ReadonlyMap<string, ModelMetadata>,
+    model: ProviderModel,
+    providerCanonical: string | undefined,
+): ModelMetadata | undefined => {
+    if (!model.modelID) return undefined;
+    const canonical = normalizeOptionalString(model.canonical)
+        ?? normalizeOptionalString(providerCanonical);
+    if (canonical) {
+        return metadata.get(buildModelMetadataKey(canonical, model.modelID));
+    }
+    let match: ModelMetadata | undefined;
+    for (const [key, entry] of metadata) {
+        const separator = key.indexOf('/');
+        if (separator < 0 || key.slice(separator + 1) !== model.modelID) continue;
+        if (match) return undefined;
+        match = entry;
+    }
+    return match;
 };
 
 const transformModelsDevResponse = (payload: unknown): Map<string, ModelMetadata> => {
@@ -4358,18 +4390,44 @@ export const useConfigStore = create<ConfigStore>()(
                     }
                     const { modelsMetadata, providers } = get();
                     const cached = modelsMetadata.get(key);
-                    const model = findCatalogModel(providers.find((p) => p.id === providerId)?.models, modelId);
+                    const provider = providers.find((p) => p.id === providerId);
+                    const model = findCatalogModel(provider?.models, modelId);
 
                     // The running OpenCode's limits win over the models.dev
                     // catalog: providers adjust them per auth (ChatGPT sign-in
                     // serves GPT models with a 400K window, the catalog says 1M+).
                     if (cached) {
-                        if (!model || model.limit.context <= 0) return cached;
-                        return { ...cached, limit: { ...cached.limit, context: model.limit.context, output: model.limit.output } };
+                        if (!model) return cached;
+                        const releaseDate = runtimeModelReleaseDate(model.time?.released);
+                        const hasLiveLimits = model.limit.context > 0;
+                        if (!hasLiveLimits && !releaseDate) return cached;
+                        const metadata: ModelMetadata = { ...cached };
+                        if (hasLiveLimits) {
+                            metadata.limit = {
+                                ...cached.limit,
+                                context: model.limit.context,
+                                output: model.limit.output,
+                            };
+                        }
+                        if (releaseDate) metadata.release_date = releaseDate;
+                        return metadata;
                     }
 
                     // Fallback: derive metadata from provider model data (covers custom providers not in models.dev)
-                    return model ? deriveModelMetadata(providerId, model) : undefined;
+                    if (!model) return undefined;
+                    const derived = deriveModelMetadata(providerId, model);
+                    const descriptive = findDescriptiveMetadata(modelsMetadata, model, provider?.canonical);
+                    if (!descriptive) return derived;
+                    const supplemented: ModelMetadata = { ...derived };
+                    const knowledge = normalizeOptionalString(descriptive.knowledge);
+                    if (knowledge) supplemented.knowledge = knowledge;
+                    if (!supplemented.release_date) {
+                        const releaseDate = normalizeOptionalString(descriptive.release_date);
+                        if (releaseDate) supplemented.release_date = releaseDate;
+                    }
+                    const lastUpdated = normalizeOptionalString(descriptive.last_updated);
+                    if (lastUpdated) supplemented.last_updated = lastUpdated;
+                    return supplemented;
                 },
                 getVisibleAgents: () => {
                     const { agents } = get();

@@ -777,6 +777,33 @@ the chat, the session list and the file tree.
 Failure is still not empty: a failed load restores that directory's previous
 list rather than clearing it.
 
+### Model metadata
+
+The model details use a valid runtime release timestamp as the release date,
+formatted as a UTC calendar day. Localized display of a date-only release
+keeps that UTC calendar day. Missing, zero, invalid, or out-of-range
+timestamps do not produce a date. An exact catalog entry can supply the date
+when runtime time is unknown. Its existing limit fallback remains in effect
+when OpenCode reports no context window.
+
+Month-only knowledge cutoffs (`YYYY-MM`) also use UTC when localized, so
+negative timezone offsets cannot move the cutoff into the previous month.
+
+Custom-provider entries can borrow knowledge cutoff, release date, and last
+updated values from the default catalog. Model canonical provider takes
+precedence over provider canonical, and lookup uses the actual modelID.
+An explicit canonical miss stays unknown. With no canonical identity, a
+complete modelID may match only one catalog entry; ambiguous IDs stay unknown.
+Runtime pricing, limits, capabilities, identity, and name are never borrowed
+through this fallback.
+
+### Why custom-model matching stays exact
+
+Display names, family, and stripped prefixes or suffixes do not establish
+model identity. An unknown Fast alias stays unknown, while a derived Fast
+entry with a known actual modelID can receive descriptive dates and keep
+its own gateway price.
+
 ### Switched-off skills
 
 `skillsByDirectory` is the installed inventory and keeps a skill a policy
