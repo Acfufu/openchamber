@@ -334,6 +334,10 @@ The package supports macOS, Windows, and Linux desktop features. Linux builds in
 
 On Windows and Linux, the General setting persisted as `desktopMinimizeToTrayEnabled` keeps the app running in the tray when the main window is **closed**. Minimize — the in-app control, the native title-bar button, and the taskbar — always performs a normal window minimize, so the taskbar entry stays available.
 
+Every path that hides a window instead of closing it goes through `hideWindow` (`window-hide.mjs`). On macOS a native full-screen window leaves full screen before hiding so its empty Space does not leave the display black. Hide and toggle shortcuts restore full screen when shown again; closing returns a normal window. Explicit show paths use `showWindow` to cancel pending hiding before showing or focusing, even while the window is still visible during the native transition. A repeated hide shares the pending transition, and closing discards its full-screen restoration. Windows and Linux hide in place.
+
+An exit requested during entry remains queued in Electron even after an explicit show. The hide helper keeps its exit listener until that exit completes so Hide can restore full screen. Early entry remains a known gap: Electron exposes no public entry-start event or transition-state getter, and `isFullScreen()` can still report false while entry is pending, allowing an immediate hide before entry completes.
+
 The macOS menu bar item is enabled by default and can be disabled in General settings. The setting applies after restart. While disabled, Desktop skips the native tray controller, tray-specific subscriptions, polling, and quota refresh. Dock badges remain independent: unread activity, session membership, and badge preferences still update the Dock through the shared IPC command. Turning off the Dock badge clears its count without enabling the menu bar item.
 
 ## Bundled OpenCode CLI
