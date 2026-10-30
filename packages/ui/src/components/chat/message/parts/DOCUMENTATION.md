@@ -94,6 +94,8 @@ Use this doc when you ask an agent to change tool/header/description behavior.
 
 - `BlockLine.tsx`
   - The vertical connector line left of a collapsible block's body. It is also a click target: clicking it folds/expands the block via its header toggle handler (`onToggle`), or toggles the nearest native `<details>` when no handler is passed (JSON summary sections). Geometry is inline-styled (12px hit strip centered on the 1px line) so it does not depend on compiled Tailwind classes.
+  - `BlockBody` is the expanded body of every collapsible block (reasoning, tool calls): the line, a 12px inset from it, 4px above and 8px below. Content inside adds no inline padding of its own, so every block's text starts at the same distance from the line. Tool input and output boxes have no fill on any runtime, so padding on them only shifted text; boxes with a fill (error, LSP diagnostics) and diffs keep their own inner padding, with their outer edge on the inset.
+  - Two text roles apply across blocks. Prose, including reasoning, tool markdown and subagent prompts, is upright sans at `--text-meta`. Code, including shell commands, tool parameters and text output, is mono with the code-block line height.
 
 ## Current important behavior
 
