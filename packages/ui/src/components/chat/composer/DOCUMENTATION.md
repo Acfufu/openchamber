@@ -316,9 +316,11 @@ context) sit in the attachment row inside the box, shaped like file and linked
 reference chips. Their preview cannot open inside the box, which clips its
 contents, so `ComposerContextChips` portals it into a
 positioned host outside the box: the autocomplete wrapper on desktop, the
-dictation host on mobile. The preview opens above that host, and its scrollable
-content is capped by the space between the host and the chat column's top edge,
-so a long preview does not hide its entry actions behind the chat header.
+dictation host on mobile. The preview opens above that host, at the menu level
+(`z-50`), above the docks that share the band above the composer (`z-30`), and
+its scrollable content is capped by the space between the host and the chat
+column's top edge, so a long preview does not hide its entry actions behind the
+chat header.
 
 ## Layers
 
@@ -748,6 +750,18 @@ and the send path reading the same grammar.
   them after loading that identity's draft. Selection alone is not enough:
   the deferred chat column can still show the source composer. Ordinary
   pending text insertions go through `state/usePendingComposerText.ts`.
+  Column-addressed insertions go to its visible composer, including an expanded
+  BTW. A revert is session-addressed and waits until that session owns the
+  composer, even in a pinned column with an expanded BTW. Its text waits in a
+  separate session-keyed mailbox so later quotes and plugin insertions leave
+  it intact. On return, the restore is applied before any column insertion.
+  A `btw-pending:` identity holds text only in the hook's memory while the
+  fork is being created. Collapse and navigation save that text in memory;
+  failure recovery restores it there without writing the placeholder to storage.
+  Successful creation moves the text to the real fork and empties the pending
+  slot. Explicit discard clears it through the draft-deletion notification, so
+  the next BTW for the same parent starts empty. Persisted placeholder drafts
+  from older builds are ignored.
   The hook also selects the attachment draft before paint. `input-store.ts`
   owns its in-memory files and scoped send recovery, documented in
   `packages/ui/src/sync/DOCUMENTATION.md`.
@@ -958,17 +972,27 @@ one app-wide composer state is split per column:
   draft, so its paste, drop, picker and remove act on its own files. A pinned
   composer does not take the slot on mount, so app-wide attachments keep
   landing in the main chat until the user works in the pinned one.
+- **Composer address.** The composer publishes one address for the surfaces
+  outside its column (`input-store`'s `composerAddress`, one layout effect in
+  `ChatInput`): the inline-draft target and the attachment slot, both of which
+  move to the `/btw` fork while that fork owns the input. `hooks/useComposerAddress`
+  reads it for comments on files, diffs, plans, terminals, PRs and pages, and for
+  the image or screenshot those comments carry. A comment filed under any other
+  session key has no composer to render it, and an attachment filed elsewhere is
+  a hidden file.
 - **Pending text and context.** `setPendingInputText` and
-  `setPendingSyntheticParts` take a target. Null is the main chat's composer,
-  which every app-wide source writes to (plugins, git dialogs, file
-  selections, todo sends); a session id addresses the pinned composer on that
-  session, which is what text quoted inside that chat and the composer's own
-  restores use. A composer consumes only what is addressed to it. The main
-  chat's composer also waits until its deferred column shows the live
-  selection (`state/usePendingComposerText.ts`): a new-session draft opened
-  with a prompt, such as "resolve in new session" from a git conflict, leaves
-  the prompt while the column still shows the previous session, and taking it
-  then would save it into that session's draft. Preset
+  `setPendingSyntheticParts` take a target. Null is the main composer, which is
+  the chat on screen and what every surface acting on it writes to (quotes,
+  plugins, git dialogs, file selections, todo sends); a `/btw` fork, being that
+  same composer, takes those while it is expanded and the parent takes them once
+  it is collapsed. A session id addresses the composer showing that session,
+  which is what text quoted inside a pinned chat and a reverted message's prompt
+  use; text addressed to a session no composer shows waits until one does. The
+  main chat's composer also waits until its deferred column shows the live
+  selection (`state/usePendingComposerText.ts`): a new-session draft opened with
+  a prompt, such as "resolve in new session" from a git conflict, leaves the
+  prompt while the column still shows the previous session, and taking it then
+  would save it into that session's draft. Preset
   submits, guest-issue attaches and pending composer references are main-chat
   only.
 - **Focus.** `focusChatInput()` focuses the main chat's composer and skips
@@ -1189,15 +1213,23 @@ On mobile, "Comment" on a text selection does not open a floating input. The
 selection menu (`TextSelectionMenu.tsx`) hands the quote to this column's
 composer through `comment/MobileCommentComposerContext.ts`; `ChatContainer`
 creates one controller per column so an embedded column's selections never
-comment into a sibling. Desktop keeps its floating input in the selection
-menu; only the mobile path changed.
+comment into a sibling. Desktop keeps its floating input in the menu and files
+that attach into the same published scope.
 
 `comment/mobileCommentDraft.ts` owns the lifecycle. The scope (runtime,
 directory, session) comes from the visible composer's inline-draft target,
 including an expanded or pending BTW composer. A collapsed BTW uses the main
-composer's target. The hook publishes that scope before paint; the selection
-menu supplies only the quote. The scope is captured when the comment opens and
-is the only place the quote may land: attach writes a `chat-quote` draft into
+composer's target. The hook publishes that scope before paint, on every
+platform; the selection menu supplies only the quote and reads it back through
+`getScope()`, while a quote's text goes to the column's own address, which the
+composer on screen takes. Desktop's floating input lives
+outside the composer, so it reads the live scope at attach and the comment
+lands in the composer on screen then, including a fork that a `/btw` opened
+over the parent session. Without a published scope the comment is dropped and a
+quote falls back to this column's own rule (a pinned chat's session, the main
+mailbox otherwise). A mobile comment captures the scope when it opens, and
+that capture is the only
+place its quote may land: attach writes a `chat-quote` draft into
 `useInlineCommentDraftStore` at the captured target, never the currently
 active session, and a scope change closes the comment instead of re-targeting
 it. Attach also refuses at the boundary unless the authoritative scope still

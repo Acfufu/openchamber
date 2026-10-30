@@ -14,7 +14,7 @@ import { useSessionGoalArmStore } from '@/stores/useSessionGoalArmStore';
 import { DraftSendError, useSessionUIStore, type NewSessionDraftState } from '@/sync/session-ui-store';
 import { useSelectionStore } from '@/sync/selection-store';
 import { prepareUserMessageResume } from '@/sync/user-message-resume';
-import { prepareLocalAttachments, useDraftAttachedFiles, useInputStore, type SyntheticContextPart } from '@/sync/input-store';
+import { prepareLocalAttachments, useDraftAttachedFiles, useInputStore, type ComposerAddress, type SyntheticContextPart } from '@/sync/input-store';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { openParallelComposer } from '@/lib/multirun/openParallelComposer';
 import { useParallelComposer } from './composer/parallel/useParallelComposer';
@@ -55,7 +55,7 @@ import { useReviewFlowStart } from '@/components/session/useReviewFlowStart';
 import { BtwPanel } from './btw/BtwPanel';
 import { btwHoldsDock, useBtwPanelState } from './btw/useBtwPanelState';
 import { btwModelAvailability, resolveBtwSelection, useBtwStore } from '@/stores/useBtwStore';
-import { buildBtwSyntheticTexts, preparePendingBtwSend, startBtwSession } from '@/lib/btw';
+import { buildBtwSyntheticTexts, btwPendingComposerKey, preparePendingBtwSend, startBtwSession } from '@/lib/btw';
 import { AttachedFilesList, AttachedVSCodeFileChips, ActiveEditorFileSuggestion } from './FileAttachment';
 import { lazyWithChunkRecovery } from '@/lib/chunkLoadRecovery';
 import type { ToolPopupContent } from './message/types';
@@ -575,7 +575,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const btwSessionId = btwPanel.btwSessionId;
     const btwDirectory = btwPanel.btwDirectory;
     const btwComposerSessionId = btwPanel.pending && currentSessionId
-        ? `btw-pending:${currentSessionId}`
+        ? btwPendingComposerKey(currentSessionId)
         : btwSessionId;
     const isBtwActive = Boolean(btwComposerSessionId) && !btwPanel.collapsed;
     const isBtwPanelVisible = btwHoldsDock(btwPanel, hasPendingForm);
@@ -663,6 +663,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // composer" are the main chat's; a pinned composer takes only what was
     // addressed to its session (see input-store `pendingInputTarget`).
     const mailboxTarget = columnPinned ? currentSessionId : null;
+    // The session this composer is talking to, which `/btw` changes. Text
+    // addressed to a session (a revert of that session's message) belongs here
+    // only while this composer is the one showing it.
+    const shownSessionId = isBtwActive ? btwComposerSessionId : currentSessionId;
     const configProviderId = useConfigStore((state) => state.currentProviderId);
     const configModelId = useConfigStore((state) => state.currentModelId);
     const configCatalogLoaded = useConfigStore((state) => state.providersLoaded && state.agentsLoaded);
@@ -1240,6 +1244,18 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const inlineDraftKey = inlineDraftTarget
         ? getInlineCommentDraftKey(activeRuntimeKey, inlineDraftTarget.directory, inlineDraftTarget.sessionKey)
         : null;
+    // Publish where the composer on screen files what other surfaces hand it:
+    // inline drafts (file, diff, plan, terminal, PR and browser comments) and
+    // attachments (a comment's image, an annotation's screenshot).
+    const composerAddress = React.useMemo<ComposerAddress | null>(
+        () => ({ inline: inlineDraftTarget, attachments: chatDraftIdentity }),
+        [chatDraftIdentity, inlineDraftTarget],
+    );
+    React.useLayoutEffect(() => {
+        if (columnPinned) return;
+        useInputStore.getState().setComposerAddress(composerAddress);
+        return () => useInputStore.getState().setComposerAddress(null);
+    }, [columnPinned, composerAddress]);
     const draftCount = useInlineCommentDraftStore(
         React.useCallback(
             (state) => inlineDraftKey ? (state.drafts[inlineDraftKey] ?? []).length : 0,
@@ -1351,7 +1367,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         const panels = useBtwStore.getState();
         const pending = panels.byParent[currentSessionId];
         if (pending?.pending && !pending.creating && !btwSessionId) {
-            const pendingSessionId = `btw-pending:${currentSessionId}`;
+            const pendingSessionId = btwPendingComposerKey(currentSessionId);
             const identity = createChatDraftIdentity(activeRuntimeKey, currentSessionDirectoryForSync ?? currentDirectory, pendingSessionId);
             if (identity) {
                 clearChatDraft(identity, true);
@@ -1431,7 +1447,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // useComposerDraft: on a draft switch the incoming draft loads first and
     // the pending text lands on top of it.
     const focusComposer = React.useCallback(() => composerRef.current?.focus(), []);
-    usePendingComposerText({ enabled: !isBtwActive, target: mailboxTarget, setMessage, focus: focusComposer });
+    usePendingComposerText({ target: mailboxTarget, sessionId: shownSessionId, setMessage, focus: focusComposer });
 
     const parallel = useParallelComposer({
         enabled: !isMobile && !isBtwActive,
@@ -1873,7 +1889,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // Enter BTW before sending so the question uses its isolated selections.
         // A bare command waits for input; an argument requests one immediate send.
         if (commandPlan?.kind === 'prompt' && commandPlan.command.name === 'btw' && currentSessionId) {
-            const targetComposerId = btwSessionId ?? `btw-pending:${currentSessionId}`;
+            const targetComposerId = btwSessionId ?? btwPendingComposerKey(currentSessionId);
             const targetIdentity = createChatDraftIdentity(
                 activeRuntimeKey,
                 btwDirectory ?? currentSessionDirectoryForSync ?? currentDirectory,
@@ -2397,7 +2413,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     return;
                 }
                 const forkDirectory = fork.directory ?? targetDirectory;
-                migrateDraft(chatDraftIdentity, createChatDraftIdentity(activeRuntimeKey, forkDirectory, fork.id));
+                const forkIdentity = createChatDraftIdentity(activeRuntimeKey, forkDirectory, fork.id);
+                migrateDraft(chatDraftIdentity, forkIdentity);
+                // The files pasted while the fork was being created are this composer's.
+                useInputStore.getState().moveAttachedFiles(chatDraftIdentity, forkIdentity);
                 if (inlineDraftTarget) {
                     const drafts = useInlineCommentDraftStore.getState();
                     drafts.restoreDrafts({ directory: forkDirectory, sessionKey: fork.id }, drafts.consumeDrafts(inlineDraftTarget));

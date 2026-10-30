@@ -101,9 +101,26 @@ The VS Code queue gate and its live inputs are documented in
 | `viewport-store.ts` | Scroll anchors, session memory, loading indicators | App UI state |
 | `attachment-files.ts` | Attachment picker allowlists, MIME/content validation, structured-text sanitization, and HEIC conversion | Local chat attachments across shared UI runtimes |
 | `document-attachments.ts` | Bounded Office/OpenDocument extraction, document text serialization, embedded-image extraction, and positional citations | DOCX, PPTX, XLSX, ODT, ODP, and ODS chat attachments |
-| `input-store.ts` | Draft input state, attached files, synthetic parts, pending guest attach, destination-scoped fork replay handoff | Attachments and fork replay target runtime + directory + session; other pending input is app UI state |
+| `input-store.ts` | Draft input state, attached files, synthetic parts, pending guest attach, destination-scoped fork replay handoff, the address the composer publishes (inline drafts and attachments) | Attachments and fork replay target runtime + directory + session; the published address is the composer's own session or `/btw` fork; other pending input is app UI state |
 | `selection-store.ts` | Model/agent/variant selections | App UI state |
 | `voice-store.ts` | Voice state | App UI state |
+
+Pending text keeps column insertions and session-keyed restores in separate
+mailboxes, so a quote or plugin insertion cannot overwrite a waiting revert.
+A pinned
+column and its expanded BTW share the column address; only the composer showing
+the restored session may consume session-addressed text. Attachment appends to
+named slots preserve other in-flight appends; replacement, clearing and owner
+switches retain their read-cancellation behavior.
+
+### Why restores have a session-keyed mailbox
+
+A parent revert can wait while BTW owns the composer and receives more text.
+A single pending-text slot lost the restore on the next insertion. Each session
+keeps its latest restore until its composer consumes it; a failed revert rolls
+back only that session's entry. An annotation captures the published inline and
+attachment address together at attach time and keeps both through screenshot
+preparation, including when the callback was saved before a BTW transition.
 
 Local chat attachments are normalized by `attachment-files.ts` before entering `input-store.ts`. PNG, JPEG, GIF, WebP, and PDF retain their media type; HEIC/HEIF is converted to JPEG; recognized text/code formats and unknown files whose first 4 KB are text are sent as `text/plain`; binary files outside the supported media types are rejected. Jupyter notebooks become readable markdown with non-text outputs omitted. HAR credentials, cookies, and sensitive URL parameters are redacted, while request/response body text is omitted. SVG and Draw.io files are attached as source text, not executable/rendered content. Browser and VS Code pickers expose the same allowlist, while drag-and-drop may still accept an unknown extension after content inspection. Large plain-text clipboard pastes can become in-memory `text/plain` attachments named `pasted-context-N.txt` through the composer paste path; they use the same normalization and send pipeline as manually attached `.txt` files.
 

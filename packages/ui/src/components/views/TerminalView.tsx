@@ -4,6 +4,7 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { ACTIVE_PROJECT_ACTION_LIFECYCLES, useTerminalStore } from '@/stores/useTerminalStore';
 import { Spinner } from '@/components/ui/spinner';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { readComposerDraftTarget } from '@/hooks/useComposerAddress';
 import { useDraftSpaceTarget } from '@/lib/spaces/useDraftSpaceTarget';
 import { panelContentDirectory } from '@/lib/spaces/space-creation-requests';
 import { SpacePreparing } from '@/components/session/spaces/SpacePreparing';
@@ -886,9 +887,9 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
 
     const handleAttachSelection = React.useCallback(() => {
         const selection = terminalControllerRef.current?.getSelection();
-        const sessionKey = currentSessionId ?? (newSessionDraft?.open ? 'draft' : null);
-        if (!selection || !sessionKey || !activeTab || !contextDirectory) return;
-        addContextDraft({ directory: contextDirectory, sessionKey }, {
+        const target = readComposerDraftTarget(contextDirectory);
+        if (!selection || !target || !activeTab) return;
+        addContextDraft(target, {
             source: 'terminal',
             fileLabel: activeTab.label,
             startLine: selection.startLine,
@@ -899,7 +900,7 @@ export const TerminalView: React.FC<TerminalViewProps> = ({ visible, directory, 
             text: '',
         });
         queueMicrotask(focusChatInput);
-    }, [activeTab, addContextDraft, contextDirectory, currentSessionId, newSessionDraft?.open]);
+    }, [activeTab, addContextDraft, contextDirectory]);
 
     // Touch hosts have no keyboard shortcut for copy, so the toolbar offers the
     // same action the desktop gets from Cmd/Ctrl+C on a selection.

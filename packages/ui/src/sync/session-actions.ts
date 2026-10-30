@@ -60,7 +60,7 @@ import { mergeMessages } from "./optimistic"
 import { trackPromptInFlight } from "./prompts-in-flight"
 import { messagesBefore, messagesFrom } from "./message-ordering"
 import { deleteChatDirectory } from "@/lib/chatDirectories"
-import { createChatDraftIdentity } from "@/lib/chatDraftPersistence"
+import { createChatDraftIdentity, type ChatDraftIdentity } from "@/lib/chatDraftPersistence"
 import { cancelSessionTitleGeneration } from "./session-title-generation"
 import { recordSessionActionFailure } from "./session-action-failures"
 import { applyForkInheritance } from "@/lib/sessionForkInheritance"
@@ -708,15 +708,15 @@ function getSessionReplyDirectory(sessionId?: string): string | undefined {
   return directory ?? dir()
 }
 
-function restoreFilePartsToInput(fileParts: readonly FilePart[]): void {
-  useInputStore.getState().clearAttachedFiles()
+function restoreFilePartsToInput(fileParts: readonly FilePart[], target: ChatDraftIdentity | null): void {
+  useInputStore.getState().clearAttachedFiles(target)
   for (const filePart of fileParts) {
     if (!filePart.url) continue
     useInputStore.getState().addRestoredAttachment({
       url: filePart.url,
       mimeType: filePart.mime,
       filename: filePart.filename ?? "attachment",
-    })
+    }, target)
   }
 }
 
@@ -2671,20 +2671,17 @@ export async function revertToMessage(sessionId: string, messageId: string): Pro
 
   // Save input store state before mutations — if the API fails we need to
   // roll back both text and attachments to their previous values.
-  const prevInputAttachments = [...useInputStore.getState().attachedFiles]
-  const prevInputText = useInputStore.getState().pendingInputText
-  const prevInputMode = useInputStore.getState().pendingInputMode
+  const prevRestoreText = useInputStore.getState().pendingSessionRestores.get(sessionId) ?? null
   const draftTarget: InlineCommentDraftTarget | null = directory
     ? { directory, sessionKey: sessionId }
     : null
+  const restoreIdentity = createChatDraftIdentity(getRuntimeKey(), directory, sessionId)
+  const prevTargetAttachments = useInputStore.getState().getAttachedFiles(restoreIdentity)
   const prevDrafts = draftTarget ? useInlineCommentDraftStore.getState().getDrafts(draftTarget) : []
 
   // Restore reverted message text and file attachments to input
   if (messageText) {
-    useInputStore.setState({
-      pendingInputText: messageText,
-      pendingInputMode: "replace" as const,
-    })
+    useInputStore.getState().setPendingSessionRestore(sessionId, messageText)
   }
 
   // Restore file/image attachments from the target message.
@@ -2693,7 +2690,7 @@ export async function revertToMessage(sessionId: string, messageId: string): Pro
   // Only a prompt goes back to the composer: reverting a subagent run report
   // leaves whatever the user is typing alone.
   if (targetMsg?.role === "user") {
-    restoreFilePartsToInput(submittedFileParts)
+    restoreFilePartsToInput(submittedFileParts, restoreIdentity)
     if (draftTarget) restoreContextPartsToInput(submittedContextParts, draftTarget)
   }
 
@@ -2728,12 +2725,9 @@ export async function revertToMessage(sessionId: string, messageId: string): Pro
     store.setState({
       session: rollback,
     })
-    // Rollback input store: restore previous text and attachments
-    useInputStore.setState({
-      pendingInputText: prevInputText,
-      pendingInputMode: prevInputMode,
-      attachedFiles: prevInputAttachments,
-    })
+    // Rollback input store: only this session's attachment slot moves.
+    useInputStore.getState().setPendingSessionRestore(sessionId, prevRestoreText)
+    useInputStore.getState().setAttachedFiles(prevTargetAttachments, restoreIdentity)
     if (draftTarget) {
       useInlineCommentDraftStore.getState().clearDrafts(draftTarget)
       useInlineCommentDraftStore.getState().restoreDrafts(draftTarget, prevDrafts)

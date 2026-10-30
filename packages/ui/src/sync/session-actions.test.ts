@@ -198,16 +198,26 @@ mock.module("./session-ui-store", () => ({
 
 // Mock useInputStore
 const inputState: Pick<InputState,
-  "pendingComposerRestore" | "pendingInputText" | "pendingInputMode" | "attachedFiles"
-  | "clearAttachedFiles" | "addRestoredAttachment"
+  "pendingComposerRestore" | "pendingInputText" | "pendingInputMode" | "pendingInputTarget" | "pendingSessionRestores" | "setPendingSessionRestore" | "attachedFiles"
+  | "clearAttachedFiles" | "addRestoredAttachment" | "getAttachedFiles" | "setAttachedFiles"
 > = {
   pendingComposerRestore: null,
   pendingInputText: "",
   pendingInputMode: "replace",
+  pendingInputTarget: null,
+  pendingSessionRestores: new Map(),
+  setPendingSessionRestore: (sessionId, text) => {
+    if (text === null) inputState.pendingSessionRestores.delete(sessionId)
+    else inputState.pendingSessionRestores.set(sessionId, text)
+  },
   attachedFiles: [],
   clearAttachedFiles: () => {
     inputState.attachedFiles = []
   },
+  setAttachedFiles: (files) => {
+    inputState.attachedFiles = files
+  },
+  getAttachedFiles: () => inputState.attachedFiles,
   addRestoredAttachment: (attachment) => {
     inputState.attachedFiles = [...inputState.attachedFiles, {
       id: attachment.url,
@@ -2562,6 +2572,8 @@ describe("revertToMessage passes session directory", () => {
     Object.assign(inputState, {
       pendingInputText: "previous draft",
       pendingInputMode: "replace",
+      pendingInputTarget: null,
+      pendingSessionRestores: new Map(),
       attachedFiles: [],
     })
   })
@@ -2589,7 +2601,10 @@ describe("revertToMessage passes session directory", () => {
     expect(replyCalls.find((call) => call.method === "session.revert.stage")?.params.directory).toBe("/test/project")
     expect((sessionStore.getState().session[0] as Session & { revert?: { messageID?: string } }).revert?.messageID).toBe("msg_2")
     expect(currentStore.getState().session).toHaveLength(0)
-    expect(inputState.pendingInputText).toBe("edit this")
+    expect(inputState.pendingSessionRestores.get("session-a")).toBe("edit this")
+    // The reverted message's session, not whatever address was left behind.
+    expect(inputState.pendingInputText).toBe("previous draft")
+    expect(inputState.pendingInputTarget).toBeNull()
   })
 
   test("cuts the transcript at the message's context carriers so they leave with it", async () => {
@@ -2612,7 +2627,7 @@ describe("revertToMessage passes session directory", () => {
 
     expect(replyCalls.find((call) => call.method === "session.revert.stage")?.params.messageID).toBe("msg_ctx_1")
     expect((sessionStore.getState().session[0] as Session & { revert?: { messageID?: string } }).revert?.messageID).toBe("msg_ctx_1")
-    expect(inputState.pendingInputText).toBe("edit this")
+    expect(inputState.pendingSessionRestores.get("session-a")).toBe("edit this")
   })
 
   test("rolls back optimistic revert when the SDK returns an error", async () => {
@@ -2626,6 +2641,8 @@ describe("revertToMessage passes session directory", () => {
     })
     const childStores = createChildStores([["/test/project", sessionStore]])
     failingRevertSessionIds.add("session-a")
+    inputState.setPendingSessionRestore("session-a", "earlier restore")
+    inputState.setPendingSessionRestore("session-other", "other restore")
 
     const { setActionRefs, revertToMessage } = await import("./session-actions")
     setActionRefs(childStores, () => "/test/project")
@@ -2641,6 +2658,8 @@ describe("revertToMessage passes session directory", () => {
     expect((thrown as Error).message).toContain("session.revert.stage failed (500)")
     expect((sessionStore.getState().session[0] as Session & { revert?: { messageID?: string } }).revert).toBe(undefined)
     expect(inputState.pendingInputText).toBe("previous draft")
+    expect(inputState.pendingSessionRestores.get("session-a")).toBe("earlier restore")
+    expect(inputState.pendingSessionRestores.get("session-other")).toBe("other restore")
   })
 
   test("reverts recursive descendants at their first user message on or after the parent cutoff", async () => {

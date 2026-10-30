@@ -15,6 +15,16 @@ import type { AttachedFile } from '@/stores/types/sessionTypes';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 
 /**
+ * The composer identity a `/btw` fork takes while the fork is still being
+ * created. Its text stays in memory until migration or discard; it must never
+ * be persisted because the next `/btw` for this parent reuses the key.
+ */
+export const btwPendingComposerKey = (parentSessionId: string): string => `btw-pending:${parentSessionId}`;
+
+export const isBtwPendingComposerKey = (sessionId: string | null | undefined): boolean =>
+  Boolean(sessionId?.startsWith('btw-pending:'));
+
+/**
  * `/btw <question>`: fork the main session into a temporary session and send
  * the question there.
  *
