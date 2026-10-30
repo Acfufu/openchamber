@@ -48,6 +48,14 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  test('credits-used messages carry the amount and are translated in every locale', () => {
+    for (const [locale, dictionary] of Object.entries(localeDictionaries)) {
+      expect(dictionary['quota.value.creditsUsed']).toContain('{credits}');
+      if (locale !== 'en') {
+        expect(dictionary['quota.value.creditsUsed']).not.toBe(enDict['quota.value.creditsUsed']);
+      }
+    }
+  });
   test('repository links name either provider in every locale', () => {
     for (const dictionary of Object.values(localeDictionaries)) {
       expect(dictionary['gitView.header.openRepository']).toContain('{provider}');

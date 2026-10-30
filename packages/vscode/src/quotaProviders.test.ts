@@ -1304,6 +1304,84 @@ describe('GitHub Copilot quota provider (VS Code parity)', () => {
     assert.equal(result.usage!.windows.premium_interactions!.valueLabel, 'Unlimited');
   });
 
+  test('reports credits used for unlimited plans with usage', async () => {
+    stubFetchReturning(() => Promise.resolve(mockResponse({
+      copilot_plan: 'business',
+      quota_reset_date: '2026-11-01T00:00:00Z',
+      quota_snapshots: {
+        premium_interactions: { unlimited: true, entitlement: -1, remaining: -1, credits_used: 3233 },
+      },
+    })));
+
+    const result = await fetchQuotaForProvider('github-copilot');
+
+    assert.equal(result.ok, true);
+    assert.equal(result.planLabel, 'Copilot Business');
+    assert.equal(result.usage!.windows.premium_interactions!.usedPercent, null);
+    assert.equal(result.usage!.windows.premium_interactions!.creditsUsed, 3233);
+    assert.equal(result.usage!.windows.premium_interactions!.valueLabel, undefined);
+  });
+
+  for (const creditsUsed of [0, '3233.27', -1, '', '  ', 'invalid', null, undefined, Infinity]) {
+    test(`handles unlimited credits_used ${String(creditsUsed)} in both providers`, async () => {
+      for (const provider of ['github-copilot', 'github-copilot-addon']) {
+        stubFetchReturning(() => Promise.resolve(mockResponse({
+          quota_snapshots: { premium_interactions: { unlimited: true, credits_used: creditsUsed } },
+        })));
+        const result = await fetchQuotaForProvider(provider);
+        const window = result.usage!.windows.premium_interactions!;
+        const expected = creditsUsed === 0 ? 0 : creditsUsed === '3233.27' ? 3233.27 : undefined;
+        assert.equal(window.creditsUsed, expected);
+        assert.equal(window.valueLabel, expected === undefined ? 'Unlimited' : undefined);
+        assert.equal(window.usedPercent, null);
+        assert.equal(window.remainingPercent, null);
+      }
+    });
+  }
+
+  test('returns null/omits plan label for unmapped plan/sku and handles can_signup_for_limited', async () => {
+    stubFetchReturning(() => Promise.resolve(mockResponse({
+      copilot_plan: 'unknown_plan',
+      access_type_sku: 'unknown_sku',
+      quota_snapshots: {
+        premium_interactions: { unlimited: true },
+      },
+    })));
+    const unmappedResult = await fetchQuotaForProvider('github-copilot');
+    assert.equal(unmappedResult.planLabel, undefined);
+
+    stubFetchReturning(() => Promise.resolve(mockResponse({
+      copilot_plan: 'business',
+      can_signup_for_limited: true,
+      quota_snapshots: {
+        premium_interactions: { unlimited: true },
+      },
+    })));
+    const paidWithSignupResult = await fetchQuotaForProvider('github-copilot');
+    assert.equal(paidWithSignupResult.planLabel, 'Copilot Business');
+
+    stubFetchReturning(() => Promise.resolve(mockResponse({
+      can_signup_for_limited: true,
+      quota_snapshots: {
+        premium_interactions: { unlimited: false, entitlement: 50, remaining: 50 },
+      },
+    })));
+    const freeSignupResult = await fetchQuotaForProvider('github-copilot');
+    assert.equal(freeSignupResult.planLabel, 'Copilot Free');
+  });
+
+  test('keeps Unlimited value label when has_quota is false despite credits_used', async () => {
+    stubFetchReturning(() => Promise.resolve(mockResponse({
+      copilot_plan: 'business',
+      quota_snapshots: {
+        premium_interactions: { unlimited: true, has_quota: false, credits_used: 1200 },
+      },
+    })));
+    const result = await fetchQuotaForProvider('github-copilot');
+    assert.equal(result.usage!.windows.premium_interactions!.valueLabel, 'Unlimited');
+    assert.equal(result.usage!.windows.premium_interactions!.creditsUsed, undefined);
+  });
+
   test('falls back to percent_remaining when entitlement is unusable', async () => {
     stubFetchReturning(() => Promise.resolve(mockResponse({
       quota_reset_date: '2026-09-01T00:00:00Z',

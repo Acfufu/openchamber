@@ -47,6 +47,7 @@ export interface UsageWindow {
   resetAfterFormatted: string | null;
   valueLabel?: string | null;
   value?: UsageWindowValue;
+  creditsUsed?: number;
   /** Claimable gift (bonus) limit reset, when the provider exposes an available one. */
   giftReset?: UsageWindowGiftReset | null;
 }

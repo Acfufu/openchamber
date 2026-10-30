@@ -3452,6 +3452,7 @@ export const dict = {
   'quota.window.daily': 'يومي',
   'quota.window.monthly': 'شهري',
   'quota.window.credits': 'الأرصدة',
+  'quota.value.creditsUsed': 'الأرصدة المستخدمة: {credits}',
   'quota.window.keyLimit': 'حد المفتاح',
   'quota.window.creditsBalance': 'رصيد الأرصدة',
   'quota.window.monthlyCredits': 'الأرصدة الشهرية',

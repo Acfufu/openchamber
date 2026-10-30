@@ -3520,6 +3520,7 @@ export const dict: Record<I18nKey, string> = {
   'quota.window.daily': '每日',
   'quota.window.monthly': '每月',
   'quota.window.credits': '点数额度',
+  'quota.value.creditsUsed': '已用点数：{credits}',
   'quota.window.keyLimit': '密钥限额',
   'quota.window.creditsBalance': '额度余额',
   'quota.window.monthlyCredits': '每月积分',

@@ -3452,6 +3452,7 @@ export const dict = {
   'quota.window.daily': 'יומי',
   'quota.window.monthly': 'חודשי',
   'quota.window.credits': 'קרדיטים',
+  'quota.value.creditsUsed': 'קרדיטים שנוצלו: {credits}',
   'quota.window.keyLimit': 'מגבלת המפתח',
   'quota.window.creditsBalance': 'יתרת קרדיטים',
   'quota.window.monthlyCredits': 'קרדיטים חודשיים',

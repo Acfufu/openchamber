@@ -3222,6 +3222,7 @@ export const dict = {
   'quota.window.daily': 'Täglich',
   'quota.window.monthly': 'Monatlich',
   'quota.window.credits': 'Credits',
+  'quota.value.creditsUsed': '{credits} Credits verbraucht',
   'quota.window.keyLimit': 'Schlüssellimit',
   'quota.window.creditsBalance': 'Kreditguthaben',
   'quota.window.monthlyCredits': 'Monatliche Credits',

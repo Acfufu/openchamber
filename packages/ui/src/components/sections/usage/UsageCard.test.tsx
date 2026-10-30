@@ -9,6 +9,8 @@ const { createRoot } = await import('react-dom/client');
 const { flushSync } = await import('react-dom');
 const { UsageCard } = await import('./UsageCard');
 const { I18nProvider, useI18nStore } = await import('@/lib/i18n');
+const { dict: enDict } = await import('@/lib/i18n/messages/en');
+const { dict: ukDict } = await import('@/lib/i18n/messages/uk');
 
 const balanceWindow: UsageWindow = {
   usedPercent: null,
@@ -39,6 +41,20 @@ const render = (window: UsageWindow) => {
 
 afterEach(() => {
   for (const container of containers.splice(0)) container.remove();
+  flushSync(() => useI18nStore.setState({ locale: 'en', dictionary: enDict }));
+});
+
+test('changes the credits-used message when locale changes with the same quota sample', () => {
+  const window = { ...balanceWindow, valueLabel: undefined, creditsUsed: 3233.27 };
+  const container = render(window);
+  expect(container.textContent).toContain('3,233.3 Credits Used');
+
+  flushSync(() => useI18nStore.setState({ locale: 'uk', dictionary: ukDict }));
+
+  expect(container.textContent).toContain('Використано кредитів: 3,233.3');
+  expect(container.textContent).not.toContain('Credits Used');
+  expect(container.querySelector('[role="progressbar"]')).toBeNull();
+  expect(window.creditsUsed).toBe(3233.27);
 });
 
 test('cached Zen values update when the locale changes without another quota request', async () => {

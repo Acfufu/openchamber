@@ -21,10 +21,16 @@ export const formatPercent = (value: number | null): string => {
 };
 
 export const formatQuotaValueLabel = (
-  valueLabel: string | null | undefined,
+  window: Pick<UsageWindow, 'valueLabel' | 'creditsUsed'>,
   percent: number | null,
+  translate: (key: I18nKey, params?: I18nParams) => string,
 ): string => {
-  return valueLabel ?? formatPercent(percent);
+  if (window.creditsUsed !== undefined) {
+    const rounded = Math.round(window.creditsUsed * 10) / 10;
+    const credits = rounded.toLocaleString('en-US', { maximumFractionDigits: 1 });
+    return translate('quota.value.creditsUsed', { credits });
+  }
+  return window.valueLabel ?? formatPercent(percent);
 };
 
 export const formatQuotaWindowValueLabel = (
@@ -33,7 +39,7 @@ export const formatQuotaWindowValueLabel = (
   translate: (key: I18nKey, params?: I18nParams) => string,
 ): string => {
   const value = window.value;
-  if (!value) return formatQuotaValueLabel(window.valueLabel, percent);
+  if (!value) return formatQuotaValueLabel(window, percent, translate);
   if (value.kind === 'requests') {
     return translate('quota.value.requests', { count: new Intl.NumberFormat(getCurrentIntlLocale()).format(value.count) });
   }

@@ -3511,6 +3511,7 @@ export const dict: Record<I18nKey, string> = {
   "quota.window.daily": "Diario",
   "quota.window.monthly": "Mensual",
   "quota.window.credits": "Créditos",
+  "quota.value.creditsUsed": "Créditos usados: {credits}",
   "quota.window.keyLimit": "Límite de la clave",
   "quota.window.creditsBalance": "Saldo de créditos",
   "quota.window.monthlyCredits": "Créditos mensuales",

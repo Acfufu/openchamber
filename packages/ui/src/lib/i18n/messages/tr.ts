@@ -3321,6 +3321,7 @@ export const dict = {
   'quota.window.daily': 'Günlük',
   'quota.window.monthly': 'Aylık',
   'quota.window.credits': 'Kredi',
+  'quota.value.creditsUsed': 'Kullanılan kredi: {credits}',
   'quota.window.keyLimit': 'Anahtar Limiti',
   'quota.window.creditsBalance': 'Kredi Bakiyesi',
   'quota.window.monthlyCredits': 'Aylık Kredi',

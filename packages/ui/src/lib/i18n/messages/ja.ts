@@ -3515,6 +3515,7 @@ export const dict: Record<I18nKey, string> = {
   'quota.window.daily': '日次',
   'quota.window.monthly': '毎月',
   'quota.window.credits': 'クレジット',
+  'quota.value.creditsUsed': '使用済みクレジット: {credits}',
   'quota.window.keyLimit': 'キーの上限',
   'quota.window.creditsBalance': 'クレジット残高',
   'quota.window.monthlyCredits': '月間クレジット',

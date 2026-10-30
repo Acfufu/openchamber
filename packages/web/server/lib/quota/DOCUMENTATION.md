@@ -312,7 +312,8 @@ what `microsoft/vscode-copilot-chat` consumes (`CopilotUserQuotaInfo`). Each
 snapshot carries `entitlement`, `remaining`, `unlimited`, and
 `percent_remaining`. Providers must honor these rules:
 
-- `unlimited: true` renders a percent-less window with an "Unlimited" value label.
+- `unlimited: true` renders a percent-less window. When `credits_used` is a finite non-negative number and `has_quota !== false`, both runtimes carry it as numeric `creditsUsed`; shared UI renders the complete localized credits-used message. Otherwise the value label remains "Unlimited".
+- `copilot_plan` / `access_type_sku` / `can_signup_for_limited` are parsed to resolve `planLabel` (`Copilot Free`, `Copilot Pro`, `Copilot Pro+`, `Copilot Max`, `Copilot Business`, `Copilot Enterprise`, `Copilot Student`), matching VS Code's entitlement mapping. Unknown or unmapped combinations resolve to null (no badge).
 - Percent math requires a positive `entitlement`; entitlements of `0`, `-1`, or null are unusable.
 - When entitlement/remaining are unusable, fall back to `100 - percent_remaining`.
 - Snapshots other than `premium_interactions` (legacy annual plans) yield zero windows.
@@ -332,9 +333,12 @@ one derivation.
 Reporting the remaining axis instead (`39078 / 60000 left`) contradicted what the
 row's own percent, progress bar, and the used/remaining display toggle reported,
 and stated the opposite of VS Code for the same account at the same moment.
-`credits_used` (20,910 live) is monotonic consumption since the last reset and is
-deliberately not used as the label: it lags `percent_remaining` and would not sum
-to the entitlement.
+For metered plans with an entitlement, `credits_used` (20,910 live) is monotonic
+consumption since the last reset and is deliberately not used as the label: it
+lags `percent_remaining` and would not sum to the entitlement. For unlimited plans
+where entitlement is unbounded (`-1` or null), `credits_used` provides the only
+meaningful consumption indicator. It crosses the quota response as numeric
+`creditsUsed` so changing the UI locale translates the message without refetching.
 
 The label is fixed to the used axis, so with the display preference set to
 `remaining` the bar and its caption flip to remaining while the number still reads
