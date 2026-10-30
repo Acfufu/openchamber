@@ -28,7 +28,6 @@ mock.module("@/lib/opencode/client", () => ({
     captureSessionCleanup: async () => async () => undefined,
     getDirectory: () => currentDirectory,
     setDirectory: mock(() => undefined),
-    captureSessionCleanup: async () => async () => undefined,
     createSession: mock(async (params: unknown, directory?: string | null) => {
       nextCreateSessionCalls.push({ params, directory })
       return nextCreateSessionResponse

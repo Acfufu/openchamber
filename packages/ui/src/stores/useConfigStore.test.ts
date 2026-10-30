@@ -150,7 +150,6 @@ mock.module('@/lib/opencode/client', () => ({
   isOpencodeNotFound: () => false,
   OpencodeApiError: Error,
   normalizeOpencodeError: (operation: string, error: unknown) => new Error(`${operation}: ${String(error)}`),
-  isOpencodeNotFound: () => false,
   opencodeClient: {
     setDirectory: mock(() => undefined),
     getDirectory: mock(() => DIRECTORY),

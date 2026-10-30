@@ -19,7 +19,6 @@ mock.module("@/lib/runtime-switch", () => ({
     return () => captured === runtimeKey
   },
 }))
-const runtimeFetchModule = await import("@/lib/runtime-fetch");
 mock.module("@/lib/runtime-fetch", () => ({
   ...runtimeFetchModule,
   runtimeFetch: async (input: string | URL | Request) => {
