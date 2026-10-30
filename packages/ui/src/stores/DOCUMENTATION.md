@@ -469,16 +469,36 @@ clear the pick. An effort picked in a draft is a choice of its own: those same
 paths leave the draft alone while `currentVariantSelection.override` is set.
 
 An open session's agent goes both ways. A pick applies to the session when the
-next message is sent (`switchAgent` before the prompt). Every switch, whoever
-made it (this composer, another client, a plugin), lands on OpenCode's session
-record through `session.agent.selected`, and `ModelControls` follows the
-record through `useSelectionStore.followSessionAgent`. That store remembers,
-per session and persisted, the record agent the composer last followed: a
-record agent it has not followed yet is a newer switch and replaces the pick,
-an unchanged record leaves a pick made after it in place across session
-switches and reloads. Following moves the agent only (`setAgent(name, {
-keepModel: true })`): the session keeps running on its own model, so neither
-the agent's pinned nor its remembered model is applied, and Auto stays.
+next message is sent (`switchAgent` before the prompt). Until then it is the
+session's unsent pick (`useSelectionStore.pickSessionAgent`, persisted): the
+agent menu, the composer's cycle key and the global cycle shortcut make one,
+and only another pick replaces it. The composer sends it even when the
+app-wide `currentAgentName` has drifted from it. A message that carries it
+settles it (`settleSessionAgentPick`) as the send leaves or as the queue
+accepts it, so a switch another client makes meanwhile shows even when its
+events arrive merged; a failed send gives the pick back while the composer
+still shows it, and a shell command carries no agent. A record that reaches the
+pick settles it too, and picking the agent the session already runs on holds
+nothing. Every switch, whoever made it (this composer,
+another client, a plugin), lands on OpenCode's session record through
+`session.agent.selected`, and `ModelControls` follows the record through
+`useSelectionStore.followSessionAgent`. That store remembers, per session and
+persisted, the record agent the composer last followed: a record agent it has
+not followed yet is a newer switch and replaces what the composer shows,
+unless a pick is unsent, which it only marks as followed. Other writers of the
+session's agent (history and record restores, `setAgent` from Settings or a
+directory snapshot) cannot replace an unsent pick either. Following moves the
+agent only (`setAgent(name, { keepModel: true })`): the session keeps running
+on its own model, so neither the agent's pinned nor its remembered model is
+applied, and Auto stays.
+
+### Why an agent pick waits for the send
+
+A pick writes nothing to the session record. Writing it at pick time was
+rejected: every switch is a durable record that shows in the transcript, so
+cycling through agents left a switch line per press. Holding the pick as unsent in the selection
+store, and letting nothing but another pick or the send replace it, keeps the
+transcript to the switches that ran a message.
 
 The agent shown is the agent sent. The picker labels an open session with its
 `sessionAgentSelections` entry, while a send carries the config store's

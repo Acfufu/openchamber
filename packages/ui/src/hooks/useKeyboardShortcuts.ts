@@ -276,14 +276,15 @@ export const useKeyboardShortcuts = () => {
       const backward = combo && !combo.includes('shift') ? normalizeCombo(`shift+${combo}`) : '';
       const direction = backward && eventMatchesShortcut(event, backward) ? -1 : 1;
       const config = useConfigStore.getState();
-      const next = getCycledPrimaryAgentName(config.getVisibleAgents(), config.currentAgentName, direction, state.favoriteAgents);
+      const sessionId = useSessionUIStore.getState().currentSessionId;
+      const shownAgent = (sessionId ? useSelectionStore.getState().getSessionAgentPick(sessionId) : null) ?? config.currentAgentName;
+      const next = getCycledPrimaryAgentName(config.getVisibleAgents(), shownAgent, direction, state.favoriteAgents);
       if (!next) return false;
+      if (sessionId) {
+        useSelectionStore.getState().pickSessionAgent(sessionId, next);
+      }
       config.setAgent(next);
       state.addRecentAgent(next);
-      const sessionId = useSessionUIStore.getState().currentSessionId;
-      if (sessionId) {
-        useSelectionStore.getState().saveSessionAgentSelection(sessionId, next);
-      }
     },
     toggle_terminal: () => {
       if (useUIStore.getState().isMobile) return false;

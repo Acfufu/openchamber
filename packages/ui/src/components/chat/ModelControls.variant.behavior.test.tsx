@@ -180,6 +180,7 @@ type SelectionState = {
   getAgentModelVariantForSession: () => VariantChoice;
   saveSessionModelSelection: (sessionId: string, providerId: string, modelId: string) => void;
   saveSessionAgentSelection: (sessionId: string, agentName: string) => void;
+  pickSessionAgent: (sessionId: string, agentName: string) => void;
   saveAgentModelForSession: (sessionId: string, agentName: string, providerId: string, modelId: string) => void;
   saveAgentModelVariantForSession: (
     sessionId: string,
@@ -217,6 +218,9 @@ const useSelectionStore = create<SelectionState>((set, get) => ({
   getAgentModelVariantForSession: () => get().savedVariant,
   saveSessionModelSelection: () => undefined,
   saveSessionAgentSelection: (sessionId, agentName) => set((state) => ({
+    sessionAgentSelections: new Map(state.sessionAgentSelections).set(sessionId, agentName),
+  })),
+  pickSessionAgent: (sessionId, agentName) => set((state) => ({
     sessionAgentSelections: new Map(state.sessionAgentSelections).set(sessionId, agentName),
   })),
   saveAgentModelForSession: () => undefined,

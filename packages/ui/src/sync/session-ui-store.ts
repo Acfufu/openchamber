@@ -2489,6 +2489,15 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
         ? () => useInputHistoryStore.getState().appendSubmissions(historyIdentity, historySubmissions)
         : undefined
 
+      // This send switches the session to its agent, so a pick of that agent
+      // is no longer unsent and the composer follows the record again; a
+      // failed send gives the pick back while the composer still shows it.
+      // A shell command carries no agent.
+      const carriedPick = inputMode !== "shell" && targetSessionId && effectiveAgent
+        && useSelectionStore.getState().getSessionAgentPick(targetSessionId) === effectiveAgent
+        ? { sessionId: targetSessionId, agent: effectiveAgent }
+        : null
+      if (carriedPick) useSelectionStore.getState().settleSessionAgentPick(carriedPick.sessionId, carriedPick.agent)
       const routed = await routeMessage({
         runtimeKey: capturedRuntimeKey,
         sessionId: targetSessionId || "",
@@ -2516,6 +2525,13 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
             filename: attachmentWireName(a),
           })),
         })),
+      }).catch((error) => {
+        const selection = useSelectionStore.getState()
+        if (carriedPick && selection.getSessionAgentPick(carriedPick.sessionId) === null
+          && selection.getSessionAgentSelection(carriedPick.sessionId) === carriedPick.agent) {
+          selection.pickSessionAgent(carriedPick.sessionId, carriedPick.agent)
+        }
+        throw error
       })
       if (routed !== "shell" && options?.recordEffort && isCurrentRuntimeInstance()) {
         rememberEffort(providerID, modelID, variant ?? null, effortRevision)

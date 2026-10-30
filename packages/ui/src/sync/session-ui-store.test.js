@@ -598,6 +598,80 @@ describe('sendMessage captured target', () => {
 
     expect(useUIStore.getState().lastUsedEfforts).toEqual({ 'provider-a/model-a': 'low' });
   });
+
+  const sendWithAgent = (agent, inputMode = 'normal') => useSessionUIStore.getState().sendMessage(
+    'message',
+    'provider-a',
+    'model-a',
+    agent,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    inputMode,
+    { target: { runtimeKey: getRuntimeKey(), sessionId: 'session-captured', directory: '/captured/project' } },
+  );
+
+  test('the send that switches the session to a picked agent settles the pick; a failed one gives it back', async () => {
+    const selection = useSelectionStore.getState();
+    selection.clearSessionSelections('session-captured');
+    selection.pickSessionAgent('session-captured', 'plan');
+
+    opencodeClient.sendMessage = async () => { throw new Error('offline'); };
+    await expect(sendWithAgent('plan')).rejects.toThrow('offline');
+    expect(selection.getSessionAgentPick('session-captured')).toBe('plan');
+
+    // Picking the session's own agent while a send is out is newer than the
+    // send, so its failure does not bring the pick back.
+    selection.followSessionAgent('session-captured', 'build');
+    let fail;
+    let out;
+    const failing = new Promise((resolve) => { out = resolve; });
+    opencodeClient.sendMessage = () => new Promise((_resolve, reject) => {
+      fail = reject;
+      out();
+    });
+    const failedSend = sendWithAgent('plan');
+    await failing;
+    selection.pickSessionAgent('session-captured', 'build');
+    fail(new Error('offline'));
+    await expect(failedSend).rejects.toThrow('offline');
+    expect(selection.getSessionAgentPick('session-captured')).toBeNull();
+    expect(selection.getSessionAgentSelection('session-captured')).toBe('build');
+    selection.pickSessionAgent('session-captured', 'plan');
+
+    opencodeClient.sendMessage = async (params) => {
+      calls.push(params);
+      return 'msg';
+    };
+    const shell = spyOn(opencodeClient, 'shellSession').mockResolvedValue(undefined);
+    try {
+      await sendWithAgent('plan', 'shell');
+    } finally {
+      shell.mockRestore();
+    }
+    expect(selection.getSessionAgentPick('session-captured')).toBe('plan');
+
+    // Settled as the send leaves, so a switch another client makes while it
+    // is out shows in the composer even if its events arrive merged.
+    let finish;
+    let started;
+    const leaving = new Promise((resolve) => { started = resolve; });
+    opencodeClient.sendMessage = (params) => new Promise((resolve) => {
+      calls.push(params);
+      finish = resolve;
+      started();
+    });
+    const sending = sendWithAgent('plan');
+    await leaving;
+    expect(selection.getSessionAgentPick('session-captured')).toBeNull();
+    expect(selection.followSessionAgent('session-captured', 'review')).toBe(true);
+    finish('msg');
+    await sending;
+    expect(calls.at(-1).agent).toBe('plan');
+    expect(selection.getSessionAgentSelection('session-captured')).toBe('review');
+    selection.clearSessionSelections('session-captured');
+  });
 });
 
 describe('slash-command goal objectives', () => {

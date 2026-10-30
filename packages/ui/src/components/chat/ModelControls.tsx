@@ -480,6 +480,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     const getSessionModelSelection = useSelectionStore((state) => state.getSessionModelSelection);
     const saveSessionModelSelection = useSelectionStore((state) => state.saveSessionModelSelection);
     const saveSessionAgentSelection = useSelectionStore((state) => state.saveSessionAgentSelection);
+    const pickSessionAgent = useSelectionStore((state) => state.pickSessionAgent);
     const saveAgentModelForSession = useSelectionStore((state) => state.saveAgentModelForSession);
     const getAgentModelForSession = useSelectionStore((state) => state.getAgentModelForSession);
     const saveAgentModelVariantForSession = useSelectionStore((state) => state.saveAgentModelVariantForSession);
@@ -1013,9 +1014,10 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
     // Every agent switch lands on the session record (`session.agent.selected`),
     // whoever made it: this composer's send, another client, a plugin. A switch
-    // the composer has not followed yet is newer than anything picked here, so
-    // the picker takes it. An unchanged record leaves a pick made after it in
-    // place, across reopen and reload too. The model is not part of a switch:
+    // the composer has not followed yet is newer than what the composer shows,
+    // so the picker takes it, unless a pick made here is still unsent: the
+    // next send switches the session to that pick. An unchanged record leaves
+    // a pick in place, across reopen and reload too. The model is not part of a switch:
     // the session keeps running on its own, so the model shown (Auto included)
     // stays as it is; a model switch is followed by the restore below.
     React.useEffect(() => {
@@ -1512,7 +1514,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             if (!agentSelectable || !controlledSessionId) return;
             // The pick belongs to the controlled session only; the app-wide
             // agent stays the main chat's.
-            saveSessionAgentSelection(controlledSessionId, agentName);
+            pickSessionAgent(controlledSessionId, agentName);
             addRecentAgent(agentName);
             if (options?.closeModelSelector ?? true) {
                 setAgentMenuOpen(false);
@@ -1520,14 +1522,15 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             return;
         }
         try {
+            // The pick reaches the session with the next send; held as
+            // unsent until then, so the session record cannot replace it.
+            if (currentSessionId) {
+                pickSessionAgent(currentSessionId, agentName);
+            }
             setAgent(agentName);
             addRecentAgent(agentName);
             if (options?.closeModelSelector ?? true) {
                 setAgentMenuOpen(false);
-            }
-
-            if (currentSessionId) {
-                saveSessionAgentSelection(currentSessionId, agentName);
             }
             if (isCompact) {
                 closeMobilePanel();
@@ -1542,7 +1545,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
         controlledSessionId,
         currentSessionId,
         isCompact,
-        saveSessionAgentSelection,
+        pickSessionAgent,
         setAgent,
         setAgentMenuOpen,
         selection,

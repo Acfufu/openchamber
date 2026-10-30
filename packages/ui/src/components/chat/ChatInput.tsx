@@ -629,7 +629,13 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const attachedFiles = useDraftAttachedFiles(chatDraftIdentity);
     const addAttachedFile = useInputStore((s) => s.addAttachedFile);
     const clearAttachedFiles = useInputStore((s) => s.clearAttachedFiles);
-    const saveSessionAgentSelection = useSelectionStore((s) => s.saveSessionAgentSelection);
+    const pickSessionAgent = useSelectionStore((s) => s.pickSessionAgent);
+    // An agent picked for this session and not sent yet. The send carries
+    // it even while the app-wide agent has drifted from it.
+    const sessionAgentPick = useSelectionStore(React.useCallback(
+        (s) => currentSessionId ? s.sessionPickedAgents.get(currentSessionId) ?? null : null,
+        [currentSessionId],
+    ));
     const btwModelSelection = useSelectionStore(React.useCallback(
         (s) => btwComposerSessionId ? s.sessionModelSelections.get(btwComposerSessionId) ?? null : null,
         [btwComposerSessionId],
@@ -697,7 +703,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const currentVariant = pinnedComposerSelection ? pinnedComposerSelection.variant ?? undefined : configVariant;
     const currentVariantSelection = useConfigStore((state) => state.currentVariantSelection);
     const configAgentName = useConfigStore((state) => state.currentAgentName);
-    const currentAgentName = pinnedComposerSelection?.agent ?? configAgentName;
+    const currentAgentName = pinnedComposerSelection?.agent ?? sessionAgentPick ?? configAgentName;
     const setAgent = useConfigStore((state) => state.setAgent);
     // Filtered here rather than through `getVisibleAgents()`, which returns a
     // new array on every call: that identity would rebuild the language
@@ -1749,6 +1755,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             // Anything attached while the queue write was out stays, after these.
             updateLinkedReferencesFor(chatDraftIdentity, (current) => withComposerReferences(linked, current));
             return;
+        }
+        // The queued message carries the agent to the session now, whoever
+        // delivers it.
+        if (queueSessionId && currentAgentName) {
+            useSelectionStore.getState().settleSessionAgentPick(queueSessionId, currentAgentName);
         }
         void resumeAfterQueue().catch(console.warn);
         recordLinkedReferences(queueSessionId, queueTarget.directory, linked);
@@ -3021,13 +3032,13 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         const nextAgentName = getCycledPrimaryAgentName(agents, currentAgentName, direction, useUIStore.getState().favoriteAgents);
         if (!nextAgentName) return;
 
+        if (currentSessionId) {
+            pickSessionAgent(currentSessionId, nextAgentName);
+        }
+
         // A pinned column's agent is its own session's choice only.
         if (!columnPinned) setAgent(nextAgentName);
-
-        if (currentSessionId) {
-            saveSessionAgentSelection(currentSessionId, nextAgentName);
-        }
-    }, [agents, columnPinned, currentAgentName, currentModelId, currentProviderId, currentSessionId, setAgent, saveSessionAgentSelection]);
+    }, [agents, columnPinned, currentAgentName, currentModelId, currentProviderId, currentSessionId, setAgent, pickSessionAgent]);
 
     // Height the failed-dictation salvage text needs. Its overlay sits
     // absolutely over the composer, so the composer must be able to grow for
