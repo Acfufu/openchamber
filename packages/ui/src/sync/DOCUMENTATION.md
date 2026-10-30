@@ -1390,6 +1390,10 @@ the end first, and the reader is moved only if the message arrives and they
 have neither scrolled nor sent in the meantime. Mobile skips that search because it
 loads history only on an explicit tap.
 
+Session-only navigation and `/btw` parent resolution belong to the
+[router](../lib/router/DOCUMENTATION.md). Its `openSession` registers the opener
+a toast uses, so the session store keeps no dependency on the router.
+
 A message link opens the session on one message instead. Links are built and
 parsed in `lib/sessionLinks.ts`: the web copies `?session=<id>&message=<id>` on
 its own origin, desktop and the Capacitor app copy
