@@ -423,6 +423,14 @@ type DefaultAgentModelSelection = {
     variant?: string | null;
 };
 
+/** `agentName` is unset when the directory's agents could not be read: OpenCode then picks its own default there. */
+type DirectoryDefaultSelection = {
+    agentName: string | undefined;
+    providerId: string;
+    modelId: string;
+    variant?: string | null;
+};
+
 // Shared default-selection cascade used both at startup (loadAgents) and when opening a
 // fresh draft (applyDefaultModelAgentSelection), so the two paths stay identical.
 //
@@ -1043,7 +1051,9 @@ const getFallbackProjectDirectory = (): string | null => {
     }
 };
 
-const getProjectDefaultsForConfigDirectory = (directory: string | null | undefined) => {
+type ProjectDefaults = { projectDefaultAgent?: string; projectDefaultModel?: string; projectDefaultVariant?: string };
+
+const getProjectDefaultsForConfigDirectory = (directory: string | null | undefined): ProjectDefaults => {
     const configDirectory = normalizeConfigPath(directory);
     if (!configDirectory) {
         return {};
@@ -1051,6 +1061,10 @@ const getProjectDefaultsForConfigDirectory = (directory: string | null | undefin
     const session = useSessionUIStore.getState();
     if (!session.currentSessionId && session.newSessionDraft?.open && session.newSessionDraft.target === 'chat'
         && toDirectoryKey(configDirectory) === useConfigStore.getState().activeDirectoryKey) return {};
+    return readProjectDefaults(configDirectory);
+};
+
+const readProjectDefaults = (configDirectory: string): ProjectDefaults => {
     const projectDirectory = resolveProjectDirectory(configDirectory);
     const project = useProjectsStore.getState().projects.find((entry) => normalizeConfigPath(entry.path) === projectDirectory);
     return {
@@ -1665,8 +1679,8 @@ interface ConfigStore {
     setCurrentVariantOverride: (override: string | null | undefined, inherited: string | null | undefined) => void;
     cycleCurrentVariant: () => string | undefined;
     getCurrentModelVariants: () => string[];
-    /** The effort the active project or Settings configures for this model; `undefined` for any model that is not a configured default. */
-    getDefaultVariantForModel: (providerId: string, modelId: string) => string | undefined;
+    /** The effort the project of `directory` (the active one when omitted) or Settings configures for this model; `undefined` for any model that is not a configured default. */
+    getDefaultVariantForModel: (providerId: string, modelId: string, directory?: string | null) => string | undefined;
     /**
      * `keepModel` switches the agent alone. It is for following a switch the
      * session already made: OpenCode keeps a session on its own model when the
@@ -1675,6 +1689,13 @@ interface ConfigStore {
      */
     setAgent: (agentName: string | undefined, options?: { keepModel?: boolean }) => void;
     applyDefaultModelAgentSelection: (options?: { projectDefaultAgent?: string; projectDefaultModel?: string; projectDefaultVariant?: string }) => void;
+    /**
+     * What a new session in `directory` starts on, from that directory's own
+     * catalogs and defaults. The composer's pick and the active directory play
+     * no part, and nothing in the store's selection changes. `null` when no
+     * model resolves or the runtime changed meanwhile.
+     */
+    resolveDirectoryDefaultSelection: (directory: string) => Promise<DirectoryDefaultSelection | null>;
     /** Replaces an `openchamber/auto` selection this server cannot honour with the default model. */
     dropStaleAutoSelection: () => void;
     applyOpenCodeConfigDefaults: (directory?: string | null, source?: string, config?: Config) => void;
@@ -2791,10 +2812,13 @@ export const useConfigStore = create<ConfigStore>()(
                     return modelVariantNames(get().getCurrentModel());
                 },
 
-                getDefaultVariantForModel: (providerId: string, modelId: string) => {
+                getDefaultVariantForModel: (providerId: string, modelId: string, directory?: string | null) => {
                     const state = get();
+                    const configDirectory = directory ? normalizeConfigPath(directory) : null;
                     return resolveConfiguredDefaultVariant({
-                        ...getProjectDefaultsForConfigDirectory(fromDirectoryKey(state.activeDirectoryKey)),
+                        ...(configDirectory
+                            ? readProjectDefaults(configDirectory)
+                            : getProjectDefaultsForConfigDirectory(fromDirectoryKey(state.activeDirectoryKey))),
                         settingsDefaultModel: state.settingsDefaultModel,
                         settingsDefaultVariant: state.settingsDefaultVariant,
                     }, providerId, modelId);
@@ -3781,6 +3805,44 @@ export const useConfigStore = create<ConfigStore>()(
 
                         return nextState;
                     });
+                },
+
+                resolveDirectoryDefaultSelection: async (directory) => {
+                    const runtimeContext = captureConfigRuntimeContext();
+                    const configDirectory = resolveConfigDirectory(directory);
+                    if (!configDirectory) return null;
+                    const directoryKey = toDirectoryKey(configDirectory);
+                    const source = 'resolveDirectoryDefaultSelection';
+                    const [, , config] = await Promise.all([
+                        get().loadProviders({ directory: configDirectory, source }).catch(() => undefined),
+                        get().loadAgents({ directory: configDirectory, source }).catch(() => false),
+                        // A directory nothing has synced yet, such as a new worktree, has no config event to read.
+                        getSyncConfig(configDirectory) ?? opencodeClient.getConfig(configDirectory).catch(() => undefined),
+                    ]);
+                    if (!isConfigRuntimeContextCurrent(runtimeContext)) return null;
+
+                    const state = get();
+                    const snapshot = state.directoryScoped[directoryKey];
+                    const isActive = state.activeDirectoryKey === directoryKey;
+                    const resolved = resolveDefaultAgentModelSelection({
+                        agents: isActive ? state.agents : (snapshot?.agents ?? []),
+                        providers: isActive ? state.providers : (snapshot?.providers ?? []),
+                        ...readProjectDefaults(configDirectory),
+                        settingsDefaultAgent: state.settingsDefaultAgent,
+                        settingsDefaultModel: state.settingsDefaultModel,
+                        settingsDefaultVariant: state.settingsDefaultVariant,
+                        opencodeDefaultAgent: config ? normalizeOptionalString(config.default_agent) : snapshot?.opencodeDefaultAgent,
+                        opencodeDefaultModel: config ? configModelIdentifier(config.model) : snapshot?.opencodeDefaultModel,
+                        allowFallback: state.settingsDefaultsLoaded,
+                        fallbackPrefs: readFallbackModelPrefs(),
+                    });
+                    if (!resolved.providerId || !resolved.modelId) return null;
+                    return {
+                        agentName: resolved.agentName,
+                        providerId: resolved.providerId,
+                        modelId: resolved.modelId,
+                        variant: resolved.variant,
+                    };
                 },
 
                 applyOpenCodeConfigDefaults: (directory, source = "syncConfig", config) => {

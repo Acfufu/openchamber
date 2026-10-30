@@ -8,13 +8,9 @@ import { toast } from '@/components/ui';
 import { useSessionUIStore, type NewSessionDraftState } from '@/sync/session-ui-store';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { useContextStore } from '@/stores/contextStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { checkIsGitRepository, resolveGitPrimaryRoot, resolveGitRepositoryPrefix } from '@/lib/gitApi';
 import { generateBranchName } from '@/lib/git/branchNameGenerator';
-import { parseModelIdentifier } from '@/lib/modelIdentifier';
-import { resolveEffortForModelSelection } from '@/lib/modelEfforts';
-import { modelVariantNames } from '@/lib/modelVariants';
 import { getRootBranch } from '@/lib/worktrees/worktreeStatus';
 import { getWorktreeSetupWaitEnabled } from '@/lib/openchamberConfig';
 import {
@@ -120,73 +116,11 @@ let isCreatingWorktreeSession = false;
 
 
 
-const applyDefaultAgentAndModelSelection = (sessionId: string, configState = useConfigStore.getState()) => {
-  try {
-    const visibleAgents = configState.getVisibleAgents();
-    let agentName: string | undefined;
-
-    if (configState.settingsDefaultAgent) {
-      const settingsAgent = visibleAgents.find((a) => a.name === configState.settingsDefaultAgent);
-      if (settingsAgent) {
-        agentName = settingsAgent.name;
-      }
-    }
-
-    if (!agentName) {
-      agentName =
-        visibleAgents.find((agent) => agent.name === 'build')?.name ||
-        visibleAgents[0]?.name;
-    }
-
-    if (!agentName) {
-      return;
-    }
-
-    configState.setAgent(agentName);
-    useContextStore.getState().saveSessionAgentSelection(sessionId, agentName);
-
-    const settingsDefaultModel = configState.settingsDefaultModel;
-    if (!settingsDefaultModel) {
-      return;
-    }
-
-    const parsed = parseModelIdentifier(settingsDefaultModel);
-    if (!parsed) {
-      return;
-    }
-
-    const { providerId, modelId } = parsed;
-    const modelMetadata = configState.getModelMetadata(providerId, modelId);
-    if (!modelMetadata) {
-      return;
-    }
-
-    useContextStore.getState().saveSessionModelSelection(sessionId, providerId, modelId);
-    useContextStore.getState().saveAgentModelForSession(sessionId, agentName, providerId, modelId);
-
-    const provider = configState.providers.find((p) => p.id === providerId);
-    const model = provider?.models.find((entry) => entry.id === modelId);
-    // Same resolution as the composer: the agent's pin for this model and the
-    // configured level first, then the level it was last sent with.
-    const variant = resolveEffortForModelSelection({
-      providerID: providerId, modelID: modelId, variants: modelVariantNames(model),
-      agents: configState.agents, agentName,
-      configuredVariant: configState.getDefaultVariantForModel(providerId, modelId),
-    });
-    if (variant === undefined) {
-      return;
-    }
-
-    configState.setCurrentVariant(variant ?? undefined);
-    useContextStore
-      .getState()
-      .saveAgentModelVariantForSession(sessionId, agentName, providerId, modelId, variant);
-  } catch {
-    // Ignore errors setting default agent
-  }
-};
-
-/** `startDirectory` is where the session runs inside `metadata.path`; the worktree root stays the checkout. */
+/**
+ * `startDirectory` is where the session runs inside `metadata.path`; the worktree root stays the checkout.
+ * The session's agent and model are the caller's: it resolves them for `startDirectory`
+ * (`resolveExecutionForDirectory`) and sends the first message with them.
+ */
 const initializeSessionForWorktree = (sessionId: string, startDirectory: string, metadata: {
   path: string;
   projectDirectory: string;
@@ -197,11 +131,9 @@ const initializeSessionForWorktree = (sessionId: string, startDirectory: string,
   kind?: 'pr' | 'standard';
 }) => {
   const sessionStore = useSessionUIStore.getState();
-  const configState = useConfigStore.getState();
-  sessionStore.initializeNewOpenChamberSession(sessionId, configState.agents);
+  sessionStore.initializeNewOpenChamberSession(sessionId, useConfigStore.getState().agents);
   sessionStore.setSessionDirectory(sessionId, startDirectory);
   sessionStore.setWorktreeMetadata(sessionId, metadata, startDirectory);
-  applyDefaultAgentAndModelSelection(sessionId, configState);
   useDirectoryStore.getState().setDirectory(startDirectory, { showOverlay: false });
 };
 

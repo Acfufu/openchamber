@@ -11,22 +11,15 @@ import { isVSCodeRuntime } from '@/lib/desktop';
 import { ModelSelector } from '@/components/sections/agents/ModelSelector';
 import { AgentSelector } from '@/components/sections/commands/AgentSelector';
 import { ThinkingPill } from '@/components/session/ThinkingPill';
-import { useConfigStore } from '@/stores/useConfigStore';
+import { selectConfigAgentsForDirectory, selectProvidersForDirectory, useConfigStore } from '@/stores/useConfigStore';
 import { useAgentsStore } from '@/stores/useAgentsStore';
 import { isPrimaryMode } from '@/components/chat/mobileControlsUtils';
 import { useI18n } from '@/lib/i18n';
 import { listModelVariantIds, type ModelVariantSource } from '@/lib/modelVariants';
 import { resolveEffortForModelSelection } from '@/lib/modelEfforts';
+import type { TodoSendExecution } from './todoSendExecution';
 
 type TodoSendTarget = 'session' | 'worktree';
-
-export type TodoSendExecution = {
-  providerID: string;
-  modelID: string;
-  variant: string;
-  agent: string;
-  runAsGoal?: boolean;
-};
 
 type TodoSendDialogProps = {
   open: boolean;
@@ -39,17 +32,13 @@ type TodoSendDialogProps = {
   onConfirm: (execution: TodoSendExecution) => Promise<void> | void;
 };
 
-const getInitialExecution = (params: {
-  providerID: string;
-  modelID: string;
-  variant: string;
-  agent: string;
-}): TodoSendExecution => ({
-  providerID: params.providerID,
-  modelID: params.modelID,
-  variant: params.variant,
-  agent: params.agent,
-});
+const EMPTY_EXECUTION: TodoSendExecution = {
+  providerID: '',
+  modelID: '',
+  variant: '',
+  agent: '',
+  picked: { model: false, variant: false, agent: false },
+};
 
 export function TodoSendDialog(props: TodoSendDialogProps) {
   const { t } = useI18n();
@@ -59,32 +48,27 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
   const loadProviders = useConfigStore((state) => state.loadProviders);
   const loadConfigAgents = useConfigStore((state) => state.loadAgents);
   const loadAgentsStoreAgents = useAgentsStore((state) => state.loadAgents);
-  const providers = useConfigStore((state) => state.providers);
-  const currentProviderID = useConfigStore((state) => state.currentProviderId);
-  const currentModelID = useConfigStore((state) => state.currentModelId);
-  const currentVariant = useConfigStore((state) => state.currentVariant || '');
-  const currentAgentName = useConfigStore((state) => state.currentAgentName || '');
+  // The catalogs of the project the dialog sends to, which need not be the active one.
+  const pickerDirectory = projectDirectory ?? undefined;
+  const providers = useConfigStore((state) => selectProvidersForDirectory(state, projectDirectory));
+  const agents = useConfigStore((state) => selectConfigAgentsForDirectory(state, pickerDirectory));
+  const resolveDirectoryDefaultSelection = useConfigStore((state) => state.resolveDirectoryDefaultSelection);
 
-  const [execution, setExecution] = React.useState<TodoSendExecution>(() => getInitialExecution({
-    providerID: currentProviderID,
-    modelID: currentModelID,
-    variant: currentVariant,
-    agent: currentAgentName,
-  }));
+  const [execution, setExecution] = React.useState<TodoSendExecution>(EMPTY_EXECUTION);
+  const [defaultsResolved, setDefaultsResolved] = React.useState(false);
 
   const resolveVariantForModel = React.useCallback((providerID: string, modelID: string, agentName: string) => {
     const provider = providers.find((item) => item.id === providerID);
     const model = provider?.models?.find((item) => item.id === modelID) as { variants?: ModelVariantSource } | undefined;
-    const configState = useConfigStore.getState();
     return resolveEffortForModelSelection({
       providerID,
       modelID,
       variants: listModelVariantIds(model?.variants),
-      agents: configState.agents,
+      agents,
       agentName,
-      configuredVariant: configState.getDefaultVariantForModel(providerID, modelID),
+      configuredVariant: useConfigStore.getState().getDefaultVariantForModel(providerID, modelID, projectDirectory),
     }) ?? '';
-  }, [providers]);
+  }, [agents, projectDirectory, providers]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -93,54 +77,73 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
     void loadAgentsStoreAgents();
   }, [open, loadProviders, loadConfigAgents, loadAgentsStoreAgents, projectDirectory]);
 
+  // The dialog starts on the defaults of the project it sends to. The
+  // composer's pick belongs to whatever session is open, often in another
+  // project, so it never seeds the dialog. A pick made while the defaults
+  // load stays.
   React.useEffect(() => {
     if (!open) return;
-    setExecution(getInitialExecution({
-      providerID: currentProviderID,
-      modelID: currentModelID,
-      variant: currentVariant,
-      agent: currentAgentName,
-    }));
-  }, [open, currentProviderID, currentModelID, currentVariant, currentAgentName]);
-
-  React.useEffect(() => {
-    if (!open || providers.length === 0) return;
-
-    const provider = providers.find((item) => item.id === execution.providerID) ?? providers[0];
-    const models = Array.isArray(provider?.models) ? provider.models : [];
-    const hasModel = models.some((item) => item.id === execution.modelID);
-    const fallbackModelID = models[0]?.id ?? '';
-
-    if (provider?.id === execution.providerID && hasModel) return;
-
-    setExecution((prev) => {
-      const nextProviderID = provider?.id ?? '';
-      const nextModelID = hasModel ? prev.modelID : fallbackModelID;
-      return {
-        ...prev,
-        providerID: nextProviderID,
-        modelID: nextModelID,
-        variant: resolveVariantForModel(nextProviderID, nextModelID, prev.agent),
-      };
+    setExecution(EMPTY_EXECUTION);
+    setDefaultsResolved(false);
+    if (!projectDirectory) {
+      setDefaultsResolved(true);
+      return;
+    }
+    let cancelled = false;
+    void resolveDirectoryDefaultSelection(projectDirectory).then((defaults) => {
+      if (cancelled) return;
+      setDefaultsResolved(true);
+      if (!defaults) return;
+      setExecution((prev) => {
+        const next = { ...prev };
+        if (!prev.picked.model) {
+          next.providerID = defaults.providerId;
+          next.modelID = defaults.modelId;
+          if (!prev.picked.variant) next.variant = defaults.variant ?? '';
+        }
+        if (!prev.picked.agent) next.agent = defaults.agentName ?? '';
+        return next;
+      });
+    }, () => {
+      if (!cancelled) setDefaultsResolved(true);
     });
-  }, [open, providers, execution.providerID, execution.modelID, resolveVariantForModel]);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, projectDirectory, resolveDirectoryDefaultSelection]);
+
+  // Nothing resolved for the project: offer a model so the dialog can send.
+  React.useEffect(() => {
+    if (!open || !defaultsResolved || providers.length === 0 || execution.providerID) return;
+
+    const provider = providers[0];
+    const nextModelID = provider?.models?.[0]?.id ?? '';
+    setExecution((prev) => ({
+      ...prev,
+      providerID: provider?.id ?? '',
+      modelID: nextModelID,
+      variant: resolveVariantForModel(provider?.id ?? '', nextModelID, prev.agent),
+    }));
+  }, [open, defaultsResolved, providers, execution.providerID, resolveVariantForModel]);
 
   const agentFilter = React.useCallback((agent: { mode?: string }) => isPrimaryMode(agent.mode), []);
 
-  const variantOptions = React.useMemo(() => {
+  const selectedModel = React.useMemo(() => {
     const provider = providers.find((item) => item.id === execution.providerID);
-    const model = provider?.models?.find((item) => item.id === execution.modelID) as { variants?: ModelVariantSource } | undefined;
-    return listModelVariantIds(model?.variants);
+    return provider?.models?.find((item) => item.id === execution.modelID) as { variants?: ModelVariantSource } | undefined;
   }, [providers, execution.providerID, execution.modelID]);
+  const variantOptions = React.useMemo(() => listModelVariantIds(selectedModel?.variants), [selectedModel]);
 
   const hasVariantOptions = variantOptions.length > 0;
 
+  // A configured model the catalog has not listed yet keeps its effort.
   React.useEffect(() => {
-    if (hasVariantOptions || !execution.variant) return;
+    if (!selectedModel || hasVariantOptions || !execution.variant) return;
     setExecution((prev) => ({ ...prev, variant: '' }));
-  }, [hasVariantOptions, execution.variant]);
+  }, [selectedModel, hasVariantOptions, execution.variant]);
 
-  const canConfirm = execution.providerID.trim().length > 0 && execution.modelID.trim().length > 0;
+  // A send before the defaults arrive would leave out what the user did not pick.
+  const canConfirm = defaultsResolved && execution.providerID.trim().length > 0 && execution.modelID.trim().length > 0;
 
   const handleSubmit = React.useCallback(() => {
     if (!canConfirm || submitting) return;
@@ -176,6 +179,7 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
             <ModelSelector
               providerId={execution.providerID}
               modelId={execution.modelID}
+              directory={pickerDirectory}
               className="max-w-[320px] justify-between"
               dropdownPortalToBody
               onChange={(providerID, modelID) => {
@@ -184,6 +188,7 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
                   providerID,
                   modelID,
                   variant: resolveVariantForModel(providerID, modelID, prev.agent),
+                  picked: { ...prev.picked, model: true },
                 }));
               }}
             />
@@ -194,16 +199,17 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
               value={execution.variant}
               options={variantOptions}
               disabled={!hasVariantOptions}
-              onChange={(variant) => setExecution((prev) => ({ ...prev, variant }))}
+              onChange={(variant) => setExecution((prev) => ({ ...prev, variant, picked: { ...prev.picked, variant: true } }))}
             />
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="typography-meta font-medium text-muted-foreground">{t('sessions.scheduledTasks.editor.agent.label')}</span>
             <AgentSelector
               agentName={execution.agent}
+              directory={pickerDirectory}
               filter={agentFilter}
               dropdownPortalToBody
-              onChange={(agent) => setExecution((prev) => ({ ...prev, agent }))}
+              onChange={(agent) => setExecution((prev) => ({ ...prev, agent, picked: { ...prev.picked, agent: true } }))}
             />
           </div>
         </div>

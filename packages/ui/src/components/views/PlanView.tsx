@@ -31,7 +31,8 @@ import { observeProjectContext } from '@/lib/projectContextSync';
 import { getRuntimeKey, subscribeRuntimeEndpointChanged } from '@/lib/runtime-switch';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { createWorktreeSessionForNewBranch } from '@/lib/worktreeSessionCreator';
-import { TodoSendDialog, type TodoSendExecution } from '@/components/session/TodoSendDialog';
+import { TodoSendDialog } from '@/components/session/TodoSendDialog';
+import { resolveExecutionForDirectory, type TodoSendExecution } from '@/components/session/todoSendExecution';
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import { toast } from '@/components/ui';
 import { loadMagicPrompts, type MagicPromptSnapshot } from '@/lib/magicPrompts';
@@ -617,7 +618,7 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
   }, [onNavigatedToChat, setSessionSwitcherOpen]);
 
   const handleConfirmPlanSend = React.useCallback(
-    async (execution: TodoSendExecution) => {
+    async (dialogExecution: TodoSendExecution) => {
       // A saved plan sends against its own project — the one it is stored
       // under — not against whatever directory the viewer is currently in.
       const sendTargetProject = savedPlanProjectRef ?? currentProjectRef;
@@ -670,6 +671,7 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
 
         let sessionId: string | null = null;
         let directoryHint: string | null = sendTargetProject.path;
+        let execution = dialogExecution;
 
         if (pendingPlanSend.target === 'worktree') {
           if (!canCreateWorktree) {
@@ -681,6 +683,7 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
           }
           sessionId = created.id;
           directoryHint = created.directory;
+          execution = await resolveExecutionForDirectory(created.directory, dialogExecution);
         } else {
           const sessionResult = await createSession(undefined, sendTargetProject.path, undefined, {
             model: { providerID: execution.providerID, id: execution.modelID, variant: execution.variant || undefined },

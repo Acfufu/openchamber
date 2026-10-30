@@ -15,6 +15,7 @@ let liveProviderIdsByDirectory = new Map<string, string>();
 let liveProviderVariants: string[] | undefined;
 let getProvidersCalls = 0;
 let getConfigCalls = 0;
+let configByDirectory = new Map<string, Config>();
 let listAgentsCalls = 0;
 let liveAgents: TestAgent[] = [];
 let listAgentsImpl: ((directory?: string | null) => Promise<TestAgent[]>) | null = null;
@@ -30,7 +31,7 @@ let probeHealthOptions: Array<{ waitMs?: number } | undefined> = [];
 let loadSettingsImpl: (() => Promise<DesktopSettings | null>) | null = null;
 let projectsState: {
   activeProjectId: string | null;
-  projects: Array<{ id: string; path: string; label: string; defaultAgent?: string }>;
+  projects: Array<{ id: string; path: string; label: string; defaultAgent?: string; defaultModel?: string; defaultVariant?: string }>;
 } = {
   activeProjectId: 'project',
   projects: [
@@ -194,9 +195,9 @@ mock.module('@/lib/opencode/client', () => ({
       const impl = listAgentsImpl as ((directory?: string | null) => Promise<TestAgent[]>) | null;
       return impl ? impl(directory) : liveAgents;
     }),
-    getConfig: mock(async () => {
+    getConfig: mock(async (directory?: string | null) => {
       getConfigCalls += 1;
-      return {};
+      return configByDirectory.get(directory ?? '') ?? {};
     }),
     clearConfigCache: mock(() => undefined),
     getDirectoryAvailability: mock(async () => directoryAvailability),
@@ -289,6 +290,7 @@ describe('useConfigStore provider persistence', () => {
     liveProviderVariants = undefined;
     getProvidersCalls = 0;
     getConfigCalls = 0;
+    configByDirectory = new Map<string, Config>();
     listAgentsCalls = 0;
     liveAgents = [];
     listAgentsImpl = null;
@@ -3515,6 +3517,69 @@ describe('useConfigStore provider persistence', () => {
     expect(hydrated.directoryScoped[OTHER_DIRECTORY]?.providers).toEqual([]);
     expect(selectCatalogLoadedForDirectory(hydrated, 'models', OTHER_DIRECTORY)).toBe(false);
     expect(selectCatalogLoadedForDirectory(hydrated, 'agents', OTHER_DIRECTORY)).toBe(false);
+  });
+
+  describe('defaults of a directory that is not active', () => {
+    const worktree = `${OTHER_DIRECTORY}/.oc/worktrees/quiet-otter`;
+
+    beforeEach(() => {
+      // The composer of the active project holds a pick of its own.
+      useConfigStore.setState({
+        activeDirectoryKey: DIRECTORY,
+        providers: [provider('live', 'chosen')],
+        agents: [testAgent('build'), testAgent('review')],
+        currentProviderId: 'live',
+        currentModelId: 'chosen',
+        currentAgentName: 'review',
+        selectionSource: 'manual',
+        agentSelectionSource: 'manual',
+      });
+      liveProviderIdsByDirectory.set(worktree, 'wt');
+      listAgentsImpl = async (directory) => (directory === worktree
+        ? [{ name: 'build', mode: 'primary' }, { name: 'plan', mode: 'primary' }]
+        : [{ name: 'build', mode: 'primary' }, { name: 'review', mode: 'primary' }]);
+    });
+
+    test('come from that directory and leave the composer pick alone', async () => {
+      configByDirectory.set(worktree, { default_agent: 'plan' });
+      projectsState.projects[1] = { ...projectsState.projects[1], defaultModel: 'wt/wt-model' };
+
+      const resolved = await useConfigStore.getState().resolveDirectoryDefaultSelection(worktree);
+
+      expect(resolved).toEqual({ agentName: 'plan', providerId: 'wt', modelId: 'wt-model', variant: undefined });
+      const state = useConfigStore.getState();
+      expect(state.activeDirectoryKey).toBe(DIRECTORY);
+      expect([state.currentProviderId, state.currentModelId, state.currentAgentName]).toEqual(['live', 'chosen', 'review']);
+    });
+
+    test('give a model the effort that directory\'s project configures for it', () => {
+      projectsState.projects[0] = { ...projectsState.projects[0], defaultModel: 'shared/model', defaultVariant: 'high' };
+      projectsState.projects[1] = { ...projectsState.projects[1], defaultModel: 'shared/model', defaultVariant: 'low' };
+
+      const state = useConfigStore.getState();
+      expect(state.getDefaultVariantForModel('shared', 'model')).toBe('high');
+      expect(state.getDefaultVariantForModel('shared', 'model', worktree)).toBe('low');
+    });
+
+    test('leave the agent to OpenCode when the directory names none it can read', async () => {
+      listAgentsImpl = async () => [];
+
+      const resolved = await useConfigStore.getState().resolveDirectoryDefaultSelection(worktree);
+
+      expect(resolved).toEqual({ agentName: undefined, providerId: 'wt', modelId: 'wt-model', variant: undefined });
+    });
+
+    test('answer nothing once the runtime changed', async () => {
+      const agents = deferred<TestAgent[]>();
+      listAgentsImpl = () => agents.promise;
+      switchRuntimeEndpoint({ apiBaseUrl: 'https://defaults-a.example', runtimeKey: 'defaults-a' });
+
+      const resolving = useConfigStore.getState().resolveDirectoryDefaultSelection(worktree);
+      switchRuntimeEndpoint({ apiBaseUrl: 'https://defaults-b.example', runtimeKey: 'defaults-b' });
+      agents.resolve([{ name: 'plan', mode: 'primary' }]);
+
+      expect(await resolving).toBeNull();
+    });
   });
 });
 

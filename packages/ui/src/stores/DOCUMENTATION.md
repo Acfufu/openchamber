@@ -457,6 +457,24 @@ entry is not a request to replace a user's choice. Directory snapshots retain
 the effort override separately from its inherited value, including explicit
 `Default`. Fresh drafts inherit their project's effort before the global one.
 
+A session started from outside the composer (the Plan/Todo send dialog, and a
+new worktree session it creates) starts on the defaults of the directory it
+runs in. `resolveDirectoryDefaultSelection(directory)` runs the same cascade on
+that directory's catalogs, project defaults and OpenCode config, fetching the
+config when nothing has synced it yet, and writes nothing to the current
+selection. The dialog opens on its project's defaults; a new worktree session
+re-resolves what the user did not pick for its own folder after the worktree
+exists (`resolveExecutionForDirectory`). An agent the directory cannot name
+yet is left unset, so OpenCode applies its own default there.
+
+### Why the dialog does not start from the composer pick
+
+The composer holds the pick of whatever session is open, often in another
+project. Seeding the dialog from it sent that project's model and agent into
+the new session, and a directory switch while a worktree was being created
+changed which project's pick that was. Resolution keyed by the target directory
+has no such dependency on what is active.
+
 The agent and the model carry separate provenance. `setAgent` records the agent
 as picked (`agentSelectionSource: 'manual'`) and leaves `selectionSource` to
 describe the model alone, so an agent's pinned model stays inherited and is
