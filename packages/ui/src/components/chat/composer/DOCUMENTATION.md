@@ -427,16 +427,41 @@ copy.
   holds commands only. Emoji open on a typed `:` plus two letters of a name
   after whitespace (`matchEmojiTrigger` in `lib/emoji/shortcodes.ts`), never on
   a paste, so `12:30`, `http://` and `:)` stay text; choosing one writes the
-  emoji itself, so the agent gets the character, not a shortcode. A space
-  ends an `@` query, because paths and agent names hold none, except while
-  the whole query still matches a session title (`mentionContinuesPastSpace`,
-  `hasSessionMention`); the picker then lists sessions alone and closes on the
-  first word no title holds, so `@release notes are done` turns back into
-  prose. Only typing and pasting open a picker: text the app sets
-  through the editor's `value` prop (a restored draft, a git conflict prompt)
-  arrives with `ComposerChange.fromValueProp` and closes any open picker.
+   emoji itself, so the agent gets the character, not a shortcode. Before
+   selection, a space ends an `@` query except while the whole query still
+   matches a session title (`mentionContinuesPastSpace`, `hasSessionMention`);
+   the picker then lists sessions alone and closes on the first word no title
+   holds, so `@release notes are done` turns back into prose. An exact agent
+   name in `@coder review` leaves that session query unfinished. This does not
+   enable file or directory searches containing spaces. Only typing and pasting open a picker: text the app sets
+   through the editor's `value` prop (a restored draft, a git conflict prompt)
+   arrives with `ComposerChange.fromValueProp` and closes any open picker.
 - `tokenize.ts` — one pass producing every highlight range. Adding a construct
-  to the language means adding it here, once.
+   to the language means adding it here, once.
+
+### Why completion follows selection and not chip rendering
+
+Enter, clicking, tapping and the existing Tab route all use the shared mention
+selection handler. Agent, file and directory selection replaces the query and
+places the caret in one editor transaction. Its change callback records that
+occurrence as completed before resolving another trigger; later prose cannot
+reopen it even when a session title matches. A session selection keeps writing
+its existing link over the query.
+
+`state/mentionCompletion.ts` owns these transient occurrence ranges for the
+mounted composer. `ComposerChange.changes` maps them through edits before the
+reference. Editing the reference or its trailing boundary invalidates its range;
+deleting it removes the range. A fresh `@` has its own offset and can query
+normally. External value replacement and draft identity changes clear the state.
+It is independent of persisted confirmed file paths, so selected paths containing
+spaces remain intact references without changing draft or send formats.
+
+Known names and chip appearance cannot establish completion: an unfinished
+multiword session query can already contain an agent chip. Only the explicit
+selection transaction records a completed occurrence. The shared flow applies
+to web, Electron, VS Code, hosted mobile and Capacitor; VS Code continues to omit
+session suggestions. Selection key routing and IME guards stay with their
+existing owners.
 
 ## The editor
 

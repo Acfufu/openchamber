@@ -23,7 +23,7 @@
 
 import React from 'react';
 import { history, historyKeymap, standardKeymap } from '@codemirror/commands';
-import { Annotation, Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
+import { Annotation, Compartment, EditorState, Prec, type ChangeDesc, type Extension } from '@codemirror/state';
 import {
     EditorView,
     drawSelection,
@@ -53,6 +53,8 @@ export interface ComposerSelection {
 export interface ComposerChange {
     value: string;
     selection: ComposerSelection;
+    /** Authoritative old-to-new ranges for composer-local occurrence state. */
+    changes: ChangeDesc;
     /** True when the edit came from a paste rather than typing. */
     fromPaste: boolean;
     /** The text this edit inserted, empty for deletions. */
@@ -362,6 +364,7 @@ export const ComposerEditor = React.memo(React.forwardRef<ComposerEditorHandle, 
                                 handlers.onChange({
                                     value: update.state.doc.toString(),
                                     selection,
+                                    changes: update.changes,
                                     fromPaste,
                                     insertedText,
                                     fromValueProp: update.transactions.every(

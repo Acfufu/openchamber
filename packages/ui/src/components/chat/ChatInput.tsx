@@ -234,6 +234,7 @@ import { runForkCommand } from './composer/submit/forkCommand';
 import { useAutocompletePosition } from './composer/state/useAutocompletePosition';
 import { useMessageHistory } from './composer/state/useMessageHistory';
 import { useComposerDraft } from './composer/state/useComposerDraft';
+import { MentionCompletionState } from './composer/state/mentionCompletion';
 import { useSessionDraftPublishing } from './composer/state/useSessionDraftPublishing';
 import { useDictationOrigin } from './composer/state/useDictationOrigin';
 import { useDraftTarget } from './composer/state/useDraftTarget';
@@ -497,6 +498,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const [mobileDraftPicker, setMobileDraftPicker] = React.useState<'project' | 'branch' | null>(null);
     // Message history navigation state (up/down arrow to recall previous messages)
     const composerRef = React.useRef<ComposerEditorHandle>(null);
+    const [mentionCompletion] = React.useState(() => new MentionCompletionState());
+    const completingMentionRef = React.useRef(false);
     // The mobile composer swaps between the collapsed pill and the full
     // composer, which unmounts the editor. Building a CodeMirror view is far
     // from free, and it would happen inside the tap that expands the pill —
@@ -1302,6 +1305,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         },
         newSessionDraftId: newSessionDraftOpen ? newSessionDraft.draftId : null,
         onIdentityChange: () => {
+            mentionCompletion.clear();
+            closeAutocomplete();
             setInputMode('normal');
             draftCaretModeRef.current.atEnd = isBtwActive || draftCaretModeRef.current.btw;
             draftCaretModeRef.current.btw = isBtwActive;
@@ -2916,6 +2921,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             mentionsEnabled: !isBtwActive,
             inputSource,
             insertedText,
+            mentionIsCompleted: (start) => mentionCompletion.isCompleted(start),
             // Session titles hold spaces, so `@release notes` keeps looking.
             // VS Code lists no sessions under `@`.
             mentionContinuesPastSpace: isVSCodeRuntime()
@@ -2924,7 +2930,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         });
         setOpenAutocomplete(trigger?.kind ?? null);
         setAutocompleteQuery(trigger?.query ?? '');
-    }, [currentSessionId, inputMode, isBtwActive]);
+    }, [currentSessionId, inputMode, isBtwActive, mentionCompletion]);
 
     const insertTextAtSelection = React.useCallback((
         text: string,
@@ -2994,7 +3000,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }, 700);
     }, []);
 
-    const handleComposerChange = ({ value, selection, fromPaste, insertedText, fromValueProp }: ComposerChange) => {
+    const handleComposerChange = ({ value, selection, changes, fromPaste, insertedText, fromValueProp }: ComposerChange) => {
+        if (fromValueProp) {
+            mentionCompletion.clear();
+        } else {
+            mentionCompletion.applyChange(changes, completingMentionRef.current);
+        }
         if (largeTextPasteBehavior === 'inline-double-paste') {
             largeTextPasteGesture.change({
                 value, selection, fromPaste, insertedText,
@@ -3501,49 +3512,32 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         void attachFilesWithCitation([paste.file]);
     }), [attachFilesWithCitation, currentSessionId, mobileShell.focused, newSessionDraftOpen, t]);
 
+    const completeMentionSelection = useStableHandler((name: string) => {
+        const editor = composerRef.current;
+        if (!editor) return;
+        const value = editor.getValue();
+        const cursorPosition = editor.getSelection().start;
+        const lastAtSymbol = value.substring(0, cursorPosition).lastIndexOf('@');
+        const start = lastAtSymbol === -1 ? cursorPosition : lastAtSymbol;
+
+        // replaceRange reports the edit synchronously. Mark the inserted
+        // occurrence before its change callback resolves the next trigger.
+        completingMentionRef.current = true;
+        try {
+            editor.replaceRange(start, cursorPosition, `@${name} `);
+        } finally {
+            completingMentionRef.current = false;
+        }
+        closeAutocomplete();
+        editor.focus();
+    });
+
     const handleFileSelect = useStableHandler((file: { name: string; path: string; relativePath?: string }) => {
-
-        const cursorPosition = composerRef.current?.getSelection().start || 0;
-        const textBeforeCursor = message.substring(0, cursorPosition);
-        const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
-
         const mentionPath = (file.relativePath && file.relativePath.trim().length > 0)
             ? file.relativePath.trim()
             : (toMentionPath(file.path) || file.name);
-
         confirmedMentionsRef.current.add(mentionPath);
-
-        if (lastAtSymbol !== -1) {
-            const newMessage =
-                message.substring(0, lastAtSymbol) +
-                `@${mentionPath} ` +
-                message.substring(cursorPosition);
-            setMessage(newMessage);
-            const nextCursor = lastAtSymbol + mentionPath.length + 2;
-            requestAnimationFrame(() => {
-                if (composerRef.current) {
-                    composerRef.current.setSelection(nextCursor);
-                }
-                updateAutocompleteState(newMessage, nextCursor);
-            });
-        } else if (composerRef.current) {
-            const newMessage =
-                message.substring(0, cursorPosition) +
-                `@${mentionPath} ` +
-                message.substring(cursorPosition);
-            setMessage(newMessage);
-            const nextCursor = cursorPosition + mentionPath.length + 2;
-            requestAnimationFrame(() => {
-                if (composerRef.current) {
-                    composerRef.current.setSelection(nextCursor);
-                }
-                updateAutocompleteState(newMessage, nextCursor);
-            });
-        }
-
-        closeAutocomplete();
-
-        composerRef.current?.focus();
+        completeMentionSelection(mentionPath);
     });
 
     // A session is written as its link, which draws as a chip with its title.
@@ -3561,47 +3555,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             updateAutocompleteState(newMessage, nextCursor);
         });
         closeAutocomplete();
-        composerRef.current?.focus();
-    });
-
-    const handleAgentSelect = useStableHandler((agentName: string) => {
-        const textarea = composerRef.current;
-        const cursorPosition = textarea?.getSelection().start ?? message.length;
-        const textBeforeCursor = message.substring(0, cursorPosition);
-        const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
-
-        if (lastAtSymbol !== -1) {
-            const newMessage =
-                message.substring(0, lastAtSymbol) +
-                `@${agentName} ` +
-                message.substring(cursorPosition);
-            setMessage(newMessage);
-
-            const nextCursor = lastAtSymbol + agentName.length + 2;
-            requestAnimationFrame(() => {
-                if (composerRef.current) {
-                    composerRef.current.setSelection(nextCursor);
-                }
-                updateAutocompleteState(newMessage, nextCursor);
-            });
-        } else if (composerRef.current) {
-            const newMessage =
-                message.substring(0, cursorPosition) +
-                `@${agentName} ` +
-                message.substring(cursorPosition);
-            setMessage(newMessage);
-
-            const nextCursor = cursorPosition + agentName.length + 2;
-            requestAnimationFrame(() => {
-                if (composerRef.current) {
-                    composerRef.current.setSelection(nextCursor);
-                }
-                updateAutocompleteState(newMessage, nextCursor);
-            });
-        }
-
-        closeAutocomplete();
-
         composerRef.current?.focus();
     });
 
@@ -4762,7 +4715,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         snippetDraftText={snippetDraftText}
                         onSnippetDraftSaved={handleSnippetDraftSaved}
                         onFileSelect={handleFileSelect}
-                        onAgentSelect={handleAgentSelect}
+                        onAgentSelect={completeMentionSelection}
                         // VS Code shows no reference chips, so it cannot hold one.
                         onSessionSelect={isVSCode ? undefined : handleSessionSelect}
                         currentSessionId={currentSessionId}
