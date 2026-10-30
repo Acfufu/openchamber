@@ -62,6 +62,7 @@ const notFound = (kind: string) => Object.assign(new Error(`${kind}NotFoundError
 const sdkClient = {}
 
 mock.module("@/lib/opencode/client", () => ({
+  isOpencodeNotFound: (error: unknown) => error instanceof Error && "status" in error && error.status === 404,
   ascendingId: (prefix: string) => `${prefix}_${(idCounter += 1).toString(16).padStart(12, "0")}`,
   opencodeClient: {
     getDirectory: () => "/test/project",
@@ -2420,6 +2421,72 @@ describe("forkAfterMessage", () => {
     expect(inputState.pendingComposerRestore).toBeNull()
   })
 
+  for (const entrypoint of ["forkAfterMessage", "forkFromLastCompletedTurn"] as const) {
+    test(`${entrypoint} retries a missing cut without copying a later turn`, async () => {
+      const messages = [
+        message("msg-user-1", "user"),
+        { ...message("msg-answer-1", "assistant"), time: { created: 1, completed: 2 }, finish: "stop" },
+        message("msg-user-2", "user"),
+      ] as Message[]
+      const source = createStore({}, {
+        session: [sourceSession], message: { [sourceSession.id]: messages },
+        session_status: { [sourceSession.id]: { type: "busy" } },
+      })
+      const actions = await import("./session-actions")
+      actions.setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+      sessionForkError = notFound("Message")
+      let attempts = 0
+      beforeSessionForkResolve = () => {
+        attempts += 1
+        if (attempts === 1) messages.push(message("msg-answer-2", "assistant"))
+        else sessionForkError = null
+      }
+
+      if (entrypoint === "forkAfterMessage") await actions.forkAfterMessage(sourceSession.id, "msg-answer-1")
+      else await actions.forkFromLastCompletedTurn(sourceSession.id)
+
+      expect(replyCalls.filter((call) => call.method === "session.fork").map((call) => call.params.messageID))
+        .toEqual(["msg-user-2", "msg-user-2"])
+      expect(selectedSessions).toEqual([{ sessionId: forkedSession.id, directoryHint: sourceSession.directory }])
+    })
+
+    test(`${entrypoint} leaves the source open after two 404s`, async () => {
+      const messages = [
+        message("msg-user-1", "user"),
+        { ...message("msg-answer-1", "assistant"), time: { created: 1, completed: 2 }, finish: "stop" },
+        message("msg-user-2", "user"),
+      ] as Message[]
+      const source = createStore({}, {
+        session: [sourceSession], message: { [sourceSession.id]: messages },
+        session_status: { [sourceSession.id]: { type: "busy" } },
+      })
+      const actions = await import("./session-actions")
+      actions.setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+      sessionForkError = notFound("Message")
+
+      const result = entrypoint === "forkAfterMessage"
+        ? actions.forkAfterMessage(sourceSession.id, "msg-answer-1")
+        : actions.forkFromLastCompletedTurn(sourceSession.id)
+      await expect(result).rejects.toThrow("MessageNotFoundError")
+      expect(replyCalls.filter((call) => call.method === "session.fork").map((call) => call.params.messageID))
+        .toEqual(["msg-user-2", "msg-user-2"])
+      expect(selectedSessions).toEqual([])
+      expect(source.getState().session).toEqual([sourceSession])
+    })
+  }
+
+  test("does not retry the cut on another runtime", async () => {
+    const source = createStore({}, { session: [sourceSession], message: { [sourceSession.id]: transcript } })
+    const { forkAfterMessage, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+    sessionForkError = notFound("Message")
+    beforeSessionForkResolve = () => { runtimeKey = "another-runtime" }
+
+    await expect(forkAfterMessage(sourceSession.id, "msg-answer-1")).rejects.toThrow("runtime changed")
+    expect(replyCalls.filter((call) => call.method === "session.fork")).toHaveLength(1)
+    expect(selectedSessions).toEqual([])
+  })
+
   test("leaves a compaction that followed the answer out of the fork", async () => {
     const compacted = [...transcript.slice(0, 2), message("msg-compaction", "compaction"), ...transcript.slice(2)]
     const source = createStore({}, { session: [sourceSession], message: { [sourceSession.id]: compacted } })
@@ -2431,6 +2498,28 @@ describe("forkAfterMessage", () => {
     expect(replyCalls).toEqual([{
       method: "session.fork",
       params: { sessionID: sourceSession.id, messageID: "msg-compaction", directory: sourceSession.directory },
+    }])
+  })
+
+  test("leaves a workflow report that followed the answer out of the fork", async () => {
+    const workflowReport: Message = {
+      id: "msg-workflow-report",
+      role: "synthetic",
+      sessionID: sourceSession.id,
+      time: { created: 1 },
+      metadata: { source: "openchamber-workflow", runId: "run-1", name: "Review", state: "completed" },
+      text: "<openchamber-workflow>\nreview done\n</openchamber-workflow>",
+    }
+    const messages = [...transcript.slice(0, 2), workflowReport, ...transcript.slice(2)]
+    const source = createStore({}, { session: [sourceSession], message: { [sourceSession.id]: messages } })
+    const { forkAfterMessage, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+
+    await forkAfterMessage(sourceSession.id, "msg-answer-1")
+
+    expect(replyCalls).toEqual([{
+      method: "session.fork",
+      params: { sessionID: sourceSession.id, messageID: workflowReport.id, directory: sourceSession.directory },
     }])
   })
 
@@ -2553,10 +2642,24 @@ describe("forkFromLastCompletedTurn", () => {
     sessionID: sourceSession.id,
     time: { created: 1 },
   } as Message
+  const shellCompletion: Message = {
+    id: "msg-shell-completion",
+    role: "synthetic",
+    sessionID: sourceSession.id,
+    time: { created: 1 },
+    metadata: { source: "shell", shellID: "shell-1", state: "completed" },
+    text: "<shell>\ndone\n</shell>",
+  }
 
   test("finds the finished reply when the running turn resumed from a background subagent", async () => {
     const { findLastCompletedTurnMessageId } = await import("./session-actions")
     const transcript = [message("u1", "user"), message("a1", "assistant", 2), subagentReport, message("a-live", "assistant")]
+    expect(findLastCompletedTurnMessageId(transcript, true)).toBe("a1")
+  })
+
+  test("finds the finished reply when the running turn resumed from a background command", async () => {
+    const { findLastCompletedTurnMessageId } = await import("./session-actions")
+    const transcript = [message("u1", "user"), message("a1", "assistant", 2), shellCompletion, message("a-live", "assistant")]
     expect(findLastCompletedTurnMessageId(transcript, true)).toBe("a1")
   })
 

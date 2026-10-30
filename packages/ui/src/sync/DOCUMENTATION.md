@@ -303,6 +303,20 @@ fetch from restoring deleted messages. The remaining visible records stay in pla
 while the loader establishes fresh coverage. Their optimistic shadows remain
 until an authoritative snapshot confirms them.
 
+## Forking after an answer
+
+`/fork`, the fork action on an answer, and `/btw` keep the answer in the fork. OpenCode's fork `before` leaves out the record it names, so `transcriptCutAfterMessage` in `transcript-cut.ts` names the next turn boundary, the first record after the answer that starts something new, such as a prompt, a compaction, a background command's result or a workflow report. Without one, ordinary forks copy the whole transcript; `/btw` fails before creating a fork. A locally visible cut may not be persisted yet. All three paths retry a 404 once with the same cut and captured runtime, then propagate the error so the user can try again.
+
+### Why `/btw` requires an explicit cut and retries never widen one
+
+The next prompt can reach the server before the first fork request or between attempts, while this window still shows an idle or empty transcript. An omitted `before` would copy that prompt and its unfinished response into the fork. `/btw` requires an explicit cut from the first attempt; keeping that cut on retry preserves the selected history even when the main chat advances.
+
+If `/btw` has no completed answer or no following turn boundary, it fails before creating a fork and clears its creating flag so the user can retry. This includes idle and locally empty parents: the current API cannot enforce an inclusive upper bound at an answer or an empty server snapshot. Retry once a later turn boundary is loaded. No parent messages are changed.
+
+### Why the next turn boundary and not the next record
+
+The records between an answer and that boundary belong to the answer's turn. One of them is the `idle` record that OpenCode writes when a turn ends. The store gets that record only from a transcript read, never from a live event. A cut at the next record would leave it out of a fork made after a reload and keep it in a fork made from the live transcript.
+
 ## An interruption whose reason is `shutdown`
 
 `session.execution.interrupted` carries a reason. `user`, `inactivity` and
