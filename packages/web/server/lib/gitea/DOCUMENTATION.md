@@ -88,6 +88,10 @@ Both versions list a pull request's commits newest first. Sorting by committer d
 
 Gitea's own combined state never reads success while a status says `warning` (1.21 reports `warning`, 1.27 `failure`). Counting it as success would show a green badge on a commit Gitea shows as not passing.
 
+### Why CI details links may point outside the instance
+
+Gitea Actions reports relative `target_url` values, so CI details links are resolved against the instance origin. External HTTP(S) URLs are also allowed because third-party CI reports links to its own host; empty, malformed and non-HTTP(S) values omit only `detailsUrl`, keeping the run visible and the CI payload valid for the client.
+
 ### Why removing a reviewer who already reviewed is refused
 
 Gitea answers 204 to that removal and keeps the person among the reviewers, so a silent success would leave the user looking at a reviewer they just removed. The maintainer chose a clear refusal instead, sent before any write so an addition in the same change is not applied halfway. A dismissed review or a bare review request does not keep anyone, so those removals go through.
