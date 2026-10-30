@@ -3510,6 +3510,8 @@ export const dict = {
   'chat.workStatus.action.openSubagent': 'فتح {name}',
   'chat.workStatus.section.usage': 'الاستخدام',
   'chat.workStatus.section.telemetry': 'إحصاءات الدور',
+  'chat.workStatus.telemetry.previousTurn': 'الدور السابق',
+  'chat.workStatus.telemetry.previousTurnRate': 'الدور السابق · {rate}',
   'chat.workStatus.telemetry.responseSpeed': 'الرد',
   'chat.workStatus.telemetry.responseSpeedDescription': 'سرعة وصول النص النهائي. لا يشمل الانتظار الأولي ولا التفكير ولا استدعاءات الأدوات السابقة. هذا تقدير من الطوابع الزمنية للنص، وليس قياسًا للسرعة من الموفر.',
   'chat.workStatus.telemetry.speed': 'الدور كاملًا',
