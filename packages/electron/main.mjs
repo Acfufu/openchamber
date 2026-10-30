@@ -2969,6 +2969,13 @@ const openMainWindow = async () => {
   const host = config.defaultHostId && config.defaultHostId !== LOCAL_HOST_ID
     ? config.hosts.find((entry) => entry.id === config.defaultHostId)
     : null;
+  if (host && state.bootOutcome?.sshStartupFallbackHostId === host.id) {
+    return activateMainWindow(localUiUrl, state.localOrigin, state.bootOutcome, {
+      apiBaseUrl: state.sidecarUrl || state.localOrigin || '',
+      clientToken: readDesktopLocalClientToken(),
+      requestHeaders: {},
+    });
+  }
   const relayHost = host && host.relay && typeof host.relay === 'object' ? host : null;
   if (relayHost) {
     // Relay hosts have no reachable HTTP base. Boot the LOCAL UI with the local
@@ -5175,7 +5182,8 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       if (config.defaultHostId && config.defaultHostId !== LOCAL_HOST_ID) {
         const host = config.hosts.find((entry) => entry.id === config.defaultHostId);
         const apiUrl = host?.apiUrl || host?.url;
-        if (host?.url && apiUrl && !state.unreachableHosts.has(apiUrl)) {
+        if (host?.url && apiUrl && !state.unreachableHosts.has(apiUrl)
+          && state.bootOutcome?.sshStartupFallbackHostId !== host.id) {
           targetUrl = shouldUsePackagedUi() ? buildPackagedUiUrl('/index.html') : host.url;
           runtimeConfig = {
             apiBaseUrl: normalizeHostUrl(apiUrl),
