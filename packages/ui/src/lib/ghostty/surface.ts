@@ -398,8 +398,10 @@ export function isTerminalPasteShortcut(
  * Cmd+Q quit, the edit roles, ...) registers at the app level. The encoder
  * drops Super for printable keys, so feeding these chords to the pty types
  * stray text (Cmd+B sends "b") while preventDefault hides the chord from its
- * accelerator. Stand down for every Super chord and let the app claim it.
- * Option (Alt) is the terminal's Meta key on macOS and stays untouched.
+ * accelerator. Stand down for the remaining Super chords and let the app
+ * claim them; the natural text editing chords are claimed first by
+ * `encodeMacLineShortcut`. Option (Alt) is the terminal's Meta key on macOS
+ * and stays untouched.
  */
 export function isTerminalMacAppShortcut(
   event: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey'>,
@@ -424,6 +426,44 @@ export function isTerminalZoomShortcut(
   if (isMacPlatform(platform) || event.altKey || event.shiftKey) return false;
   if (event.code !== 'Equal' && event.code !== 'Minus' && event.code !== 'Digit0') return false;
   return event.ctrlKey && !event.metaKey;
+}
+
+type MacTextEditingEvent = Pick<KeyboardEvent, 'altKey' | 'ctrlKey' | 'isComposing' | 'key' | 'metaKey' | 'shiftKey'>;
+
+/** Cmd+Backspace deletes to the line start (Ctrl+U); Cmd+Left/Right jump to its start or end (Ctrl+A/E). */
+export function encodeMacLineShortcut(event: MacTextEditingEvent, platform = navigator.platform): string | null {
+  if (!isMacPlatform(platform) || !event.metaKey || event.altKey || event.ctrlKey || event.shiftKey || event.isComposing) return null;
+  switch (event.key) {
+    case 'Backspace': return '\x15';
+    case 'ArrowLeft': return '\x01';
+    case 'ArrowRight': return '\x05';
+    default: return null;
+  }
+}
+
+export type TerminalViewportScroll = 'top' | 'bottom' | 'page-up' | 'page-down';
+
+const viewportScrollFor = (key: string): TerminalViewportScroll | null => {
+  switch (key) {
+    case 'Home': return 'top';
+    case 'End': return 'bottom';
+    case 'PageUp': return 'page-up';
+    case 'PageDown': return 'page-down';
+    default: return null;
+  }
+};
+
+/** Viewport scroll bindings for a plain shell. macOS uses Super, Windows and Linux Shift. */
+export function terminalViewportScrollShortcut(
+  event: MacTextEditingEvent,
+  platform = navigator.platform,
+): TerminalViewportScroll | null {
+  const scroll = viewportScrollFor(event.key);
+  if (scroll === null || event.ctrlKey || event.altKey || event.isComposing) return null;
+  const owned = isMacPlatform(platform)
+    ? event.metaKey && !event.shiftKey
+    : event.shiftKey && !event.metaKey;
+  return owned ? scroll : null;
 }
 
 // How long a delivered shortcut read keeps waiting for its native paste event.
@@ -1313,6 +1353,33 @@ export class GhosttyTerminalSurface {
       }
       return;
     }
+    const compositionKey = isTerminalCompositionKey(event, this.composing);
+    const lineShortcut = compositionKey ? null : encodeMacLineShortcut(event, navigator.platform);
+    const viewportScroll = compositionKey ? null : terminalViewportScrollShortcut(event, navigator.platform);
+    const shellShortcut = (lineShortcut !== null || viewportScroll !== null) && this.core.supportsShellShortcuts();
+    if (lineShortcut !== null && shellShortcut) {
+      this.suppressedKeyCodes.add(event.code);
+      event.preventDefault();
+      event.stopPropagation();
+      this.options.onData(lineShortcut);
+      return;
+    }
+    if (viewportScroll !== null && shellShortcut) {
+      const state = this.readScrollbarState();
+      if (state !== null) {
+        const page = Math.max(1, state.len);
+        this.scrollViewport({
+          top: -state.offset,
+          bottom: state.total - state.len - state.offset,
+          'page-up': -page,
+          'page-down': page,
+        }[viewportScroll]);
+      }
+      this.suppressedKeyCodes.add(event.code);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (isTerminalMacAppShortcut(event) || isTerminalZoomShortcut(event)) {
       // No preventDefault: the menu accelerator (or the browser's own chord
       // handling and page zoom on the web) fires only when the renderer leaves the
@@ -1324,9 +1391,7 @@ export class GhosttyTerminalSurface {
     // keyCode 229 is Safari's only signal that this keydown opens an IME
     // composition; encoding it would double the committed text. Do not blank
     // the textarea first: onInput leaves the in-progress candidate there.
-    if (isTerminalCompositionKey(event, this.composing)) {
-      return;
-    }
+    if (compositionKey) return;
     this.clearPrimedCopy();
     const wordShortcut = this.core.encodeMacWordShortcut(event, navigator.platform);
     const data = wordShortcut ?? this.core.encodeKey(event, navigator.platform);
