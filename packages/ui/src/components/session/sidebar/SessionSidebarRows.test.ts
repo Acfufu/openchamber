@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { Virtualizer } from '@tanstack/react-virtual';
 import {
   estimateSessionSidebarRowSize,
   findFirstVisibleSessionSidebarRowIndex,
@@ -210,5 +211,28 @@ describe('SessionSidebarRows scroll anchor', () => {
     const items = layout(open);
     const anchor = findSessionSidebarScrollAnchor(open, items, items[10].start)!;
     expect(resolveSessionSidebarScrollAnchor(anchor, closed, layout(closed))).toBeNull();
+  });
+});
+
+describe('SessionSidebarRows last layout', () => {
+  // The header motion reads where the rows were from the virtualizer's
+  // measurements as they stood before the rows changed. Rebuilt in place, the
+  // entries nobody had read answered with the new layout's numbers
+  // (`bun-patches/@tanstack+virtual-core+3.19.6.patch`).
+  test('measurements read before the rows changed keep their numbers', () => {
+    const options = {
+      count: 50,
+      getScrollElement: () => null,
+      estimateSize: () => 51,
+      scrollToFn: () => undefined,
+      observeElementRect: () => undefined,
+      observeElementOffset: () => undefined,
+    };
+    const virtualizer = new Virtualizer<HTMLElement, HTMLElement>(options);
+    virtualizer.getTotalSize();
+    const before = virtualizer.measurementsCache;
+    virtualizer.setOptions({ ...options, count: 45, estimateSize: () => 32, getItemKey: (index) => `next-${index}` });
+    expect(virtualizer.getTotalSize()).toBe(45 * 32);
+    expect(before[40]?.start).toBe(40 * 51);
   });
 });
