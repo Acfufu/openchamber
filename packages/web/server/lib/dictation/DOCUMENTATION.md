@@ -118,6 +118,7 @@ the user is still speaking, so only the tail is left to transcribe on stop.
 - Silence-only segments (peak < 300) are cleared, never committed, so
   Whisper-style providers do not hallucinate on silence.
 - Model files live under `~/.config/openchamber/speech-models`.
+- Model installation verifies required files in a staging directory before promotion. Extraction failures remove the staging directory and cached archive.
 
 ## Decisions
 
@@ -187,3 +188,7 @@ disk forever.
 The sherpa-onnx 2.0 release removed espeak-ng and piper-phonemize (k2-fsa/sherpa-onnx#4055),
 which the Kokoro and Piper voices of local read-aloud use to turn text into
 phonemes (`files.espeakData`). An upgrade has to bring those voices back first.
+
+### Why native Windows decompression and not a JavaScript extractor
+
+Windows' bundled tar can delegate bzip2 to an external program that the OS does not ship. On Windows, bundled 7-Zip decodes to a temporary tar file inside staging, then system tar extracts it. This keeps decompression out of the server's main thread and avoids the MSYS bzip2-to-tar pipe. macOS and Linux keep direct system-tar extraction. The temporary tar needs additional disk space and disappears with staging.

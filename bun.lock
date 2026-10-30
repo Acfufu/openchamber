@@ -344,6 +344,7 @@
         "openchamber": "./bin/cli.js",
       },
       "dependencies": {
+        "7zip-bin": "5.2.0",
         "@clack/prompts": "^1.1.0",
         "@gitbeaker/rest": "43.8.0",
         "@octokit/rest": "^22.0.1",
