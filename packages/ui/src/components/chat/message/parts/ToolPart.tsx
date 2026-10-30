@@ -1368,6 +1368,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                                     <DiffViewToggle
                                         mode={diffViewMode}
                                         onModeChange={setDiffViewMode}
+                                        iconClassName="size-4"
                                     />
                                 ) : null}
                                 <Button
@@ -1378,7 +1379,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                                     aria-label={t('chat.toolPart.openFileAtFirstChange')}
                                     title={t('chat.toolPart.openFileAtFirstChange')}
                                 >
-                                    <Icon name="file-edit" className="h-3.5 w-3.5" />
+                                    <Icon name="file-edit" className="size-4" />
                                 </Button>
                                 <Button
                                     variant="ghost"
@@ -1388,7 +1389,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                                     aria-label={t('chat.toolPart.openFileDiff')}
                                     title={t('chat.toolPart.openFileDiff')}
                                 >
-                                    <Icon name="git-pull-request" className="h-3.5 w-3.5" />
+                                    <Icon name="git-pull-request" className="size-4" />
                                 </Button>
                             </div>
                             {entry.renderMode === 'diff' ? (
