@@ -426,6 +426,10 @@ Bridge surface (`bridge-config-runtime.ts`), matching the web routes:
 - `api:config/warming` — `PUT /api/config/warming`; `{ enabled }` turns session
   warming on (`true`, keeping a hand-tuned object) or off (removes the key),
   written with the shared `writeWarmingEnabled` to the same file.
+- `api:config/compaction` — `PUT /api/config/compaction`; `{ auto, buffer,
+  keepTokens, background }` (each optional) parsed by the shared
+  `compactionUpdateSchema` and written with `writeCompactionSettings` to the
+  same file.
 - `api:config/skill-switch` — `PUT /api/config/skill-switch`; `{ id, enabled,
   scope, directory }` turns a skill off or on with the shared
   `writeSkillDisabled`, in the same files the web route edits

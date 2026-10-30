@@ -18,6 +18,7 @@ import { sessionNoticesI18n } from './session-notices.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
@@ -113,6 +114,7 @@ export const dict = {
   ...usageStatsI18n.tr,
   ...webSearchI18n.tr,
   ...sessionWarmingI18n.tr,
+  ...compactionSettingsI18n.tr,
   ...heapSnapshotI18n.tr,
   ...consoleBudgetsI18n.tr,
   ...imageToolI18n.tr,
