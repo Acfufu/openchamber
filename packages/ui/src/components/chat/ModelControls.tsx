@@ -1,6 +1,6 @@
 import { OPENCODE_TOOLS } from '@/lib/opencode/tools';
 import React from 'react';
-import { useChatColumnActions } from './chatColumnSession';
+import { useChatColumnActions, useChatSessionSelection } from './chatColumnSession';
 import { MobileModelButton } from './MobileModelButton';
 import { useAgentMissingFromCatalog } from './agentAvailability';
 import type { EditPermissionMode } from '@/stores/types/sessionTypes';
@@ -41,7 +41,8 @@ import { useWidthMorph } from '@/lib/motion/useSizeMorph';
 import { agentLabel } from '@/lib/agentLabel';
 import { rankByQuery } from '@/lib/search/fuzzySearch';
 import { useContextStore } from '@/stores/contextStore';
-import { useConfigStore, isStaleAutoSelection, selectKnownAgent, selectKnownCatalogModel } from '@/stores/useConfigStore';
+import { useConfigStore, isStaleAutoSelection, selectConfigAgentsForDirectory, selectKnownAgent, selectKnownCatalogModel, selectProvidersForDirectory } from '@/stores/useConfigStore';
+import { filterVisibleAgents } from '@/stores/useAgentsStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useSelectionStore } from '@/sync/selection-store';
 import { useSessionMessagesSelector, useSessionRenderable, useSessionSelector } from '@/sync/sync-context';
@@ -398,10 +399,23 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 }) => {
     const { t } = useI18n();
     const { focusInput: focusColumnInput } = useChatColumnActions();
-    const { isReady, isUnavailable } = useOpenCodeReadiness();
-    const { isReady: canSelectAgent } = useOpenCodeReadiness('agents');
+    // A controlled picker (a chat pinned in the side panel, a BTW fork) lists
+    // the catalog of its own session's folder, which can be another one than
+    // the main chat's active folder. The main chat keeps the active catalog.
+    const columnDirectory = useChatSessionSelection().directory;
+    const catalogDirectory = selection ? columnDirectory ?? undefined : undefined;
+    const { isReady, isUnavailable } = useOpenCodeReadiness('models', catalogDirectory);
+    const { isReady: canSelectAgent } = useOpenCodeReadiness('agents', catalogDirectory);
     const readinessLabel = isUnavailable ? t('common.unavailable') : t('common.loading');
-    const providers = useConfigStore((state) => state.providers);
+    const providers = useConfigStore((state) => selectProvidersForDirectory(state, catalogDirectory));
+    const catalogAgents = useConfigStore((state) => selectConfigAgentsForDirectory(state, catalogDirectory));
+    const loadCatalogProviders = useConfigStore((state) => state.loadProviders);
+    const loadCatalogAgents = useConfigStore((state) => state.loadAgents);
+    React.useEffect(() => {
+        if (!catalogDirectory) return;
+        if (!isReady) void loadCatalogProviders({ directory: catalogDirectory, source: 'ModelControls:column' });
+        if (!canSelectAgent) void loadCatalogAgents({ directory: catalogDirectory, source: 'ModelControls:column' });
+    }, [canSelectAgent, catalogDirectory, isReady, loadCatalogAgents, loadCatalogProviders]);
     const getAgentColor = useAgentColors();
     const favoriteAgents = useUIStore((state) => state.favoriteAgents);
     const shortcutOverrides = useUIStore((state) => state.shortcutOverrides);
@@ -441,10 +455,8 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     const getCurrentProvider = useConfigStore((state) => state.getCurrentProvider);
     const getModelMetadata = useConfigStore((state) => state.getModelMetadata);
     const getCurrentAgent = useConfigStore((state) => state.getCurrentAgent);
-    const getVisibleAgents = useConfigStore((state) => state.getVisibleAgents);
-
     // Use visible agents (excludes hidden internal agents)
-    const agents = getVisibleAgents();
+    const agents = React.useMemo(() => filterVisibleAgents(catalogAgents), [catalogAgents]);
     const primaryAgents = React.useMemo(() => agents.filter((agent) => agent.mode === 'primary'), [agents]);
     const tracedReadyRef = React.useRef(false);
 
@@ -532,7 +544,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
 
     // Separate state for agent selector to avoid conflict with model selector
     const [isAgentSelectorOpen, setIsAgentSelectorOpen] = React.useState(false);
-    const { favoriteModelsList, recentModelsList } = useModelLists();
+    const { favoriteModelsList, recentModelsList } = useModelLists(catalogDirectory);
     // Auto routing: the server resolves `openchamber/auto` into a real model per
     // send. Offered only while the server says it can honour it, in the main
     // composer and in controlled selections (BTW) alike.
@@ -2240,9 +2252,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return false;
 
             const { providerID, modelID } = selectedItem;
-            const canonicalProvider = useConfigStore.getState().providers.find((provider) => provider.id === providerID);
-            const canonicalModel = canonicalProvider?.models.find((model) => model.id === modelID) as { variants?: ModelVariantSource } | undefined;
-            const variantKeys = canonicalModel?.variants ? listModelVariantIds(canonicalModel.variants) : getModelVariantOptions(providerID, modelID);
+            const variantKeys = getModelVariantOptions(providerID, modelID);
             if (variantKeys.length === 0) return false;
 
             e.preventDefault();

@@ -1041,7 +1041,9 @@ one app-wide composer state is split per column:
   composer saves its picks, otherwise the session record's model, variant and
   agent. Its picker is `ModelControls` in controlled mode with
   `agentSelectable`, so the agent pick is saved for the session and never
-  changes the main chat's agent. "Run in parallel" is offered only in the main
+  changes the main chat's agent. A controlled picker lists the models and
+  agents of its column's session folder (loading that catalog when it has not
+  loaded), since a pinned chat can live in another folder than the main one. "Run in parallel" is offered only in the main
   chat. Picker changes record the chosen level for that model in the profile
   immediately, and a successful send records the level it carried; a later
   composer on the same model starts there when neither the session nor the
