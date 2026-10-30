@@ -1599,6 +1599,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
   },
 
   {
+    id: 'integrations.browse',
+    page: 'integrations',
+    titleKey: 'settings.integrations.browse.label',
+    descriptionKey: 'settings.integrations.browse.hint',
+    keywords: ['catalog', 'marketplace', 'store', 'discover', 'find', 'mcp', 'plugin', 'skill', 'extension'],
+    isAvailable: (ctx) => !ctx.isVSCode && !ctx.isMobile && !ctx.enterpriseMode,
+  },
+  {
     id: 'integrations.first-party',
     page: 'integrations',
     titleKey: 'settings.integrations.firstParty.title',
