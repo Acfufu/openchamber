@@ -118,8 +118,10 @@ import {
   FileTreeFileMarkers,
   FileTreeFolderBadge,
   FileTreeIndentGuides,
+  FileTreeRowEnd,
 } from './files/FileTreeRowParts';
 import {
+  fileTreeRowMenuFillClassName,
   fileTreeRowPaddingLeft,
   fileTreeRowStateClassName,
   type FileTreeGitStatus,
@@ -587,7 +589,7 @@ const FileRow: React.FC<FileRowProps> = ({
         onClick={handleInteraction}
         onContextMenu={!isMobile ? handleContextMenu : undefined}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-md py-1 pe-8 text-start transition-colors select-none',
+          'oc-file-tree-row flex w-full items-center gap-1.5 rounded-md py-1 text-start select-none',
           fileTreeRowStateClassName(isActive)
         )}
         style={{ paddingLeft: fileTreeRowPaddingLeft(depth) }}
@@ -598,17 +600,21 @@ const FileRow: React.FC<FileRowProps> = ({
           <FileTypeIcon filePath={node.path} extension={node.extension} className="ms-0.5 size-3.5" />
         )}
         <span
-          className="min-w-0 flex-1 truncate typography-meta"
+          className="oc-file-tree-row-name typography-meta"
           title={node.path}
         >
           {node.name}
         </span>
-        {!isDir && <FileTreeFileMarkers isOpen={isOpen} status={status} />}
-        {isDir && badge && <FileTreeFolderBadge badge={badge} />}
+        <FileTreeRowEnd className="pe-2">
+          {!isDir && <FileTreeFileMarkers isOpen={isOpen} status={status} />}
+          {isDir && badge && <FileTreeFolderBadge badge={badge} />}
+        </FileTreeRowEnd>
       </button>
       {hasMenuActions && (
+        // Takes no width and fades in over the row's end lane, with its own fade over the name.
         <div className={cn(
-          "absolute inset-e-1 top-1/2 -translate-y-1/2",
+          "oc-file-tree-row-end -ms-7 w-7 pe-1 transition-opacity",
+          fileTreeRowMenuFillClassName(isActive),
           alwaysShowActions ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100"
         )}>
           <DropdownMenu
@@ -2689,8 +2695,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           {isDir && isExpanded && (
             <ul className="flex flex-col">
               {loadErrorsByDir[node.path] ? (
+                // As wide as the pane and held at its start, so a tree widened by a long
+                // name keeps the message and its button on screen.
                 <li
-                  className="relative flex items-center gap-2 py-1 pe-2 typography-meta text-muted-foreground"
+                  className="sticky inset-s-0 flex w-[100cqw] items-center gap-2 py-1 pe-2 typography-meta text-muted-foreground"
                   style={{ paddingLeft: fileTreeRowPaddingLeft(depth + 1) }}
                   data-tree-disclosure-path={`${node.path}/`}
                 >
@@ -4995,6 +5003,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const hasTree = Boolean(root && childrenByDir[root]);
   const rootLoadError = root ? loadErrorsByDir[root] : null;
   const isSearchActive = debouncedSearchQuery.trim().length > 0;
+  const showsTree = hasTree && !searching && !isSearchActive && searchResults.length === 0 && !rootLoadError;
 
   const treePanel = treeEnabled ? (
     <section className={cn(
@@ -5062,8 +5071,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         </div>
       </div>
 
-      <ScrollableOverlay outerClassName="flex-1 min-h-0" className={cn("py-2", isMobile ? "px-3" : "px-2")}>
-        <ul ref={treeListRef} className="relative flex flex-col">
+      {/* A container, so an error row can take the pane's width in a wider tree. */}
+      <ScrollableOverlay outerClassName="flex-1 min-h-0" className={cn("@container py-2", isMobile ? "px-3" : "px-2")}>
+        {/* The tree is as wide as its widest row and scrolls sideways; search results truncate. */}
+        <ul ref={treeListRef} className={cn('relative flex flex-col', showsTree && 'w-max min-w-full')}>
           {searching ? (
             <li className="flex items-center gap-1.5 px-2 py-1 typography-meta text-muted-foreground">
               <Icon name="loader-4" className="size-4 animate-spin" />

@@ -51,6 +51,7 @@ import { describeChange } from './git/changeStatus';
 import {
     FileTreeChevron,
     FileTreeIndentGuides,
+    FileTreeRowEnd,
     FileTreeStatusLetter,
 } from './files/FileTreeRowParts';
 import {
@@ -372,7 +373,8 @@ const FileTree = React.memo<FileListProps>(({
 
     return (
         <ScrollableOverlay outerClassName="flex-1 min-h-0" className="px-1.5 py-1.5">
-            <ul ref={listRef} className="relative flex flex-col">
+            {/* As wide as its widest row; a long name scrolls sideways. */}
+            <ul ref={listRef} className="relative flex w-max min-w-full flex-col">
                 {rows.map((row) => {
                     const paddingLeft = fileTreeRowPaddingLeft(row.depth);
 
@@ -387,12 +389,13 @@ const FileTree = React.memo<FileListProps>(({
                                     aria-label={row.expanded
                                         ? t('diffView.fileTree.collapseDirectoryAria', { path: row.path })
                                         : t('diffView.fileTree.expandDirectoryAria', { path: row.path })}
-                                    className="flex w-full items-center gap-1 rounded-md py-1 pe-2 text-start text-muted-foreground transition-colors hover:bg-interactive-hover hover:text-foreground"
+                                    className="oc-file-tree-row flex w-full items-center gap-1 rounded-md py-1 text-start text-muted-foreground hover:bg-interactive-hover hover:text-foreground hover:[--oc-file-tree-row-fill:var(--interactive-hover)]"
                                     style={{ paddingInlineStart: paddingLeft }}
                                     title={row.path}
                                 >
                                     <FileTreeChevron expanded={row.expanded} />
-                                    <span className="min-w-0 flex-1 truncate typography-meta">{row.label}</span>
+                                    <span className="oc-file-tree-row-name typography-meta">{row.label}</span>
+                                    <FileTreeRowEnd className="pe-2" />
                                 </button>
                             </li>
                         );
@@ -408,19 +411,21 @@ const FileTree = React.memo<FileListProps>(({
                                 onClick={() => onSelectFile(row.file.path)}
                                 aria-current={isActive ? 'true' : undefined}
                                 className={cn(
-                                    'flex w-full items-center gap-1.5 rounded-md py-1 pe-2 text-start transition-colors',
+                                    'oc-file-tree-row flex w-full items-center gap-1.5 rounded-md py-1 text-start',
                                     fileTreeRowStateClassName(isActive)
                                 )}
                                 style={{ paddingInlineStart: paddingLeft }}
                                 title={row.file.path}
                             >
                                 <FileTypeIcon filePath={row.file.path} className="ms-0.5 size-3.5 flex-shrink-0" />
-                                <span className="min-w-0 flex-1 truncate typography-meta">{row.name}</span>
-                                <FileTreeStatusLetter
-                                    code={descriptor.code}
-                                    color={descriptor.color}
-                                    label={t(descriptor.descriptionKey)}
-                                />
+                                <span className="oc-file-tree-row-name typography-meta">{row.name}</span>
+                                <FileTreeRowEnd className="pe-2">
+                                    <FileTreeStatusLetter
+                                        code={descriptor.code}
+                                        color={descriptor.color}
+                                        label={t(descriptor.descriptionKey)}
+                                    />
+                                </FileTreeRowEnd>
                             </button>
                         </li>
                     );

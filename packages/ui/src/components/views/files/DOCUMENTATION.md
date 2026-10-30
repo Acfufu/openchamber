@@ -114,6 +114,30 @@ it no longer hides the file's git state. Change the look there, not per tree.
 The JSON tree viewer (`components/ui/JsonTreeViewer.tsx`) takes the same
 indent and guides and copies the chevron's look; keep the copy in step.
 
+A name never truncates. The tree is as wide as its widest row and scrolls
+sideways, and every row is that wide, so fills and marks span the scroll.
+The git marks sit in an end lane (`FileTreeRowEnd`, `oc-file-tree-row-end`
+in `index.css`) that sticks to the pane's end, fades the name out over 1rem
+and redraws the row's rounded end in the row's colour, drop ring included.
+Over the last 1rem of the sideways scroll the fade narrows away, so the
+widest name shows whole at the end without a gap kept after every name. The hover menu is a
+second lane of the same kind that takes no width and fades in over the end,
+so a row reserves no room for it. Error rows stay as wide as the pane
+(`100cqw` of the scroller) and held at its start. The non-virtual trees get
+their width from CSS (`w-max`). The sidebar's virtual list cannot, because
+only some rows are mounted: it remembers, by path, each row seen wider than
+the list, takes the widest as its width, and forgets rows that leave the
+tree. That keeps the sideways scroll when wide rows scroll out of view or
+another folder opens.
+
+### Why the end lane paints the row's colour under a mask
+
+The fade has to cover the name with exactly the colour of the row behind it,
+which is a translucent hover or selection fill over the pane. Fading the
+fill and the pane colour as separate gradients darkened the middle of the
+fade on a selected row. The lane paints the composed colour solid and a mask
+fades it in as a whole.
+
 ## Opening and closing a folder
 
 All three trees open and close folders with the sessions sidebar's motion
