@@ -1122,6 +1122,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
         || part.tool === 'openchamber_notify'
         || part.tool === 'openchamber_render'
         || part.tool === 'openchamber_image'
+        || part.tool === 'openchamber_secret'
         || part.tool === 'openchamber_workflow'
         || isPatchTool(part.tool)
         || isEditTool(part.tool)

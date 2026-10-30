@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { DIRECT_TOOLS_GUIDANCE, KNOWLEDGE_ENTRY_KEYS, RENDER_PAGE_GUIDANCE, SESSION_LINK_GUIDANCE, WORK_NAME_GUIDANCE, WORKFLOW_GUIDANCE, buildKnowledgeEntries, createSessionKnowledgeRuntime } from './runtime.js';
+import { DIRECT_TOOLS_GUIDANCE, KNOWLEDGE_ENTRY_KEYS, RENDER_PAGE_GUIDANCE, SECRET_REQUEST_GUIDANCE, SESSION_LINK_GUIDANCE, WORK_NAME_GUIDANCE, WORKFLOW_GUIDANCE, buildKnowledgeEntries, createSessionKnowledgeRuntime } from './runtime.js';
 
 const DIRECTORY = '/work/project';
 const PROJECT_ID = 'path_project';
@@ -33,7 +33,7 @@ const createRuntime = (overrides = {}) => {
   };
   for (const key of [
     'readSessionMetadata', 'persistSessionMetadata', 'isAgentMemoryEnabled', 'isSessionLinkingAvailable',
-    'isPageRenderingAvailable', 'isWorkflowAvailable', 'areAgentToolsInCodeMode', 'readCheckoutBranch', 'readPlaceholderBranch', 'instructionEntries',
+    'isPageRenderingAvailable', 'isSecretRequestAvailable', 'isWorkflowAvailable', 'areAgentToolsInCodeMode', 'readCheckoutBranch', 'readPlaceholderBranch', 'instructionEntries',
   ]) {
     if (key in overrides) dependencies[key] = overrides[key];
   }
@@ -181,6 +181,21 @@ describe('when to draw a page', () => {
       const entries = await entriesFor(createRuntime({ ...bare, isPageRenderingAvailable }), NO_PINS);
       expect(entries[GUIDANCE]).toBe('');
     }
+  });
+});
+
+describe('when to ask for a secret', () => {
+  const bare = {
+    isAgentMemoryEnabled: async () => false,
+    projectContextRuntime: { readContext: async () => ({ notes: [], todos: [], plans: [] }) },
+  };
+
+  test('is told only in a session whose agent has the secret tool', async () => {
+    const withTool = await entriesFor(createRuntime({ ...bare, isSecretRequestAvailable: async () => true }), NO_PINS);
+    expect(withTool[GUIDANCE]).toBe(`${SECRET_REQUEST_GUIDANCE}\n\n${DIRECT_TOOLS_GUIDANCE}`);
+
+    const without = await entriesFor(createRuntime({ ...bare, isSecretRequestAvailable: async () => { throw new Error('settings unreadable'); } }), NO_PINS);
+    expect(without[GUIDANCE]).toBe('');
   });
 });
 

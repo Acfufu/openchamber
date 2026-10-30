@@ -179,6 +179,7 @@ import { createPluginNotificationEmitter } from './lib/notifications/emit-route.
 import { OpenChamberControlError } from './lib/openchamber-control/error.js';
 import { createSessionLinker } from './lib/openchamber-sessions/session-link.js';
 import { createFileOpenRequester } from './lib/openchamber-control/file-open.js';
+import { createSecretFiles } from './lib/openchamber-control/secret-request.js';
 import { applyConnectAttemptTimeout } from './lib/network-defaults.js';
 import { applyOutboundProxyFromEnv } from './lib/outbound-proxy.js';
 import { applySystemCertificates } from './lib/system-ca.js';
@@ -1135,6 +1136,11 @@ const sessionKnowledgeRuntime = createSessionKnowledgeRuntime({
     const settings = await readSettingsFromDiskMigrated().catch(() => null);
     return settings?.agentRenderToolEnabled !== false;
   },
+  isSecretRequestAvailable: async () => {
+    if (isExternalOpenCode || ENV_SKIP_OPENCODE_START) return false;
+    const settings = await readSettingsFromDiskMigrated().catch(() => null);
+    return settings?.agentSecretToolEnabled !== false;
+  },
   isWorkflowAvailable: async () => {
     if (isExternalOpenCode || ENV_SKIP_OPENCODE_START || !isWorkflowFeatureAvailable()) return false;
     const settings = await readSettingsFromDiskMigrated().catch(() => null);
@@ -2029,6 +2035,12 @@ const pluginNotificationEmitter = createPluginNotificationEmitter({
   broadcastUiNotification,
 });
 
+// Secrets the user saved for an agent (secret.request). Each file is deleted
+// 24 hours after it was written: on start, and hourly while the server runs.
+const secretFiles = createSecretFiles({ directory: path.join(OPENCHAMBER_DATA_DIR, 'secrets') });
+void secretFiles.sweep();
+setInterval(() => { void secretFiles.sweep(); }, 60 * 60 * 1000).unref();
+
 const openChamberControlService = createOpenChamberControlService({
   readSettingsFromDiskMigrated,
   sanitizeProjects,
@@ -2069,6 +2081,11 @@ const openChamberControlService = createOpenChamberControlService({
     const settings = await readSettingsFromDiskMigrated().catch(() => null);
     return settings?.agentRenderToolEnabled !== false;
   },
+  isSecretToolEnabled: async () => {
+    const settings = await readSettingsFromDiskMigrated().catch(() => null);
+    return settings?.agentSecretToolEnabled !== false;
+  },
+  secretFiles,
   // A page that waits for the user's answer shows the session as waiting
   // the way a form does: the pending list the clients seed from, a live event
   // for the clients already connected, and the "Input needed" notification.

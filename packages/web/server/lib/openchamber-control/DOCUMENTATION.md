@@ -93,6 +93,25 @@ other.
   against `budgetMB` when the budget cut it) and a note telling the agent to
   split the page or use smaller images. A page whose images all show answers
   as before.
+- `secret-request.js` runs `secret.request` for the `openchamber_secret`
+  agent tool. The call waits in its own `createPageAnswers` instance, so the
+  session shows as waiting for the user exactly like a page (pending list,
+  `openchamber:page-waiting` with the label as title, "Input needed"), while
+  a page's answer route can never reach a secret's wait. The chat answers
+  through `POST /api/openchamber/secret/answer` with the value or
+  `declined: true`. The route writes the value to
+  `<data-dir>/secrets/<random>` (file `0600` created with `wx`, directory
+  `0700`) and only then settles the wait with the path; when the call
+  stopped waiting meanwhile, the file is removed and the answer is a `404`.
+  A write that fails partway removes its file, and so does an answer that
+  settles the wait just as the call is aborted. Like a page, the card does
+  not wait when `hasUnreadChat` finds a message the user sent before it
+  appeared; the call answers `{ answered: false, reason: 'chat-sent-earlier' }`.
+  The value never enters the tool call, its result, OpenCode's store or the
+  agent's context; the agent reads the file inside its own command, so the
+  card says the agent's commands can read it. `createSecretFiles().sweep()`
+  deletes files 24 hours after they were written, on server start and
+  hourly. Answers `403` while `agentSecretToolEnabled` is `false`.
 - `routes.js` is the authenticated CLI HTTP adapter. It forwards one action,
   preserves service status and partial-result details, and propagates request
   cancellation. It also carries the chat's answer to a waiting page.

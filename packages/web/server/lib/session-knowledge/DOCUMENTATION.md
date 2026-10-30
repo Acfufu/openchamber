@@ -140,6 +140,15 @@ page (`awaitAnswer`) when the user has to choose between visual options; the
 tool description repeats none of it. It goes into `openchamber.guidance`, so a
 change to the text reaches running sessions on their next message.
 
+## When to ask for a secret
+
+A session whose agent has the `openchamber_secret` tool (the setting is on and
+OpenChamber launched OpenCode, read through `isSecretRequestAvailable`) is told
+to ask for any secret on the tool's card and never in the chat
+(`SECRET_REQUEST_GUIDANCE`). An agent needs the rule before it thinks of the
+tool, and a token pasted in the chat stays in the transcript. The tool
+description says only what the card does.
+
 ## When to offer a workflow
 
 A session whose agent has the `openchamber_workflow` tool (a build with

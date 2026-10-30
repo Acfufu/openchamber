@@ -803,6 +803,9 @@ export const createSettingsHelpers = (dependencies) => {
     if (agentImageModel && /^[^/\s]+\/\S+$/.test(agentImageModel)) {
       result.agentImageModel = agentImageModel;
     }
+    if (candidate.agentSecretToolEnabled === true || candidate.agentSecretToolEnabled === false) {
+      result.agentSecretToolEnabled = candidate.agentSecretToolEnabled;
+    }
     if (typeof candidate.agentToolsCodeMode === 'boolean') {
       result.agentToolsCodeMode = candidate.agentToolsCodeMode;
     }
