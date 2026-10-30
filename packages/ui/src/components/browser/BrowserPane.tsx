@@ -1054,7 +1054,9 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory: tab
             ref={attachWebview}
             src={initialSrc}
             partition={browserPartitionOf(directory)}
-            allowpopups
+            // React 19 uses React.JSX, not the legacy global JSX in desktop.d.ts.
+            // @ts-expect-error @types/react's WebViewHTMLAttributes requires boolean, which React omits from the DOM.
+            allowpopups="true"
             // An agent's tab is mostly out of sight while the agent works it:
             // a hidden page's timers would run about once a second, and the
             // app took a minute to start in it. The user's own hidden tabs
