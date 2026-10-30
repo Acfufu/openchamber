@@ -113,6 +113,24 @@ export const isWebSearchTool = (toolName: ToolName): boolean => normalizeToolNam
 const optionalText = z.string().trim().min(1).optional().catch(undefined)
 const optionalCount = z.number().int().nonnegative().optional().catch(undefined)
 
+/**
+ * A boolean the model produced, read from the input OpenCode stored. A harness
+ * can stringify it on the way to the tool, and the generated plugin normalizes
+ * exactly the two spellings before its call reaches the server
+ * (booleanNormalizationBlock in
+ * packages/web/server/lib/agent-tool/runtime.js); OpenCode stores the input as
+ * it arrived, so a read of stored input applies the same two spellings here.
+ * Every other value reads as absent, leaving the server's strict check the only
+ * judge of what the model actually sent. Seen in practice: `awaitAnswer`
+ * arrived as "true", the server waited for an answer while the chat read the
+ * call as showing an ordinary page, and the wait could only end by
+ * interruption (2026-10-25).
+ */
+const booleanish = z
+  .union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")])
+  .optional()
+  .catch(undefined)
+
 const inputSchema = z
   .object({
     // v2 file tools use `path`; the other two keep MCP and plugin tools that
@@ -200,7 +218,7 @@ const readInput = (input: ToolInput | undefined): ParsedInput => inputSchema.par
 const renderPageFields = z.object({
   html: z.string().optional().catch(undefined),
   title: optionalText,
-  awaitAnswer: z.boolean().optional().catch(undefined),
+  awaitAnswer: booleanish,
 })
 
 // The plugin accepts the inputs inside `parameters` or beside `action`, and an
@@ -511,8 +529,8 @@ export const isShownInPlace = (toolName: ToolName, state: ToolState): boolean =>
 const openChamberCallSchema = z
   .object({
     action: optionalText,
-    awaitAnswer: z.boolean().optional().catch(undefined),
-    parameters: z.object({ awaitAnswer: z.boolean().optional().catch(undefined) }).optional().catch(undefined),
+    awaitAnswer: booleanish,
+    parameters: z.object({ awaitAnswer: booleanish }).optional().catch(undefined),
   })
   .catch({})
 

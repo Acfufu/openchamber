@@ -14,6 +14,7 @@ import {
   isSubagentTool,
   isWebTool,
   normalizeToolName,
+  openChamberToolCall,
   renderedPage,
   subagentSessionId,
   toolDescription,
@@ -279,6 +280,29 @@ describe("renderedPage", () => {
     expect(renderedPage("openchamber_render", stopped)?.ask).toEqual({ kind: "unanswered" })
   })
 
+  test("waits on an awaitAnswer a harness stringified, as the plugin normalizes it", () => {
+    // The plugin sends the server "true"/"false" normalized to a real boolean
+    // and waits there; OpenCode stores the input as it arrived. A string read
+    // as false sent the chat's page away while the call waited on an answer
+    // only that page could give (2026-10-25).
+    const nested = { action: "render.page", parameters: { html: "<p>a</p>", title: "Pick", awaitAnswer: "true" } }
+    expect(renderedPage("openchamber_render", running(nested))?.ask).toEqual({ kind: "waiting" })
+    const flat = { action: "render.page", html: "<p>a</p>", title: "Pick", awaitAnswer: "true" }
+    expect(renderedPage("openchamber_render", running(flat))?.ask).toEqual({ kind: "waiting" })
+    expect(renderedPage("openchamber_render", { status: "error", input: nested, error: "aborted", time: { start: 1, end: 2 } })?.ask)
+      .toEqual({ kind: "unanswered" })
+    // "false" is false: the page shows and asks nothing.
+    const shown = { action: "render.page", parameters: { html: "<p>a</p>", title: "Pick", awaitAnswer: "false" } }
+    expect(renderedPage("openchamber_render", running(shown))).toBeNull()
+    expect(renderedPage("openchamber_render", completed(shown, accepted))?.ask).toEqual({ kind: "show" })
+    // Any other value reads as absent, as the server's strict check judges it.
+    const odd = { action: "render.page", parameters: { html: "<p>a</p>", title: "Pick", awaitAnswer: "yes" } }
+    expect(renderedPage("openchamber_render", running(odd))).toBeNull()
+    // An explicit parameters object wins on a conflict, as it does in the plugin.
+    const conflict = { action: "render.page", awaitAnswer: "true", parameters: { html: "<p>a</p>", title: "Pick", awaitAnswer: "false" } }
+    expect(renderedPage("openchamber_render", running(conflict))).toBeNull()
+  })
+
   test("leaves a refused, unfinished, empty or foreign call to its tool row", () => {
     const input = { action: "render.page", parameters: { html: "<p>a</p>", title: "Chart" } }
     expect(renderedPage("openchamber_render", completed(input, { openchamber: { ok: false } }))).toBeNull()
@@ -333,5 +357,30 @@ describe("generatedImagePaths", () => {
     expect(generatedImagePaths(...completed(envelope(true, [])))).toEqual([])
     expect(generatedImagePaths(...completed(envelope(true, ["/tmp/a.png"]), "openchamber_render"))).toEqual([])
     expect(generatedImagePaths("openchamber_image", { status: "running", input: {}, time: { start: 1 } })).toEqual([])
+  })
+})
+
+describe("isShownInPlace", () => {
+  const running = (input: ToolInput): ToolState => ({ status: "running", input, time: { start: 1 } })
+
+  test("hoists a waiting page even when a harness stringified its awaitAnswer", () => {
+    const waiting = { action: "render.page", parameters: { html: "<p>a</p>", title: "Pick", awaitAnswer: "true" } }
+    expect(isShownInPlace("openchamber_render", running(waiting))).toBe(true)
+    expect(isShownInPlace("openchamber_render", { status: "error", input: waiting, error: "aborted", time: { start: 1, end: 2 } })).toBe(true)
+    const notWaiting = { action: "render.page", parameters: { html: "<p>a</p>", title: "Pick", awaitAnswer: "false" } }
+    expect(isShownInPlace("openchamber_render", running(notWaiting))).toBe(false)
+    expect(isShownInPlace("openchamber_render", running({ ...notWaiting, parameters: { ...notWaiting.parameters, awaitAnswer: "yes" } }))).toBe(false)
+  })
+})
+
+describe("openChamberToolCall", () => {
+  test("reads a stringified awaitAnswer the way the plugin normalizes it", () => {
+    expect(openChamberToolCall("openchamber_render", { action: "render.page", awaitAnswer: "true" })?.awaitsAnswer).toBe(true)
+    expect(openChamberToolCall("openchamber_render", { action: "render.page", parameters: { awaitAnswer: "true" } })?.awaitsAnswer).toBe(true)
+    expect(openChamberToolCall("openchamber_render", { action: "render.page", awaitAnswer: "false" })?.awaitsAnswer).toBe(false)
+    expect(openChamberToolCall("openchamber_render", { action: "render.page", awaitAnswer: "yes" })?.awaitsAnswer).toBe(false)
+    expect(openChamberToolCall("openchamber_render", { action: "render.page", awaitAnswer: "true" })?.action).toBe("render.page")
+    // An explicit parameters object wins on a conflict, as it does in the plugin.
+    expect(openChamberToolCall("openchamber_render", { action: "render.page", awaitAnswer: "true", parameters: { awaitAnswer: "false" } })?.awaitsAnswer).toBe(false)
   })
 })
