@@ -51,6 +51,10 @@ mock.module('@/stores/useAgentsStore', () => ({
 }));
 mock.module('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 mock.module('@/lib/desktop', () => ({ isVSCodeRuntime: () => false }));
+mock.module('@/lib/device', () => ({ useDeviceInfo: () => ({ isMobile: false }) }));
+mock.module('@/stores/useUIStore', () => ({
+  useUIStore: <R,>(selector: (state: { isMobile: boolean }) => R): R => selector({ isMobile: false }),
+}));
 mock.module('@/lib/modelEfforts', () => ({ resolveEffortForModelSelection: () => 'picked-effort' }));
 mock.module('@/components/ui/dialog', () => ({
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) => (open ? <div>{children}</div> : null),
@@ -122,7 +126,6 @@ afterAll(() => {
 
 test('starts on the defaults of the project it sends to', async () => {
   await render('/repo-b');
-  expect(shownModel()).toBe('/');
 
   await settle(pending[0], { agentName: 'plan', providerId: 'anthropic', modelId: 'claude', variant: 'high' });
   await send();
@@ -134,15 +137,18 @@ test('starts on the defaults of the project it sends to', async () => {
   }]);
 });
 
-test('a pick made while the defaults load stays picked, and the send waits for them', async () => {
+test('a skeleton holds the model field and the send waits until the defaults arrive', async () => {
   await render('/repo-b');
-  await act(async () => {
-    host.querySelector<HTMLElement>('[data-model]')?.click();
-  });
+  expect(shownModel()).toBeUndefined();
+  expect(host.querySelector('[data-slot="skeleton"]')?.getAttribute('aria-label')).toBe('common.loading');
   await send();
   expect(confirmed).toEqual([]);
 
   await settle(pending[0], { agentName: 'plan', providerId: 'anthropic', modelId: 'claude', variant: 'high' });
+  expect(host.querySelector('[data-slot="skeleton"]')).toBeNull();
+  await act(async () => {
+    host.querySelector<HTMLElement>('[data-model]')?.click();
+  });
   await send();
 
   expect(confirmed).toEqual([{

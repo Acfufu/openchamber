@@ -7,6 +7,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useWaitingBlink } from '@/hooks/useDurationTicker';
+import { useDeviceInfo } from '@/lib/device';
+import { cn } from '@/lib/utils';
+import { useUIStore } from '@/stores/useUIStore';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { ModelSelector } from '@/components/sections/agents/ModelSelector';
 import { AgentSelector } from '@/components/sections/commands/AgentSelector';
@@ -31,6 +36,22 @@ type TodoSendDialogProps = {
   allowRunAsGoal?: boolean;
   onConfirm: (execution: TodoSendExecution) => Promise<void> | void;
 };
+
+// Stands in for the model picker while the project's defaults load, in the
+// trigger's shape so nothing moves when the picker replaces it.
+function ModelFieldSkeleton() {
+  const { t } = useI18n();
+  const isMobile = useUIStore((state) => state.isMobile);
+  const { isMobile: deviceIsMobile } = useDeviceInfo();
+  const blink = useWaitingBlink(true);
+  return (
+    <Skeleton
+      role="status"
+      aria-label={t('common.loading')}
+      className={cn(isMobile || deviceIsMobile ? 'h-8 w-full' : 'h-7 w-48', 'max-w-[320px] rounded-md', blink)}
+    />
+  );
+}
 
 const EMPTY_EXECUTION: TodoSendExecution = {
   providerID: '',
@@ -79,8 +100,8 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
 
   // The dialog starts on the defaults of the project it sends to. The
   // composer's pick belongs to whatever session is open, often in another
-  // project, so it never seeds the dialog. A pick made while the defaults
-  // load stays.
+  // project, so it never seeds the dialog. An agent picked while the
+  // defaults load stays.
   React.useEffect(() => {
     if (!open) return;
     setExecution(EMPTY_EXECUTION);
@@ -95,12 +116,8 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
       setDefaultsResolved(true);
       if (!defaults) return;
       setExecution((prev) => {
-        const next = { ...prev };
-        if (!prev.picked.model) {
-          next.providerID = defaults.providerId;
-          next.modelID = defaults.modelId;
-          if (!prev.picked.variant) next.variant = defaults.variant ?? '';
-        }
+        // The model and its effort cannot be picked yet: the picker shows once the defaults are here.
+        const next = { ...prev, providerID: defaults.providerId, modelID: defaults.modelId, variant: defaults.variant ?? '' };
         if (!prev.picked.agent) next.agent = defaults.agentName ?? '';
         return next;
       });
@@ -176,7 +193,7 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
         <div className="flex flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="typography-meta font-medium text-muted-foreground">{t('chat.modelControls.model')}</span>
-            <ModelSelector
+            {!defaultsResolved ? <ModelFieldSkeleton /> : <ModelSelector
               providerId={execution.providerID}
               modelId={execution.modelID}
               directory={pickerDirectory}
@@ -191,7 +208,7 @@ export function TodoSendDialog(props: TodoSendDialogProps) {
                   picked: { ...prev.picked, model: true },
                 }));
               }}
-            />
+            />}
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="typography-meta font-medium text-muted-foreground">{t('sessions.scheduledTasks.editor.thinkingLevel.label')}</span>
