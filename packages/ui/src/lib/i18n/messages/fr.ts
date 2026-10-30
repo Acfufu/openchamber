@@ -3887,4 +3887,14 @@ export const dict = {
   'notifications.question.bodyFallback': 'L\'agent attend votre réponse',
   'notifications.permission.bodyFallback': 'L\'agent attend votre autorisation',
   'notifications.permission.title': 'Autorisation requise',
+   'chat.promptHistorySearch.title': "Rechercher dans l'historique des prompts",
+  'chat.promptHistorySearch.searchPlaceholder': "Rechercher les prompts mémorisés",
+   'chat.promptHistorySearch.close': "Fermer la recherche dans l'historique des prompts",
+  'chat.promptHistorySearch.empty': "Aucun prompt à rechercher pour le moment",
+  'chat.promptHistorySearch.noMatches': "Aucun prompt correspondant",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} pièce jointe",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} pièces jointes",
+  'chat.promptHistorySearch.hint': "↑ ↓ pour parcourir · Enter pour charger · Esc pour fermer",
+   'helpDialog.item.searchPromptHistory': "Rechercher dans l'historique des prompts (saisie du chat)",
+
 } as const;

@@ -160,7 +160,7 @@ import { fetchResponseStyleInstruction } from '@/lib/responseStyle';
 import { wrapSystemReminder } from '@/lib/systemReminder';
 import { getSyncMessages } from '@/sync/sync-refs';
 import { useOpenCodeStartupStore } from '@/sync/opencode-startup-gate';
-import { eventMatchesShortcut, getEffectiveShortcutCombo, normalizeCombo } from '@/lib/shortcuts';
+import { eventMatchesShortcut, getEffectiveShortcutCombo, normalizeCombo, shortcutRegistry } from '@/lib/shortcuts';
 import {
     assignImageAttachmentFilenames,
     buildAttachmentCitationText,
@@ -233,7 +233,9 @@ import {
 } from './composer/submit/slashCommands';
 import { runForkCommand } from './composer/submit/forkCommand';
 import { useAutocompletePosition } from './composer/state/useAutocompletePosition';
-import { useMessageHistory } from './composer/state/useMessageHistory';
+import { useMessageHistory, type MessageHistoryValue } from './composer/state/useMessageHistory';
+import type { PromptHistoryCandidate } from './composer/state/promptHistorySearch';
+import { registerPromptHistorySearchRoute } from './composer/state/promptHistorySearchRoute';
 import { useComposerDraft } from './composer/state/useComposerDraft';
 import { MentionCompletionState } from './composer/state/mentionCompletion';
 import { useSessionDraftPublishing } from './composer/state/useSessionDraftPublishing';
@@ -259,6 +261,7 @@ import { isDraftSendWaiting, subscribeDraftSendWaiting } from '@/lib/worktrees/p
 import { ComposerAutocompletePopups } from './composer/ui/ComposerAutocompletePopups';
 import { ComposerFooter } from './composer/ui/ComposerFooter';
 import { MobilePillComposer } from './composer/ui/MobilePillComposer';
+import { PromptHistorySearchPanel } from './composer/ui/PromptHistorySearchPanel';
 import { ComposerContextChips } from './composer/ui/ComposerContextChips';
 import { LargeTextPasteChoice, type LargeTextPasteChoiceAction } from './composer/ui/LargeTextPasteChoice';
 import { LinkedReferenceRow } from './composer/ui/LinkedReferenceRow';
@@ -513,6 +516,17 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         composerViewStore.view = null;
     }, [composerViewStore]);
     const composerFormRef = React.useRef<HTMLFormElement | null>(null);
+    const [promptHistorySearch, setPromptHistorySearch] = React.useState<{
+        identity: string;
+        initialQuery: string;
+        olderRequest: number;
+    } | null>(null);
+    const [promptHistorySearchOwner, setPromptHistorySearchOwner] = React.useState<HTMLFormElement | null>(null);
+    const [historyFocusPending, setHistoryFocusPending] = React.useState(false);
+    const setPromptHistorySearchForm = React.useCallback((node: HTMLFormElement | null) => {
+        composerFormRef.current = node;
+        setPromptHistorySearchOwner(node);
+    }, []);
     const cursorPosRef = React.useRef(0);
     const dropZoneRef = React.useRef<HTMLDivElement>(null);
     const dragEnterCountRef = React.useRef(0);
@@ -1198,6 +1212,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             attachMenuOpen: mobileAttachMenuOpen,
             draftPickerOpen: mobileDraftPicker !== null,
             referencePickerOpen: referencePicker !== null,
+            // Keep the editor mounted until the closing search hands focus back.
+            promptHistorySearchOpen: promptHistorySearch !== null || historyFocusPending,
             isDragging,
         },
     });
@@ -1302,6 +1318,50 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         [inputHistoryIdentity, inputHistoryScope],
     );
     const messageHistory = useMessageHistory<AttachedFile>(historyValues, messageHistoryIdentity);
+    const promptHistorySearchIdentity = `${chatDraftIdentity ? getChatDraftIdentityKey(chatDraftIdentity) : 'none'}:${messageHistoryIdentity}:${inputMode}:${isBtwActive}:${isBtwPanelVisible}`;
+    const isPromptHistorySearchOpen = promptHistorySearch?.identity === promptHistorySearchIdentity;
+    const promptHistorySearchIdentityRef = React.useRef(promptHistorySearchIdentity);
+    promptHistorySearchIdentityRef.current = promptHistorySearchIdentity;
+
+    React.useEffect(() => {
+        if (!isPromptHistorySearchOpen && promptHistorySearch) setPromptHistorySearch(null);
+    }, [isPromptHistorySearchOpen, promptHistorySearch]);
+
+    // The one deferred composer focus that history work may have pending. A
+    // newer schedule replaces it; opening the search or unmounting cancels it,
+    // so a stale frame cannot pull focus out of a search that opened since.
+    const historyFocusFrameRef = React.useRef<number | null>(null);
+    const cancelHistoryFocusFrame = React.useCallback(() => {
+        if (historyFocusFrameRef.current === null) return;
+        window.cancelAnimationFrame(historyFocusFrameRef.current);
+        historyFocusFrameRef.current = null;
+        setHistoryFocusPending(false);
+    }, []);
+    const scheduleHistoryFocusFrame = React.useCallback((run: () => void) => {
+        cancelHistoryFocusFrame();
+        setHistoryFocusPending(true);
+        historyFocusFrameRef.current = window.requestAnimationFrame(() => {
+            historyFocusFrameRef.current = null;
+            run();
+            setHistoryFocusPending(false);
+        });
+    }, [cancelHistoryFocusFrame]);
+    React.useEffect(() => cancelHistoryFocusFrame, [cancelHistoryFocusFrame]);
+
+    const applyHistoryValue = React.useCallback((value: MessageHistoryValue<AttachedFile>, selection: 'start' | 'end') => {
+        const identity = promptHistorySearchIdentityRef.current;
+        setMessage(value.text);
+        messageRef.current = value.text;
+        useInputStore.getState().setAttachedFiles([...value.attachments], chatDraftIdentity);
+        scheduleHistoryFocusFrame(() => {
+            if (promptHistorySearchIdentityRef.current !== identity) return;
+            const editor = composerRef.current;
+            if (!editor) return;
+            const position = selection === 'start' ? 0 : editor.getValue().length;
+            editor.focus();
+            editor.setSelection(position, position);
+        });
+    }, [chatDraftIdentity, scheduleHistoryFocusFrame]);
 
     // Keep messageRef in sync with message state
     React.useEffect(() => {
@@ -1935,6 +1995,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             confirmedMentionsRef.current.clear();
             persistDraftImmediately(chatDraftIdentity, '');
             messageHistory.reset();
+            setPromptHistorySearch(null);
             const outcome = await runGuestCommand(guestRoute);
             if (outcome.ok) {
                 if (outcome.item) {
@@ -2048,6 +2109,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             confirmedMentionsRef.current.clear();
             persistDraftImmediately(chatDraftIdentity, '');
             messageHistory.reset();
+            setPromptHistorySearch(null);
             if (!isBtwActive) setExpandedInput(false);
             if (isMobile) composerRef.current?.blur();
             try {
@@ -2281,6 +2343,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             // Clear per-session draft on submit
             persistDraftImmediately(chatDraftIdentity, '');
             messageHistory.reset();
+            setPromptHistorySearch(null);
             if (attachedFiles.length > 0) {
                 clearAttachedFiles(chatDraftIdentity);
             }
@@ -2708,6 +2771,18 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }
         if (largeTextPasteBehavior === 'inline-double-paste') largeTextPasteGesture.keyDown(e);
 
+        const promptHistoryShortcut = getEffectiveShortcutCombo('search_prompt_history', useUIStore.getState().shortcutOverrides);
+        if (
+            promptHistoryShortcut
+            && !promptHistoryShortcut.includes(' ')
+            && eventMatchesShortcut(e, promptHistoryShortcut)
+            && handlePromptHistoryShortcut(e)
+        ) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         // Enter shell mode before CodeMirror inserts the trigger. Keeping the
         // document unchanged also keeps the caret at the start for the first
         // command character.
@@ -2826,11 +2901,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             }
             const recalled = messageHistory.older({ text: message, attachments: attachedFiles });
             if (recalled !== null) {
-                setMessage(recalled.text);
-                useInputStore.getState().setAttachedFiles([...recalled.attachments]);
                 // Caret to the start, so the recalled message reads from its
                 // beginning rather than from wherever the draft's caret was.
-                requestAnimationFrame(() => composerRef.current?.setSelection(0, 0));
+                applyHistoryValue(recalled, 'start');
             }
             return;
         }
@@ -2839,9 +2912,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             e.preventDefault();
             const recalled = messageHistory.newer({ text: message, attachments: attachedFiles });
             if (recalled !== null) {
-                setMessage(recalled.text);
-                useInputStore.getState().setAttachedFiles([...recalled.attachments]);
-                requestAnimationFrame(() => composerRef.current?.setSelection(recalled.text.length, recalled.text.length));
+                applyHistoryValue(recalled, 'end');
             }
             return;
         }
@@ -4232,6 +4303,58 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         mobileShell,
     });
     const mobileCommentActive = mobileComment.active;
+    const handlePromptHistoryShortcut = React.useCallback((event: KeyboardEvent) => {
+        if (
+            shortcutRegistry.isSuspended()
+            || event.defaultPrevented
+            || inputMode !== 'normal'
+            || isBtwActive
+            || isBtwPanelVisible
+            || openAutocomplete !== null
+            || mobileCommentActive
+            || largeTextPasteOffer !== null
+        ) return false;
+
+        if (isPromptHistorySearchOpen) {
+            setPromptHistorySearch((current) => current && current.identity === promptHistorySearchIdentity
+                ? { ...current, olderRequest: current.olderRequest + 1 }
+                : current);
+            return true;
+        }
+
+        const target = event.target;
+        if (!(target instanceof Element) || !target.closest('[data-chat-input="true"], [data-prompt-history-search-input]')) return false;
+        const editor = composerRef.current;
+        const selection = editor?.getSelection();
+        const initialQuery = editor && selection && selection.start !== selection.end
+            ? editor.getValue().slice(selection.start, selection.end)
+            : '';
+        cancelHistoryFocusFrame();
+        setPromptHistorySearch({ identity: promptHistorySearchIdentity, initialQuery, olderRequest: 0 });
+        return true;
+    }, [cancelHistoryFocusFrame, inputMode, isBtwActive, isBtwPanelVisible, isPromptHistorySearchOpen, largeTextPasteOffer, mobileCommentActive, openAutocomplete, promptHistorySearchIdentity]);
+
+    React.useEffect(() => {
+        if (!promptHistorySearchOwner) return;
+        return registerPromptHistorySearchRoute(promptHistorySearchOwner, handlePromptHistoryShortcut);
+    }, [handlePromptHistoryShortcut, promptHistorySearchOwner]);
+
+    const closePromptHistorySearch = React.useCallback((reason: 'dismiss' | 'blur') => {
+        const identity = promptHistorySearchIdentityRef.current;
+        setPromptHistorySearch(null);
+        if (reason !== 'dismiss') return;
+        scheduleHistoryFocusFrame(() => {
+            if (promptHistorySearchIdentityRef.current === identity) composerRef.current?.focus();
+        });
+    }, [scheduleHistoryFocusFrame]);
+
+    const pickPromptHistoryCandidate = React.useCallback((candidate: PromptHistoryCandidate<AttachedFile>) => {
+        if (!isPromptHistorySearchOpen || promptHistorySearchIdentityRef.current !== promptHistorySearchIdentity) return;
+        const recalled = messageHistory.jumpTo(candidate.index, { text: messageRef.current, attachments: attachedFiles }, candidate.value);
+        if (!recalled) return;
+        setPromptHistorySearch(null);
+        applyHistoryValue(recalled, 'end');
+    }, [applyHistoryValue, attachedFiles, isPromptHistorySearchOpen, messageHistory, promptHistorySearchIdentity]);
     attachMobileCommentRef.current = mobileComment.submit;
 
 
@@ -4551,7 +4674,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     ]);
 
     useKeybind('toggle_permission_auto_accept', () => {
-        if (!isPermissionAutoAcceptInteractive) return false;
+        if (!isPermissionAutoAcceptInteractive || isPromptHistorySearchOpen) return false;
         handlePermissionModeCycle();
     });
 
@@ -4588,7 +4711,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     return (
         <>
         <form
-            ref={composerFormRef}
+            ref={setPromptHistorySearchForm}
+            data-prompt-history-search-owner="true"
             data-btw-composer={isBtwActive ? 'true' : undefined}
             onContextMenuCapture={() => largeTextPasteGesture.invalidate()}
             // Whichever composer the user works in holds the selected
@@ -4607,6 +4731,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             }}
             onSubmit={(e) => {
                 e.preventDefault();
+                if (isPromptHistorySearchOpen) return;
                 // Comment mode owns the form: submit attaches the comment and
                 // must never reach the send path.
                 if (mobileCommentActive) {
@@ -4759,15 +4884,30 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onEmojiSelect={handleEmojiSelect}
                         onClose={closeAutocomplete}
                     />
-                {/* The lift shadow lives on this wrapper, apart from the
-                    box. */}
                 <div
                     className={cn(
                         'flex flex-col',
-                        isComposerExpanded && 'flex-1 min-h-0',
+                        isComposerExpanded && 'relative flex-1 min-h-0',
                     )}
                     style={{ borderRadius: chatInputRadius }}
                 >
+                {/* Normal: zero-height row above the composer box. Expanded: the
+                    box grows to fill the column, so the anchor is pinned to the
+                    box's bottom edge instead of flowing before it. */}
+                <div
+                    className={cn(isComposerExpanded ? 'absolute inset-s-0 inset-e-0 bottom-0 h-0' : 'relative h-0')}
+                    data-prompt-history-search-anchor
+                >
+                    {isPromptHistorySearchOpen && promptHistorySearch ? (
+                        <PromptHistorySearchPanel
+                            history={historyValues}
+                            initialQuery={promptHistorySearch.initialQuery}
+                            olderRequest={promptHistorySearch.olderRequest}
+                            onPick={pickPromptHistoryCandidate}
+                            onClose={closePromptHistorySearch}
+                        />
+                    ) : null}
+                </div>
                 <div
                     className={cn(
                         "flex flex-col relative overflow-visible",
@@ -5009,12 +5149,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             <PermissionDock
                 sessionId={currentSessionId}
                 directory={currentSessionDirectoryForSync ?? currentDirectory ?? undefined}
-                hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible}
+                hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible || isPromptHistorySearchOpen}
             />
             <FormDock
                 sessionId={currentSessionId}
                 directory={currentSessionDirectoryForSync ?? currentDirectory ?? undefined}
-                hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible || hasPendingPermission}
+                hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible || hasPendingPermission || isPromptHistorySearchOpen}
             />
             {currentSessionId ? <BtwPanel parentSessionId={currentSessionId} panel={btwPanel} hidden={!isBtwPanelVisible} onExit={handleExitBtw} /> : null}
         </form>

@@ -49,6 +49,7 @@ import {
 } from '@/lib/addSelectionToChat';
 import { isIMECompositionEvent } from '@/lib/ime';
 import { getNextFavoriteModel } from '@/lib/modelRefs';
+import { dispatchPromptHistorySearch } from '@/components/chat/composer/state/promptHistorySearchRoute';
 import { canUseDigitShortcut, hasActiveBtwComposer, hasOpenDropdown, isEditableEventTarget, shouldStopDropdownImeEscape } from './keyboard-shortcut-dom';
 
 const dropdownTargetSelector = [
@@ -146,6 +147,7 @@ export const useKeyboardShortcuts = () => {
     open_command_palette: () => {
       useUIStore.getState().toggleCommandPalette();
     },
+    search_prompt_history: (event) => dispatchPromptHistorySearch(event),
     open_timeline_dialog: () => {
       useUIStore.getState().setTimelineDialogOpen(true);
     },

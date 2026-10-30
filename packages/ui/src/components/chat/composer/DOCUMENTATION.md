@@ -906,6 +906,27 @@ Prompt recall has two owners on purpose.
 - `ChatInput.tsx` applies the recalled text and attachments to the composer and
   places the caret.
 
+Prompt history search uses the same history values as Arrow recall. The runtime
+shortcut registers once and routes to the focused normal composer through its
+form owner. Search state stays local to the panel. A runtime, draft, history
+scope, mode, or BTW transition hides the panel before it can select another
+composer's history. Picking a result validates the displayed value against the
+current history entry, restores its draft-scoped attachments, and puts the
+caret at the end of CodeMirror's normalized document.
+
+Escape, a pick, and recall share one pending composer focus frame. Scheduling
+replaces it, and opening the search or unmounting cancels it, so a late frame
+never moves focus out of a search that opened after it was queued. In normal
+layout the panel's anchor is a zero-height row above the composer box; in
+expanded layout the anchor is absolutely pinned to the bottom edge of the
+composer frame wrapper, which becomes the positioned ancestor only in that layout.
+
+Search and its pending focus-return frame hold the mobile shell expanded, so
+moving focus out of the editor cannot unmount the search or its return target.
+The search caps the entire floating frame to the room above its anchor, including
+the frame's gap. Flex layout leaves the list the space remaining after the header
+and hint; it has no minimum height that can push the search field above the chat.
+
 In session scope the composer merges two sources, oldest first: the visible
 transcript's user prompts (`useUserMessageHistory` in `sync-context.tsx`), so
 sessions that predate the persisted store still recall, and the persisted

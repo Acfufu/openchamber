@@ -3913,4 +3913,14 @@ export const dict = {
   'notifications.question.bodyFallback': 'הסוכן ממתין לתשובתך',
   'notifications.permission.bodyFallback': 'הסוכן ממתין לאישורך',
   'notifications.permission.title': 'נדרשת הרשאה',
+  'chat.promptHistorySearch.title': "חיפוש בהיסטוריית ההנחיות",
+  'chat.promptHistorySearch.searchPlaceholder': "חיפוש בהנחיות שנשמרו",
+  'chat.promptHistorySearch.close': "סגירת חיפוש בהיסטוריית ההנחיות",
+  'chat.promptHistorySearch.empty': "אין עדיין הנחיות לחיפוש",
+  'chat.promptHistorySearch.noMatches': "לא נמצאו הנחיות תואמות",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} קובץ מצורף",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} קבצים מצורפים",
+  'chat.promptHistorySearch.hint': "↑ ↓ לעיון · Enter לטעינה · Esc לסגירה",
+  'helpDialog.item.searchPromptHistory': "חיפוש בהיסטוריית ההנחיות (קלט צ׳אט)",
+
 } as const;

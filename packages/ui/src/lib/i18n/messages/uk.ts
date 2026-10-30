@@ -3889,4 +3889,14 @@ export const dict: Record<I18nKey, string> = {
   'notifications.question.bodyFallback': 'Агент чекає на вашу відповідь',
   'notifications.permission.bodyFallback': 'Агент чекає на ваше схвалення',
   'notifications.permission.title': 'Потрібен дозвіл',
+  'chat.promptHistorySearch.title': "Пошук в історії запитів",
+  'chat.promptHistorySearch.searchPlaceholder': "Шукати збережені запити",
+  'chat.promptHistorySearch.close': "Закрити пошук в історії запитів",
+  'chat.promptHistorySearch.empty': "Ще немає запитів для пошуку",
+  'chat.promptHistorySearch.noMatches': "Немає відповідних запитів",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} вкладення",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} вкладень",
+  'chat.promptHistorySearch.hint': "↑ ↓ для перегляду · Enter для завантаження · Esc для закриття",
+  'helpDialog.item.searchPromptHistory': "Пошук в історії запитів (поле чату)",
+
 };

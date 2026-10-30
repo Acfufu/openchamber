@@ -3888,4 +3888,14 @@ export const dict: Record<I18nKey, string> = {
   'notifications.question.bodyFallback': '에이전트가 답변을 기다리고 있습니다',
   'notifications.permission.bodyFallback': '에이전트가 승인을 기다리고 있습니다',
   'notifications.permission.title': '권한 필요',
+  'chat.promptHistorySearch.title': "프롬프트 기록 검색",
+  'chat.promptHistorySearch.searchPlaceholder': "기억된 프롬프트 검색",
+  'chat.promptHistorySearch.close': "프롬프트 기록 검색 닫기",
+  'chat.promptHistorySearch.empty': "검색할 프롬프트가 아직 없습니다",
+  'chat.promptHistorySearch.noMatches': "일치하는 프롬프트가 없습니다",
+  'chat.promptHistorySearch.attachmentsSingle': "첨부 파일 {count}개",
+  'chat.promptHistorySearch.attachmentsPlural': "첨부 파일 {count}개",
+  'chat.promptHistorySearch.hint': "↑ ↓ 탐색 · Enter 불러오기 · Esc 닫기",
+  'helpDialog.item.searchPromptHistory': "프롬프트 기록 검색(채팅 입력)",
+
 };

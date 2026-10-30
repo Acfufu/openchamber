@@ -3888,6 +3888,16 @@ export const dict = {
   'notifications.question.bodyFallback': 'Agent is waiting for your response',
   'notifications.permission.bodyFallback': 'Agent is waiting for your approval',
   'notifications.permission.title': 'Permission required',
+  'chat.promptHistorySearch.title': "Search prompt history",
+  'chat.promptHistorySearch.searchPlaceholder': "Search remembered prompts",
+  'chat.promptHistorySearch.close': "Close prompt history search",
+  'chat.promptHistorySearch.empty': "No prompts to search yet",
+  'chat.promptHistorySearch.noMatches': "No matching prompts",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} attachment",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} attachments",
+  'chat.promptHistorySearch.hint': "↑ ↓ to browse · Enter to load · Esc to close",
+  'helpDialog.item.searchPromptHistory': "Search prompt history (chat input)",
+
 } as const;
 
 export type I18nKey = keyof typeof dict;

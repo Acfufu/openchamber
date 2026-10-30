@@ -3889,4 +3889,14 @@ export const dict: Record<I18nKey, string> = {
   'notifications.question.bodyFallback': 'El agente espera tu respuesta',
   'notifications.permission.bodyFallback': 'El agente espera tu aprobación',
   'notifications.permission.title': 'Permiso necesario',
+  'chat.promptHistorySearch.title': "Buscar en el historial de indicaciones",
+  'chat.promptHistorySearch.searchPlaceholder': "Buscar indicaciones recordadas",
+  'chat.promptHistorySearch.close': "Cerrar la búsqueda del historial de indicaciones",
+  'chat.promptHistorySearch.empty': "Aún no hay indicaciones para buscar",
+  'chat.promptHistorySearch.noMatches': "No hay indicaciones coincidentes",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} archivo adjunto",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} archivos adjuntos",
+  'chat.promptHistorySearch.hint': "↑ ↓ para explorar · Enter para cargar · Esc para cerrar",
+  'helpDialog.item.searchPromptHistory': "Buscar en el historial de indicaciones (entrada de chat)",
+
 };

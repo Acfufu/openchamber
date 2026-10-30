@@ -3886,4 +3886,14 @@ export const dict = {
   'notifications.question.bodyFallback': 'Ajan yanıtınızı bekliyor',
   'notifications.permission.bodyFallback': 'Ajan onayınızı bekliyor',
   'notifications.permission.title': 'İzin gerekiyor',
+  'chat.promptHistorySearch.title': "İstem geçmişinde ara",
+  'chat.promptHistorySearch.searchPlaceholder': "Hatırlanan istemlerde ara",
+  'chat.promptHistorySearch.close': "İstem geçmişi aramasını kapat",
+  'chat.promptHistorySearch.empty': "Henüz aranacak istem yok",
+  'chat.promptHistorySearch.noMatches': "Eşleşen istem yok",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} ek",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} ek",
+  'chat.promptHistorySearch.hint': "↑ ↓ ile gezin · Enter ile yükle · Esc ile kapat",
+  'helpDialog.item.searchPromptHistory': "İstem geçmişinde ara (sohbet girişi)",
+
 };

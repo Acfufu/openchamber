@@ -3886,4 +3886,14 @@ export const dict = {
   'notifications.question.bodyFallback': 'Der Agent wartet auf deine Antwort',
   'notifications.permission.bodyFallback': 'Der Agent wartet auf deine Freigabe',
   'notifications.permission.title': 'Berechtigung erforderlich',
+  'chat.promptHistorySearch.title': "Prompt-Verlauf durchsuchen",
+  'chat.promptHistorySearch.searchPlaceholder': "Gespeicherte Prompts durchsuchen",
+  'chat.promptHistorySearch.close': "Prompt-Verlaufssuche schließen",
+  'chat.promptHistorySearch.empty': "Noch keine Prompts zum Durchsuchen",
+  'chat.promptHistorySearch.noMatches': "Keine passenden Prompts",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} Anhang",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} Anhänge",
+  'chat.promptHistorySearch.hint': "↑ ↓ zum Durchsuchen · Enter zum Laden · Esc zum Schließen",
+  'helpDialog.item.searchPromptHistory': "Prompt-Verlauf durchsuchen (Chat-Eingabe)",
+
 };

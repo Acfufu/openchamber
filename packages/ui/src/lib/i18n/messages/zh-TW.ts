@@ -3888,4 +3888,14 @@ export const dict: Record<I18nKey, string> = {
   'notifications.question.bodyFallback': '智慧體正在等待你的回覆',
   'notifications.permission.bodyFallback': '智慧體正在等待你的核准',
   'notifications.permission.title': '需要權限',
+  'chat.promptHistorySearch.title': "搜尋提示歷史記錄",
+  'chat.promptHistorySearch.searchPlaceholder': "搜尋已記住的提示",
+  'chat.promptHistorySearch.close': "關閉提示歷史搜尋",
+  'chat.promptHistorySearch.empty': "尚無可搜尋的提示",
+  'chat.promptHistorySearch.noMatches': "沒有相符的提示",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} 個附件",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} 個附件",
+  'chat.promptHistorySearch.hint': "↑ ↓ 瀏覽 · Enter 載入 · Esc 關閉",
+  'helpDialog.item.searchPromptHistory': "搜尋提示歷史記錄（聊天輸入）",
+
 };

@@ -3888,4 +3888,14 @@ export const dict: Record<I18nKey, string> = {
   'notifications.question.bodyFallback': 'エージェントが回答を待っています',
   'notifications.permission.bodyFallback': 'エージェントが承認を待っています',
   'notifications.permission.title': '権限が必要です',
+  'chat.promptHistorySearch.title': "プロンプト履歴を検索",
+  'chat.promptHistorySearch.searchPlaceholder': "記憶したプロンプトを検索",
+  'chat.promptHistorySearch.close': "プロンプト履歴の検索を閉じる",
+  'chat.promptHistorySearch.empty': "検索するプロンプトはまだありません",
+  'chat.promptHistorySearch.noMatches': "一致するプロンプトはありません",
+  'chat.promptHistorySearch.attachmentsSingle': "添付ファイル {count} 件",
+  'chat.promptHistorySearch.attachmentsPlural': "添付ファイル {count} 件",
+  'chat.promptHistorySearch.hint': "↑ ↓ で閲覧 · Enter で読み込み · Esc で閉じる",
+  'helpDialog.item.searchPromptHistory': "プロンプト履歴を検索（チャット入力）",
+
 };

@@ -3913,4 +3913,14 @@ export const dict = {
   'notifications.question.bodyFallback': 'الوكيل بانتظار ردك',
   'notifications.permission.bodyFallback': 'الوكيل بانتظار موافقتك',
   'notifications.permission.title': 'مطلوب إذن',
+  'chat.promptHistorySearch.title': "البحث في سجل المطالبات",
+  'chat.promptHistorySearch.searchPlaceholder': "ابحث في المطالبات المتذكرة",
+  'chat.promptHistorySearch.close': "إغلاق البحث في سجل المطالبات",
+  'chat.promptHistorySearch.empty': "لا توجد مطالبات للبحث فيها بعد",
+  'chat.promptHistorySearch.noMatches': "لا توجد مطالبات مطابقة",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} مرفق",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} مرفقات",
+  'chat.promptHistorySearch.hint': "↑ ↓ للتصفح · Enter للتحميل · Esc للإغلاق",
+  'helpDialog.item.searchPromptHistory': "البحث في سجل المطالبات (إدخال الدردشة)",
+
 } as const;

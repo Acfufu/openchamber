@@ -3888,4 +3888,14 @@ export const dict = {
   'notifications.question.bodyFallback': 'De agent wacht op je antwoord',
   'notifications.permission.bodyFallback': 'De agent wacht op je goedkeuring',
   'notifications.permission.title': 'Toestemming vereist',
+  'chat.promptHistorySearch.title': "Promptgeschiedenis doorzoeken",
+  'chat.promptHistorySearch.searchPlaceholder': "Onthouden prompts doorzoeken",
+  'chat.promptHistorySearch.close': "Zoeken in promptgeschiedenis sluiten",
+  'chat.promptHistorySearch.empty': "Nog geen prompts om te doorzoeken",
+  'chat.promptHistorySearch.noMatches': "Geen overeenkomende prompts",
+  'chat.promptHistorySearch.attachmentsSingle': "{count} bijlage",
+  'chat.promptHistorySearch.attachmentsPlural': "{count} bijlagen",
+  'chat.promptHistorySearch.hint': "↑ ↓ om te bladeren · Enter om te laden · Esc om te sluiten",
+  'helpDialog.item.searchPromptHistory': "Promptgeschiedenis doorzoeken (chatinvoer)",
+
 } as const;
