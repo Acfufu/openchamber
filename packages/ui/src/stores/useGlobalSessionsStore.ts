@@ -139,6 +139,7 @@ const getSessionSignature = (session: Session): string => {
   return [
     session.id,
     session.title ?? '',
+    session.agent ?? '',
     session.parentID ?? '',
     session.time?.created ?? 0,
     session.time?.updated ?? 0,
@@ -155,6 +156,7 @@ const getSessionStructuralSignature = (session: Session): string => {
   return [
     session.id,
     session.title ?? '',
+    session.agent ?? '',
     session.parentID ?? '',
     session.time?.created ?? 0,
     session.time?.archived ?? 0,
