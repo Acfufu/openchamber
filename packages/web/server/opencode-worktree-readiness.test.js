@@ -31,6 +31,9 @@ async function createFixture({ timeoutMs = 1000 } = {}) {
   upstream.use(express.json());
   upstream.use((req, res) => {
     forwarded.push(req.path);
+    if (req.path === '/api/session/ses_1' && req.method === 'GET') {
+      return res.json({ data: { id: 'ses_1', location: { directory: worktree } } });
+    }
     // Model OpenCode's instance cache: even a GET can permanently capture the
     // empty directory, and a later session inherits that project's identity.
     instance ??= bootstrap.phase === 'directory-created'
@@ -152,7 +155,8 @@ describe('issue #3464 worktree OpenCode initialization', () => {
     expect(config.status).toBe(503);
     expect(created.status).toBe(503);
     expect(moved.status).toBe(503);
-    expect(fixture.forwarded).toEqual(['/api/session']);
+    // The move gate reads the session's current folder through a global read.
+    expect(fixture.forwarded).toEqual(['/api/session', '/api/session/ses_1']);
   });
 });
 
