@@ -1129,19 +1129,45 @@ and stops at its last child with a corner, so where a worktree's or a
 session's children end reads at a glance, and a long tree is not striped by
 lines that run through rows they do not belong to.
 
-### Why a change of row height keeps the row the user sees and not the scroll position
+### Why the list keeps the row the user sees and not the scroll position
 
-Turning Detailed rows on or off changes the height of every row at once, and
-the scroll position stayed: with 360 sessions and session 108 at the top,
+Rows above the viewport changed and the scroll position stayed, so whatever
+the user was reading slid away. Turning Detailed rows on or off changed the
+height of every row at once: with 360 sessions and session 108 at the top,
 Compact showed session 21 and Detailed after it session 142, since the
-shorter list clamped the position at its end. When a row present before and
-after changes its size key, `SessionSidebarRows` finds the row under the
-line just below the pinned zone header (`getPinnedZoneHeaderHeight`), at the
-scroll position read before the new rows reached the DOM, and scrolls so the
-same share of that row is above the line again. The share is kept, not the
-pixel offset: a pixel offset into a 51px row can lie past the end of the
-same row at 32px, and a round trip through Compact then landed a row away.
-The line sits under the pinned header because the row at the scroll top is
-hidden by it; anchored there, the first row the user sees moved by 20px.
-Other row changes, such as a session arriving above the viewport or Show
-more, keep the scroll position as before.
+shorter list clamped the position at its end. A session an agent created in
+the background pushed the list down a row, five of them five rows. On every
+rows change that is not the user's own (`isSessionSidebarUserChange`),
+`SessionSidebarRows` finds the row under the line just below the pinned zone
+header (`getPinnedZoneHeaderHeight`), at the scroll position read before the
+new rows reached the DOM, and scrolls so it sits there again. A row that
+changed height keeps the same share of it above the line, not the pixel
+offset: a pixel offset into a 51px row can lie past the end of the same row
+at 32px, and a round trip through Compact then landed a row away. The line
+sits under the pinned header because the row at the scroll top is hidden by
+it; anchored there, the first row the user sees moved by 20px.
+
+The row under the line is skipped when it moved elsewhere in the list (a
+session that became active and went to the top, with its open subsessions):
+following it would scroll the list away. The list is cut into works, a
+session or run with the rows open under it and every other row on its own;
+the works that stayed are the longest run of works whose new positions keep
+their old order, so whatever is left out is the fewest works that moved. The
+anchor is the first row of those on screen. Rules tried before this followed
+an open session's tree to the top: checking the row above a subsession (its
+parent moved with it), taking the shift most rows on screen share (the tree
+filled the screen), and the longest run counted by rows (the tree had more
+rows than the list it jumped over).
+
+What the user does to the list keeps its own behaviour: a header opening or
+closing (it has its motion), Show more or less (the new rows show where the
+control was), subsessions shown or hidden, a search, projects dragged into
+another order. They are told apart by what the user sets on rows: open or
+closed, the count Show more asked for (`requestedCount`; `currentCount`
+also moves as sessions arrive), the project order. A row that offers nothing
+to set is left out: a session gains or loses its chevron, and an empty group
+or folder is always open, as sessions come and go. Projects sorted by recent
+activity also reorder on their own, and those moves keep the scroll position
+as before. The sidebar never scrolled to a session the user opened or
+created, and still does not; the phone's drawer brings its row into view
+after the anchor (`scrollRequest`).

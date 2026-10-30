@@ -100,8 +100,11 @@ export type SessionSidebarRow =
   // gutterless timeline-style rows, otherwise with the tree level `depth`.
   | (RowBase & { kind: 'empty'; emptyKind: 'sidebar' | 'search' | 'archived'; depth?: number })
   | (RowBase & { kind: 'status'; status: SessionSidebarGroupStatus; group: SessionGroup; groupKey: string; depth?: number; flat?: boolean })
-  /** Show more while rows remain hidden, Show less once more than the first batch shows; one row holds both. */
-  | (RowBase & { kind: 'show-control'; more: boolean; fewer: boolean; containerKey: string; currentCount: number; increment: number; depth?: number; flat?: boolean });
+  /**
+   * Show more while rows remain hidden, Show less once more than the first batch shows; one row holds both.
+   * `requestedCount`: how many the user asked for; `currentCount` also moves as sessions arrive and leave.
+   */
+  | (RowBase & { kind: 'show-control'; more: boolean; fewer: boolean; containerKey: string; currentCount: number; requestedCount: number; increment: number; depth?: number; flat?: boolean });
 
 export type SessionSidebarStickyHeader = {
   rowIndex: number;
@@ -127,6 +130,8 @@ export type SessionSidebarRowModel = {
   folderAuthorityByOwner: ReadonlyMap<string, SessionSidebarOwnerAuthority>;
   sessionById: ReadonlyMap<string, Session>;
   folderOwnerKeyBySessionId: ReadonlyMap<string, string>;
+  /** The rows answer a search: the user filters them, so the list keeps no row in place. */
+  search: boolean;
   searchMatchCount: number;
 };
 
@@ -855,7 +860,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     const more = remaining > 0;
     const fewer = requested > initialLimit && limitedNodes.length > initialLimit;
     if (!search && !group.isArchivedBucket && (more || fewer)) {
-      push({ kind: 'show-control', key: `${rowKeyBase}:show`, estimateSize: STATUS_ESTIMATE, more, fewer, containerKey: groupKey, currentCount: limitedVisibleCount, increment, depth: contentDepth, flat: false });
+      push({ kind: 'show-control', key: `${rowKeyBase}:show`, estimateSize: STATUS_ESTIMATE, more, fewer, containerKey: groupKey, currentCount: limitedVisibleCount, requestedCount: requested, increment, depth: contentDepth, flat: false });
     }
 
     // An empty group lists nothing: its header has no chevron, and new
@@ -1164,6 +1169,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     folderAuthorityByOwner: args.folderAuthorityByOwner,
     folderOwnerKeyBySessionId,
     sessionById,
+    search,
     searchMatchCount: search ? searchMatchCount : 0,
   });
 };

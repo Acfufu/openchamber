@@ -8,7 +8,7 @@ import {
   mergeSessionSidebarVirtualIndexes,
   resolveSessionSidebarScrollAnchor,
   sectionSpacingAfter,
-  sessionSidebarRowSizeKeysChanged,
+  isSessionSidebarUserChange,
   sessionSidebarRowVirtualKey,
   sessionSidebarRowSizeKey,
 } from './sessionSidebarVirtualization';
@@ -142,23 +142,26 @@ describe('SessionSidebarRows section spacing', () => {
 
 describe('SessionSidebarRows scroll anchor', () => {
   // SAFETY: the anchor reads only row keys and the size keys of the row model's own rows.
-  const node = (id: string): SessionNode => ({ session: { id, title: id, directory: '/repo', time: { created: 1, updated: 1 } } as Session, children: [], worktree: null });
-  const input = (detailedZoneRows: boolean, collapsedProjects = new Set<string>()): SessionSidebarRowModelArgs => {
-    const sessions = Array.from({ length: 40 }, (_, index) => node(`session-${index}`));
-    const sections: ProjectSection[] = [{
-      project: { id: 'project-a', normalizedPath: '/repo' },
-      groups: [{ id: 'main', label: 'main', branch: null, description: null, isMain: true, worktree: null, directory: '/repo', folderScopeKey: '/repo', sessions }],
-    }];
-    return {
-      mode: 'normal', sections, authoritativeSections: sections, chatGroup: null,
+  const node = (id: string, children: readonly string[] = []): SessionNode => ({ session: { id, title: id, directory: '/repo', time: { created: 1, updated: 1 } } as Session, children: children.map((child) => node(child)), worktree: null });
+  type Options = { detailed?: boolean; collapsedProjects?: Set<string>; sessionIds?: string[]; visible?: number; mode?: 'normal' | 'search'; projectOrder?: string[]; childrenOf?: Record<string, string[]> };
+  const ids = (count: number) => Array.from({ length: count }, (_, index) => `session-${index}`);
+  const model = ({ detailed = true, collapsedProjects = new Set<string>(), sessionIds = ids(40), visible = 60, mode = 'normal', projectOrder = ['project-a', 'project-b'], childrenOf = {} }: Options = {}) => {
+    const sectionById = new Map<string, ProjectSection>(['project-a', 'project-b'].map((id) => [id, {
+      project: { id, normalizedPath: `/${id}` },
+      groups: [{ id: 'main', label: 'main', branch: null, description: null, isMain: true, worktree: null, directory: `/${id}`, folderScopeKey: `/${id}`, sessions: (id === 'project-a' ? sessionIds : ['other-0', 'other-1']).map((sessionId) => node(sessionId, childrenOf[sessionId])) }],
+    }]));
+    const sections = projectOrder.map((id) => sectionById.get(id)!);
+    const args: SessionSidebarRowModelArgs = {
+      mode, sections, authoritativeSections: sections, chatGroup: null,
       workEntries: [], zoneSessionIds: new Set(),
-      foldersMap: {}, groupSearchDataByGroup: new WeakMap(), normalizedQuery: '',
+      foldersMap: {}, groupSearchDataByGroup: new WeakMap(), normalizedQuery: mode === 'search' ? 'session' : '',
       collapsedProjects, collapsedGroups: new Set(), collapsedFolders: new Set(), collapsedActivities: new Set(),
-      expandedParents: new Set(), visibleCountByContainer: new Map([['project-a:main', 40]]), pinnedSessionIds: new Set(), sessionOrderIndex: new Map(),
-      groupStatusByKey: new Map(), folderAuthorityByOwner: new Map([['project-a', { scopeKeys: ['/repo'], complete: true }]]), sessionOwnerById: new Map(),
+      expandedParents: new Set(Object.keys(childrenOf).map((parent) => `project:active:${parent}`)), visibleCountByContainer: new Map([['project-a:main', visible]]), pinnedSessionIds: new Set(), sessionOrderIndex: new Map([...sessionIds, 'other-0', 'other-1'].map((id, index) => [id, index])),
+      groupStatusByKey: new Map(), folderAuthorityByOwner: new Map(['project-a', 'project-b'].map((id) => [id, { scopeKeys: [`/${id}`], complete: true }])), sessionOwnerById: new Map(),
       activeProjectId: 'project-a', singleProjectMode: false, singleProjectId: null, showOnlyMainWorkspace: false, hideDirectoryControls: false,
-      detailedZoneRows,
+      detailedZoneRows: detailed,
     };
+    return buildSessionSidebarRowModel(args);
   };
   // Lays the rows out the way the virtualizer does once every row is measured.
   const layout = (rows: readonly SessionSidebarRow[]) => {
@@ -174,43 +177,144 @@ describe('SessionSidebarRows scroll anchor', () => {
     const item = items.find((candidate) => candidate.end > line)!;
     return { key: rows[item.index].key, into: line - item.start };
   };
+  const sessionIndex = (rows: readonly SessionSidebarRow[], id: string) => rows.findIndex((row) => row.kind === 'session' && row.node.session.id === id);
+  // Where the line lands after the change, with the list keeping its anchor.
+  const follow = (before: ReturnType<typeof model>, after: ReturnType<typeof model>, line: number, viewport = 400) => {
+    const anchor = findSessionSidebarScrollAnchor(before.rows, layout(before.rows), line, line + viewport, after.rowIndexByKey);
+    return anchor ? resolveSessionSidebarScrollAnchor(anchor, after.rowIndexByKey, layout(after.rows)) : null;
+  };
 
   test('turning Detailed rows off and on keeps the row under the line where it was', () => {
-    const detailed = buildSessionSidebarRowModel(input(true)).rows;
-    const compact = buildSessionSidebarRowModel(input(false)).rows;
-    const detailedLayout = layout(detailed);
-    const compactLayout = layout(compact);
-    expect(sessionSidebarRowSizeKeysChanged(detailed, compact)).toBe(true);
+    const detailed = model({ detailed: true });
+    const compact = model({ detailed: false });
+    const detailedLayout = layout(detailed.rows);
+    const compactLayout = layout(compact.rows);
+    expect(isSessionSidebarUserChange(detailed, compact)).toBe(false);
 
     // Deep in the list, 20px into a session row: with the scroll position kept,
     // the compact list would show a session much further down.
-    const index = detailed.findIndex((row) => row.kind === 'session' && row.node.session.id === 'session-25');
+    const index = sessionIndex(detailed.rows, 'session-25');
     const line = detailedLayout[index].start + 20;
-    expect(rowAt(compact, compactLayout, line).key).not.toBe(detailed[index].key);
+    expect(rowAt(compact.rows, compactLayout, line).key).not.toBe(detailed.rows[index].key);
 
-    const anchor = findSessionSidebarScrollAnchor(detailed, detailedLayout, line)!;
-    const compactLine = resolveSessionSidebarScrollAnchor(anchor, compact, compactLayout)!;
-    expect(rowAt(compact, compactLayout, compactLine).key).toBe(detailed[index].key);
-    expect(rowAt(compact, compactLayout, compactLine).into).toBeCloseTo(20 * 32 / 51);
+    const compactLine = follow(detailed, compact, line)!;
+    expect(rowAt(compact.rows, compactLayout, compactLine).key).toBe(detailed.rows[index].key);
+    expect(rowAt(compact.rows, compactLayout, compactLine).into).toBeCloseTo(20 * 32 / 51);
 
     // Back to Detailed rows: the same row, the same pixel.
-    const back = findSessionSidebarScrollAnchor(compact, compactLayout, compactLine)!;
-    expect(resolveSessionSidebarScrollAnchor(back, detailed, detailedLayout)).toBeCloseTo(line);
+    expect(follow(compact, detailed, compactLine)).toBeCloseTo(line);
   });
 
-  test('a header opening or closing leaves every remaining row its height', () => {
-    const open = buildSessionSidebarRowModel(input(true)).rows;
-    const closed = buildSessionSidebarRowModel(input(true, new Set(['project-a']))).rows;
-    expect(sessionSidebarRowSizeKeysChanged(open, closed)).toBe(false);
-    expect(sessionSidebarRowSizeKeysChanged(open, open)).toBe(false);
+  test('sessions arriving or leaving above keep the rows on screen in place', () => {
+    const before = model();
+    const line = layout(before.rows)[sessionIndex(before.rows, 'session-25')].start + 10;
+    const arrived = model({ sessionIds: ['new-1', 'new-2', ...ids(40)] });
+    expect(isSessionSidebarUserChange(before, arrived)).toBe(false);
+    expect(rowAt(arrived.rows, layout(arrived.rows), follow(before, arrived, line)!)).toEqual({ key: before.rows[sessionIndex(before.rows, 'session-25')].key, into: 10 });
+
+    const left = model({ sessionIds: ids(40).filter((id) => id !== 'session-3') });
+    expect(rowAt(left.rows, layout(left.rows), follow(before, left, line)!).key).toBe(before.rows[sessionIndex(before.rows, 'session-25')].key);
+  });
+
+  test('a row on screen that moves to the top is not followed there', () => {
+    const before = model();
+    const items = layout(before.rows);
+    const line = items[sessionIndex(before.rows, 'session-25')].start + 10;
+    // session-25 became active and went to the top of its project.
+    const moved = model({ sessionIds: ['session-25', ...ids(40).filter((id) => id !== 'session-25')] });
+    const nextLine = follow(before, moved, line)!;
+    // The row that was below it stays where it was.
+    const below = before.rows[sessionIndex(before.rows, 'session-26')].key;
+    const belowStart = items[sessionIndex(before.rows, 'session-26')].start;
+    const movedItems = layout(moved.rows);
+    expect(movedItems[moved.rowIndexByKey.get(below)!].start - nextLine).toBe(belowStart - line);
+  });
+
+  test('an open session moving to the top with its subsessions is not followed there', () => {
+    const childrenOf = { 'session-25': ['child-a', 'child-b'] };
+    const before = model({ childrenOf });
+    const items = layout(before.rows);
+    const child = before.rowIndexByKey.get(before.rows.find((row) => row.kind === 'session' && row.node.session.id === 'child-a')!.key)!;
+    const line = items[child].start + 10;
+    const moved = model({ childrenOf, sessionIds: ['session-25', ...ids(40).filter((id) => id !== 'session-25')] });
+    const nextLine = follow(before, moved, line)!;
+    // The session that was under the moved block stays where it was.
+    const below = before.rows[sessionIndex(before.rows, 'session-26')].key;
+    const movedItems = layout(moved.rows);
+    expect(movedItems[moved.rowIndexByKey.get(below)!].start - nextLine).toBe(items[sessionIndex(before.rows, 'session-26')].start - line);
+  });
+
+  test('an open session filling most of the screen is not followed to the top either', () => {
+    const childrenOf = { 'session-24': Array.from({ length: 8 }, (_, index) => `child-${index}`) };
+    const before = model({ childrenOf });
+    const items = layout(before.rows);
+    const child = before.rowIndexByKey.get(before.rows.find((row) => row.kind === 'session' && row.node.session.id === 'child-0')!.key)!;
+    const line = items[child].start + 10;
+    const moved = model({ childrenOf, sessionIds: ['session-24', ...ids(40).filter((id) => id !== 'session-24')] });
+    // A short viewport: the moved subsessions are most of what shows.
+    const nextLine = follow(before, moved, line, 320)!;
+    const below = before.rows[sessionIndex(before.rows, 'session-25')].key;
+    const movedItems = layout(moved.rows);
+    expect(movedItems[moved.rowIndexByKey.get(below)!].start - nextLine).toBe(items[sessionIndex(before.rows, 'session-25')].start - line);
+  });
+
+  test('an open tree longer than the list above it is not followed to the top', () => {
+    const childrenOf = { 'session-24': Array.from({ length: 30 }, (_, index) => `child-${index}`) };
+    const before = model({ childrenOf });
+    const items = layout(before.rows);
+    const child = before.rowIndexByKey.get(before.rows.find((row) => row.kind === 'session' && row.node.session.id === 'child-27')!.key)!;
+    const line = items[child].start + 10;
+    const moved = model({ childrenOf, sessionIds: ['session-24', ...ids(40).filter((id) => id !== 'session-24')] });
+    const nextLine = follow(before, moved, line, 320)!;
+    const below = before.rows[sessionIndex(before.rows, 'session-25')].key;
+    const movedItems = layout(moved.rows);
+    expect(movedItems[moved.rowIndexByKey.get(below)!].start - nextLine).toBe(items[sessionIndex(before.rows, 'session-25')].start - line);
+  });
+
+  test('a subsession deleted under the line hands the anchor to the row after it', () => {
+    const before = model({ childrenOf: { 'session-25': ['child-a', 'child-b'] } });
+    const items = layout(before.rows);
+    const childA = before.rows.findIndex((row) => row.kind === 'session' && row.node.session.id === 'child-a');
+    const childB = childA + 1;
+    const line = items[childA].start + 10;
+    const after = model({ childrenOf: { 'session-25': ['child-b'] } });
+    const nextLine = follow(before, after, line)!;
+    const afterItems = layout(after.rows);
+    expect(afterItems[after.rowIndexByKey.get(before.rows[childB].key)!].start - nextLine).toBe(items[childB].start - line);
+  });
+
+  test('a subsession leaving its open parent above is not the user closing it', () => {
+    const before = model({ childrenOf: { 'session-3': ['child-a'] } });
+    const after = model({ childrenOf: { 'session-3': [] } });
+    expect(isSessionSidebarUserChange(before, after)).toBe(false);
+    expect(isSessionSidebarUserChange(after, before)).toBe(false);
+  });
+
+  test('a session arriving right under the row at the line pushes the rows after it, not that row', () => {
+    const before = model();
+    const items = layout(before.rows);
+    const header = before.rows.findIndex((row) => row.kind === 'project-header');
+    // The project header sits under the line; a new session lands right under it.
+    const line = items[header].start + 5;
+    const arrived = model({ sessionIds: ['new-1', ...ids(40)] });
+    expect(follow(before, arrived, line)).toBe(line);
+  });
+
+  test('what the user does to the list keeps its own scrolling', () => {
+    const open = model();
+    expect(isSessionSidebarUserChange(open, model({ collapsedProjects: new Set(['project-a']) }))).toBe(true);
+    expect(isSessionSidebarUserChange(model({ visible: 20 }), model({ visible: 40 }))).toBe(true);
+    expect(isSessionSidebarUserChange(open, model({ mode: 'search' }))).toBe(true);
+    expect(isSessionSidebarUserChange(open, model({ projectOrder: ['project-b', 'project-a'] }))).toBe(true);
+    expect(isSessionSidebarUserChange(open, model())).toBe(false);
   });
 
   test('an anchor row gone from the list leaves the position alone', () => {
-    const open = buildSessionSidebarRowModel(input(true)).rows;
-    const closed = buildSessionSidebarRowModel(input(true, new Set(['project-a']))).rows;
-    const items = layout(open);
-    const anchor = findSessionSidebarScrollAnchor(open, items, items[10].start)!;
-    expect(resolveSessionSidebarScrollAnchor(anchor, closed, layout(closed))).toBeNull();
+    const open = model();
+    const closed = model({ collapsedProjects: new Set(['project-a']) });
+    const items = layout(open.rows);
+    const anchor = findSessionSidebarScrollAnchor(open.rows, items, items[10].start, items[10].start + 400, open.rowIndexByKey)!;
+    expect(resolveSessionSidebarScrollAnchor(anchor, closed.rowIndexByKey, layout(closed.rows))).toBeNull();
   });
 });
 

@@ -19,6 +19,7 @@ const child = (key: string): SessionSidebarRow => ({
   fewer: false,
   containerKey: key,
   currentCount: 7,
+  requestedCount: 7,
   increment: 7,
 });
 

@@ -16,12 +16,12 @@ import {
   findFirstVisibleSessionSidebarRowIndex,
   findSessionSidebarScrollAnchor,
   getInitialSessionSidebarRowIndexes,
+  isSessionSidebarUserChange,
   mergeSessionSidebarVirtualIndexes,
   resolveSessionSidebarScrollAnchor,
   sectionSpacingAfter,
   sectionWrapperClass,
   sessionSidebarRowSizeKey,
-  sessionSidebarRowSizeKeysChanged,
   sessionSidebarRowVirtualKey,
 } from './sessionSidebarVirtualization';
 
@@ -151,7 +151,7 @@ export function SessionSidebarRows({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const lastLayoutRef = React.useRef<{
-    rows: readonly SessionSidebarRow[];
+    model: SessionSidebarRowModel;
     measurements: readonly VirtualItem[];
     items: readonly VirtualItem[];
   } | null>(null);
@@ -161,8 +161,8 @@ export function SessionSidebarRows({
   // renders before paint too, so the first frame drawn is the motion's start.
   React.useLayoutEffect(() => {
     const last = lastLayoutRef.current;
-    if (!last || last.rows === rows || !scrollElement || prefersReducedMotion()) return;
-    const disclosure = findSessionSidebarDisclosure(last.rows, rows);
+    if (!last || last.model.rows === rows || !scrollElement || prefersReducedMotion()) return;
+    const disclosure = findSessionSidebarDisclosure(last.model.rows, rows);
     if (!disclosure) return;
     const before = last.measurements;
     const after = virtualizer.measurementsCache;
@@ -192,37 +192,38 @@ export function SessionSidebarRows({
       for (let index = disclosure.blockStart; index < disclosure.blockEnd; index += 1) {
         const measured = before[index];
         if (!measured || measured.end + shift < top || measured.start + shift > bottom) continue;
-        ghosts.push({ row: last.rows[index], nextRow: last.rows[index + 1], start: measured.start + shift, end: measured.end + shift });
+        ghosts.push({ row: last.model.rows[index], nextRow: last.model.rows[index + 1], start: measured.start + shift, end: measured.end + shift });
       }
     }
     motionIdRef.current += 1;
     setMotion({ id: motionIdRef.current, revealKeys, ghosts, followingIndex, from, to, slidingIndexes });
   }, [rows, scrollElement, virtualizer]);
 
-  // Rows that changed height with no header opening or closing (Detailed rows
-  // turned on or off, a row gaining or losing its second line) move every row
-  // under them, while the scroll position stays: the row the user was looking
-  // at slid away, or past the end of a list that got shorter. Put the row at
-  // the top of what the user sees, under a pinned header, back where it was,
-  // the same share of it above that line.
+  // Rows that changed above what the user sees, with nothing the user did to
+  // the list (see `isSessionSidebarUserChange`): sessions arriving, leaving or
+  // moving, rows changing height with Detailed rows. The scroll position alone
+  // stays, so the rows on screen slid away, or past the end of a list that got
+  // shorter. Put the row at the top of what the user sees, under a pinned
+  // header, back where it was.
   React.useLayoutEffect(() => {
     const last = lastLayoutRef.current;
-    if (!last || !scrollElement || !sessionSidebarRowSizeKeysChanged(last.rows, rows)) return;
+    if (!last || last.model.rows === model.rows || !scrollElement || isSessionSidebarUserChange(last.model, model)) return;
     const inset = getStickyHeaderHeight?.(scrollElement) ?? 0;
     // The last layout's mounted rows hold the viewport: any scroll far enough
     // to change them renders again.
-    const anchor = findSessionSidebarScrollAnchor(last.rows, last.items, renderedScrollTop + inset);
+    const line = renderedScrollTop + inset;
+    const anchor = findSessionSidebarScrollAnchor(last.model.rows, last.items, line, renderedScrollTop + scrollElement.clientHeight, model.rowIndexByKey);
     if (!anchor) return;
     // Brings the measurements up to date with the rows mounted in this commit.
     virtualizer.getTotalSize();
-    const line = resolveSessionSidebarScrollAnchor(anchor, rows, virtualizer.measurementsCache);
-    if (line !== null && Math.abs(line - inset - scrollElement.scrollTop) > 0.5) virtualizer.scrollToOffset(Math.max(line - inset, 0));
-  }, [rows, scrollElement, virtualizer, renderedScrollTop, getStickyHeaderHeight]);
+    const nextLine = resolveSessionSidebarScrollAnchor(anchor, model.rowIndexByKey, virtualizer.measurementsCache);
+    if (nextLine !== null && Math.abs(nextLine - inset - scrollElement.scrollTop) > 0.5) virtualizer.scrollToOffset(Math.max(nextLine - inset, 0));
+  }, [model, scrollElement, virtualizer, renderedScrollTop, getStickyHeaderHeight]);
 
   // Recorded after the effects above read it, on every commit, so it always
   // holds the layout the user last saw.
   React.useLayoutEffect(() => {
-    lastLayoutRef.current = { rows, measurements: virtualizer.measurementsCache, items: virtualItems };
+    lastLayoutRef.current = { model, measurements: virtualizer.measurementsCache, items: virtualItems };
   });
 
   React.useLayoutEffect(() => {

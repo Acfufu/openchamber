@@ -60,49 +60,147 @@ export const sessionSidebarRowVirtualKey = (row: SessionSidebarRow, nextRow: Ses
   `${row.key}|${sectionSpacingAfter(row, nextRow) ?? ''}|${sessionSidebarRowSizeKey(row)}`
 );
 
-/**
- * Whether a row present in both lists changed its size key: Detailed rows
- * turned on or off, or a row gained or lost its second line. Every such row
- * above the viewport moves the rows under it at once, so the list keeps the
- * row at the top of the viewport in place (`SessionSidebarRows`).
- */
-export const sessionSidebarRowSizeKeysChanged = (
-  previous: readonly SessionSidebarRow[],
-  next: readonly SessionSidebarRow[],
-): boolean => {
-  if (previous === next) return false;
-  const sizeKeyByRow = new Map(previous.map((row) => [row.key, sessionSidebarRowSizeKey(row)]));
-  return next.some((row) => {
-    const sizeKey = sizeKeyByRow.get(row.key);
-    return sizeKey !== undefined && sizeKey !== sessionSidebarRowSizeKey(row);
-  });
+// What the user set on a row: a header open or closed, subsessions shown, how
+// many sessions Show more asked for, and search forcing everything open.
+// Undefined where the row offers nothing to set: a session without
+// subsessions, an empty group or folder (always open). Sessions coming and
+// going change that, not the user.
+const rowUserState = (row: SessionSidebarRow): string | undefined => {
+  switch (row.kind) {
+    case 'group-header':
+    case 'folder-header':
+      return row.empty ? undefined : `${row.collapsed}:${row.forceExpanded}`;
+    case 'activity-header':
+    case 'project-header':
+    case 'caption':
+      return `${row.collapsed}:${row.forceExpanded}`;
+    case 'session':
+      return row.expanded === undefined ? undefined : `${row.expanded}:${row.forceExpanded === true}`;
+    case 'run':
+      return `${row.expanded}:${row.forceExpanded}`;
+    case 'show-control':
+      return String(row.requestedCount);
+    default:
+      return undefined;
+  }
 };
 
-/** The row under a line across the list, and where the line crosses it as a share of its height. */
-type SessionSidebarScrollAnchor = { key: string; fraction: number };
+const projectOrder = (rows: readonly SessionSidebarRow[], kept: ReadonlyMap<string, number>): string[] => (
+  rows.filter((row) => row.kind === 'project-header' && kept.has(row.key)).map((row) => row.key)
+);
 
-/** `items` are in index order, as the virtualizer lists them. */
+type SessionSidebarRowList = {
+  rows: readonly SessionSidebarRow[];
+  rowIndexByKey: ReadonlyMap<string, number>;
+  search: boolean;
+};
+
+/**
+ * Whether the user changed the list rather than the sessions in it: a header
+ * opened or closed, Show more or less, subsessions shown or hidden, projects
+ * dragged into another order, a search. The list then behaves as the user's
+ * action makes it (a header's motion, new rows where the control was); for
+ * any other change, sessions arriving, leaving or moving and rows changing
+ * height, it keeps the row the user sees in place (`SessionSidebarRows`).
+ * Projects sorted by recent activity reorder on their own too; those moves
+ * count as the user's and keep the scroll position.
+ */
+export const isSessionSidebarUserChange = (previous: SessionSidebarRowList, next: SessionSidebarRowList): boolean => {
+  if (previous.search || next.search) return true;
+  const kept = new Map<string, number>();
+  for (const row of previous.rows) {
+    const index = next.rowIndexByKey.get(row.key);
+    if (index === undefined) continue;
+    const before = rowUserState(row);
+    const after = rowUserState(next.rows[index]);
+    if (before !== undefined && after !== undefined && before !== after) return true;
+    kept.set(row.key, index);
+  }
+  return projectOrder(previous.rows, kept).join('\n') !== projectOrder(next.rows, kept).join('\n');
+};
+
+/**
+ * A row the user sees and where it sits: the row under the line `fraction` of
+ * its height in, or a row below the line `offset` pixels under it.
+ */
+type SessionSidebarScrollAnchor = { key: string; fraction: number; offset: number };
+
+/**
+ * The rows that kept their place. The list is cut into works: a session or a
+ * run with the open rows nested under it, and every other row on its own. The
+ * works that stayed are the longest run of works, in their old order, whose
+ * new positions also increase, so whatever is left out is the fewest works
+ * that moved, such as a session that became active and went to the top. A
+ * work counts once however many subsessions it has open: counted by rows, a
+ * long open tree outvoted the works it jumped over. Returns old row indexes.
+ */
+const rowsInPlace = (rows: readonly SessionSidebarRow[], nextIndexByKey: ReadonlyMap<string, number>): Set<number> => {
+  const works: number[][] = [];
+  let rootDepth = -1;
+  rows.forEach((row, index) => {
+    const nested = row.kind === 'session' || row.kind === 'run';
+    if (nested && rootDepth >= 0 && row.depth > rootDepth) {
+      works[works.length - 1].push(index);
+      return;
+    }
+    works.push([index]);
+    rootDepth = nested ? row.depth : -1;
+  });
+  // tails[length - 1]: the work ending the best run of that length so far.
+  const tails: number[] = [];
+  const tailPositions: number[] = [];
+  const previous = new Map<number, number>();
+  works.forEach((members, work) => {
+    const position = members.map((index) => nextIndexByKey.get(rows[index].key)).find((next) => next !== undefined);
+    if (position === undefined) return;
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (tailPositions[middle] < position) low = middle + 1;
+      else high = middle;
+    }
+    if (low > 0) previous.set(work, tails[low - 1]);
+    tails[low] = work;
+    tailPositions[low] = position;
+  });
+  const kept = new Set<number>();
+  for (let work = tails.at(-1); work !== undefined; work = previous.get(work)) {
+    for (const index of works[work]) if (nextIndexByKey.has(rows[index].key)) kept.add(index);
+  }
+  return kept;
+};
+
+/**
+ * The row to keep in place while the rows around it change: the first row on
+ * screen that kept its place in the list (`rowsInPlace`), the row under the
+ * line unless it moved. `items` are the previous layout's rows in index order.
+ */
 export const findSessionSidebarScrollAnchor = (
   rows: readonly SessionSidebarRow[],
   items: readonly { index: number; start: number; end: number }[],
   line: number,
+  viewportEnd: number,
+  nextIndexByKey: ReadonlyMap<string, number>,
 ): SessionSidebarScrollAnchor | null => {
-  const item = items.find((candidate) => candidate.end > line);
+  const kept = rowsInPlace(rows, nextIndexByKey);
+  const item = items.find((candidate) => candidate.end > line && candidate.start < viewportEnd && kept.has(candidate.index));
   const row = item ? rows[item.index] : undefined;
   if (!item || !row) return null;
+  if (item.start > line) return { key: row.key, fraction: 0, offset: line - item.start };
   const size = item.end - item.start;
-  return { key: row.key, fraction: size > 0 ? Math.max(line - item.start, 0) / size : 0 };
+  return { key: row.key, fraction: size > 0 ? (line - item.start) / size : 0, offset: 0 };
 };
 
-/** Where the line now crosses the list: the same share of the anchor row, at its new start and height. */
+/** Where the line now crosses the list: the anchor row's new start, plus the same share of its new height or the same distance. */
 export const resolveSessionSidebarScrollAnchor = (
   anchor: SessionSidebarScrollAnchor,
-  rows: readonly SessionSidebarRow[],
+  nextIndexByKey: ReadonlyMap<string, number>,
   measurements: readonly { start: number; size: number }[],
 ): number | null => {
-  const index = rows.findIndex((row) => row.key === anchor.key);
-  const measured = index >= 0 ? measurements[index] : undefined;
-  return measured ? measured.start + anchor.fraction * measured.size : null;
+  const index = nextIndexByKey.get(anchor.key);
+  const measured = index === undefined ? undefined : measurements[index];
+  return measured ? measured.start + anchor.fraction * measured.size + anchor.offset : null;
 };
 
 /**
