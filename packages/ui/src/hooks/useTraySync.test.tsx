@@ -107,6 +107,7 @@ describe('Dock badge with the macOS menu bar disabled', () => {
   });
 
   test('counts a chat while the Chats section is shown', async () => {
+    useProjectsStore.setState({ projects: [{ id: 'moved-chat', path: '/tmp/chats' }] });
     // Pinned and in work, it still has no row elsewhere: those zones leave chats out.
     useGlobalSessionsStore.setState({
       activeSessions: [{
@@ -123,7 +124,7 @@ describe('Dock badge with the macOS menu bar disabled', () => {
     expect(counts).toEqual([0, 1]);
   });
 
-  test('counts a session only the Pinned or In work zone lists while that zone is shown', async () => {
+  test('never counts an unregistered destination through the Pinned or In work zones', async () => {
     useGlobalSessionsStore.setState({
       activeSessions: [
         { ...session('in-work', undefined, '/tmp/eval-run'), metadata: { openchamber: { work: { state: 'open' } } } },
@@ -137,14 +138,14 @@ describe('Dock badge with the macOS menu bar disabled', () => {
     expect(counts).toEqual([0]);
     useSessionDisplayStore.setState({ showPinnedSection: true });
     await flush();
-    expect(counts).toEqual([0, 1]);
+    expect(counts).toEqual([0]);
     useSessionDisplayStore.setState({ showWorkSection: true });
     await flush();
-    expect(counts).toEqual([0, 1, 2]);
+    expect(counts).toEqual([0]);
     // Turning the work feature off hides the In work zone too.
     useUIStore.setState({ sessionWorkEnabled: false });
     await flush();
-    expect(counts).toEqual([0, 1, 2, 1]);
+    expect(counts).toEqual([0]);
   });
 
   test('publishes unread chats, clears viewed chats, and respects the badge toggle without tray timers or listeners', async () => {

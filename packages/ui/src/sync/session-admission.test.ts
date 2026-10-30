@@ -151,8 +151,10 @@ describe('session admission', () => {
       await settle();
       expect(getOpenCodeTrustSnapshot()?.directory).toBe('/archive-denied');
       await settleOpenCodeTrust('skip'); await settle();
+      const readsAfterDecline = trustReads;
+      expect(readsAfterDecline).toBe(2); // Initial assessment and the queued prompt's recheck.
       jest.advanceTimersByTime(60_000); await settle();
-      expect(trustReads).toBe(1);
+      expect(trustReads).toBe(readsAfterDecline);
       expect(registrationReads).toBe(0);
       expect(isSessionAdmitted('/archive-denied')).toBe(false);
       expect(useGlobalSessionsStore.getState().archivedSessions).toHaveLength(1);
@@ -285,6 +287,20 @@ describe('session admission', () => {
     await settleOpenCodeTrust('trust');
     await settle();
     expect(useSessionUIStore.getState().currentSessionId).toBeNull();
+  });
+
+  test('admission preserves submitted-draft and project-picker selection options', async () => {
+    useGlobalSessionsStore.getState().upsertSession(session('options-open', '/options-open'));
+    useSessionUIStore.getState().setCurrentSession('options-open', '/options-open', {
+      transition: 'submitted-draft', keepSingleProject: true,
+    });
+    await settle();
+    expect(useSessionUIStore.getState().currentSessionId).toBeNull();
+    await settleOpenCodeTrust('trust');
+    await settle();
+    expect(useSessionUIStore.getState().currentSessionId).toBe('options-open');
+    expect(useSessionUIStore.getState().materializedDraftSessionId).toBe('options-open');
+    expect(useSessionUIStore.getState().currentSessionKeepsSingleProject).toBe(true);
   });
 
   test('runtime-memory restoration does not publish an unregistered session before trust', async () => {

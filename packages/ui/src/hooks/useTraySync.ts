@@ -327,15 +327,15 @@ const buildSnapshot = (instanceName: string, includeTray: boolean): TraySnapshot
   // (`sessionHasSidebarRow`). Sessions from unconfigured directories (an eval
   // run in /tmp, a removed project, a /btw fork) have none, cannot be opened
   // or removed from there, so they would take the tray's limited slots and
-  // hold a dock count the user has no way to clear. Pending approvals stay
-  // listed below regardless.
+  // hold a dock count the user has no way to clear. Pending approvals use the
+  // same admission rule below.
   const pinnedIds = useSessionPinnedStore.getState().ids;
   type Sections = { chats: boolean; pinned: boolean; work: boolean };
   const hasRowIn = (session: Session, sections: Sections): boolean => {
     const directory = resolveGlobalSessionDirectory(session);
     const isAdmitted = isSessionDirectoryAdmitted(directory, projects, worktreesByProject);
     // A managed chat keeps its identity when its directory no longer sits under
-    // the chats root, so the project id admits it too. Only the Chats section
+    // the chats root, so the project id identifies it too. Only the Chats section
     // lists a chat: the Pinned and In work zones leave chats out.
     if (isChatDirectoryPath(directory) || session.projectID === CHAT_DRAFT_PROJECT_ID) {
       return sessionHasSidebarRow(session, { isAdmitted, isPlaced: sections.chats, isPinned: false, zones: { pinned: false, work: false } });

@@ -179,6 +179,8 @@ const sdk = OpenCode.make({
 const runtimeAPIs = { runtime: { platform: 'web', isDesktop: false, isVSCode: false }, sourceControl: {} } as RuntimeAPIs;
 
 const { useSessionUIStore } = await import('@/sync/session-ui-store');
+const { useProjectsStore } = await import('@/stores/useProjectsStore');
+useProjectsStore.setState({ projects: [{ id: 'project', path: '/workspace' }] });
 const { dispatchPromptHistorySearch } = await import('../composer/state/promptHistorySearchRoute');
 const { createInputHistoryIdentity, useInputHistoryStore } = await import('@/stores/useInputHistoryStore');
 const { getRuntimeKey } = await import('@/lib/runtime-switch');
