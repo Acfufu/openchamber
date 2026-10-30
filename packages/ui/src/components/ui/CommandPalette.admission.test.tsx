@@ -20,6 +20,7 @@ for (const [key, value] of Object.entries({
 const originalFetch = globalThis.fetch;
 globalThis.fetch = (async (input) => {
   const url = new URL(String(input), 'http://localhost');
+  if (url.pathname === '/api/config/settings') return Response.json({ projects: [{ id: 'allowed', path: '/allowed' }] });
   return Response.json({
     home: '/home', chatsRoot: '/managed/chats', directory: url.searchParams.get('directory') ?? '/allowed',
     project: { directory: '/allowed' }, data: [], files: [], hits: [], archives: [], actions: [],

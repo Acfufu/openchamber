@@ -117,9 +117,10 @@ Object.assign(globalThis, {
   IS_REACT_ACT_ENVIRONMENT: true,
 });
 
-// Nothing typed here reaches a server; every request answers empty.
+// Nothing typed here reaches a server; settings retain the admitted project.
 spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
   const path = new URL(input instanceof Request ? input.url : input.toString(), 'http://localhost/').pathname;
+  if (path === '/api/config/settings') return Response.json({ projects: [{ id: 'project', path: '/workspace' }] });
   if (path.endsWith('/location')) {
     return Response.json({ directory: '/workspace', project: { id: 'project', directory: '/workspace', canonical: '/workspace' } });
   }

@@ -62,6 +62,7 @@ let promptsStatus = 200;
 
 spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
   const url = new URL(input instanceof Request ? input.url : input.toString(), 'http://localhost/');
+  if (url.pathname === '/api/config/settings') return Response.json({ projects: [{ id: 'project', path: WORKTREE }, { id: 'repo', path: '/repo' }] });
   if (url.pathname === '/api/magic-prompts') {
     promptReads.push(url);
     return Response.json(promptsStatus === 200
