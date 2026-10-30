@@ -418,6 +418,235 @@ describe('OpenCode Go quota provider — Console OAuth (VS Code parity)', () => 
   });
 });
 
+describe('OpenCode Zen quota provider (VS Code parity)', () => {
+  const CONSOLE_API_BASE = 'https://opencode.ai/console/api';
+
+  afterEach(() => {
+    configureOpenCodeCredentials({ list: async () => baseCredentialList() });
+  });
+
+  const summaryPayload = (requests: number) => ({
+    totalRequests: String(requests),
+    totalInputTokens: '100',
+    totalOutputTokens: '50',
+    totalCostMicroCents: '0',
+    services: [],
+  });
+
+  const budgetPayload = [{
+    scope: 'service-account',
+    serviceAccountId: 'svcacct_01TEST',
+    name: 'Test service account',
+    limitMicroCents: null,
+    spentMicroCents: '0',
+    exceeded: false,
+    resetsAt: '2026-11-01T00:00:00.000Z',
+  }];
+
+  const modelsPayload = {
+    items: [
+      { model: 'big-pickle', provider: 'opencode', totalRequests: '6979', totalCostMicroCents: '0' },
+      { model: 'minimax-m3.1-flash-free', provider: 'opencode', totalRequests: '6108', totalCostMicroCents: '0' },
+    ],
+    pageInfo: { page: 1, pageSize: 50, total: 2, pageCount: 1 },
+  };
+
+  const stubConsole = () => {
+    const requests: string[] = [];
+    stubFetchReturning(async (url, _init) => {
+      requests.push(url);
+      if (url === `${CONSOLE_API_BASE}/usage/summary?range=24h`) return mockResponse(summaryPayload(292));
+      if (url === `${CONSOLE_API_BASE}/usage/summary?range=7d`) return mockResponse(summaryPayload(3155));
+      if (url === `${CONSOLE_API_BASE}/usage/summary?range=30d`) return mockResponse(summaryPayload(10802));
+      if (url.startsWith(`${CONSOLE_API_BASE}/usage/models`)) return mockResponse(modelsPayload);
+      if (url === `${CONSOLE_API_BASE}/budgets/service-accounts/status`) return mockResponse(budgetPayload);
+      return mockResponse({}, { ok: false, status: 404 });
+    });
+    return requests;
+  };
+
+  describe('with an API key on the Console integration', () => {
+    beforeEach(() => {
+      configureOpenCodeCredentials({ list: async () => [key('opencode')] });
+    });
+
+    afterEach(() => {
+      configureOpenCodeCredentials({ list: async () => baseCredentialList() });
+    });
+
+    test('reports the request counters, the spend and the models', async () => {
+      stubConsole();
+
+      const result = await fetchQuotaForProvider('opencode');
+
+      assert.equal(result.ok, true);
+      assert.equal(result.providerName, 'OpenCode Zen');
+      assert.deepEqual(result.usage!.windows.daily!.value, { kind: 'requests', count: 292 });
+      assert.deepEqual(result.usage!.windows.weekly!.value, { kind: 'requests', count: 3155 });
+      assert.deepEqual(result.usage!.windows.monthly!.value, { kind: 'requests', count: 10802 });
+      assert.deepEqual(result.usage!.windows['Test service account (svcacct_01TEST)']!.value, { kind: 'spend', spent: 0, limit: null });
+      assert.equal(result.usage!.windows['Test service account (svcacct_01TEST)']!.resetAt, Date.parse('2026-11-01T00:00:00.000Z'));
+      assert.deepEqual(result.usage!.models!['big-pickle']!.windows.monthly!.value, { kind: 'requests', count: 6979 });
+    });
+
+    test('keeps all account budgets separate from workspace counters and reads every model page', async () => {
+      const pages: number[] = [];
+      let failSecondPage = false;
+      stubFetchReturning(async (url) => {
+        if (url.includes('/budgets/')) return mockResponse([
+          { serviceAccountId: 'svcacct_A', name: 'Build', spentMicroCents: '100000000', limitMicroCents: '1000000000' },
+          { serviceAccountId: 'svcacct_B', name: 'Review', spentMicroCents: '900000000', limitMicroCents: null },
+        ]);
+        if (url.includes('/usage/models')) {
+          const page = Number(new URL(url).searchParams.get('page'));
+          pages.push(page);
+          if (page === 2 && failSecondPage) return mockResponse({}, { ok: false, status: 500 });
+          return mockResponse({ items: [{ model: `model-${page}`, totalRequests: String(page) }], pageInfo: { page, pageCount: 2 } });
+        }
+        return mockResponse(summaryPayload(10802));
+      });
+      const result = await fetchQuotaForProvider('opencode');
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.usage!.windows.monthly!.value, { kind: 'requests', count: 10802 });
+      assert.deepEqual(result.usage!.windows['Build (svcacct_A)']!.value, { kind: 'spend', spent: 1, limit: 10 });
+      assert.deepEqual(result.usage!.windows['Review (svcacct_B)']!.value, { kind: 'spend', spent: 9, limit: null });
+      assert.deepEqual(Object.keys(result.usage!.models!), ['model-1', 'model-2']);
+      assert.deepEqual(result.usage!.models!['model-2']!.windows.monthly!.value, { kind: 'requests', count: 2 });
+      assert.deepEqual(pages, [1, 2]);
+      failSecondPage = true;
+      const failed = await fetchQuotaForProvider('opencode');
+      assert.equal(failed.ok, false);
+      assert.equal(failed.error, 'OpenCode Zen usage API returned HTTP 500');
+    });
+
+    for (const body of ['null', '"invalid"', '', '{']) {
+      test(`keeps valid windows after an unusable successful response ${JSON.stringify(body)}`, async () => {
+        stubFetchReturning(async (url) => url.includes('range=24h')
+          ? new Response(body)
+          : Response.json(url.includes('/usage/summary') ? summaryPayload(20) : null));
+        const result = await fetchQuotaForProvider('opencode');
+        assert.equal(result.ok, true);
+        assert.equal(result.usage!.windows.daily, undefined);
+        assert.deepEqual(result.usage!.windows.weekly!.value, { kind: 'requests', count: 20 });
+        assert.deepEqual(result.usage!.windows.monthly!.value, { kind: 'requests', count: 20 });
+      });
+
+      test(`fails when every successful response is unusable ${JSON.stringify(body)}`, async () => {
+        stubFetchReturning(async () => new Response(body));
+        const result = await fetchQuotaForProvider('opencode');
+        assert.equal(result.ok, false);
+        assert.equal(result.error, 'OpenCode Zen usage data could not be parsed');
+      });
+    }
+
+    for (const value of ['', ' ', '\t', '-1', 'not-a-number']) {
+      test(`rejects invalid numeric data ${JSON.stringify(value)} while preserving real zero`, async () => {
+        stubFetchReturning(async (url) => {
+          if (url.includes('/budgets/')) return Response.json([{ spentMicroCents: value }]);
+          if (url.includes('/usage/models')) return Response.json({ items: [
+            { model: 'invalid', totalRequests: value },
+            { model: 'valid', totalRequests: '0' },
+          ] });
+          return Response.json({ totalRequests: value });
+        });
+        const result = await fetchQuotaForProvider('opencode');
+        assert.equal(result.ok, true);
+        assert.deepEqual(result.usage!.windows, {});
+        assert.deepEqual(Object.keys(result.usage!.models!), ['valid']);
+        assert.deepEqual(result.usage!.models!.valid!.windows.monthly!.value, { kind: 'requests', count: 0 });
+      });
+    }
+
+    test('tolerates malformed rows in budgets and models without failing the whole list', async () => {
+      stubFetchReturning(async (url) => {
+        if (url === `${CONSOLE_API_BASE}/usage/summary?range=24h`) return mockResponse(summaryPayload(10));
+        if (url === `${CONSOLE_API_BASE}/usage/summary?range=7d`) return mockResponse(summaryPayload(20));
+        if (url === `${CONSOLE_API_BASE}/usage/summary?range=30d`) return mockResponse(summaryPayload(30));
+        if (url.startsWith(`${CONSOLE_API_BASE}/usage/models`)) {
+          return mockResponse({
+            items: [
+              'corrupted-entry',
+              { model: null, totalRequests: '10' },
+              { model: 'valid-model', totalRequests: '42' },
+            ],
+          });
+        }
+        if (url === `${CONSOLE_API_BASE}/budgets/service-accounts/status`) {
+          return mockResponse([
+            null,
+            'not-an-object',
+            { serviceAccountId: 'svcacct_valid', spentMicroCents: '5000000', limitMicroCents: '20000000' },
+          ]);
+        }
+        return mockResponse({}, { ok: false, status: 404 });
+      });
+
+      const result = await fetchQuotaForProvider('opencode');
+
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.usage!.windows.monthly!.value, { kind: 'requests', count: 30 });
+      assert.deepEqual(result.usage!.windows.svcacct_valid!.value, { kind: 'spend', spent: 0.05, limit: 0.2 });
+      assert.deepEqual(result.usage!.models!['valid-model']!.windows.monthly!.value, { kind: 'requests', count: 42 });
+      assert.equal(Object.keys(result.usage!.models!).length, 1);
+    });
+
+    test('sends the workspace key and never follows a redirect', async () => {
+      let request: RequestInit | undefined;
+      stubFetchReturning(async (_url, init) => {
+        request = init;
+        return mockResponse(summaryPayload(1));
+      });
+
+      await fetchQuotaForProvider('opencode');
+
+      assert.equal(new Headers(request?.headers).get('Authorization'), 'Bearer test-token');
+      assert.equal(request?.redirect, 'error');
+    });
+
+    test('reports a rejected credential as an authentication failure', async () => {
+      stubFetchReturning(async () => mockResponse({}, { ok: false, status: 401 }));
+
+      const result = await fetchQuotaForProvider('opencode');
+
+      assert.equal(result.configured, true);
+      assert.equal(result.error, 'OpenCode Zen authentication failed');
+    });
+  });
+
+  describe('with a Console sign-in', () => {
+    beforeEach(() => {
+      configureOpenCodeCredentials({ list: async () => [consoleOAuth()] });
+    });
+
+    afterEach(() => {
+      configureOpenCodeCredentials({ list: async () => baseCredentialList() });
+    });
+
+    test('uses the Console token and organization', async () => {
+      let request: RequestInit | undefined;
+      stubFetchReturning(async (_url, init) => {
+        request = init;
+        return mockResponse(summaryPayload(5));
+      });
+
+      const result = await fetchQuotaForProvider('opencode');
+
+      assert.equal(result.ok, true);
+      assert.equal(new Headers(request?.headers).get('Authorization'), 'Bearer console-token');
+      assert.equal(new Headers(request?.headers).get('x-org-id'), 'org_TESTORG123');
+    });
+  });
+
+  test('reports a workspace without a credential as not configured', async () => {
+    configureOpenCodeCredentials({ list: async () => [] });
+
+    const result = await fetchQuotaForProvider('opencode');
+
+    assert.equal(result.configured, false);
+    assert.equal(result.error, 'Not configured');
+  });
+});
+
 describe('OpenRouter quota provider (VS Code parity)', () => {
   const documentedPayload = {
     data: {

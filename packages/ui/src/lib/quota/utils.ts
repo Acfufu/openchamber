@@ -1,6 +1,8 @@
 import { formatMessage, useI18nStore } from '@/lib/i18n/store';
 import { formatDateTimeForPreference, formatTimeForPreference } from '@/lib/timeFormat';
 import type { TimeFormatPreference } from '@/stores/useUIStore';
+import { getCurrentIntlLocale, type I18nKey, type I18nParams } from '@/lib/i18n';
+import type { UsageWindow } from '@/types/quota';
 
 const t = (key: Parameters<typeof formatMessage>[1]) => formatMessage(useI18nStore.getState().dictionary, key);
 
@@ -23,6 +25,23 @@ export const formatQuotaValueLabel = (
   percent: number | null,
 ): string => {
   return valueLabel ?? formatPercent(percent);
+};
+
+export const formatQuotaWindowValueLabel = (
+  window: UsageWindow,
+  percent: number | null,
+  translate: (key: I18nKey, params?: I18nParams) => string,
+): string => {
+  const value = window.value;
+  if (!value) return formatQuotaValueLabel(window.valueLabel, percent);
+  if (value.kind === 'requests') {
+    return translate('quota.value.requests', { count: new Intl.NumberFormat(getCurrentIntlLocale()).format(value.count) });
+  }
+  const money = new Intl.NumberFormat(getCurrentIntlLocale(), { style: 'currency', currency: 'USD' });
+  const spent = money.format(value.spent);
+  return value.limit === null
+    ? translate('quota.value.spent', { spent })
+    : translate('settings.usage.consoleBudgets.spentOf', { spent, limit: money.format(value.limit) });
 };
 
 export const formatQuotaResetLabel = (

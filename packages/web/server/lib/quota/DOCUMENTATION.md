@@ -54,6 +54,7 @@ asked, `/api/quota/providers` answers 500 instead of an empty list.
 | `ollama-cloud` | Ollama Cloud | `providers/ollama-cloud.js` | `ollama-cloud` / `ollamacloud` API key from OpenCode's credential store |
 | `wafer` | Wafer.ai | `providers/wafer.js` | `wafer`, `wafer-ai`, `wafer_ai`, `wafer.ai` |
 | `opencode-go` | OpenCode Go | `providers/opencode-go.js` | API key on the `opencode-go` integration or, without one, on the shared `opencode` integration; or an OpenCode Console OAuth sign-in on `opencode` |
+| `opencode` | OpenCode Zen | `providers/opencode.js` | API key on the shared `opencode` integration, or an OpenCode Console OAuth sign-in on `opencode` |
 | `neuralwatt` | NeuralWatt | `providers/neuralwatt.js` | `neuralwatt` (API key under `key` or `token`) |
 | `kilo` | Kilo Code | `providers/kilo.js` | `kilo`, `kilocode`, `kilo-code` (API key under `key`, `token`, or OAuth `access`; organization id under `kilocodeOrganizationId`, `organizationId`, or OAuth `accountId`, else OpenCode `provider.kilo.options.kilocodeOrganizationId`) |
 | `zenmux` | ZenMux | `providers/zenmux.js` | Optional Platform API key stored under `~/.config/openchamber/quota/zenmux.json` (`platformApiKey`). The OpenCode chat key is not used. |
@@ -99,6 +100,25 @@ The OpenCode Go result also carries the Console budgets of the same sign-in, the
 - **Go meters stay ours.** The same route also reports the Go allowance, but only for a Console sign-in; the provider above also covers API keys and the credit balance, so it keeps reading the Console itself.
 
 On the first OpenCode Go usage refresh after upgrading, OpenChamber deletes the obsolete `quota/opencode-go.json` credential file without reading its cookie value.
+
+## OpenCode Zen credential and quota semantics
+
+OpenCode Zen is the Console workspace behind the shared `opencode` integration: the free models plus pay-as-you-go spend on the credits the account holds. A workspace with an OpenCode Go subscription is reported by the separate `opencode-go` provider, which reads the Go meters.
+
+Zen has no request meters, so the Console exposes counters instead: the request counts per range, the spend of the current billing cycle, and the models that served those requests. The provider reads `GET https://opencode.ai/console/api/usage/summary?range=24h|7d|30d`, `GET https://opencode.ai/console/api/usage/models?range=30d&page=1&pageSize=50`, and `GET https://opencode.ai/console/api/budgets/service-accounts/status`. These endpoints are not publicly documented, so re-check them against the live Console page before assuming they are still current.
+
+- **Credential selection**: an API key on the shared `opencode` integration serves Zen, and so does an OpenCode Console OAuth sign-in on the same integration (`server` is `https://opencode.ai/console` and `orgID` matches `^(?:org|wrk)_[A-Za-z0-9]+$`). The sign-in wins when both exist. The credential is read through `../opencode/auth.js` on every fetch, so switching accounts drops the previous account instead of showing stale numbers, and OpenChamber never refreshes it: OpenCode owns that.
+- **Counters**: the `daily` and `weekly` windows carry no percent. Request counts and USD spend travel as structured `value` data; shared UI formats them in the active locale, so changing language needs no quota refresh. Every count and amount is decoded at the HTTP boundary; blank strings are missing data and zero remains valid.
+- **Spend**: every usable service-account budget carries its account ID and name, current-cycle spend (`spentMicroCents`), optional cap (`limitMicroCents`) and reset (`resetsAt`). Each becomes its own window, titled `name (serviceAccountId)`, or just the ID when unnamed. Rows without an account ID are omitted because their ownership is unknown. The workspace `monthly` window always reports its 30-day request count; an account budget never replaces it. Capped accounts report their share and spend; uncapped accounts report spend alone. The Console counts `100_000_000` micro-cents per USD. The budget read remains best-effort.
+- **Models**: the per-model request counters of the last 30 days are reported as `usage.models`, one window per model. All pages declared by `pageInfo.pageCount` are read sequentially, with one request per page and no unbounded parallel fan-out. A failed or unreadable later page fails the refresh so a truncated list cannot look complete.
+- **Trusted origin**: requests go only to the fixed Console API base URL with `redirect: 'error'`, so the bearer token is never forwarded to another origin.
+- **Failure classes stay distinct**: not configured (no credential), rejected credential (401/403), and a malformed or failed response each return their own configured flag and message.
+- **Partial responses**: an unusable successful response drops only its window or model rows. No usable windows or models is a failed refresh. HTTP and network failures of the usage endpoints still fail the refresh; the budget read remains best-effort.
+- `providers/opencode-zen.js` owns the Console HTTP requests, boundary parsing and window construction for both web and VS Code. Runtime wrappers own credential discovery and result envelopes.
+
+### Why one shared Zen reader
+
+Both runtimes read the same Console contract. Sharing the reader keeps budget ownership, pagination and numeric validation identical without maintaining two parsers. Account budgets use the existing named-window contract so every usage surface retains account identity without treating an account's spend as a workspace total.
 
 ## Codex credit balance semantics
 
