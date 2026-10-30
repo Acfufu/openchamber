@@ -18,7 +18,8 @@ const ASSESSMENT_CACHE_LIMIT = 200;
 const SEED_PROJECT_TIMEOUT_MS = 2000;
 
 // Reads that never start a location in OpenCode, so they run for a folder
-// nobody has trusted: a paused folder still lists and shows its sessions.
+// nobody has trusted: a paused folder still lists and shows its sessions. The
+// proxy lets the same reads through for a worktree whose checkout failed.
 // Everything else that names a folder is checked, including routes added
 // later, which start out checked.
 const GLOBAL_READS = [
@@ -48,10 +49,14 @@ const trustQuerySchema = z.object({ directory: z.string().trim().min(1) });
 const trustAnswerSchema = z.object({ directory: z.string().trim().min(1), fingerprint: z.string().nullable() });
 const PERCENT_ESCAPE = /%[0-9a-fA-F]{2}/;
 
+/** Whether OpenCode answers this read without starting a location. */
+export const isGlobalRead = (method, pathname) => (
+  (method === 'GET' || method === 'HEAD') && GLOBAL_READS.some((pattern) => pattern.test(pathname))
+);
+
 const isGlobalRoute = (method, pathname) => (
-  (method === 'GET' || method === 'HEAD')
-    ? GLOBAL_READS.some((pattern) => pattern.test(pathname))
-    : GLOBAL_MUTATIONS.some((route) => route.method === method && route.pattern.test(pathname))
+  isGlobalRead(method, pathname)
+    || GLOBAL_MUTATIONS.some((route) => route.method === method && route.pattern.test(pathname))
 );
 
 /** The folders a request names, decoded the way OpenCode reads them. */

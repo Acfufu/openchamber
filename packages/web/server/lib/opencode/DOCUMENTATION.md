@@ -1080,15 +1080,33 @@ Discovery already reads each skill's frontmatter and body. Source lookup uses th
 
 Git bootstrap must reach `git-ready` before OpenCode can cache a new worktree's
 project identity or config. Setup scripts may still be running; the optional UI
-setup wait remains separate. Failed or timed-out checkout returns 503 without
-forwarding. The shared draft creator keeps the project directory selected until
-creation returns, because preview paths have no bootstrap state. A directory with
-no bootstrap state was never populated by this server and passes at once. The gate
-reads the in-memory state only: the durable bootstrap store takes a cross-process
-file lock per read, which must not sit on every proxied request.
+setup wait remains separate. A timed-out checkout returns 503 without
+forwarding. A failed checkout returns 503 to every request that would start
+the folder's OpenCode location; the reads OpenCode answers without one
+(`isGlobalRead` in `../opencode-trust`, which the trust gate also uses: the
+session list, session and message reads, events) pass, so the worktree's
+sessions stay listed while the user repairs it. Mutations stay closed even
+where the trust gate lets them through: moving a session starts both its
+source and destination locations. A repair that completes the
+checkout (`onCheckoutHydrated`) evicts the folder's locations before the record
+turns ready, so OpenCode opens the repaired folder afresh. The shared draft
+creator keeps the project directory selected until creation returns, because
+preview paths have no bootstrap state. A directory with no bootstrap state was
+never populated by this server and passes at once. The gate reads the in-memory
+state only: the durable bootstrap store takes a cross-process file lock per
+read, which must not sit on every proxied request.
 
 This server gate covers web, Electron, hosted mobile, and Capacitor connections.
 The VS Code extension owns its separate Git and proxy implementation.
+
+### Why a failed checkout stays closed to OpenCode
+
+Forwarding every request for a failed checkout was weighed and rejected: the
+first location-scoped request would let OpenCode cache the half-populated
+folder's project identity and config, and sessions created after a repair
+would keep them. Keeping only location-starting requests out leaves the
+recovery path (session list, binding reads, Download again, archive) working
+without that risk.
 
 ### Why the proxy deadline is configurable
 

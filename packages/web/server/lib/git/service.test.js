@@ -2039,6 +2039,38 @@ describe('createWorktree', () => {
     expect(hydrateCheckout).toHaveBeenCalledWith({ directory: created.path, parentRemoteName: '' });
   });
 
+  it('archives a worktree whose files landed but whose submodules failed to download (#5811)', async () => {
+    if (!canRunGit()) return;
+    const repo = createTempDir();
+    runGit(repo, ['init', '-b', 'main']);
+    runGit(repo, ['config', 'user.email', 'test@example.com']);
+    runGit(repo, ['config', 'user.name', 'Test User']);
+    fs.writeFileSync(path.join(repo, 'README.md'), '# Test\n');
+    runGit(repo, ['add', 'README.md']);
+    runGit(repo, ['commit', '-m', 'Initial commit']);
+    const hydrateCheckout = vi.fn(async () => ({
+      status: 'cancelled',
+      submodules: [{ path: 'vendor/slow', status: 'cancelled', error: { code: 'TIMEOUT', message: 'Checkout hydration timed out' } }],
+      lfs: [],
+    }));
+    const bootstrapStore = createWorktreeBootstrapStore({ filePath: path.join(createTempDir(), 'bootstrap.json') });
+    const created = await createWorktree(repo, {
+      mode: 'new', branchName: 'feature/submodule-timeout', worktreeName: 'submodule-timeout',
+      returnAfterDirectoryCreated: true,
+    }, { hydrateCheckout, bootstrapStore });
+    await expect.poll(
+      async () => (await getWorktreeBootstrapStatus(created.path, { bootstrapStore })).status,
+      { timeout: 5_000 },
+    ).toBe('failed');
+
+    const archived = await archiveWorktree(repo, { directory: created.path, id: 'hydration-failed' }, { bootstrapStore });
+
+    expect(archived).toMatchObject({ id: 'hydration-failed', branch: 'feature/submodule-timeout' });
+    expect(fs.existsSync(created.path)).toBe(false);
+    // Every file was on disk, so the snapshot records no change.
+    expect(runGit(repo, ['diff', '--name-only', archived.head, archived.commit]).trim()).toBe('');
+  });
+
   it('hydrates a checkout made from a local branch through the branch\'s own remote', async () => {
     if (!canRunGit()) return;
     const repo = createTempDir();

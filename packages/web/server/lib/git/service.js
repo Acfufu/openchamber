@@ -6256,9 +6256,19 @@ export async function getWorktreeBootstrapStatus(directory, { bootstrapStore } =
   return worktreeBootstrapState.get(key) ?? notBootstrappedHere();
 }
 
-export async function completeWorktreeCheckoutHydration(directory, { bootstrapStore } = {}) {
+/**
+ * Marks a failed checkout ready once a repair hydrated it. While the record
+ * still says failed, the OpenCode proxy keeps the folder closed, so whatever
+ * OpenCode holds for it is dropped first (`disposeInstance`, best-effort) and
+ * the first request after the repair opens the folder complete.
+ */
+export async function completeWorktreeCheckoutHydration(directory, { bootstrapStore, disposeInstance } = {}) {
   const key = await toCanonicalBootstrapStateKey(directory);
   if (!key) throw new Error('Worktree directory is required');
+  const recorded = bootstrapStore ? await bootstrapStore.read(key) : worktreeBootstrapState.get(key);
+  if (recorded?.status === WORKTREE_BOOTSTRAP_FAILED && recorded.hydration) {
+    await disposeWorktreeInstanceBestEffort(disposeInstance, directory);
+  }
   if (bootstrapStore) {
     const completed = await bootstrapStore.completeHydration(key);
     if (completed) worktreeBootstrapState.set(key, completed);
@@ -6276,9 +6286,9 @@ export async function completeWorktreeCheckoutHydration(directory, { bootstrapSt
 }
 
 /**
- * Releases the OpenCode instance that served a removed worktree. The owning
- * runtime injects `disposeInstance`; disposal is best-effort, so a failure is
- * warned about and never fails or rolls back the removal.
+ * Releases the OpenCode instance that served a removed or repaired worktree.
+ * The owning runtime injects `disposeInstance`; disposal is best-effort, so a
+ * failure is warned about and never fails or rolls back the caller's work.
  */
 const disposeWorktreeInstanceBestEffort = async (disposeInstance, worktreeDirectory) => {
   if (!disposeInstance) {
@@ -6288,7 +6298,7 @@ const disposeWorktreeInstanceBestEffort = async (disposeInstance, worktreeDirect
     await disposeInstance(worktreeDirectory);
   } catch (error) {
     console.warn(
-      `Failed to dispose the OpenCode instance for removed worktree ${worktreeDirectory}:`,
+      `Failed to dispose the OpenCode instance for worktree ${worktreeDirectory}:`,
       error instanceof Error ? error.message : String(error)
     );
   }
@@ -6848,10 +6858,12 @@ const archiveRegisteredWorktree = async ({ directory, id, worktreeDirectory, tar
   // treat the folder as a leftover and delete it without a trace in git.
   if (!(await isRegisteredWorktree(context.primaryWorktree, targetCanonical))) throw new Error('Not a worktree of this repository');
   // A new worktree's files land in the background: a snapshot taken before
-  // they do records every missing file as deleted.
+  // they do records every missing file as deleted. A failure while fetching
+  // submodules or LFS objects comes after every file landed, so that worktree
+  // archives like any other.
   await waitForActiveWorktreeBootstrap(worktreeDirectory);
   const bootstrap = worktreeBootstrapState.get(await toCanonicalBootstrapStateKey(worktreeDirectory));
-  if (bootstrap?.status === WORKTREE_BOOTSTRAP_FAILED) {
+  if (bootstrap?.status === WORKTREE_BOOTSTRAP_FAILED && !bootstrap.hydration) {
     throw new Error('The worktree did not finish setting up, so it cannot be archived. Delete it instead.');
   }
 

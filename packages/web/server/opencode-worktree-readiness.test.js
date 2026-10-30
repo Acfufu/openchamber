@@ -128,4 +128,30 @@ describe('issue #3464 worktree OpenCode initialization', () => {
     expect(await failed.json()).toEqual({ error: 'checkout failed' });
     expect(fixture.forwarded).toEqual([]);
   });
+
+  it('keeps a failed checkout closed to OpenCode but lists its sessions (#5811)', async () => {
+    const fixture = await createFixture();
+    fixture.setBootstrap({ status: 'failed', phase: 'directory-created', error: 'checkout failed' });
+    const headers = { 'x-opencode-directory': encodeURIComponent(worktree), 'x-opencode-directory-encoding': 'uri' };
+
+    const sessions = await fetch(`${fixture.url}/api/session?limit=50`, { headers });
+    const config = await fetch(`${fixture.url}/api/config`, { headers });
+    const created = await fetch(`${fixture.url}/api/session`, {
+      method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'After a failed checkout' }),
+    });
+
+    // OpenCode starts both folders of a move.
+    const moved = await fetch(`${fixture.url}/api/session/ses_1/move`, {
+      method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({ directory: '/repo' }),
+    });
+
+    expect(sessions.status).toBe(200);
+    expect(await sessions.json()).toEqual({ data: [], cursor: {} });
+    expect(config.status).toBe(503);
+    expect(created.status).toBe(503);
+    expect(moved.status).toBe(503);
+    expect(fixture.forwarded).toEqual(['/api/session']);
+  });
 });

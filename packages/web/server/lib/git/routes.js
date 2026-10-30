@@ -23,9 +23,11 @@ const toGitRemoteSummary = (remote) => ({
 const WORKTREE_INSTANCE_DISPOSE_TIMEOUT_MS = 5_000;
 
 /**
- * Builds the best-effort disposal hook handed to `removeWorktree`. The URL and
- * auth headers are route dependencies, so this module never resolves the
- * OpenCode runtime itself, and both are read at call time. OpenCode 2 has no
+ * Builds the best-effort disposal hook handed to `removeWorktree`, also run
+ * when a repair completes a failed checkout so OpenCode opens the repaired
+ * folder afresh. The URL and auth headers are route dependencies, so this
+ * module never resolves the OpenCode runtime itself, and both are read at
+ * call time. OpenCode 2 has no
  * instance route; evicting the location drops its cached services (file
  * watchers, LSP, MCP), which is what held the worktree folder.
  *
@@ -37,7 +39,7 @@ const WORKTREE_INSTANCE_DISPOSE_TIMEOUT_MS = 5_000;
  */
 const toLocationKey = (directory) => String(directory || '').replace(/\\/g, '/').replace(/\/+$/, '');
 
-const createWorktreeInstanceDisposer = ({ buildOpenCodeUrl, getOpenCodeAuthHeaders }) => {
+export const createWorktreeInstanceDisposer = ({ buildOpenCodeUrl, getOpenCodeAuthHeaders }) => {
   return async (worktreeDirectory) => {
     const client = OpenCode.make({
       baseUrl: buildOpenCodeUrl('/', '').replace(/\/$/, ''),

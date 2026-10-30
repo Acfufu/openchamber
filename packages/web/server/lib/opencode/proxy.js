@@ -15,7 +15,7 @@ import { getWorktreeBootstrapStatus, waitForWorktreeRemoval } from '../git/servi
 import { PART_SHELLS_HEADER, parsePartShellsHeader, shellMessagePage } from './message-shells.js';
 import { diagnosticApiRoute, diagnosticErrorMessage } from '../diagnostics/vocabulary.js';
 import { withUnreadBaseline } from '../openchamber-sessions/unread-baseline.js';
-import { OPENCODE_TRUST_ROUTE } from '../opencode-trust/index.js';
+import { OPENCODE_TRUST_ROUTE, isGlobalRead } from '../opencode-trust/index.js';
 import { createSessionDirectoryResolver } from '../opencode-trust/session-directory.js';
 
 /**
@@ -1096,7 +1096,10 @@ export const registerOpenCodeProxy = (app, deps) => {
 
   // Any directory-scoped read can initialize OpenCode's cached project/config,
   // before session.create runs. Hold all upstream requests until Git population
-  // finishes, independently of the user's optional setup-script wait.
+  // finishes, independently of the user's optional setup-script wait. A failed
+  // checkout stays closed to everything that would start its location; the
+  // session list and the other reads OpenCode answers without one pass, so
+  // the worktree's sessions stay listed while the user repairs it.
   app.use('/api', async (req, res, next) => {
     normalizeForwardedDirectoryHeaders(req.headers);
     const url = new URL(req.url, 'http://localhost');
@@ -1109,6 +1112,8 @@ export const registerOpenCodeProxy = (app, deps) => {
         const status = await readWorktreeBootstrapStatus(directory);
         if (res.destroyed || res.writableEnded || req.aborted) return;
         if (status.status === 'failed') {
+          const pathname = new URL(req.originalUrl || req.url, 'http://localhost').pathname;
+          if (isGlobalRead(req.method, pathname)) return next();
           return res.status(503).json({ error: status.error || 'Worktree bootstrap failed' });
         }
         if (status.status === 'ready' || status.phase === 'git-ready' || status.phase === 'setup-ready') {

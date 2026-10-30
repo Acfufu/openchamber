@@ -188,6 +188,39 @@ describe('worktree bootstrap storage', () => {
     await expect(store.read(unrelatedWorktree)).resolves.toEqual(persistedUnrelated);
   });
 
+  it('drops the OpenCode location of a repaired checkout while it is still recorded as failed', async () => {
+    const dataDirectory = await temporaryDirectory('worktree-bootstrap-complete-reset-');
+    const repaired = path.join(dataDirectory, 'hydration-repair');
+    const healthy = path.join(dataDirectory, 'healthy');
+    const store = createWorktreeBootstrapStore({ filePath: path.join(dataDirectory, 'bootstrap.json') });
+    await store.write(repaired, {
+      status: 'failed', phase: 'directory-created', error: 'Hydration failed',
+      errorCode: 'TIMEOUT', updatedAt: 1,
+      hydration: {
+        status: 'cancelled',
+        submodules: [{
+          path: 'vendor/slow', status: 'cancelled',
+          endpoint: { displayUrl: 'https://modules.example/slow.git', fingerprint: 'slow_fingerprint' },
+          error: { code: 'TIMEOUT', message: 'Checkout hydration timed out' },
+        }],
+        lfs: [],
+      },
+    });
+    await store.write(healthy, { status: 'ready', phase: 'setup-ready', error: null, updatedAt: 2 });
+    const statusAtDisposal = [];
+    const disposeInstance = async (directory) => {
+      statusAtDisposal.push((await store.read(directory))?.status);
+      throw new Error('OpenCode is not running');
+    };
+
+    await expect(completeWorktreeCheckoutHydration(repaired, { bootstrapStore: store, disposeInstance }))
+      .resolves.toMatchObject({ status: 'ready', phase: 'setup-ready' });
+    await expect(completeWorktreeCheckoutHydration(healthy, { bootstrapStore: store, disposeInstance }))
+      .resolves.toBeNull();
+
+    expect(statusAtDisposal).toEqual(['failed']);
+  });
+
   it('serializes hydration completion across store instances', async () => {
     const dataDirectory = await temporaryDirectory('worktree-bootstrap-complete-race-');
     const worktree = path.join(dataDirectory, 'hydration-repair');

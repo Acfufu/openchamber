@@ -201,7 +201,9 @@ message is `OpenChamber worktree archive` followed by a JSON record (old path,
 branch, task title, time, the session ids the client archived with it). It
 first waits for the checkout's background population, since a snapshot taken
 before the files land records them as deleted, and refuses a checkout whose
-setup failed. Then the worktree is removed as `removeWorktree` removes it,
+files never all landed. A checkout that failed only while fetching submodules
+or LFS objects (its bootstrap record carries `hydration`) has every file and
+archives like any other. Then the worktree is removed as `removeWorktree` removes it,
 keeping the branch. A removal that fails deletes the ref again only when the
 worktree is provably whole (still registered, on disk, in the snapshot's very
 state): `git worktree remove --force` deletes files before it gives up on a
