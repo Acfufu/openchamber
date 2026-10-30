@@ -334,6 +334,15 @@ export const selectSkillsForDirectory = (
 };
 
 /**
+ * Whether one project's skills have been read; until then its empty list is
+ * not an answer. A failed read settles it to the skills known before.
+ */
+export const selectSkillsLoadedForDirectory = (
+  state: Pick<SkillsStore, 'skillsByDirectory'>,
+  directory?: string | null,
+): boolean => Object.hasOwn(state.skillsByDirectory, getSkillsCacheKey(resolveDirectory(directory)));
+
+/**
  * The policy statements of one project, or null while none could be read; an
  * omitted directory means the project the app is on.
  */

@@ -11,7 +11,6 @@ import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type { ProjectFileSearchHit } from '@/lib/opencode/client';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { Icon } from "@/components/icon/Icon";
-import { Spinner } from '@/components/ui/spinner';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
 import { useI18n } from '@/lib/i18n';
@@ -26,7 +25,7 @@ import {
   rankFileMentionResults,
 } from './fileMentionResults';
 import { matchesRankQuery, rankByQuery } from '@/lib/search/fuzzySearch';
-import { AutocompleteRowDetail } from './composer/ui/AutocompleteRowParts';
+import { AutocompleteLoadingRow, AutocompleteRowDetail } from './composer/ui/AutocompleteRowParts';
 import { rankSessionMentions } from './sessionMentionResults';
 import type { Session } from '@/lib/opencode/model';
 import { ensureGlobalSessionsLoaded, resolveGlobalSessionDirectory, useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
@@ -496,12 +495,7 @@ export const FileMentionAutocomplete = React.forwardRef<FileMentionHandle, FileM
       >
         <ScrollableOverlay ref={listRef} preventOverscroll outerClassName="flex-1 min-h-0" className="p-1">
         {listState === 'loading' ? (
-          // The height of the "no matches" row, which often follows it.
-          <div className="flex items-center px-2 py-1.5 typography-ui-label text-muted-foreground">
-            <span className="flex h-[1lh] items-center">
-              <Spinner className="size-3.5" aria-label={t('common.loading')} />
-            </span>
-          </div>
+          <AutocompleteLoadingRow />
         ) : listState === 'empty' ? (
           <div className="px-2 py-1.5 typography-ui-label text-muted-foreground">
             {t('chat.fileMentionAutocomplete.empty')}

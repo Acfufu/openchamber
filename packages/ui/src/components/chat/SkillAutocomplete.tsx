@@ -1,13 +1,13 @@
 import React from 'react';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { selectAvailableSkillsForDirectory, useSkillsStore } from '@/stores/useSkillsStore';
+import { selectAvailableSkillsForDirectory, selectSkillsLoadedForDirectory, useSkillsStore } from '@/stores/useSkillsStore';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useComposerConfigDirectory } from '@/hooks/useComposerConfigDirectory';
 import { useUIStore } from '@/stores/useUIStore';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { useMobileAutocompleteMaxHeight } from './useMobileAutocompleteMaxHeight';
-import { AutocompleteRowDetail } from './composer/ui/AutocompleteRowParts';
+import { AutocompleteLoadingRow, AutocompleteRowDetail } from './composer/ui/AutocompleteRowParts';
 import { useAutocompleteSelectionScroll } from './composer/ui/useAutocompleteSelectionScroll';
 import { rankSkillAutocompleteItems } from './skillAutocompleteItems';
 import { useHeightMorph } from '@/lib/motion/useSizeMorph';
@@ -58,6 +58,9 @@ export const SkillAutocomplete = React.forwardRef<SkillAutocompleteHandle, Skill
   const skills = useSkillsStore((s) => target.status === 'pending'
     ? EMPTY_SKILLS
     : selectAvailableSkillsForDirectory(s, target.directory));
+  // An empty list before the first read is not "no skills".
+  const skillsLoading = useSkillsStore((s) => target.status === 'pending'
+    || (Boolean(directory) && !selectSkillsLoadedForDirectory(s, target.directory)));
   const loadSkills = useSkillsStore((s) => s.loadSkills);
 
   React.useEffect(() => {
@@ -159,6 +162,8 @@ export const SkillAutocomplete = React.forwardRef<SkillAutocompleteHandle, Skill
           <div>
             {filteredSkills.map((skill, index) => renderSkill(skill, index))}
           </div>
+        ) : skillsLoading ? (
+          <AutocompleteLoadingRow />
         ) : (
           <div className="px-2 py-1.5 typography-ui-label text-muted-foreground">
             {t('chat.autocomplete.skillsEmpty')}
