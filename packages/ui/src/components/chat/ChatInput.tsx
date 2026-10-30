@@ -140,7 +140,7 @@ import { useGuestsStore } from '@/lib/guests/store';
 import { isGuestActive } from '@/lib/guests/capabilities';
 import { routeGuestSlashCommand } from './composer/submit/guestCommands';
 import { pluginModeFromId } from '@/lib/surfaces/modes';
-import { opencodeClient, type SkillMentions } from '@/lib/opencode/client';
+import { AgentUnavailableError, opencodeClient, type SkillMentions } from '@/lib/opencode/client';
 import { buildSkillMentionInstruction } from '@/lib/skillMentionInstruction';
 import { useGitStore } from '@/stores/useGitStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
@@ -2645,6 +2645,14 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
             if (normalized.includes('returned a web page instead of an api response') || normalized.includes('runtime_unavailable')) {
                 toast.error(t('chat.chatInput.toast.messageSendFailed'));
+                return;
+            }
+
+            const unavailableAgent = error instanceof AgentUnavailableError ? error
+                : error instanceof Error && error.cause instanceof AgentUnavailableError ? error.cause
+                    : null;
+            if (unavailableAgent) {
+                toast.error(t('chat.chatInput.toast.agentUnavailable', { agent: unavailableAgent.agent }));
                 return;
             }
 

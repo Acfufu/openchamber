@@ -145,6 +145,8 @@ mock.module('@/stores/useProjectsStore', () => ({
 }));
 
 let directoryAvailability: 'available' | 'missing' | 'unknown' = 'available';
+let clientDirectory = DIRECTORY;
+let clientDirectoryMoves: Array<string | undefined> = [];
 
 const opencodeClientModule = await import('@/lib/opencode/client');
 mock.module('@/lib/opencode/client', () => ({
@@ -153,8 +155,10 @@ mock.module('@/lib/opencode/client', () => ({
   OpencodeApiError: Error,
   normalizeOpencodeError: (operation: string, error: unknown) => new Error(`${operation}: ${String(error)}`),
   opencodeClient: {
-    setDirectory: mock(() => undefined),
-    getDirectory: mock(() => DIRECTORY),
+    setDirectory: mock((directory?: string) => {
+      clientDirectoryMoves.push(directory);
+    }),
+    getDirectory: mock(() => clientDirectory),
     getFilesystemHome: async () => '/workspace',
     getSystemInfo: async () => ({ homeDirectory: '/workspace' }),
     checkHealth: () => checkHealthImpl(),
@@ -291,6 +295,8 @@ describe('useConfigStore provider persistence', () => {
     getProvidersForConfigImpl = null;
     withDirectoryCalls = [];
     currentFetchDirectory = DIRECTORY;
+    clientDirectory = DIRECTORY;
+    clientDirectoryMoves = [];
     persistedOpenChamberSettings = {};
     settingsLoadCalls = 0;
     checkHealthImpl = async () => true;
@@ -1797,6 +1803,36 @@ describe('useConfigStore provider persistence', () => {
     liveAgents = [testAgent('build')];
     await useConfigStore.getState().loadAgents({ directory: DIRECTORY, source: 'test:fixed' });
     expect(useConfigStore.getState().projectConfigErrors).toEqual({});
+  });
+
+  test('startup with an open chat loads the chat folder catalog, not the active project one (#5522)', async () => {
+    const chatDirectory = '/workspace/.config/openchamber/chats/chat-1';
+    clientDirectory = chatDirectory;
+    const agentDirectories: Array<string | null | undefined> = [];
+    listAgentsImpl = async (directory) => {
+      agentDirectories.push(directory);
+      return [testAgent('build')];
+    };
+    useSessionUIStore.setState({ currentSessionId: 'ses_chat', currentSessionDirectory: chatDirectory });
+    await useConfigStore.getState().initializeApp();
+
+    expect(useConfigStore.getState().isInitialized).toBe(true);
+    expect(useConfigStore.getState().activeDirectoryKey).toBe(chatDirectory);
+    expect(agentDirectories).toEqual([chatDirectory]);
+    expect(clientDirectoryMoves).toEqual([]);
+  });
+
+  test('startup without an open session still loads an unknown folder under the active project', async () => {
+    clientDirectory = '/workspace';
+    const agentDirectories: Array<string | null | undefined> = [];
+    listAgentsImpl = async (directory) => {
+      agentDirectories.push(directory);
+      return [testAgent('build')];
+    };
+    await useConfigStore.getState().initializeApp();
+
+    expect(useConfigStore.getState().activeDirectoryKey).toBe(DIRECTORY);
+    expect(agentDirectories).toEqual([DIRECTORY]);
   });
 
   test('an unreachable server is recorded as the startup failure', async () => {

@@ -18,8 +18,20 @@ to the shared UI domain model. Sync owns transcript membership and store writes.
   first message 404. Other errors stop the walk and propagate unchanged.
 - A runtime switch during a successful read also discards that response. Sync
   independently checks runtime identity and transcript membership before writing.
+- A send that switches the session's agent first reads the folder's agent list.
+  Sync also passes the agent when the session already sits on one the folder's
+  loaded catalog lacks, so that session gets the same check.
+  An agent missing from it throws `AgentUnavailableError` before any switch,
+  the model included. A failed or empty list lets the switch through.
 
 ## Decisions
+
+### Why a missing agent stops the send instead of being skipped
+
+OpenCode records any agent name and fails only the next turn, so the send has
+to check first. Skipping the agent write and sending on the session's current
+agent was rejected: the composer would show one agent while another answered.
+The send stops and the composer shows the error, so the user picks an agent.
 
 ### Why ancestor reads belong to tool completion
 

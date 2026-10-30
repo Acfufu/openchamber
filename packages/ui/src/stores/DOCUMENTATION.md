@@ -709,6 +709,11 @@ These rules are important. Breaking them tends to reintroduce idle CPU churn, st
 the provider half of `useConfigStore` describe directory-scoped configuration.
 Provider and agent catalogs use the actual worktree directory when selected;
 the parent project still supplies its OpenChamber project defaults.
+An open session's catalog is its own folder's, also in `initializeApp` on a
+start or reconnect and also for a folder outside every project (a chat): only
+with no session open does startup load an unknown folder under the active
+project. Borrowing the active project's catalog for an open chat offered that
+project's agents, which the session cannot run (#5522).
 Two surfaces read them at once: the app (chat, autocompletes, pickers), which
 wants the active project, and Settings, whose own project selector may point
 somewhere else.

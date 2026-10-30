@@ -22,7 +22,7 @@ import type { WorktreeMetadata } from "@/types/worktree"
 import { opencodeClient, type SkillMentions } from "@/lib/opencode/client"
 import { buildSkillMentionInstruction } from "@/lib/skillMentionInstruction"
 import { runtimeFetch } from "@/lib/runtime-fetch"
-import { useConfigStore } from "@/stores/useConfigStore"
+import { selectCatalogLoadedForDirectory, selectConfigAgentsForDirectory, useConfigStore } from "@/stores/useConfigStore"
 import { runAfterOpenCodeStartup } from "./opencode-startup-gate"
 import { useProjectsStore } from "@/stores/useProjectsStore"
 import { useSessionDisplayStore } from "@/stores/useSessionDisplayStore"
@@ -199,12 +199,24 @@ export async function routeMessage(params: {
   // show, so only a genuine change travels with the prompt. Resolved when the
   // request is about to leave: a session created from a draft has its record,
   // with the model it was created on, only once `ready` settles.
-  const sendSelection = () => resolveSendSelection(params.sessionId, sendDirectory(), {
-    providerID: params.providerID,
-    modelID: params.modelID,
-    variant: params.variant,
-    agent: params.agent,
-  })
+  const sendSelection = () => {
+    const directory = sendDirectory()
+    const selection = resolveSendSelection(params.sessionId, directory, {
+      providerID: params.providerID,
+      modelID: params.modelID,
+      variant: params.variant,
+      agent: params.agent,
+    })
+    // The session can already be on an agent its folder lacks: set before the
+    // client checked it, or its file was removed since. When the folder's
+    // loaded catalog does not list it, the agent goes with the send, so the
+    // client checks it against a fresh list before anything is switched.
+    if (selection.agent || !params.agent || !directory) return selection
+    const config = useConfigStore.getState()
+    const listed = !selectCatalogLoadedForDirectory(config, "agents", directory)
+      || selectConfigAgentsForDirectory(config, directory).some((agent) => agent.id === params.agent)
+    return listed ? selection : { ...selection, agent: params.agent }
+  }
   // A context item becomes a synthetic message, which carries text only. Any
   // file it brought rides with the send so the attachment still arrives.
   const contextItems = (params.additionalParts ?? [])

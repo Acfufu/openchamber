@@ -158,6 +158,14 @@ export class OpencodeApiError extends Error {
   }
 }
 
+/** A send named an agent the session's folder does not have; nothing was sent. */
+export class AgentUnavailableError extends Error {
+  constructor(readonly agent: string, readonly directory: string | undefined) {
+    super(`Agent '${agent}' is not available in ${directory ?? "the session's folder"}`)
+    this.name = "AgentUnavailableError"
+  }
+}
+
 const taggedErrorSchema = z.object({ _tag: z.string(), message: z.string().optional(), ref: z.string().optional() })
 
 class RuntimeRoutingResponseError extends Error {
@@ -1394,6 +1402,10 @@ class OpencodeService {
   /**
    * Puts a session on the requested model/agent before a prompt. v2 selects
    * both per session, not per prompt; the choice persists until switched.
+   *
+   * OpenCode records an agent the session's folder does not have and fails
+   * only the next turn, so the agent is checked first: a missing one stops the
+   * send before anything, the model included, is switched.
    */
   private async applySendSelection(
     sessionID: string,
@@ -1401,6 +1413,10 @@ class OpencodeService {
     directory: string | null | undefined,
     runtimeKey: string | undefined,
   ): Promise<void> {
+    if (selection.agent) {
+      this.assertRuntimeUnchanged(runtimeKey)
+      await this.assertAgentAvailable(selection.agent, directory)
+    }
     if (selection.model) {
       this.assertRuntimeUnchanged(runtimeKey)
       await this.switchSessionModel(sessionID, selection.model, directory)
@@ -1409,6 +1425,24 @@ class OpencodeService {
       this.assertRuntimeUnchanged(runtimeKey)
       await this.switchSessionAgent(sessionID, selection.agent, directory)
     }
+  }
+
+  /**
+   * Throws {@link AgentUnavailableError} when the folder's agent list lacks
+   * `agent`. A failed or empty lookup proves nothing (OpenCode always has its
+   * built-in agents), so it lets the switch through, the same rule the
+   * server's prompt dispatch applies.
+   */
+  private async assertAgentAvailable(agent: string, directory: string | null | undefined): Promise<void> {
+    let agents: Agent[]
+    try {
+      agents = await this.listAgents(directory)
+    } catch (error) {
+      console.warn("[opencode] could not check the agent before sending:", error)
+      return
+    }
+    if (agents.length === 0 || agents.some((entry) => entry.id === agent)) return
+    throw new AgentUnavailableError(agent, this.resolveDirectory(directory))
   }
 
   /**
@@ -1529,7 +1563,8 @@ class OpencodeService {
       // Do not retry a prompt after a transport failure: through a remote
       // tunnel the POST may already be running server-side even though the
       // client lost the response.
-      if (!(error instanceof Error && isDefiniteTransportFailure(error))) {
+      // A refused agent never reached the provider.
+      if (!(error instanceof AgentUnavailableError) && !(error instanceof Error && isDefiniteTransportFailure(error))) {
         recordProviderError(params.providerID, error instanceof OpencodeApiError ? error.status : undefined)
       }
       throw error

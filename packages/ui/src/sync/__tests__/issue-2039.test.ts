@@ -131,6 +131,8 @@ mock.module("@/stores/permissionStore", () => ({
 }))
 
 mock.module("@/stores/useConfigStore", () => ({
+  selectCatalogLoadedForDirectory: () => false,
+  selectConfigAgentsForDirectory: () => [],
   useConfigStore: {
     getState: () => ({
       currentAgentName: "agent-default",

@@ -4389,13 +4389,21 @@ export const useConfigStore = create<ConfigStore>()(
                             const resolvedInitialDirectory = (resolvedProject || resolveProjectDirectory(initialDirectory))
                                 ? resolveConfigDirectory(initialDirectory)
                                 : null;
-                            const configDirectory = resolvedInitialDirectory ?? getFallbackProjectDirectory();
+                            // An open session offers its own folder's agents and models,
+                            // the catalog activateDirectory loads when it is opened. A
+                            // folder outside every project (a chat) must not borrow the
+                            // active project's, whose agents the session cannot run.
+                            const sessionState = useSessionUIStore.getState();
+                            const openSessionDirectory = sessionState.currentSessionId
+                                ? resolveConfigDirectory(sessionState.currentSessionDirectory)
+                                : null;
+                            const configDirectory = openSessionDirectory ?? resolvedInitialDirectory ?? getFallbackProjectDirectory();
                             if (!configDirectory) {
                                 markStartupTrace('initializeApp:noProjectConfigDirectory');
                                 set({ isInitialized: true, isConnected: true, hasEverConnected: true, connectionPhase: "connected", lastInitFailure: null });
                                 return;
                             }
-                            if (!resolvedInitialDirectory && initialDirectory !== configDirectory) {
+                            if (!openSessionDirectory && !resolvedInitialDirectory && initialDirectory !== configDirectory) {
                                 markStartupTrace('initializeApp:normalizedUnknownDirectoryToProject', {
                                     initialDirectory,
                                     configDirectory,

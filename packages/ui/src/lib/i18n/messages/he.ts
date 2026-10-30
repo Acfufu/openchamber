@@ -2586,6 +2586,7 @@ export const dict = {
   'chat.chatInput.toast.attachmentsTooLarge': 'הקבצים המצורפים גדולים מדי לשליחה. אפשר לצמצם את מספר התמונות או את גודלן.',
   'chat.chatInput.toast.sendAttachmentsFailed': 'לא ניתן היה לשלוח את הקבצים המצורפים. אפשר לנסות עם פחות קבצים או תמונות קטנות יותר.',
   'chat.chatInput.toast.messageSendFailed': 'שליחת ההודעה נכשלה. הקבצים המצורפים שוחזרו.',
+  'chat.chatInput.toast.agentUnavailable': 'הסוכן "{agent}" אינו זמין בתיקייה של הפעלה זו. יש לבחור סוכן אחר ולשלוח שוב.',
   'chat.chatInput.toast.noModelSelected': 'יש לבחור ספק ומודל לפני השליחה.',
   'chat.chatInput.toast.clipboardAttachFailed': 'לא ניתן היה לצרף תמונה מהלוח',
   'chat.chatInput.toast.clipboardTextAttachFailed': 'לא ניתן היה לצרף את הטקסט שהודבק כקובץ',

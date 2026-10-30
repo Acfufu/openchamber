@@ -68,6 +68,8 @@ mock.module("@/contexts/runtimeAPIRegistry", () => ({
 
 mock.module("@/stores/useConfigStore", () => ({
   markConfigCatalogStale: () => undefined,
+  selectCatalogLoadedForDirectory: () => false,
+  selectConfigAgentsForDirectory: () => [],
   invalidateConfigAgentsLoad: () => undefined,
   useConfigStore: {
     getState: () => ({ isConnected: true, hasEverConnected: true }),

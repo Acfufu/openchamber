@@ -330,6 +330,64 @@ describe('resolveSendSelection thinking level', () => {
   });
 });
 
+describe('routeMessage agent the folder lacks (#5522)', () => {
+  const DIRECTORY = '/repo/agent-check';
+  const agent = (id) => ({ id, name: id, displayName: id, mode: 'primary' });
+  let previousConfig;
+
+  beforeEach(() => {
+    previousConfig = useConfigStore.getState();
+    const childStores = new ChildStoreManager();
+    childStores.ensureChild(DIRECTORY, { bootstrap: false }).setState({
+      session: [{ id: 'ses_stuck', agent: 'stock', model: { providerID: 'provider-a', id: 'model-a' } }],
+    });
+    setSyncRefs({}, childStores, DIRECTORY);
+  });
+
+  afterEach(() => {
+    useConfigStore.setState(previousConfig, true);
+    setSyncRefs({}, new ChildStoreManager(), '');
+  });
+
+  const sendCommandWith = async (catalog) => {
+    useConfigStore.setState({
+      activeDirectoryKey: '/elsewhere',
+      directoryScoped: { [DIRECTORY]: { ...catalog, providers: [], agentModelSelections: {}, defaultProviders: {}, selectedProviderId: '', currentProviderId: '', currentModelId: '' } },
+    });
+    const calls = [];
+    const originalListCommands = opencodeClient.listCommands;
+    const originalSendCommand = opencodeClient.sendCommand;
+    opencodeClient.listCommands = async () => [{ name: 'agent-check-test' }];
+    opencodeClient.sendCommand = async (params) => {
+      calls.push(params);
+    };
+    try {
+      await routeMessage({
+        sessionId: 'ses_stuck',
+        directory: DIRECTORY,
+        content: '/agent-check-test',
+        providerID: 'provider-a',
+        modelID: 'model-a',
+        agent: 'stock',
+      });
+    } finally {
+      opencodeClient.listCommands = originalListCommands;
+      opencodeClient.sendCommand = originalSendCommand;
+    }
+    return calls[0];
+  };
+
+  test('a session already on an agent the loaded catalog lacks sends it for the check', async () => {
+    const call = await sendCommandWith({ agents: [agent('build'), agent('plan')], agentsLoaded: true });
+    expect(call.agent).toBe('stock');
+  });
+
+  test('no switch travels while the catalog lists the agent or has not loaded', async () => {
+    expect((await sendCommandWith({ agents: [agent('stock')], agentsLoaded: true })).agent).toBeUndefined();
+    expect((await sendCommandWith({ agents: [], agentsLoaded: false })).agent).toBeUndefined();
+  });
+});
+
 describe('routeMessage inline skills', () => {
   test('the command route names inline skills in an instruction after the attached context', async () => {
     const calls = [];
