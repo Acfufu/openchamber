@@ -47,6 +47,18 @@ describe('session title plugin', () => {
     expect(build.system).toBe('Build prompt');
   });
 
+  it('pins the title language to the user message despite English-dominated examples', async () => {
+    const title = { id: 'title', system: 'OpenCode title prompt' };
+
+    await runTransform(new Map([['title', title]]));
+
+    expect(title.system).toContain('only the user\'s message decides the language');
+    // The examples are mostly English (one Ukrainian); a weak model imitates the
+    // example language and drifts on a Chinese first message, so the prompt pins
+    // the output language and carries an example in another language.
+    expect(title.system).toContain('检查项目的 git 记录和未完成的计划 → 项目进度检查');
+  });
+
   it('does nothing when there is no title agent', async () => {
     const agents = new Map();
 
