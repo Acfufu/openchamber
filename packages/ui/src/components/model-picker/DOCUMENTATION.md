@@ -3,8 +3,8 @@
 ## Ownership
 
 `ModelPickerList` is the searchable model list every model picker draws: the
-composer's model menu, the multi-run model chooser and the agent model
-selector in Settings. It owns the rows (Auto, the leading action, Favorites,
+composer's model menu and its phone sheet, the multi-run model chooser and the
+agent model selector in Settings. It owns the rows (Auto, the leading action, Favorites,
 Recent, one section per provider), keyboard navigation from the search field,
 the details card, starring, collapsing and reordering. Callers own the menu
 around it, the footer's text and what a pick does.
@@ -25,6 +25,10 @@ around it, the footer's text and what a pick does.
   its name, its context size and a set star. An empty star, the section
   chevron of an open section and the effort a row would run with appear on
   hover or highlight.
+- Under a finger (`pointer: coarse`) rows are at least 44px tall and the key
+  hints footer is gone. With `onEntryDetails`, a device without hover leaves
+  the stars off the rows; a long press (or a right click) opens the details,
+  where the star lives instead.
 
 ## Decisions
 
@@ -64,3 +68,20 @@ its `option` role. While a provider is dragged every provider folds to its
 caption, so the captions are what moves, and a copy of the dragged caption
 follows the pointer from `document.body`: inside the menu's transformed popup
 a fixed element lands off the pointer.
+
+### Why the phone's sheet draws this list and not its own
+
+The phone had a list of its own: a boxed card per section, two lines per
+model with capability icons nobody could explain on touch, an effort chip and
+a star on every row. Every change to the desktop list missed it. It now draws
+this list with `onEntryDetails` and `providersStartCollapsed`: one line per
+model, the effort only on the current one (a tap opens the effort sheet), and
+the details in a sheet of their own.
+
+### Why a long press swallows the next click
+
+A finger lifting after a long press can still click where it lay. Over the
+row that click picked the model; once the details sheet was open it landed on
+the sheet's backdrop and closed it at once. The press listens for that one
+click and swallows it.
+

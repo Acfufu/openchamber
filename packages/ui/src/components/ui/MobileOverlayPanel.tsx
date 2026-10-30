@@ -18,6 +18,11 @@ interface MobileOverlayPanelProps {
   className?: string;
   contentMaxHeightClassName?: string;
   renderHeader?: (closeButton: React.ReactNode) => React.ReactNode;
+  /**
+   * False for content that scrolls on its own (a virtual list): the panel only
+   * bounds its height, so the two never scroll one inside the other.
+   */
+  scrollContent?: boolean;
 }
 
 const OVERLAY_ROOT_ID = 'mobile-overlay-root';
@@ -45,6 +50,7 @@ export const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
   className,
   contentMaxHeightClassName,
   renderHeader,
+  scrollContent = true,
 }) => {
   const { t } = useI18n();
   const chatInsets = useMobileChatInsets();
@@ -226,7 +232,7 @@ export const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
             </div>
           );
         })()}
-        <ScrollableOverlay
+        {scrollContent ? <ScrollableOverlay
           useScrollShadow
           disableHorizontal
           // Contain the scroll inside the panel: without this, iOS chains the
@@ -237,7 +243,11 @@ export const MobileOverlayPanel: React.FC<MobileOverlayPanelProps> = ({
           className="px-2 py-2 pwa-overlay-scroll"
         >
           {children}
-        </ScrollableOverlay>
+        </ScrollableOverlay> : (
+          <div className={cn('flex min-h-0 flex-1 flex-col px-2 py-2', contentMaxHeight)}>
+            {children}
+          </div>
+        )}
         {footer ? (
           <div className="shrink-0 border-t border-edge-muted px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
             {footer}

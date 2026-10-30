@@ -79,6 +79,8 @@ import { usePinnedComposerSelection } from './pinnedComposerSelection';
 import { useChatSurfaceMode } from './useChatSurfaceMode';
 import { MobileAgentButton } from './MobileAgentButton';
 import { MobileModelButton } from './MobileModelButton';
+import { MobileEffortButton } from './MobileEffortButton';
+import { cycleThinkingVariant } from '@/lib/cycleThinkingVariant';
 import { useSessionActivity } from '@/hooks/useSessionActivity';
 import { useGlobalBlockingRequestsStore } from '@/sync/global-blocking-requests';
 import { toast } from '@/components/ui';
@@ -391,6 +393,7 @@ const MemoComposerDictation = React.memo(ComposerDictation);
 const MemoMobileAgentButton = React.memo(MobileAgentButton);
 
 const MemoMobileModelButton = React.memo(MobileModelButton);
+const MemoMobileEffortButton = React.memo(MobileEffortButton);
 
 interface ChatInputProps {
     onOpenSettings?: () => void;
@@ -2964,6 +2967,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         void abortCurrentOperation(abortTarget || undefined);
     }, [abortCurrentOperation, btwSessionId, clearAbortPrompt, currentSessionId, isBtwActive]);
 
+    const handleCycleThinking = React.useCallback(() => {
+        cycleThinkingVariant(currentSessionId);
+    }, [currentSessionId]);
+    const handleOpenThinkingPanel = React.useCallback(() => handleOpenMobilePanel('variant'), [handleOpenMobilePanel]);
+
     const handleCycleAgent = React.useCallback((direction: 1 | -1 = 1) => {
         // Auto hides the agent control, so the shortcut must not change a
         // choice the user cannot see.
@@ -4557,7 +4565,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // and mic icons above them; the buttons drop their own padding so the
         // row alone owns the inset.
         <div className="flex items-center justify-between gap-x-2 px-3.5 pb-2 pt-0.5">
-            <MemoMobileModelButton onOpenModel={() => handleOpenMobilePanel('model')} className="min-w-0 px-0" />
+            {/* The effort follows the model as its suffix, as on the desktop. */}
+            <div className="flex min-w-0 items-center gap-0.5">
+                <MemoMobileModelButton onOpenModel={() => handleOpenMobilePanel('model')} className="min-w-0 px-0" />
+                <MemoMobileEffortButton onCycleThinking={handleCycleThinking} onOpenThinking={handleOpenThinkingPanel} />
+            </div>
             <MemoMobileAgentButton
                 onOpenAgentPanel={handleOpenAgentPanel}
                 onCycleAgent={handleCycleAgent}

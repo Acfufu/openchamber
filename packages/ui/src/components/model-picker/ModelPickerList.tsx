@@ -28,6 +28,7 @@ import { mergeModelMetadataWithLiveModel } from '@/lib/modelMetadata';
 import { getModelDisplayName as getSharedModelDisplayName } from '@/lib/modelDisplay';
 import { formatCompactNumber } from '@/lib/numberFormat';
 import { cn } from '@/lib/utils';
+import { swallowGestureClick } from '@/lib/swallowGestureClick';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useModelPickerSectionsStore } from '@/stores/useModelPickerSectionsStore';
 import type { ModelMetadata } from '@/types';
@@ -109,7 +110,7 @@ const pickRowTooltipSide = (row: Element | null): 'right' | 'left' | null => {
   return null;
 };
 
-const ModelPickerCardBody: React.FC<{
+export const ModelPickerCardBody: React.FC<{
   metadata?: ModelMetadata;
   providerName: string | null;
   labels: ModelPickerListProps['labels'];
@@ -400,6 +401,16 @@ interface ModelPickerListProps {
    * search query is typed.
    */
   leadingAction?: { label: string; icon: React.ReactNode; onSelect: () => void } | null;
+  /**
+   * Opens a model's details: a long press on touch, a right click with a mouse.
+   * With it, a device without hover leaves the stars off the rows, since an
+   * empty star there would show at all times; favoriting moves to the details.
+   */
+  onEntryDetails?: (entry: ModelPickerEntry) => void;
+  /** Provider sections start closed, except the current model's (the phone's sheet). */
+  providersStartCollapsed?: boolean;
+  /** The footer of key hints; a touch sheet leaves it off whatever the pointer. */
+  showKeyboardHints?: boolean;
   /** A quiet action at the end of the search row (the composer's "Add new provider"). */
   searchAction?: { label: string; icon: IconName; onSelect: () => void } | null;
   hiddenModels?: HiddenModel[];
@@ -447,6 +458,9 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
   leadingEntry = null,
   leadingAction = null,
   searchAction = null,
+  onEntryDetails,
+  providersStartCollapsed = false,
+  showKeyboardHints = true,
   hiddenModels = [],
   allowedProviderIds,
   isModelAllowed,
@@ -501,12 +515,63 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
   // A drag ends with the pointer released over a row; that release is not a pick.
   const suppressClickRef = React.useRef(false);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  // A touch held still on a row opens its details; Android also reports that
+  // press as a context menu, so the two open the details once.
+  const longPressRef = React.useRef<{ timer: number; x: number; y: number } | null>(null);
+  const detailsOpenedAtRef = React.useRef(0);
+  const cancelLongPress = () => {
+    if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+    longPressRef.current = null;
+  };
+  React.useEffect(() => () => {
+    if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+  }, []);
+  const openDetails = (entry: ModelPickerEntry) => {
+    if (!onEntryDetails || performance.now() - detailsOpenedAtRef.current < 700) return;
+    detailsOpenedAtRef.current = performance.now();
+    onEntryDetails(entry);
+  };
+  const detailsHandlers = (entry: ModelPickerEntry): React.HTMLAttributes<HTMLDivElement> => (onEntryDetails ? {
+    onPointerDown: (event) => {
+      cancelLongPress();
+      if (event.pointerType !== 'touch') return;
+      const timer = window.setTimeout(() => {
+        longPressRef.current = null;
+        swallowGestureClick();
+        openDetails(entry);
+      }, 500);
+      longPressRef.current = { timer, x: event.clientX, y: event.clientY };
+    },
+    onPointerMove: (event) => {
+      const press = longPressRef.current;
+      if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 8) cancelLongPress();
+    },
+    onPointerUp: cancelLongPress,
+    onPointerCancel: cancelLongPress,
+    onContextMenu: (event) => {
+      event.preventDefault();
+      cancelLongPress();
+      openDetails(entry);
+    },
+  } : {});
   const collapsedRecord = useModelPickerSectionsStore((state) => state.collapsedSections);
-  const toggleSection = useModelPickerSectionsStore((state) => state.toggleSection);
-  const collapsedSections = React.useMemo(
-    () => new Set(Object.keys(collapsedRecord).filter((key) => collapsedRecord[key])),
-    [collapsedRecord],
-  );
+  const toggleStoredSection = useModelPickerSectionsStore((state) => state.toggleSection);
+  const setSectionCollapsed = useModelPickerSectionsStore((state) => state.setSectionCollapsed);
+  const searching = searchQuery.trim().length > 0;
+  const selectedProviderKey = selectedModel ? `provider:${selectedModel.providerID}` : null;
+  const isSectionCollapsed = React.useCallback((key: string) => {
+    const startsCollapsed = providersStartCollapsed && key.startsWith('provider:');
+    // There a search opens every matching provider, closed by hand or not,
+    // without changing what is kept.
+    if (startsCollapsed && searching) return false;
+    if (collapsedRecord[key]) return true;
+    // Otherwise only an opened provider, or the current model's, is open.
+    return startsCollapsed && !collapsedRecord[`open:${key}`] && key !== selectedProviderKey;
+  }, [collapsedRecord, providersStartCollapsed, searching, selectedProviderKey]);
+  const toggleSection = React.useCallback((key: string) => {
+    if (providersStartCollapsed && key.startsWith('provider:')) setSectionCollapsed(key, !isSectionCollapsed(key));
+    else toggleStoredSection(key);
+  }, [isSectionCollapsed, providersStartCollapsed, setSectionCollapsed, toggleStoredSection]);
   // Mouse: a drag starts after a short move, so a click still picks the row.
   // Touch: a long press starts it, so a swipe still scrolls the list.
   const sortSensors = useSensors(
@@ -623,19 +688,19 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
         pushModel(`${section}-${entry.providerID}-${entry.modelID}`, group, section, entry);
       }
     };
-    if (filteredFavorites.length > 0) pushSection('favorites', labels.favorites, 'fav', filteredFavorites, collapsedSections.has('favorites'));
-    if (filteredRecents.length > 0) pushSection('recent', labels.recent, 'recent', filteredRecents, collapsedSections.has('recent'));
+    if (filteredFavorites.length > 0) pushSection('favorites', labels.favorites, 'fav', filteredFavorites, isSectionCollapsed('favorites'));
+    if (filteredRecents.length > 0) pushSection('recent', labels.recent, 'recent', filteredRecents, isSectionCollapsed('recent'));
     for (const provider of filteredProviders) {
       const sectionKey = `provider:${provider.id}`;
       // While a provider is dragged every provider shows only its caption, so
       // the captions are what moves.
-      const collapsed = draggingProvider || collapsedSections.has(sectionKey);
+      const collapsed = draggingProvider || isSectionCollapsed(sectionKey);
       // SAFETY: filteredProviders keeps only models whose id is a non-empty string.
       const entries = provider.models.map((model) => ({ model, providerID: provider.id, modelID: model.id as string }));
       pushSection(sectionKey, provider.name || provider.id, 'provider', entries, collapsed, provider.id);
     }
     return { rows, navigation, navToRow };
-  }, [collapsedSections, draggingProvider, filteredFavorites, filteredProviders, filteredRecents, includeNotSelected, labels.favorites, labels.recent, leadingAction, showLeadingAction, visibleLeadingEntry]);
+  }, [isSectionCollapsed, draggingProvider, filteredFavorites, filteredProviders, filteredRecents, includeNotSelected, labels.favorites, labels.recent, leadingAction, showLeadingAction, visibleLeadingEntry]);
 
   const favoriteLookup: Map<string, ModelPickerEntry> = React.useMemo(() => new Map(
     filteredFavorites.map((entry) => [favoriteSortId(entry), entry] as const),
@@ -890,7 +955,8 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
   };
 
   const rowHighlightClassName = (isHighlighted: boolean) => cn(
-    'w-full text-start px-2 py-1.5 rounded-md typography-meta flex items-center gap-2 cursor-pointer',
+    // Rows meet the touch target floor under a finger.
+    'w-full text-start px-2 py-1.5 rounded-md typography-meta flex items-center gap-2 cursor-pointer [@media(pointer:coarse)]:min-h-11',
     !disabled && (isHighlighted
       ? 'bg-interactive-selection text-interactive-selection-foreground'
       : 'hover:bg-interactive-hover/50'),
@@ -948,6 +1014,7 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
           return (
             <div
               ref={shell ? (element) => { itemRef(element); shell.setNodeRef(element); shell.setActivatorNodeRef(element); } : itemRef}
+              {...detailsHandlers(entry)}
               {...(shell?.listeners ?? {})}
               style={shell?.style}
               id={rowId}
@@ -972,7 +1039,14 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
               }}
               onMouseEnter={handleMouseActivity}
               onMouseMove={handleMouseActivity}
-              className={cn(rowHighlightClassName(isHighlighted), 'group/row', shell && 'select-none', shell?.isDragging && 'opacity-60')}
+              className={cn(
+                rowHighlightClassName(isHighlighted),
+                'group/row',
+                (shell || onEntryDetails) && 'select-none',
+                // A long press opens the details, not the system's text callout.
+                onEntryDetails && '[-webkit-touch-callout:none]',
+                shell?.isDragging && 'opacity-60',
+              )}
             >
               <div className="flex items-center gap-1.5 flex-1 min-w-0">
                 {section === 'leading' ? <Icon name="openchamber" className="h-3.5 w-3.5 flex-shrink-0" /> : null}
@@ -1005,6 +1079,7 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
                     'model-favorite-button flex h-4 w-4 items-center justify-center hover:text-primary/80 flex-shrink-0 disabled:pointer-events-none',
                     favorite ? 'text-primary' : 'text-muted-foreground',
                     !favorite && !isHighlighted && 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100',
+                    onEntryDetails && '[@media(hover:none)]:hidden',
                   )}
                   aria-label={favorite ? labels.unfavorite : labels.favorite}
                   title={favorite ? labels.unfavorite : labels.favorite}
@@ -1045,7 +1120,7 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
       if (suppressClickRef.current) return;
       toggleSection(row.sectionKey);
     };
-    const collapsed = collapsedSections.has(row.sectionKey);
+    const collapsed = isSectionCollapsed(row.sectionKey);
     if (shell) {
       // The whole caption is what the pointer drags (past a few pixels, so a
       // plain click still folds the section). A <button> cannot take dnd-kit's
@@ -1242,7 +1317,7 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
             aria-expanded
             aria-controls={listboxId}
             aria-autocomplete="list"
-            className="h-7 rounded-none bg-transparent ps-8 pe-0 typography-meta ring-0 hover:[&:not(:focus)]:bg-transparent focus:ring-0 focus-visible:ring-0"
+            className="h-7 rounded-none bg-transparent ps-8 pe-0 typography-meta ring-0 hover:[&:not(:focus)]:bg-transparent hover:[&:not(:focus)]:[background-image:none] focus:ring-0 focus-visible:ring-0"
             autoFocus={autoFocus}
           />
         </div>
@@ -1319,9 +1394,12 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
         ) : null}
       </div>
 
-      <div className="px-3 pt-1 pb-1.5 border-t border-edge-muted typography-micro text-muted-foreground">
-        <ModelPickerFooter store={selectionStore} navigationList={navigation} footerContent={footerContent} fallback={labels.keyboardHint} />
-      </div>
+      {/* Key hints mean nothing under a finger. */}
+      {showKeyboardHints ? (
+        <div className="px-3 pt-1 pb-1.5 border-t border-edge-muted typography-micro text-muted-foreground [@media(pointer:coarse)]:hidden">
+          <ModelPickerFooter store={selectionStore} navigationList={navigation} footerContent={footerContent} fallback={labels.keyboardHint} />
+        </div>
+      ) : null}
 
       <ModelPickerRowCard
         store={selectionStore}
