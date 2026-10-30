@@ -7,7 +7,8 @@ import { createPendingDraftWorktreeRequest, resolvePendingDraftWorktreeRequest }
 import { useConfigStore } from "@/stores/useConfigStore"
 import { useSessionGoalArmStore } from "@/stores/useSessionGoalArmStore"
 import { ChildStoreManager } from "./child-store"
-import { setActionRefs, setOptimisticRefs } from "./session-actions"
+import { sendRecoveredFormAnswer, setActionRefs, setOptimisticRefs } from "./session-actions"
+import { resetRecoverableQuestions } from "./recoverable-questions"
 import { SessionMessageLoader, setImperativeSessionMessageLoader, type SessionMessagePageSource } from "./session-message-loader"
 import { DraftSendError, useSessionUIStore, type NewSessionDraftState, type PendingDraftSend } from "./session-ui-store"
 import { setSyncRefs } from "./sync-refs"
@@ -96,6 +97,31 @@ const send = (content: string, inputMode: "normal" | "shell" = "normal", draftSn
   })
 
 const messagesOf = (sessionId: string) => childStores.getChild(DIRECTORY)?.getState().message[sessionId] ?? []
+
+test("a recovered answer uses the real send path without consuming the main composer's armed goal", async () => {
+  const session = sessionRecord("ses_question", DIRECTORY)
+  childStores.ensureChild(DIRECTORY, { bootstrap: false }).setState({ session: [session] })
+  useSessionGoalArmStore.getState().setArmed(true, "main composer objective")
+  resetRecoverableQuestions()
+  try {
+    await sendRecoveredFormAnswer({
+      form: { id: "frm_question", sessionID: session.id, title: "Question", fields: [{ key: "q0", type: "string" }] },
+      directory: DIRECTORY,
+      sessionID: session.id,
+      toolMessageID: "msg_question",
+      evidence: "tool-interrupted",
+    }, "the recovered answer")
+
+    expect(sendCalls).toHaveLength(1)
+    expect(sendCalls[0]?.id).toBe(session.id)
+    expect(sendCalls[0]?.text).toBe("the recovered answer")
+    expect(useSessionGoalArmStore.getState().armed).toBe(true)
+    expect(useSessionGoalArmStore.getState().objectiveOverride).toBe("main composer objective")
+  } finally {
+    useSessionGoalArmStore.getState().setArmed(false)
+    resetRecoverableQuestions()
+  }
+})
 
 beforeAll(() => {
   const refuse = async () => { throw new Error("network disabled in tests") }

@@ -3675,6 +3675,7 @@ export const dict = {
   'chat.formCard.submitFailed': 'Yanıt gönderilemedi',
   'chat.formCard.cancelFailed': 'İstek iptal edilemedi',
   'chat.formCard.tryAgain': 'Tekrar deneyin.',
+  'chat.formCard.recoveredNotice': 'Tur beklerken durdu. Gönder, yeni bir ücretli tur başlatır.',
   'chat.formDock.progress': '{current} / {total}',
   'chat.formDock.waiting': '{count} tane daha bekliyor',
   'chat.formDock.back': 'Geri',

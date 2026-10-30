@@ -84,6 +84,10 @@ then restores its original minimum. This prevents a scrolling form body from
 clamping its offset during the temporary collapse, while allowing genuine
 shrinking after deletion.
 
+Recovered questions appear on both surfaces with a warning that Submit starts
+a new paid turn in the asking session. Dismissal is local; rejected sends keep
+the card and its answer draft. Eligibility belongs to `sync/recoverable-questions.ts`.
+
 `formCardState.ts` decides what both surfaces show and send, mirroring
 OpenCode's `Form.validateAnswer`: fields are evaluated in declaration order,
 a `when` clause reads only the answers of active earlier fields (an

@@ -3678,6 +3678,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.formCard.submitFailed': 'No se pudo enviar la respuesta',
   'chat.formCard.cancelFailed': 'No se pudo cancelar la solicitud',
   'chat.formCard.tryAgain': 'Inténtalo de nuevo.',
+  'chat.formCard.recoveredNotice': 'El turno se detuvo durante la espera. Enviar inicia un nuevo turno de pago.',
   'chat.formDock.progress': '{current} de {total}',
   'chat.formDock.waiting': '{count} más en espera',
   'chat.formDock.back': 'Atrás',

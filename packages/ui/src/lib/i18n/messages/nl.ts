@@ -3656,6 +3656,7 @@ export const dict = {
   'chat.formCard.submitFailed': 'Kan het antwoord niet versturen',
   'chat.formCard.cancelFailed': 'Kan het verzoek niet annuleren',
   'chat.formCard.tryAgain': 'Probeer het opnieuw.',
+  'chat.formCard.recoveredNotice': 'De beurt is tijdens het wachten gestopt. Verzenden start een nieuwe betaalde beurt.',
   'chat.formDock.progress': '{current} van {total}',
   'chat.formDock.waiting': 'nog {count} in de wachtrij',
   'chat.formDock.back': 'Terug',

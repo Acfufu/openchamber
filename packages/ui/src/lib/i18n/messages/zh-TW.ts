@@ -3677,6 +3677,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.formCard.submitFailed': '無法送出答案',
   'chat.formCard.cancelFailed': '無法取消請求',
   'chat.formCard.tryAgain': '請再試一次。',
+  'chat.formCard.recoveredNotice': '等待期間本輪已停止。提交將開啟新一輪付費對話。',
   'chat.formDock.progress': '第 {current} / {total}',
   'chat.formDock.waiting': '還有 {count} 個等待中',
   'chat.formDock.back': '上一步',

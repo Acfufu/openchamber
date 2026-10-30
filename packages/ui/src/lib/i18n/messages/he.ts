@@ -3585,6 +3585,7 @@ export const dict = {
   'chat.formCard.submitFailed': 'לא ניתן היה לשלוח את התשובה',
   'chat.formCard.cancelFailed': 'לא ניתן היה לבטל את הבקשה',
   'chat.formCard.tryAgain': 'נסה שוב.',
+  'chat.formCard.recoveredNotice': 'התור נעצר בזמן ההמתנה. שליחה תתחיל תור חדש בתשלום.',
   'chat.formDock.progress': '{current} מתוך {total}',
   'chat.formDock.waiting': 'עוד {count} ממתינות',
   'chat.formDock.back': 'חזרה',

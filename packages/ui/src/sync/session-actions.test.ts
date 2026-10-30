@@ -176,6 +176,18 @@ mock.module("@/stores/useConfigStore", () => ({
 }))
 
 // Mock useSessionUIStore
+type RecordedSend = {
+  content: string
+  providerID: string
+  modelID: string
+  agent?: string
+  variant?: string | null
+  queuedGoal?: null
+  target?: { runtimeKey: string; sessionId: string; directory: string }
+}
+const sendMessageCalls: RecordedSend[] = []
+let sendMessageBehavior: () => Promise<void> = async () => {}
+
 mock.module("./session-ui-store", () => ({
   useSessionUIStore: {
     getState: () => ({
@@ -192,6 +204,31 @@ mock.module("./session-ui-store", () => ({
       setSessionDirectory: (sessionID: string, directory: string) => {
         movedSessionDirectories.push({ sessionID, directory })
       },
+      sendMessage: async (
+        content: string,
+        providerID: string,
+        modelID: string,
+        agent?: string,
+        attachments?: void,
+        agentMentionName?: void,
+        additionalParts?: void,
+        variant?: string | null,
+        inputMode?: void,
+        options?: { userInitiated?: boolean; queuedGoal?: null; target?: { runtimeKey: string; sessionId: string; directory: string } },
+      ) => {
+        sendMessageCalls.push({ content, providerID, modelID, agent, variant, queuedGoal: options?.queuedGoal, target: options?.target })
+        await sendMessageBehavior()
+      },
+    }),
+  },
+}))
+
+// Mock useSelectionStore (the model fallback for a recovered answer)
+mock.module("./selection-store", () => ({
+  useSelectionStore: {
+    getState: () => ({
+      getSessionModelSelection: () => null,
+      getSessionAgentSelection: () => null,
     }),
   },
 }))
@@ -323,6 +360,10 @@ mock.module("./session-message-loader", () => ({
 mock.module("../lib/runtime-switch", () => ({
   getRuntimeApiBaseUrl: () => "http://session-actions.test",
   getRuntimeKey: () => runtimeKey,
+  captureRuntimeInstance: () => {
+    const captured = runtimeKey
+    return () => captured === runtimeKey
+  },
   switchRuntimeEndpoint: ({ runtimeKey: nextRuntimeKey }: { runtimeKey: string }) => {
     runtimeKey = nextRuntimeKey
   },
@@ -398,6 +439,9 @@ import { INITIAL_STATE } from "./types"
 import type { DirectoryStore } from "./child-store"
 import type { Message, Part, Session, SessionStatus } from "@/lib/opencode/model"
 import type { LinkedIssue } from "@/lib/linkedIssues"
+import { noteQuestionFormSnapshot, resetRecoverableQuestions, useRecoverableQuestionsStore, type RecoveredQuestion } from "./recoverable-questions"
+import { buildFormAnswer, type FormValues } from "../components/chat/formCardState"
+import { serializeFormAnswerAsMarkdown } from "../components/chat/formSerializers"
 
 type OptimisticAddCall = { sessionID: string; directory?: string | null; message: Message; parts: Part[] }
 type OptimisticRemoveCall = { sessionID: string; directory?: string | null; messageID: string }
@@ -3570,3 +3614,135 @@ describe("setSessionWorkState", () => {
     expect(globalUpsertedSessions).toHaveLength(0)
   })
 });
+
+describe("sendRecoveredFormAnswer", () => {
+  const recoveredForm: FormRequest = {
+    id: "frm_recovered",
+    sessionID: "session-a",
+    title: "Questions",
+    metadata: { kind: "question", tool: { messageID: "message-ask", id: "tool_ask" } },
+    fields: [{ key: "q0", title: "Color", type: "string", options: [{ value: "Red", label: "Red" }] }],
+  }
+
+  const askMessage: Message = {
+    id: "message-ask",
+    sessionID: "session-a",
+    role: "assistant",
+    time: { created: 1 },
+    agent: "build",
+    providerID: "prov",
+    modelID: "mod",
+    variant: "think",
+  }
+
+  const askSession: Session = {
+    id: "session-a",
+    projectID: "proj",
+    directory: "/test/project",
+    title: "Ask",
+    cost: 0,
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    time: { created: 1, updated: 1 },
+  }
+
+  const question: RecoveredQuestion = {
+    form: recoveredForm,
+    directory: "/test/project",
+    sessionID: "session-a",
+    toolMessageID: "message-ask",
+    evidence: "tool-interrupted",
+  }
+
+  const questionStore = () => createStore({}, {
+    session: [askSession],
+    message: { "session-a": [askMessage] },
+  })
+
+  beforeEach(() => {
+    resetRecoverableQuestions()
+    noteQuestionFormSnapshot("/test/project", [recoveredForm])
+    sendMessageCalls.length = 0
+    sendMessageBehavior = async () => {}
+    runtimeKey = "default-runtime"
+  })
+
+  test("starts a new turn on the session that asked, with its own configuration", async () => {
+    const { sendRecoveredFormAnswer, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([["/test/project", questionStore()]]), () => "/test/project")
+
+    await sendRecoveredFormAnswer(question, "the answer")
+
+    expect(sendMessageCalls).toEqual([{
+      content: "the answer",
+      providerID: "prov",
+      modelID: "mod",
+      agent: "build",
+      variant: "think",
+      queuedGoal: null,
+      target: { runtimeKey: "default-runtime", sessionId: "session-a", directory: "/test/project" },
+    }])
+    // The card is done only after the send was accepted.
+    expect(useRecoverableQuestionsStore.getState().outcomes.get("frm_recovered")).toBe("answered")
+  })
+
+  test("the new turn carries the serialized answer payload", async () => {
+    const { sendRecoveredFormAnswer, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([["/test/project", questionStore()]]), () => "/test/project")
+    const values: FormValues = {
+      q0: { text: '', number: null, boolean: false, selected: ['Red'], custom: false, acknowledged: false },
+    }
+
+    await sendRecoveredFormAnswer(question, serializeFormAnswerAsMarkdown(recoveredForm, buildFormAnswer(recoveredForm.fields, values)))
+
+    expect(sendMessageCalls).toHaveLength(1)
+    expect(sendMessageCalls[0]?.content).toContain('# Questions')
+    expect(sendMessageCalls[0]?.content).toContain('**Answer:** Red')
+    expect(sendMessageCalls[0]?.content).toContain('{"q0":"Red"}')
+  })
+
+  test("a rejected send keeps the question recoverable", async () => {
+    const { sendRecoveredFormAnswer, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([["/test/project", questionStore()]]), () => "/test/project")
+    sendMessageBehavior = async () => {
+      throw new Error("send failed")
+    }
+
+    await expect(sendRecoveredFormAnswer(question, "the answer")).rejects.toThrow("send failed")
+
+    // No tombstone: the card and the draft the surface keeps stay for a retry.
+    expect(useRecoverableQuestionsStore.getState().outcomes.has("frm_recovered")).toBe(false)
+  })
+
+  test("a duplicate submission reuses the first send", async () => {
+    const { sendRecoveredFormAnswer, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([["/test/project", questionStore()]]), () => "/test/project")
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    sendMessageBehavior = async () => {
+      await gate
+    }
+
+    const first = sendRecoveredFormAnswer(question, "the answer")
+    const second = sendRecoveredFormAnswer(question, "the answer")
+    await Promise.resolve()
+    expect(sendMessageCalls).toHaveLength(1)
+    release()
+    await Promise.all([first, second])
+    expect(sendMessageCalls).toHaveLength(1)
+  })
+
+  test("a completion after a runtime switch leaves the next runtime alone", async () => {
+    const { sendRecoveredFormAnswer, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([["/test/project", questionStore()]]), () => "/test/project")
+    sendMessageBehavior = async () => {
+      runtimeKey = "runtime-b"
+    }
+
+    await sendRecoveredFormAnswer(question, "the answer")
+
+    expect(sendMessageCalls).toHaveLength(1)
+    expect(useRecoverableQuestionsStore.getState().outcomes.has("frm_recovered")).toBe(false)
+  })
+})

@@ -3656,6 +3656,7 @@ export const dict = {
   'chat.formCard.submitFailed': 'Could not submit the answer',
   'chat.formCard.cancelFailed': 'Could not cancel the request',
   'chat.formCard.tryAgain': 'Try again.',
+  'chat.formCard.recoveredNotice': 'The turn stopped while waiting. Submit starts a new paid turn.',
   'chat.formDock.progress': '{current} of {total}',
   'chat.formDock.waiting': '{count} more waiting',
   'chat.formDock.back': 'Back',

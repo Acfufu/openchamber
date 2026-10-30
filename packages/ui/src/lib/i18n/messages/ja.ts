@@ -3677,6 +3677,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.formCard.submitFailed': '回答を送信できませんでした',
   'chat.formCard.cancelFailed': 'リクエストをキャンセルできませんでした',
   'chat.formCard.tryAgain': 'もう一度お試しください。',
+  'chat.formCard.recoveredNotice': '待機中にターンが停止しました。送信すると、新しい有料ターンが開始します。',
   'chat.formDock.progress': '{current} / {total}',
   'chat.formDock.waiting': 'あと {count} 件が待機中',
   'chat.formDock.back': '戻る',
