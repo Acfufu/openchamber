@@ -27,6 +27,7 @@ import { ToolbarTooltipButton } from '@/components/ui/action-toolbar';
 import { useDefaultDiffViewMode } from './useDefaultDiffViewMode';
 import { VirtualizedCodeBlock, type CodeLine } from './parts/VirtualizedCodeBlock';
 import { JsonTreeView } from '@/components/ui/JsonTreeView';
+import { StatusImage } from '@/components/ui/status-image';
 import { Icon } from "@/components/icon/Icon";
 import { getToolIcon } from './parts/toolPresentation';
 import { useGuestToolPresentation } from '@/lib/guests/tool-presentation';
@@ -489,14 +490,14 @@ const ImagePreviewDialog: React.FC<{
                         </div>
                     </div>
 
-                    <img
+                    <StatusImage
                         src={currentImage.url}
                         alt={imageTitle}
-                        className="block object-contain"
+                        variant="large"
                         style={{ width: `${imageDisplaySize.width}px`, height: `${imageDisplaySize.height}px` }}
-                        loading="lazy"
-                        onLoad={(event) => {
-                            const element = event.currentTarget;
+                        imgClassName="block h-full w-full object-contain"
+                        lazy
+                        onLoad={(element) => {
                             const width = element.naturalWidth;
                             const height = element.naturalHeight;
                             const url = element.getAttribute('src') ?? '';

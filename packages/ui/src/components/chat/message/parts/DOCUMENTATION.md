@@ -549,7 +549,12 @@ update, with the `shellID`, when the command starts.
   component state, using image aspect ratios and wrapping at small widths.
   Mixed prose paragraphs keep their normal flow. No label scan or detached
   DOM restoration participates in loading.
-  An image that is missing, too large or fails validation keeps its label.
+  While it loads the label's icon spins; an image that is missing, too large
+  or fails validation keeps its label with a warning icon and "Image couldn't
+  load" in its tooltip (`data-oc-media-state`). Image attachments, the preview
+  overlay and diff images draw through `StatusImage`
+  (`components/ui/status-image.tsx`), which shows loading and failure in the
+  image's own frame.
   Remote model/tool Markdown images stay labels or links, so a model or a
   fetched page cannot learn when the user read the message. Documents and
   references retain their explicit inline-image policy. A click on loaded
