@@ -207,6 +207,11 @@ describe('when to link', () => {
     expect(entries[MEMORY]).toBe('');
   });
 
+  test('asks for the task name in the language of the user, the branch in English', () => {
+    expect(WORK_NAME_GUIDANCE).toContain("in the language of the user's latest message");
+    expect(WORK_NAME_GUIDANCE).toContain('A branch name stays in English.');
+  });
+
   test('is left out without the tool, or when the check fails', async () => {
     for (const isSessionLinkingAvailable of [async () => false, async () => { throw new Error('settings unreadable'); }]) {
       const entries = await entriesFor(createRuntime({ isSessionLinkingAvailable }));

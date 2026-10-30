@@ -68,6 +68,11 @@ describe('agent tool action allowlist', () => {
     expect(OPENCHAMBER_CONTROL_ACTION_DEFINITIONS.every(({ action, title, description }) => action && title && description)).toBe(true);
   });
 
+  it('asks for the task name in the language of the user', () => {
+    const workName = OPENCHAMBER_CONTROL_ACTION_DEFINITIONS.find(({ action }) => action === 'work.name');
+    expect(workName.description).toContain("in the language of the user's latest message");
+  });
+
   it.each([
     'projects.list',
     'models.list',

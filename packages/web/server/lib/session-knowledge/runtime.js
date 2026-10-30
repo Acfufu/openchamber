@@ -103,8 +103,10 @@ export const SESSION_LINK_GUIDANCE = "Link to this session with the openchamber 
  */
 export const WORK_NAME_GUIDANCE = "Name the task with the openchamber tool's work.name as soon as it is clear what"
   + " the task is: at most 4 words naming the task itself, such as \"Login timeout fix\" or \"Sidebar task rows\","
-  + " never a step of it. Rename it only when the work becomes a different task; finishing a step, fixing"
-  + " something on the way or a follow-up within the same task is no reason. A name the user gave stays.";
+  + " never a step of it. Write it in the language of the user's latest message, even when you work in"
+  + " English: \"Таймаут входу\" for a user who writes Ukrainian. A branch name stays in English. Rename it only when the work"
+  + " becomes a different task; finishing a step, fixing something on the way or a follow-up within the"
+  + " same task is no reason. A name the user gave stays.";
 
 /**
  * Where the managed tools are called, stated while they are direct tools (the

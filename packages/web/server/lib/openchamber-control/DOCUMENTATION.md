@@ -285,7 +285,11 @@ other.
   does not claim user ownership, so the agent can still rename its own tasks. A name
   the user gave stays: the call changes nothing and answers `named: false`
   with the current name. When to call it is in the session context, next to
-  the linking guidance (`WORK_NAME_GUIDANCE`). While the worktree's branch is
+  the linking guidance (`WORK_NAME_GUIDANCE`). Both that guidance and the
+  action's description ask for the name in the language of the user's latest
+  message, the rule generated session titles follow; agents that work in
+  English otherwise named a Ukrainian user's tasks in English. Branch names
+  stay in English. While the worktree's branch is
   OpenChamber's unpushed placeholder (`readRenameableGeneratedBranch`), the
   call also requires `branch` and renames it (`renameGeneratedWorktreeBranch`),
   answering `branch` and `branchRenamed: true`; without `branch` it fails with
