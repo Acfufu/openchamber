@@ -437,7 +437,7 @@ const TimePill: React.FC<TimePillProps> = ({
             aria-label={periodAriaLabel}
             className="ms-1 h-7 w-fit bg-transparent dark:bg-transparent ps-2 pe-1 shadow-none hover:bg-interactive-hover"
           >
-            <SelectValue />
+            <SelectValue>{parts.meridiem === 'PM' ? pmLabel : amLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="AM">{amLabel}</SelectItem>

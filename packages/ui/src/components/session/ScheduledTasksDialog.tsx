@@ -598,7 +598,9 @@ export function ScheduledTasksView({ layout, onLeave }: {
           ) : selectedProject ? (
             <SelectValue>{renderProjectLabel(selectedProject)}</SelectValue>
           ) : (
-            <SelectValue placeholder={t('sessions.scheduledTasks.dialog.project.placeholder')} />
+            <SelectValue>
+              {hasScopes ? t('sessions.scheduledTasks.dialog.project.placeholder') : t('sessions.scheduledTasks.dialog.project.empty')}
+            </SelectValue>
           )}
         </SelectTrigger>
         <SelectContent>

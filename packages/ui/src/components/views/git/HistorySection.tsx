@@ -24,7 +24,7 @@ const LOG_SIZE_OPTIONS = [
   { labelKey: 'gitView.history.logSize25', value: 25 },
   { labelKey: 'gitView.history.logSize50', value: 50 },
   { labelKey: 'gitView.history.logSize100', value: 100 },
-];
+] as const;
 
 interface HistorySectionProps {
   mode?: 'history' | 'graph';
@@ -68,6 +68,8 @@ export const HistorySection: React.FC<HistorySectionProps> = ({
   onActionSuccess,
 }) => {
   const { t } = useI18n();
+  // "Load more" grows the count past the listed sizes; the trigger then shows the number.
+  const selectedLogSizeOption = LOG_SIZE_OPTIONS.find((option) => option.value === logMaxCount);
   const [isOpen, setIsOpen] = React.useState(true);
   const isGraphMode = mode === 'graph';
 
@@ -230,12 +232,14 @@ export const HistorySection: React.FC<HistorySectionProps> = ({
                   className="w-auto"
                   disabled={isLogLoading}
                 >
-                  <SelectValue placeholder={t('gitView.history.commitsPlaceholder')} />
+                  <SelectValue placeholder={t('gitView.history.commitsPlaceholder')}>
+                    {selectedLogSizeOption ? t(selectedLogSizeOption.labelKey) : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {LOG_SIZE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={String(option.value)}>
-                      {t(option.labelKey as never)}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>

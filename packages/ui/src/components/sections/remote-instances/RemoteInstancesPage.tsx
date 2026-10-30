@@ -2340,7 +2340,11 @@ export const RemoteInstancesPage: React.FC = () => {
               }
             >
               <SelectTrigger className="w-fit min-w-[140px]">
-                <SelectValue placeholder={t('settings.remoteInstances.page.field.modePlaceholder')} />
+                <SelectValue>
+                  {draft.remoteOpenchamber.mode === 'external'
+                    ? t('settings.remoteInstances.page.field.modeExternal')
+                    : t('settings.remoteInstances.page.field.modeManaged')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="managed">{t('settings.remoteInstances.page.field.modeManaged')}</SelectItem>
@@ -2438,7 +2442,11 @@ export const RemoteInstancesPage: React.FC = () => {
                 }
               >
                 <SelectTrigger className="w-fit min-w-[140px]">
-                  <SelectValue placeholder={t('settings.remoteInstances.page.field.selectInstallMethodPlaceholder')} />
+                  <SelectValue>
+                    {draft.remoteOpenchamber.installMethod === 'auto'
+                      ? t('settings.remoteInstances.page.field.installMethodAuto')
+                      : draft.remoteOpenchamber.installMethod}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">{t('settings.remoteInstances.page.field.installMethodAuto')}</SelectItem>
@@ -2537,7 +2545,13 @@ export const RemoteInstancesPage: React.FC = () => {
               }}
             >
               <SelectTrigger className="w-fit min-w-[240px]">
-                <SelectValue placeholder={t('settings.remoteInstances.page.field.selectBindHostPlaceholder')} />
+                <SelectValue>
+                  {draft.localForward.bindHost === 'localhost'
+                    ? t('settings.remoteInstances.page.field.bindHostOption.localhost')
+                    : draft.localForward.bindHost === '0.0.0.0'
+                      ? t('settings.remoteInstances.page.field.bindHostOption.lan')
+                      : t('settings.remoteInstances.page.field.bindHostOption.loopback')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="127.0.0.1">{t('settings.remoteInstances.page.field.bindHostOption.loopback')}</SelectItem>
@@ -2786,7 +2800,13 @@ export const RemoteInstancesPage: React.FC = () => {
                         }
                       >
                         <SelectTrigger className="w-fit min-w-[140px]">
-                          <SelectValue placeholder={t('settings.remoteInstances.page.field.typePlaceholder')} />
+                          <SelectValue>
+                            {forward.type === 'remote'
+                              ? t('settings.remoteInstances.page.forwardType.remote')
+                              : forward.type === 'dynamic'
+                                ? t('settings.remoteInstances.page.forwardType.dynamic')
+                                : t('settings.remoteInstances.page.forwardType.local')}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="local">{t('settings.remoteInstances.page.forwardType.local')}</SelectItem>
