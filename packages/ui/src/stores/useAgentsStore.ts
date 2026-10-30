@@ -552,6 +552,7 @@ export const useAgentsStore = create<AgentsStore>()(
                 // directory directly so this shares the in-flight request with the config
                 // store instead of issuing a duplicate agents fetch at startup.
                 const agents = await opencodeClient.listAgents(configDirectory);
+                if (!isCurrentLoad()) return false;
 
                 const agentsWithScope = await Promise.all(
                   agents.map(async (agent) => {

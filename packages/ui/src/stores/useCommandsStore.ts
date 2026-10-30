@@ -90,6 +90,9 @@ const readCommandMetadata = <T>(generation: number, read: (signal: AbortSignal) 
       clearTimeout(timeout);
       commandReadControllers.delete(controller);
     }
+  }).then((result) => {
+    if (result === undefined) throw new Error('Command discovery superseded');
+    return result;
   })
 );
 

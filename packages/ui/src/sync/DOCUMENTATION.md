@@ -606,6 +606,12 @@ Child-session discovery (`child-session-discovery.ts`) adds only children the gl
 
 The active-session watchdog in `sync-context.tsx` sends status recovery through the active-session priority of `runBackgroundNetworkTask`. Its child-session discovery pages use `runSessionListNetworkTask`, alongside global and bootstrap session pages. Both lanes live in `@/lib/background-network`. Git, skills, and directory initialization use the background lane. These limits reserve browser connections for interactive message requests rather than letting startup fan-out occupy the whole pool.
 
+Queued reads belong to the instance where they were submitted. On an instance change, both lanes retire their waiters and the new instance gets its own capacity. Active old requests finish against their original lane counters. A retired task resolves `undefined`; value-consuming callers must preserve state or signal failure, never turn retirement into an empty snapshot. Multi-step reads also check ownership before their next request, because the queue cannot stop a callback that has already started. Session pagination retains one owner across pages and retries.
+
+### Why queue ownership follows instances, not transports
+
+`captureRuntimeInstance` in `lib/runtime-switch.ts` captures the instance key and an instance-change generation. Returning to the same instance cannot revive work from a previous visit. A LAN/relay rebind of the same instance keeps its work and concurrency budget. Lanes retire on the will-change event so changed-event listeners can enqueue new work without losing it to listener order.
+
 Reconnect and watchdog candidates come from non-idle status, the viewed session, or unresolved materialized messages and tool parts. Only ancestors of those candidates join recovery. The watchdog's 5 s status poll and its child discovery run only for sessions with live work of their own; the viewed session joins them only when it is busy or unresolved. An idle viewed session gets its updates from the event stream, and the stale-stream check still covers it. Polling it every 5 s kept the private relay awake for as long as a session stayed open on any device, because the relay hibernates only after 10 s without a message. Parentage in cached session history alone starts no status polling, child discovery, or message materialization; an idle directory with only cached metadata does not scan its history.
 
 ### Why failed watchdog polls back off per directory

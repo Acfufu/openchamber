@@ -34,7 +34,7 @@ import { forgetOpenCodeTrustDeclines, isDeliberateOpenCodeRequest, openCodeTrust
 import { isRelayModeActive } from "@/lib/relay/runtime-tunnel"
 import { isSpaceDirectory, spaceIdOfDirectory } from "@/lib/spaces/space-route"
 import { getSpaceMark, spaceMarkSchema, type SpaceMark } from "@/lib/spaces/spaces-store"
-import { getRuntimeKey } from "@/lib/runtime-switch"
+import { captureRuntimeInstance, getRuntimeKey } from "@/lib/runtime-switch"
 import { getRegisteredRuntimeAPIs } from "@/contexts/runtimeAPIRegistry"
 import { markStartupTrace } from "@/lib/startupTrace"
 import { assertProviderCircuitClosed, recordProviderError, recordProviderSuccess } from "./provider-tracker"
@@ -2003,12 +2003,14 @@ class OpencodeService {
    * catalog event), so it may carry the old catalog. Wait it out and read again.
    */
   async getProvidersForConfig(directory?: string | null, options?: { fresh?: boolean }): Promise<ProviderCatalog> {
+    const isCurrent = captureRuntimeInstance()
     const effectiveDirectory = this.resolveDirectory(directory)
     const key = effectiveDirectory ?? ""
 
     let existing = this.providerCatalogInFlight.get(key)
     if (existing && options?.fresh) {
       await existing.catch(() => undefined)
+      if (!isCurrent()) throw new Error("Runtime instance changed")
       existing = this.providerCatalogInFlight.get(key)
     }
     if (existing) {

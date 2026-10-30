@@ -3433,6 +3433,7 @@ export function SyncProvider(props: {
       try {
         const before = store.getState()
         const statuses = await runBackgroundNetworkTask(() => resyncDirectorySessionStatuses(directory, store, candidateSessionIds, "monotonic"), "active-session")
+        if (statuses === undefined) return
         if (statuses === null) {
           recordFailure()
           return

@@ -17,7 +17,7 @@ import {
 } from '@/stores/useGitHubPrStatusStore';
 import { repositoryBindingOwner } from '@/lib/source-control/repository-binding';
 import { runBackgroundNetworkTask } from '@/lib/background-network';
-import { getRuntimeKey } from '@/lib/runtime-switch';
+import { captureRuntimeInstance, getRuntimeKey } from '@/lib/runtime-switch';
 import type { SourceControlReadContext } from '@/lib/api/types';
 import { limitSourceControlDiscoveryCandidates } from '../sourceControlDiscovery';
 import { reconcileRegisteredContextDirectories, type RegisteredContextDirectories } from './registeredContextDirectories';
@@ -729,6 +729,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   React.useEffect(() => {
     const candidates = discoveryCandidates;
     const discoveryRuntimeKey = getRuntimeKey();
+    const isCurrent = captureRuntimeInstance();
     const candidateDirectories = new Set(candidates.map((candidate) => candidate.directory));
     reconcileRegisteredContextDirectories(
       registeredContextDirectoriesRef.current,
@@ -740,6 +741,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
 
     let cancelled = false;
     const discover = async (changedDirectory?: string, retryAfterMs = SIDEBAR_MISSING_CHANGE_REQUEST_RETURN_MS) => {
+      if (cancelled || !isCurrent()) return;
       const now = Date.now();
       const contextsByDirectory = new Map<string, Promise<SourceControlReadContext[] | null>>();
       const loadContexts = (directory: string): Promise<SourceControlReadContext[] | null> => {
@@ -752,7 +754,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
         );
         const scope = repositoryBindingOwner.scope(directory);
         const loading = runBackgroundNetworkTask(() => repositoryBindingOwner.read(scope, sourceControl)).then((load) => {
-          if (cancelled || discoveryRuntimeKey !== getRuntimeKey()) return null;
+          if (!load || cancelled || !isCurrent()) return null;
           const primaryContext = load.contexts[0];
           const contexts = primaryContext && getSourceControlReadContextAuthState(
             useSourceControlAuthStore.getState().entries[getSourceControlAuthKey(primaryContext)],
@@ -779,7 +781,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
           return (contexts ?? []).map((context) => ({ ...candidate, context }));
         }));
 
-      if (cancelled || discoveryRuntimeKey !== getRuntimeKey()) return;
+      if (cancelled || !isCurrent()) return;
 
       type DiscoveryTarget = { context: SourceControlReadContext; branch: string };
       const targetsByKey = new Map<string, DiscoveryTarget>();
