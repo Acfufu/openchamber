@@ -49,9 +49,19 @@ Where the check runs:
   `location[directory]`) or acts on a session reaches OpenCode only when that
   folder's configuration runs nothing or its current fingerprint is trusted.
   Routes that start no location (session list and detail, message pages, the
-  event stream, credentials, deleting, moving or viewing a session, unloading a
+  event stream, credentials, deleting or viewing a session, unloading a
   location) pass, so a paused folder still lists and shows its sessions. Any
   other route, including ones OpenCode adds later, is checked.
+- Moving a session (`POST /api/session/:id/move`) is checked against the
+  folder it moves into, read from the body and resolved the way OpenCode
+  resolves it (`~` from home, a relative path from the session's folder), and
+  against the session's current folder: OpenCode opens the destination to
+  validate it and the source to see whether it still runs. A source folder
+  that is gone opens nothing and passes, so sessions still move out of deleted
+  folders. A move whose body names no directory, or that the runtime cannot
+  read, answers 400 without reaching OpenCode. Every runtime hands the body to
+  `refusalFor` through `readBody`: the proxy parses it, `guardOpenCodeFetch`
+  reads a copy, the VS Code bridge decodes its base64 body.
 - A session route is checked against the session's folder as well, read from
   OpenCode's session record. The `global` owner is the exception: OpenCode
   files MCP elicitation forms under it, it has no session record, and its
@@ -156,6 +166,9 @@ it keeps its own middleware.
 
 ### Known limits
 
+- The agent's own `session_move` tool runs inside OpenCode and reaches no
+  OpenChamber runtime, so the gate does not see it. OpenCode opens the
+  destination from there as it would for the CLI.
 - A folder OpenCode already runs reloads its plugins when they change on disk.
   The gate decides when a location starts; switching a running folder to a
   branch with different plugins loads them as the OpenCode CLI would.

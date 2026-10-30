@@ -29,13 +29,18 @@ export interface OpenCodeTrustAnswer {
   body: OpenCodeTrustAssessment | OpenCodeTrustRefusal;
 }
 
+/** A request body as `JSON.parse` returns it. */
+export type OpenCodeTrustJsonBody = string | number | boolean | null | OpenCodeTrustJsonBody[] | { [key: string]: OpenCodeTrustJsonBody };
+
 export interface OpenCodeTrustRequest {
   method: string;
   /** Path with query, starting at `/api`. */
   path: string;
   headers: Partial<Record<string, string | string[]>>;
-  /** The folder a session runs in; null when the session does not exist, throws when it cannot tell. */
-  resolveSessionDirectory?: (sessionID: string) => Promise<string | null>;
+  /** The folder a session runs in; null when the session does not exist, throws when it cannot tell. `fresh` skips any cache. */
+  resolveSessionDirectory?: (sessionID: string, options?: { fresh?: boolean }) => Promise<string | null>;
+  /** The request's JSON body; read only for a session move, whose destination is in it. */
+  readBody?: () => Promise<OpenCodeTrustJsonBody | undefined>;
 }
 
 export interface OpenCodeTrustRouteRequest {

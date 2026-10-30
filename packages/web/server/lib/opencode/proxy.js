@@ -1,6 +1,7 @@
 import http from 'node:http';
 import https from 'node:https';
 
+import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 import {
@@ -1136,6 +1137,12 @@ export const registerOpenCodeProxy = (app, deps) => {
     // Routes that run in a session's own location are checked against the
     // session's folder, whatever folder the request names.
     const resolveSessionDirectory = createSessionDirectoryResolver({ fetchImpl: fetch, buildOpenCodeUrl, getOpenCodeAuthHeaders });
+    // A move names its destination in the body, which reaches the proxy
+    // unread. Parsed here, it goes upstream through `replayParsedBody`.
+    const parseJsonBody = express.json({ limit: '64kb' });
+    const readBody = (req, res) => new Promise((resolve, reject) => {
+      parseJsonBody(req, res, (error) => (error ? reject(error) : resolve(req.body)));
+    });
     app.use('/api', async (req, res, next) => {
       try {
         const refusal = await openCodeTrust.refusalFor({
@@ -1143,6 +1150,7 @@ export const registerOpenCodeProxy = (app, deps) => {
           path: req.originalUrl || req.url,
           headers: req.headers,
           resolveSessionDirectory,
+          readBody: () => readBody(req, res),
         });
         if (!refusal) return next();
         if (!res.headersSent) res.status(refusal.status).json(refusal.body);

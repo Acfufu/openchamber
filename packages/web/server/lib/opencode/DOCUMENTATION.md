@@ -1076,7 +1076,7 @@ Discovery already reads each skill's frontmatter and body. Source lookup uses th
   - Session list forwarding on every platform, preserving V2 query filters and pagination cursors. Global reads use OpenCode's cross-directory list rather than merging per-project pages on Windows.
   - OpenCode readiness gate for proxied `/api` requests
   - Worktree checkout gate before directory-scoped upstream reads and writes
-  - Folder trust gate (`../opencode-trust`): a request for a folder whose OpenCode configuration runs code answers 403 `opencode_trust_required` until the user trusts it, and `GET`/`POST /api/opencode/trust` serve the prompt. Registered ahead of the readiness hold, since the answer needs no running OpenCode.
+  - Folder trust gate (`../opencode-trust`): a request for a folder whose OpenCode configuration runs code answers 403 `opencode_trust_required` until the user trusts it, and `GET`/`POST /api/opencode/trust` serve the prompt. Registered ahead of the readiness hold, since the answer needs no running OpenCode. A session move names its destination in the body, which reaches the proxy unread; the gate parses that body (`express.json`, 64 KB) and `replayParsedBody` sends it upstream.
 
 Git bootstrap must reach `git-ready` before OpenCode can cache a new worktree's
 project identity or config. Setup scripts may still be running; the optional UI

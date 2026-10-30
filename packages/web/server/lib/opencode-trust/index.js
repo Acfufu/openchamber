@@ -1,5 +1,6 @@
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
 
 import { z } from 'zod';
 
@@ -31,14 +32,19 @@ const GLOBAL_READS = [
   /^\/api\/(?:global\/)?event$/,
   /^\/api\/credential(?:\/|$)/,
 ];
-// Mutations that never start a location: deleting a session, moving it
-// (OpenChamber moves sessions out of folders that are gone), marking it
+// Mutations that never start a location: deleting a session, marking it
 // viewed, and unloading a location.
 const GLOBAL_MUTATIONS = [
   { method: 'DELETE', pattern: /^\/api\/session\/[^/]+$/ },
-  { method: 'POST', pattern: /^\/api\/session\/[^/]+\/(?:move|view)$/ },
+  { method: 'POST', pattern: /^\/api\/session\/[^/]+\/view$/ },
   { method: 'DELETE', pattern: /^\/api\/debug\/location$/ },
 ];
+// Moving a session opens the folder it moves into, named in the body, and
+// the folder it leaves while that folder exists, which the session check
+// covers. A folder that is gone opens nothing, so moving sessions out of
+// deleted folders still passes.
+const SESSION_MOVE = /^\/api\/session\/[^/]+\/move$/;
+const moveBodySchema = z.object({ directory: z.string() });
 
 const SESSION_SCOPED = /^\/api\/(?:experimental\/)?session\/([^/]+)\/.+$/;
 // OpenCode files MCP elicitation forms under this owner, which is not a
@@ -76,6 +82,25 @@ const directoriesNamedBy = (url, headers) => {
     if (directory) directories.push(directory);
   }
   return directories;
+};
+
+const bodyOrNothing = async (readBody) => {
+  try {
+    return await readBody?.();
+  } catch {
+    return undefined;
+  }
+};
+
+/** The folder a move names, resolved the way OpenCode resolves it. */
+const moveDestination = (directory, sessionDirectory, homeDirectory) => {
+  const value = directory.trim();
+  const expanded = value === '~'
+    ? homeDirectory
+    : value.startsWith('~/') ? path.join(homeDirectory, value.slice(2)) : value;
+  if (sessionDirectory) return path.resolve(sessionDirectory, expanded);
+  // OpenCode answers 404 for a session it does not know and opens nothing.
+  return path.isAbsolute(expanded) ? expanded : null;
 };
 
 const lowercaseKeys = (headers) => Object.fromEntries(
@@ -215,22 +240,33 @@ export const createOpenCodeTrust = ({
    * The answer for a request OpenCode must not receive yet, or null to
    * forward it. `resolveSessionDirectory` names the folder of a session whose
    * route runs in that session's own location; it answers null for a session
-   * that does not exist and throws when it cannot tell.
+   * that does not exist and throws when it cannot tell. `readBody` returns
+   * the request's JSON body; it is called only for a route whose folder is in
+   * the body (a session move), and a body it cannot read refuses the request.
    */
-  const refusalFor = async ({ method, path: requestPath, headers, resolveSessionDirectory }) => {
+  const refusalFor = async ({ method, path: requestPath, headers, resolveSessionDirectory, readBody }) => {
     const url = new URL(requestPath, 'http://opencode.invalid');
     const normalizedMethod = String(method || 'GET').toUpperCase();
     if (isGlobalRoute(normalizedMethod, url.pathname)) return null;
     const directories = directoriesNamedBy(url, lowercaseKeys(headers));
     const sessionID = SESSION_SCOPED.exec(url.pathname)?.[1];
+    const isMove = normalizedMethod === 'POST' && SESSION_MOVE.test(url.pathname);
+    let sessionDirectory = null;
     if (sessionID && sessionID !== LOCATION_SCOPED_FORM_OWNER && resolveSessionDirectory) {
-      let sessionDirectory;
       try {
-        sessionDirectory = await resolveSessionDirectory(decodeURIComponent(sessionID));
+        // A move's destination resolves against where the session is now,
+        // which an earlier move may have changed.
+        sessionDirectory = await resolveSessionDirectory(decodeURIComponent(sessionID), { fresh: isMove });
       } catch {
         return { status: 503, body: { error: 'Could not check whether this session\'s folder is trusted' } };
       }
       if (sessionDirectory) directories.push(sessionDirectory);
+    }
+    if (isMove) {
+      const parsed = moveBodySchema.safeParse(await bodyOrNothing(readBody));
+      if (!parsed.success) return { status: 400, body: { error: 'A session move needs a JSON body naming its directory' } };
+      const destination = moveDestination(parsed.data.directory, sessionDirectory, homeDirectory);
+      if (destination) directories.unshift(destination);
     }
     if (directories.length === 0) return null;
     const untrusted = await firstUntrusted(directories);

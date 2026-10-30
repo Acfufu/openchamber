@@ -215,7 +215,7 @@ export const requestOpenCodeTrust = (directory: string, { deliberate, background
 };
 
 // Matched at the end: a runtime may serve the API under a base path.
-const DELIBERATE_ACTION = /\/api\/(?:session|(?:experimental\/)?session\/[^/]+\/(?:prompt|command|shell|skill))$/;
+const DELIBERATE_ACTION = /\/api\/(?:session|(?:experimental\/)?session\/[^/]+\/(?:prompt|command|shell|skill|move))$/;
 
 /** Whether a refused request is one the user just made rather than a background read. */
 export const isDeliberateOpenCodeRequest = (method: string, pathname: string): boolean => (

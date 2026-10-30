@@ -98,6 +98,12 @@ describe("OpenCode folder trust in the client", () => {
       await nextPrompt()
       await settleOpenCodeTrust("skip")
       expect(await create).toBe("refused")
+
+      // So is moving a session into it.
+      const move = client.session.move({ sessionID: "ses_1", directory }).catch(() => "refused")
+      await nextPrompt()
+      await settleOpenCodeTrust("skip")
+      expect(await move).toBe("refused")
     } finally {
       fetch.mockRestore()
     }
