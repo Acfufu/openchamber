@@ -25,6 +25,7 @@ mock.module("@/lib/opencode/client", () => ({
   ascendingId: (prefix: string) => `${prefix}_${(idCounter += 1).toString(16).padStart(12, "0")}`,
   opencodeClient: {
     getSdkClient: () => runtimeSdkClient,
+    captureSessionCleanup: async () => async () => undefined,
     getDirectory: () => currentDirectory,
     setDirectory: mock(() => undefined),
     captureSessionCleanup: async () => async () => undefined,
