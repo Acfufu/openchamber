@@ -97,7 +97,14 @@ import {
 } from './quake-mode.mjs';
 import { createContextMenuLabels, menuLabel, normalizeMenuLocale, roleMenuItem } from './menu-locales.mjs';
 import { createCopyLinkMenuHook } from './context-menu-clipboard.mjs';
-import { resolveUpdaterFeed } from './updater-feed.mjs';
+import {
+  CANARY_UPDATER_FEED,
+  PRODUCTION_UPDATER_FEED,
+  isCanaryVersion,
+  isUpdateChannel,
+  normalizeUpdateChannel,
+  resolveUpdaterFeed,
+} from './updater-feed.mjs';
 import {
   buildLinuxInstalledApps,
   buildLinuxOpenSpecs,
@@ -315,6 +322,10 @@ const state = {
   // path may end the process: the update sequence owns the exit.
   updateInstallPending: false,
   pendingUpdate: null,
+  // The channel the updater's feed was last pointed at (applyUpdaterChannel),
+  // and the update check in flight, if any.
+  updaterChannel: null,
+  updateCheck: null,
   updateDownloadPromise: null,
   updateDownloadVersion: null,
   unreachableHosts: new Set(),
@@ -3571,6 +3582,42 @@ const compareSemver = (left, right) => {
   return 0;
 };
 
+const UPDATER_E2E_BUILD = typeof __OPENCHAMBER_UPDATER_E2E_BUILD__ !== 'undefined'
+  && __OPENCHAMBER_UPDATER_E2E_BUILD__ === true;
+
+const readUpdateChannel = () => normalizeUpdateChannel(readSettingsRoot().desktopUpdateChannel);
+
+/**
+ * Points the updater at the chosen channel's feed; every check re-reads the
+ * stored channel, so a switch takes effect on the next check without a
+ * restart. Stable from a Canary build allows the downgrade to the latest
+ * release, which is the way back; a release build never downgrades.
+ */
+const applyUpdaterChannel = (channel) => {
+  if (state.updaterChannel === channel) return;
+  // An update found on the other channel is not this channel's; the next
+  // check starts clean (a failed feed otherwise keeps it, #5921).
+  if (state.updaterChannel !== null) state.pendingUpdate = null;
+  const feed = resolveUpdaterFeed({ testBuild: UPDATER_E2E_BUILD, channel });
+  // Both published feeds carry the Windows ARM64 manifest; the E2E fixture does not.
+  const updaterChannel = feed === PRODUCTION_UPDATER_FEED || feed === CANARY_UPDATER_FEED
+    ? resolveUpdaterChannel({ platform: process.platform, architecture: process.arch })
+    : null;
+  if (updaterChannel) {
+    autoUpdater.channel = updaterChannel;
+  }
+  autoUpdater.setFeedURL(feed);
+  autoUpdater.allowDowngrade = channel === 'stable' && isCanaryVersion(APP_VERSION);
+  state.updaterChannel = channel;
+  log.info('[electron] updater feed configured', {
+    channel,
+    provider: feed.provider,
+    target: feed.provider === 'github' ? `${feed.owner}/${feed.repo}` : feed.url,
+    manifest: updaterChannel || 'latest',
+    allowDowngrade: autoUpdater.allowDowngrade,
+  });
+};
+
 const setupAutoUpdater = () => {
   if (!app.isPackaged) {
     return;
@@ -3581,22 +3628,7 @@ const setupAutoUpdater = () => {
   autoUpdater.fullChangelog = true;
   autoUpdater.disableWebInstaller = false;
   autoUpdater.logger = log;
-
-  const testBuild = typeof __OPENCHAMBER_UPDATER_E2E_BUILD__ !== 'undefined'
-    && __OPENCHAMBER_UPDATER_E2E_BUILD__ === true;
-  const feed = resolveUpdaterFeed({ testBuild });
-  const updaterChannel = feed.provider === 'github'
-    ? resolveUpdaterChannel({ platform: process.platform, architecture: process.arch })
-    : null;
-  if (updaterChannel) {
-    autoUpdater.channel = updaterChannel;
-  }
-  autoUpdater.setFeedURL(feed);
-  log.info('[electron] updater feed configured', {
-    provider: feed.provider,
-    target: feed.provider === 'github' ? `${feed.owner}/${feed.repo}` : feed.url,
-    channel: updaterChannel || 'latest',
-  });
+  applyUpdaterChannel(readUpdateChannel());
 
   autoUpdater.on('download-progress', (progress) => {
     const total = Number(progress.total || 0);
@@ -3708,6 +3740,7 @@ const installDownloadedUpdate = () => new Promise((resolve, reject) => {
         await installLinuxPackage({
           packageType: readLinuxPackageType(),
           file: state.pendingUpdate?.downloadedFile,
+          downgrade: state.pendingUpdate?.downgrade === true,
         });
         settled = true;
         autoUpdater.off('error', fail);
@@ -5033,15 +5066,44 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       return null;
     }
 
+    case 'desktop_get_update_channel': {
+      return { channel: readUpdateChannel() };
+    }
+
+    case 'desktop_set_update_channel': {
+      if (!isUpdateChannel(args?.channel)) {
+        throw new Error('Unknown update channel');
+      }
+      const channel = args.channel;
+      await mutateSettingsRoot((root) => {
+        root.desktopUpdateChannel = channel;
+      });
+      return { channel };
+    }
+
     case 'desktop_check_for_updates': {
       assertUpdaterCapability({ packaged: app.isPackaged });
+      // electron-updater answers a check that is already running, for the
+      // feed it started on. A channel switched meanwhile waits for that check
+      // to end, then checks its own feed.
+      if (state.updateCheck && readUpdateChannel() !== state.updaterChannel) {
+        await state.updateCheck.catch(() => null);
+      }
+      applyUpdaterChannel(readUpdateChannel());
       const currentVersion = APP_VERSION;
-      const { available, updateInfo, nextVersion, pendingUpdate } = await checkForDesktopUpdate({
+      const check = checkForDesktopUpdate({
         autoUpdater,
         currentVersion,
         pendingUpdate: state.pendingUpdate,
-        compareVersions: compareSemver,
       });
+      state.updateCheck = check;
+      let result;
+      try {
+        result = await check;
+      } finally {
+        if (state.updateCheck === check) state.updateCheck = null;
+      }
+      const { available, updateInfo, nextVersion, pendingUpdate } = result;
       // Assign before the changelog fetch: a download can finish while the
       // notes load and mark this record as downloaded. Assigning after that
       // await would replace it with the pre-await copy and drop the payload.

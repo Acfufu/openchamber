@@ -10,8 +10,11 @@ import { Button } from '@/components/ui/button';
 import { AboutLogo } from '@/components/ui/AboutLogo';
 import { Icon } from "@/components/icon/Icon";
 import { Spinner } from '@/components/ui/spinner';
-import { useI18n } from '@/lib/i18n';
+import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
+import { getDesktopUpdateChannel, setDesktopUpdateChannel } from '@/lib/desktop';
+import { formatCanaryBuildDate, parseCanaryVersion, type UpdateChannel } from '@/lib/updateChannel';
 import { runtimeFetch } from '@/lib/runtime-fetch';
+import { loadDesktopSettings, updateDesktopSettings } from '@/lib/persistence';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { reloadOpenCodeConfiguration } from '@/stores/useAgentsStore';
 import { fetchOpenCodeUpgradeStatus, runOpenCodeUpgrade, type OpenCodeUpgradeStatus } from '@/components/update/openCodeUpgrade';
@@ -19,6 +22,7 @@ import { useDesktopRemoteHostActive } from '@/hooks/useDesktopRemoteHostActive';
 import { getDesktopAppVersion } from '@/lib/desktopNative';
 import { InstanceServiceUrls } from './InstanceServiceUrls';
 import {
+  SettingsChipGroup,
   SettingsSection,
   SettingsFieldRow,
   SETTINGS_BRAND_TITLE_CLASS,
@@ -29,6 +33,17 @@ const DISCORD_URL = 'https://discord.gg/ZYRSdnwwKA';
 const X_URL = 'https://x.com/openchamber_dev';
 
 const MIN_CHECKING_DURATION = 800; // ms
+
+/**
+ * The channel a server installed from npm follows, the way its update check
+ * reads it: the stored pick, else Canary for a Canary build installed from
+ * the terminal. Null when the settings could not be read.
+ */
+const loadServerUpdateChannel = async (serverVersion: string): Promise<UpdateChannel | null> => {
+  const settings = await loadDesktopSettings();
+  if (!settings) return null;
+  return settings.serverUpdateChannel ?? (parseCanaryVersion(serverVersion) ? 'canary' : 'stable');
+};
 
 type ConnectedServerUpdate = {
   info: UpdateInfo | null;
@@ -216,9 +231,41 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
       runtimeType: updateStore.runtimeType,
     };
 
-  const currentVersion = openChamberVersion || update.info?.currentVersion || 'unknown';
-  const appVersion = desktopAppVersion || updateStore.info?.currentVersion || 'unknown';
+  // A Canary build reads as the release it leads to and the day it was made:
+  // "2.5.4 Canary · 30 Oct" for 2.5.4-canary.20261030.123.
+  const describeVersion = (version: string) => {
+    const canary = parseCanaryVersion(version);
+    return canary
+      ? t('settings.openchamber.about.canaryVersion', {
+        version: canary.release,
+        date: formatCanaryBuildDate(canary.builtOn, getCurrentIntlLocale()),
+      })
+      : version;
+  };
+  const currentVersion = describeVersion(openChamberVersion || update.info?.currentVersion || 'unknown');
+  const appVersion = describeVersion(desktopAppVersion || updateStore.info?.currentVersion || 'unknown');
   const remoteHostVersion = openChamberVersion || remoteHostUpdate?.info?.currentVersion || 'unknown';
+
+  // The update channel of the desktop app, or of the server installed from npm
+  // that this browser page belongs to (a browser on a desktop app's server
+  // gets the app's updates, which this page does not switch). Picking Canary
+  // checks at once, so the update to the Canary build shows up where every
+  // update does.
+  const isDesktopApp = updateStore.runtimeType === 'desktop';
+  const [isWebServer, setIsWebServer] = React.useState(false);
+  const isNpmServer = updateStore.runtimeType === 'web' && isWebServer && openChamberVersion !== null;
+  const [updateChannel, setUpdateChannel] = React.useState<UpdateChannel | null>(null);
+  React.useEffect(() => {
+    if (!isDesktopApp && !isNpmServer) return;
+    let cancelled = false;
+    const load = isDesktopApp ? getDesktopUpdateChannel() : loadServerUpdateChannel(openChamberVersion ?? '');
+    void load.then((channel) => {
+      if (!cancelled) setUpdateChannel(channel);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDesktopApp, isNpmServer, openChamberVersion]);
   const openCode = useOpenCodeUpgrade(t('opencodeUpdate.toast.failed.description'));
   const openCodeVersion = openCode.status?.currentVersion ?? null;
   const openCodeUpdateVersion = openCode.phase.kind === 'installed' ? null : openCode.status?.availableVersion ?? null;
@@ -228,13 +275,13 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
   // the server the phone is connected to (or the desktop app serving it),
   // never the phone app itself, which updates through its store.
   const serverUpdateLabel = (info: UpdateInfo | null) => {
-    const version = info?.version || '';
+    const version = describeVersion(info?.version || '');
     return info?.packageManager === 'electron'
       ? t('settings.openchamber.about.actions.updateDesktopToVersion', { version })
       : t('settings.openchamber.about.actions.updateServerToVersion', { version });
   };
   const openChamberUpdateLabel = (() => {
-    const version = update.info?.version || '';
+    const version = describeVersion(update.info?.version || '');
     if (isNativeApp) return serverUpdateLabel(update.info);
     return isDesktopRemote
       ? t('settings.openchamber.about.actions.updateAppToVersion', { version })
@@ -243,6 +290,39 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
   const isInstallBlocked = (info: UpdateInfo | null) => Boolean(info?.installBlocked);
   const installBlocked = update.available && isInstallBlocked(update.info);
   const remoteHostInstallBlocked = Boolean(remoteHostUpdate?.available && isInstallBlocked(remoteHostUpdate.info));
+
+  const chooseUpdateChannel = async (channel: UpdateChannel) => {
+    if (channel === updateChannel) return;
+    const previous = updateChannel;
+    setUpdateChannel(channel);
+    const stored = isDesktopApp
+      ? await setDesktopUpdateChannel(channel) === channel
+      : (await updateDesktopSettings({ serverUpdateChannel: channel })).ok;
+    if (!stored) {
+      setUpdateChannel(previous);
+      toast.error(t('settings.openchamber.about.toast.updateChannelNotSaved'));
+      return;
+    }
+    void update.checkForUpdates();
+  };
+  // The chosen Canary wears the colours of its icon: the violet tile and the yellow bird.
+  const CANARY_COLOURS = 'bg-[var(--brand-canary)] text-[var(--brand-canary-foreground)] hover:bg-[var(--brand-canary)] hover:text-[var(--brand-canary-foreground)]';
+  const updateChannelControl = updateChannel && (
+    <SettingsChipGroup
+      value={updateChannel}
+      onChange={(channel) => void chooseUpdateChannel(channel)}
+      aria-label={t('settings.openchamber.about.field.updateChannel')}
+      className="flex-nowrap"
+      options={[
+        { value: 'stable', label: t('settings.openchamber.about.option.updateChannel.stable') },
+        {
+          value: 'canary',
+          label: t('settings.openchamber.about.option.updateChannel.canary'),
+          selectedClassName: CANARY_COLOURS,
+        },
+      ]}
+    />
+  );
 
   const checkAll = () => {
     void update.checkForUpdates();
@@ -279,7 +359,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
     if (info?.installBlocked === 'manual-install') {
       return (
         <p className="typography-meta text-muted-foreground">
-          {t('settings.openchamber.about.manualInstallUpdate', { version: info.version || '' })}
+          {t('settings.openchamber.about.manualInstallUpdate', { version: describeVersion(info.version || '') })}
         </p>
       );
     }
@@ -287,7 +367,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
     return (
       <div className="space-y-2">
         <p className="typography-meta text-muted-foreground">
-          {t('settings.openchamber.about.serviceManagerUpdate', { version: info?.version || '' })}
+          {t('settings.openchamber.about.serviceManagerUpdate', { version: describeVersion(info?.version || '') })}
         </p>
         <div className="flex items-center gap-2 oc-tile-inset rounded-md p-1 ps-3">
           <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-sm text-foreground">{command}</code>
@@ -394,11 +474,14 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
           headers: { Accept: 'application/json' },
         });
         if (!response.ok) return;
-        const data = await response.json().catch(() => null) as { openchamberVersion?: unknown } | null;
+        const data = await response.json().catch(() => null) as { openchamberVersion?: unknown; runtime?: unknown } | null;
         const version = typeof data?.openchamberVersion === 'string' && data.openchamberVersion.trim().length > 0
           ? data.openchamberVersion.trim()
           : null;
-        if (!cancelled) setOpenChamberVersion(version);
+        if (!cancelled) {
+          setOpenChamberVersion(version);
+          setIsWebServer(data?.runtime === 'web');
+        }
       } catch {
         if (!cancelled) setOpenChamberVersion(null);
       }
@@ -469,6 +552,8 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
           </div>
           <InstanceServiceUrls />
         </div>
+
+        {updateChannelControl && <div className="flex justify-center">{updateChannelControl}</div>}
 
         <div className="flex justify-center">
           {!update.available && !update.error && (
@@ -642,6 +727,14 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
 
       <SettingsSection contentClassName="space-y-4">
         <div>
+          {updateChannelControl && (
+            <SettingsFieldRow
+              label={t('settings.openchamber.about.field.updateChannel')}
+              info={t('settings.openchamber.about.field.updateChannelHint')}
+            >
+              {updateChannelControl}
+            </SettingsFieldRow>
+          )}
           {isDesktopRemote ? (
             <>
               <SettingsFieldRow label={t('settings.openchamber.about.field.appVersion')} description={versionValue(appVersion)}>
