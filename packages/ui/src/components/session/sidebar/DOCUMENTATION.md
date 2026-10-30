@@ -587,13 +587,11 @@ is removing keeps its place in the block until git is done
 never counts. `list/SessionProjectCollection.tsx` orders the works by the first of
 their sessions in the shared lifecycle order (`orderInWorkWorks` in
 `works/sidebarWorks.ts`) and passes `workEntries` to the row model. In work
-spans projects: a session in work whose directory no added project holds (an
-agent moved it into another repository, say) is listed under the work of the
-top-level session it nests under (`buildSessionRootIndex`, over the
-collection's root sessions and `childrenMap`), with no project, as
-`lib/sidebarSessionRows.ts` describes for the tray. While the zone is shown it
-is the only place such a session appears: the list by time does not add these,
-so Done takes one out of the sidebar. A work In work lists leaves its project
+spans registered projects. A session whose destination has no registered project
+stays out of In work, Pinned and search until `sync/session-admission.ts` checks
+its OpenCode configuration and registers its folder. Pins and work state cannot
+admit a destination, including in the tray. The raw global cache retains these
+sessions for cleanup and lineage. A work In work lists leaves its project
 or folder (`movedSessionIds`, `movedGroupKeys`) unless "Also show in work
 under projects" is on; search lists every zone session once, in its zone,
 either way. VS Code always keeps them in place. Chats are never in work and

@@ -330,6 +330,56 @@ reports the authoritative state.
 
 ## Session list rules
 
+### Session admission
+
+`session-admission.ts` owns admission of host sessions whose folder is outside
+the registered project and worktree topology. It observes active directory
+membership, archived records and completed global loads, rather than streamed session updates. The raw global
+cache stays complete for cleanup and lineage. Managed chats and isolated spaces
+retain their own directory ownership.
+
+Discovery uses the active directory index and deduplicates archived folders. Its
+trust reads and registration writes share the background network budget; waiting
+for a trust answer holds no network slot. Queued requests recheck their runtime
+before sending, and managed-chat roots must resolve before importing folders.
+
+An unknown folder first goes through the existing OpenCode fingerprint trust
+check. Empty configurations and previously trusted fingerprints register without
+a prompt. Other configurations show `OpenCodeTrustDialog` immediately. Declining
+keeps the folder unregistered and suppresses repeated background prompts for that
+fingerprint. A deliberate open can ask again. Trust saved elsewhere in this UI
+rechecks pending admission; completed global loads discover answers from other
+clients. Failed checks and registrations preserve the raw session and retry at
+1, 2 and 4 seconds. Declines do not retry. Disposal, a vanished destination or a
+runtime switch invalidates retries; after the bounded attempts, a later completed
+global load can try again. A failed trust read stays distinct from a user's answer
+even when a refused SDK request shares the same pending check.
+
+`setCurrentSession` gates unknown destinations before fetching messages,
+publishing selection or changing directories. Unknown links resolve session
+detail without starting an OpenCode location. A newer navigation or runtime
+switch invalidates the continuation. Moves of the viewed session clear selection
+before admitting their new destination, including moves seen only in the global
+stream. Runtime-memory restoration uses the same gate. Sidebar projections, the switcher and
+tray never use pins or work state as admission.
+Pinned chat columns also gate their rendered session identity and directory;
+following a move cannot mount a denied destination through a side composer.
+Archive rows filter admission without changing the raw archived cache.
+
+Web, Electron, hosted mobile and Capacitor register through the active server's
+`POST /api/projects/session-directory`. The server rechecks the fingerprint at
+the settings write boundary and serializes an append without changing navigation.
+VS Code uses its existing `addWorkspaceFolder` bridge; the extension host checks
+trust again before changing the workspace. Workspace list synchronization leaves
+the active directory alone when the active project has not changed.
+
+### Why admission leaves the global cache complete
+
+Hidden sessions still exist in OpenCode. Removing them from the raw cache would
+turn an admission decision into a deletion signal for authoritative cleanup.
+Admission filters navigation projections and selection while the runtime trust
+guard continues to authorize every location-starting request.
+
 Opening a new draft applies its configured model identifier immediately, then
 reconciles after project config activation. That continuation belongs to the
 same runtime and draft object and yields to a manual choice made while loading.
@@ -456,8 +506,7 @@ full-list timers. The tray renders only the sessions the sidebar can place — a
 configured project or worktree, a managed chat, or an isolated space — because
 its twenty rows are the recent-work shortcut, and a session from an
 unconfigured or deleted directory has no row in the sidebar's project or chat
-lists (Pinned and In work can still list one). Pending approvals from a hidden
-session still appear. Surface-specific refreshes, such
+lists. Pending approvals follow the same admission rule. Surface-specific refreshes, such
 as opening the mobile session sheet or returning from suspension, may still
 request freshness at their explicit lifecycle edge; the store coalesces an
 overlapping in-flight load.

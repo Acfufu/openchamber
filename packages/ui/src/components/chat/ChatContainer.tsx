@@ -850,8 +850,8 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     // new session id. A pinned column does not subscribe to the selection.
     const globalSessionId = useSessionUIStore((s) => (pinned ? null : s.currentSessionId));
     const globalSessionDirectory = useSessionUIStore((s) => (pinned ? null : s.currentSessionDirectory));
-    const liveSessionId = pinned ? pinnedSelection?.sessionId ?? null : globalSessionId;
     const pinnedSessionDirectory = usePinnedSessionDirectory(pinned ? pinnedSelection : null);
+    const liveSessionId = pinned ? (pinnedSessionDirectory ? pinnedSelection?.sessionId ?? null : null) : globalSessionId;
     const liveSessionDirectory = pinned ? pinnedSessionDirectory : globalSessionDirectory;
     const materializedDraftSessionId = useSessionUIStore((s) => (pinned ? null : s.materializedDraftSessionId));
     const liveSelection = React.useMemo(

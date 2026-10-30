@@ -17,6 +17,20 @@ Do not put high-frequency local component state here just because it is convenie
 
 ## Architecture
 
+Session destination registration is owned by `sync/session-admission.ts`.
+`useProjectsStore.adoptSessionProject` appends only a server-confirmed project,
+or adds a VS Code workspace folder after fingerprint trust has succeeded. It
+never activates a project or replaces the registry from a partial response.
+The server serializes this append with settings saves. A failed request leaves
+the list and current navigation unchanged. VS Code workspace-list updates with
+an unchanged active project do not reset the selected directory.
+
+A confirmed append also joins the current projects array to the existing
+debounced settings mutation queue. This replaces an older pending manual-add
+snapshot and records newer intent before an in-flight settings response can
+reconcile. The resulting write preserves both manual and automatic additions
+without changing the active-project pointer.
+
 There are multiple store categories in this directory.
 
 ### Catalog refresh

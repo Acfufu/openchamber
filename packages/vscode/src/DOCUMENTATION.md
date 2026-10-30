@@ -8,6 +8,13 @@ Keep `bridge.ts` as a thin orchestration layer that delegates message handling t
 
 ## Runtime modules
 
+Session admission uses the shared UI's OpenCode fingerprint trust dialog before
+adding an unknown destination through `api:workspace:addFolder`. The extension
+host rechecks its current fingerprint before changing workspace folders, so a
+changed configuration cannot be added on a stale answer. Empty configurations
+and trusted fingerprints add without a prompt. Declining leaves the workspace
+unchanged; raw global session records remain available for cleanup.
+
 - `bridge.ts`
   - Entry orchestration layer for bridge messages.
   - Delegates to specialized runtimes in order and handles only unmatched fallthrough cases.
