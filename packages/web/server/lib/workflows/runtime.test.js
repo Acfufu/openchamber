@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkflowAgentStopped } from './agent-session.js';
 import { createWorkflowRuntime } from './runtime.js';
@@ -10,6 +10,7 @@ import { createWorkflowRunStore } from './store.js';
 const directories = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
 });
 
@@ -454,6 +455,36 @@ describe('workflow runtime', () => {
     expect(await act('workflow.run', { name: 'test-flow' })).toMatchObject({ state: 'awaiting-approval', name: 'test-flow' });
   });
 
+  it.each([
+    ['reused PID', 'old-instance', 'new-instance', true, 'stopped'],
+    ['live owner', 'same-instance', 'same-instance', true, 'running'],
+    ['dead owner', 'old-instance', null, false, 'stopped'],
+    ['legacy live owner', undefined, 'new-instance', true, 'running'],
+    ['legacy dead owner', undefined, null, false, 'stopped'],
+    ['unreadable live owner', 'old-instance', null, true, 'running'],
+  ])('restores a stored run with a %s', async (_, storedStart, liveStart, alive, state) => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const agents = fakeAgentSessions();
+    const first = await setup(agents);
+    const { runId } = await first.act('workflow.run', { script: script('return 1') });
+    const run = await first.store.get(runId);
+    Object.assign(run, { state: 'running', ownerPid: 123, ownerStartedAt: storedStart });
+    await first.store.save(run);
+    const store = createWorkflowRunStore({ fsPromises: fs, path, dataDir: first.dataDir });
+    const runtime = createWorkflowRuntime({
+      store, agentSessions: agents, postSynthetic: async () => {}, fsPromises: fs, path,
+      pid: 456, isProcessAlive: () => alive, readProcessStart: async () => liveStart,
+    });
+    await runtime.start();
+    expect(await store.get(runId)).toMatchObject({ state });
+    if (state === 'running') {
+      expect(info).toHaveBeenCalledWith(expect.stringContaining(`Skipping run ${runId}`));
+      expect(await fs.readFile(path.join(first.dataDir, 'workflow-runs', `${runId}.json`), 'utf8')).toBe(JSON.stringify(run));
+    }
+    if (storedStart && alive && !liveStart) expect(warn).toHaveBeenCalled();
+  });
+
   it('leaves a run alone when the server running it is still alive', async () => {
     const agents = fakeAgentSessions({ hang: ['slow'] });
     const first = await setup(agents);
@@ -464,7 +495,8 @@ describe('workflow runtime', () => {
 
     // A second OpenChamber over the same data directory, while the first still runs it.
     const store = createWorkflowRunStore({ fsPromises: fs, path, dataDir: first.dataDir });
-    const second = createWorkflowRuntime({ store, agentSessions: agents, postSynthetic: async () => {}, fsPromises: fs, path, sleep: async () => {}, pid: process.pid + 1, isProcessAlive: () => true });
+    expect((await store.get(runId)).ownerStartedAt).toEqual(expect.stringMatching(/^(linux|darwin|win32):.+/));
+    const second = createWorkflowRuntime({ store, agentSessions: agents, postSynthetic: async () => {}, fsPromises: fs, path, sleep: async () => {}, pid: process.pid + 1 });
     await second.start();
     expect(await second.executeAction('workflow.status', { runId }, { sessionId: 'ses_parent', directory: first.dataDir })).toMatchObject({ state: 'running' });
 

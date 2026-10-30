@@ -130,9 +130,11 @@ session proposed. `workflow.save` writes a script to
 - A run that was `running` when the server stopped is marked `stopped` with
   "OpenChamber restarted…" on the next start; its report goes out once the
   OpenCode event hub connects (`deliverPending`). The run records the server
-  process that runs it (`ownerPid`); a start in another process leaves the run
-  alone while that process is alive, so a second OpenChamber over the same
-  data directory (a dev server next to the desktop app) cannot stop it.
+  process that runs it (`ownerPid`, optional `ownerStartedAt`); a start in
+  another process leaves the run alone while its PID is alive and its process
+  start identity matches. A reused PID with a different identity is recovered
+  as stopped. Every skipped run is logged in the server console, without
+  writing to the other owner's run file.
 - A run is in the runtime's `active` map from the moment it is `running`
   until its end is saved; a stop that arrives before the worker exists is
   honoured once it does. The report goes out after the run left `active`, so a
@@ -149,6 +151,22 @@ session proposed. `workflow.save` writes a script to
   has not gone out.
 
 ## Decisions
+
+### Why recovery compares process start identity
+
+A PID can be reused after a crash or reboot. `ownerStartedAt` identifies the
+process instance using Linux boot ID and process start ticks, macOS `ps`
+start time in UTC with a fixed locale, or Windows UTC process start ticks
+through PowerShell. The macOS timestamp has one-second resolution. Probes
+have a 5-second command timeout and do not require a server heartbeat.
+
+The store remains version 1 and accepts records with only `ownerPid`, or no
+owner fields. Legacy PID-only records keep their liveness check. When process
+metadata is unavailable, recovery preserves a live PID's run and logs the
+unverified identity; a dead PID is still recovered. This conservative fallback
+can leave a legacy or unverifiable reused PID marked running, but avoids
+stopping another server's live work. A record owned by the current PID on
+startup is recovered because this runtime has no worker for it.
 
 ### Why the server runs the script and not OpenCode's Code Mode
 

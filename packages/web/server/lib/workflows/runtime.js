@@ -6,6 +6,7 @@ import { WORKFLOW_ANSWER_TOOL } from '../openchamber-control/actions.js';
 import { OpenChamberControlError } from '../openchamber-control/error.js';
 import { WorkflowAgentStopped } from './agent-session.js';
 import { findSchemaContradiction, parseJsonAnswer, validateJsonSchema } from './json-schema.js';
+import { readWorkflowProcessStart } from './process-owner.js';
 import { runWorkflowSandbox } from './sandbox.js';
 import { WorkflowScriptError, parseWorkflowScript, plannedPhases } from './script.js';
 import { isWorkflowRunId } from './store.js';
@@ -190,6 +191,7 @@ export const createWorkflowRuntime = ({
   maxAgentsPerRun = MAX_AGENTS_PER_RUN,
   pid = process.pid,
   isProcessAlive = isPidAlive,
+  readProcessStart = readWorkflowProcessStart,
 }) => {
   // Run id -> { controller, terminate, sessions: Set<sessionId> } while it runs.
   const active = new Map();
@@ -545,6 +547,12 @@ export const createWorkflowRuntime = ({
 
     let ending;
     try {
+      // Resumes replace the previous owner's identity, including when the OS
+      // cannot supply one for this attempt.
+      delete run.ownerStartedAt;
+      const startedAt = await readProcessStart(pid);
+      if (startedAt) run.ownerStartedAt = startedAt;
+      else console.warn(`[workflows] Cannot read process start time for owner PID ${pid}; run ${run.id} uses PID-only recovery`);
       await persist(run, { immediate: true });
       execution.sandbox = runWorkflowSandbox({
         body,
@@ -852,7 +860,18 @@ export const createWorkflowRuntime = ({
     restored = (async () => {
       for (const run of await store.list()) {
         if (run.state !== 'running') continue;
-        if (run.ownerPid && run.ownerPid !== pid && isProcessAlive(run.ownerPid)) continue;
+        if (run.ownerPid && run.ownerPid !== pid && isProcessAlive(run.ownerPid)) {
+          const startedAt = run.ownerStartedAt ? await readProcessStart(run.ownerPid) : null;
+          if (run.ownerStartedAt && !startedAt) {
+            console.warn(`[workflows] Cannot verify process start time for owner PID ${run.ownerPid} of run ${run.id}; preserving the live owner's run`);
+          }
+          // Legacy records and inaccessible process metadata retain PID-only
+          // protection so another server's live work is never stopped blindly.
+          if (!run.ownerStartedAt || !startedAt || startedAt === run.ownerStartedAt) {
+            console.info(`[workflows] Skipping run ${run.id}: owner PID ${run.ownerPid} is alive${!run.ownerStartedAt || !startedAt ? ' according to a PID-only check' : ' with matching process start time'}`);
+            continue;
+          }
+        }
         for (const agent of run.agents) {
           if (agent.state === 'running' || agent.state === 'queued') Object.assign(agent, { state: 'stopped', error: 'OpenChamber restarted' });
         }
