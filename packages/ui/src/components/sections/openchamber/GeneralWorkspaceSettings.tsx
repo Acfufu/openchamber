@@ -250,7 +250,11 @@ const TerminalSection: React.FC = () => {
       >
         <Select value={terminalShell} onValueChange={(value) => { if (isTerminalShell(value)) setTerminalShell(value); }}>
           <SelectTrigger aria-label={t('settings.openchamber.visual.field.terminalShellAria')} className={SETTINGS_SELECT_ROW_TRIGGER_CLASS}>
-            <SelectValue />
+            <SelectValue>
+              {terminalShell === 'auto'
+                ? t('settings.openchamber.visual.option.terminalShell.auto')
+                : terminalShellOptions.find((shell) => shell.id === terminalShell)?.name ?? terminalShell}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="auto">{t('settings.openchamber.visual.option.terminalShell.auto')}</SelectItem>
