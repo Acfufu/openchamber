@@ -676,9 +676,24 @@ command can leave the queue untouched and delivery can take only part of it.
   no instructions guess what the user wants from it (the PR review
   instructions were removed); a queued message captured before that still
   delivers its `instructions` part first. A flow outside the composer hands
-  references to the next draft through `pendingComposerReferences.ts`
-  (New Worktree does), which `ChatInput` consumes into its chips; a draft's
-  first send with a tracker item attached posts that tracker's session-started
+  references to a named session or draft through `pendingComposerReferences.ts`
+  (New Worktree and the source board do); `ChatInput` consumes only the entries
+  addressed to the draft it shows, and keeps the chips per draft in
+  `linkedReferenceDrafts.ts` keyed by `chatDraftIdentity`. One `ChatInput` stays
+  mounted across a session switch, so component-level chips followed the next
+  session and were linked there (#5706); a draft's chips must outlive the
+  composer showing another draft. A pinned column and an expanded `/btw` panel
+  take no handoff: neither is the main draft, and a chip written there would be
+   stranded. The entry waits for the main composer. Picker confirmation captures
+   its draft identity before loading context. New Worktree likewise captures its
+   opened draft before the read; an unnamed draft never takes a handoff.
+   Draft handoffs use the runtime and stable `workDraftId`, so reopening a saved
+   draft can receive context that finished loading after navigation away.
+   A failed first send that created its session moves the draft's chips into
+   that session for retry, merging chips attached while the request ran.
+   Guest attaches are rejected in expanded `/btw`, and pending guest items wait
+   for the normal composer before being consumed. A draft's first send with a
+  tracker item attached posts that tracker's session-started
   status (`lib/trackers/sessionStatus.ts`), for a tracker whose descriptor
   offers `sessionComments`. Tracker chips are `tracker-item` references keyed
   `${provider}:${IDENTIFIER}`; a queued or restored message from before
@@ -756,7 +771,7 @@ command can leave the queue untouched and delivery can take only part of it.
   (`ChatInput` passes the id). A session moved to another directory (the
   sidebar's move actions, an agent's `session_move`) keeps its session id
   while its directory changes. Either switch moves the draft: its attached
-  files and non-empty text go to the new directory, the old directory's text
+   files, linked reference chips and non-empty text go to the new directory, the old directory's text
   is cleared, and confirmed mentions are dropped because they name the old
   directory's files. A draft already saved for the new directory stays above
   the moved text, and the moved text is not selected as a restored draft.
