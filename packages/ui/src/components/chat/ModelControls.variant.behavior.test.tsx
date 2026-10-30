@@ -291,6 +291,7 @@ mock.module('@/stores/useConfigStore', () => ({
   useConfigStore,
   isStaleAutoSelection: () => false,
   selectCatalogLoadedForDirectory: (state: ConfigState, resource: 'models' | 'agents') => resource === 'models' ? state.providersLoaded : state.agentsLoaded,
+  selectConfigAgentsForDirectory: (state: ConfigState) => state.agents,
   // The active catalog first, then what other directories' catalogs know.
   selectKnownCatalogModel: (state: ConfigState, providerId: string, modelId: string) =>
     state.providers.find((provider) => provider.id === providerId)?.models.find((entry) => entry.id === modelId)

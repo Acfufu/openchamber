@@ -2769,6 +2769,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.modelControls.metadataUnavailable": "Метадані моделі недоступні.",
   "chat.modelControls.addNewProvider": "Додати нового провайдера",
   "chat.modelControls.noAgentSelected": "Агент не вибрано.",
+  "chat.modelControls.agentUnavailable": "Агента \"{agent}\" немає в теці цієї сесії. Виберіть іншого агента.",
   "chat.modelControls.searchModels": "Пошук моделей",
   "chat.modelControls.modelListAria": "Моделі",
   "chat.modelControls.searchAgents": "Пошук агентів",

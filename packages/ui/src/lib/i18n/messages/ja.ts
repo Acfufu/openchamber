@@ -2811,6 +2811,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.metadataUnavailable': 'モデルのメタデータは利用できません。',
   'chat.modelControls.addNewProvider': '新しいプロバイダーを追加',
   'chat.modelControls.noAgentSelected': 'エージェントが選択されていません。',
+  'chat.modelControls.agentUnavailable': 'エージェント "{agent}" はこのセッションのフォルダーでは使用できません。別のエージェントを選んでください。',
   'chat.modelControls.searchModels': 'モデルを検索',
   'chat.modelControls.modelListAria': 'モデル',
   'chat.modelControls.searchAgents': 'エージェントを検索',

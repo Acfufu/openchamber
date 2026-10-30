@@ -2,6 +2,7 @@ import { OPENCODE_TOOLS } from '@/lib/opencode/tools';
 import React from 'react';
 import { useChatColumnActions } from './chatColumnSession';
 import { MobileModelButton } from './MobileModelButton';
+import { useAgentMissingFromCatalog } from './agentAvailability';
 import type { EditPermissionMode } from '@/stores/types/sessionTypes';
 import type { ModelMetadata } from '@/types';
 import type { Agent, Message, PermissionRuleset, Session } from '@/lib/opencode/model';
@@ -498,6 +499,11 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     // Display only, like `knownCurrentModel`: while this directory's agents
     // are still arriving, show the chosen (or default) agent as another
     // catalog knows it instead of "Select agent".
+    // The send would stop with an error, so the picker says so beforehand.
+    const agentUnavailable = useAgentMissingFromCatalog(uiAgentName);
+    const agentUnavailableText = agentUnavailable && uiAgentName
+        ? t('chat.modelControls.agentUnavailable', { agent: uiAgentName })
+        : undefined;
     const knownAgent = useConfigStore((state) => (
         state.agents.length > 0 ? undefined : selectKnownAgent(state, uiAgentName || settingsDefaultAgent || 'build')
     ));
@@ -2516,6 +2522,13 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
     };
 
     const renderAgentTooltipContent = () => {
+        if (agentUnavailableText) {
+            return (
+                <TooltipContent align="start" sideOffset={8} className="max-w-[280px]">
+                    <div className="min-w-[200px] typography-meta text-foreground"><TooltipLabelWithShortcut label={agentUnavailableText} shortcut={agentShortcut} /></div>
+                </TooltipContent>
+            );
+        }
         if (!currentAgent) {
             return (
                 <TooltipContent align="start" sideOffset={8} className="max-w-[320px]">
@@ -2764,6 +2777,20 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
         );
     };
 
+    // A missing agent swaps its own mark for the warning one, the same size.
+    const renderAgentMark = () => agentUnavailable ? (
+        <Icon name="error-warning" className={cn(controlIconSize, 'flex-shrink-0 text-[var(--status-warning)]')} />
+    ) : (
+        <Icon name="ai-agent"
+            className={cn(
+                controlIconSize,
+                'flex-shrink-0',
+                uiAgentName ? '' : 'text-muted-foreground'
+            )}
+            style={uiAgentName ? { color: getAgentColor(uiAgentName).color } : undefined}
+        />
+    );
+
     const renderAgentSelector = () => {
         if (!isCompact) {
             const isFavoriteAgent = (agent: Agent) => favoriteAgents.includes(agent.name);
@@ -2819,7 +2846,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                         <DropdownMenu open={canSelectAgent && isAgentSelectorOpen} onOpenChange={canSelectAgent ? setIsAgentSelectorOpen : undefined}>
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild nativeButton={false}>
-                                    <div ref={agentTriggerRef} className={cn(
+                                    <div ref={agentTriggerRef} aria-label={agentUnavailableText} className={cn(
                                         'flex items-center gap-1.5 transition-colors cursor-pointer select-none hover:bg-transparent hover:opacity-70 min-w-0 overflow-hidden',
                                         buttonHeight
                                     )}>
@@ -2843,14 +2870,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                             </>
                                         ) : (
                                             <>
-                                                <Icon name="ai-agent"
-                                                    className={cn(
-                                                        controlIconSize,
-                                                        'flex-shrink-0',
-                                                        uiAgentName ? '' : 'text-muted-foreground'
-                                                    )}
-                                                    style={uiAgentName ? { color: getAgentColor(uiAgentName).color } : undefined}
-                                                />
+                                                {renderAgentMark()}
                                                 <span
                                                     className={cn(
                                                         'model-controls__agent-label',
@@ -2930,6 +2950,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                 onTouchEnd={canSelectAgent ? handleLongPressEnd : undefined}
                 onTouchCancel={canSelectAgent ? handleLongPressEnd : undefined}
                 disabled={!canSelectAgent}
+                aria-label={agentUnavailableText}
                 className={cn(
                     'model-controls__agent-trigger flex items-center gap-1.5 transition-colors min-w-0 focus:outline-none',
                     buttonHeight,
@@ -2956,14 +2977,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                     </>
                 ) : (
                     <>
-                        <Icon name="ai-agent"
-                            className={cn(
-                                controlIconSize,
-                                'flex-shrink-0',
-                                uiAgentName ? '' : 'text-muted-foreground'
-                            )}
-                            style={uiAgentName ? { color: getAgentColor(uiAgentName).color } : undefined}
-                        />
+                        {renderAgentMark()}
                         <span
                             className={cn(
                                 'model-controls__agent-label',

@@ -1558,6 +1558,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.modelControls.modeValue.subagent': 'Podagent',
   'chat.modelControls.model': 'Model',
   'chat.modelControls.noAgentSelected': 'Nie wybrano agenta.',
+  'chat.modelControls.agentUnavailable': 'Agent "{agent}" nie jest dostępny w folderze tej sesji. Wybierz innego agenta.',
   'chat.modelControls.noModelsFound': 'Nie znaleziono modeli',
   'chat.modelControls.output': 'Wyjście',
   'chat.modelControls.permissionLabel.allow': 'Zezwól',

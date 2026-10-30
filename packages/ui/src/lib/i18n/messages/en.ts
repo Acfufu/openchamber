@@ -2812,6 +2812,7 @@ export const dict = {
   'chat.modelControls.metadataUnavailable': 'Model metadata unavailable.',
   'chat.modelControls.addNewProvider': 'Add new provider',
   'chat.modelControls.noAgentSelected': 'No agent selected.',
+  'chat.modelControls.agentUnavailable': 'Agent "{agent}" isn\'t available in this session\'s folder. Pick another agent.',
   'chat.modelControls.searchModels': 'Search models',
   'chat.modelControls.modelListAria': 'Models',
   'chat.modelControls.searchAgents': 'Search agents',

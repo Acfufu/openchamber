@@ -2638,6 +2638,7 @@ export const dict = {
   'chat.modelControls.metadataUnavailable': 'Model meta verileri kullanılamıyor.',
   'chat.modelControls.addNewProvider': 'Yeni provider ekle',
   'chat.modelControls.noAgentSelected': 'Agent seçilmedi.',
+  'chat.modelControls.agentUnavailable': '"{agent}" agent\'ı bu session\'ın klasöründe yok. Başka bir agent seç.',
   'chat.modelControls.searchModels': 'Modelleri ara',
   'chat.modelControls.modelListAria': 'Modeller',
   'chat.modelControls.searchAgents': 'Agent\'leri ara',

@@ -32,6 +32,9 @@ OpenCode records any agent name and fails only the next turn, so the send has
 to check first. Skipping the agent write and sending on the session's current
 agent was rejected: the composer would show one agent while another answered.
 The send stops and the composer shows the error, so the user picks an agent.
+Before that, the agent picker marks such an agent with a warning
+(`components/chat/agentAvailability.ts`), read from the loaded catalog of the
+composer's own folder; a catalog still loading marks nothing.
 
 ### Why ancestor reads belong to tool completion
 

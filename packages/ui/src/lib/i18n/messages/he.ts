@@ -2741,6 +2741,7 @@ export const dict = {
   'chat.modelControls.metadataUnavailable': 'המטא-נתונים של המודל לא זמינים.',
   'chat.modelControls.addNewProvider': 'הוסף ספק חדש',
   'chat.modelControls.noAgentSelected': 'לא נבחר סוכן.',
+  'chat.modelControls.agentUnavailable': 'הסוכן "{agent}" אינו זמין בתיקייה של הפעלה זו. יש לבחור סוכן אחר.',
   'chat.modelControls.searchModels': 'חיפוש מודלים',
   'chat.modelControls.modelListAria': 'מודלים',
   'chat.modelControls.searchAgents': 'חיפוש סוכנים',
