@@ -39,6 +39,8 @@ const { useUIStore } = await import('@/stores/useUIStore');
 const { useProjectsStore } = await import('@/stores/useProjectsStore');
 const { useSessionUIStore } = await import('@/sync/session-ui-store');
 const { useGlobalSessionsStore } = await import('@/stores/useGlobalSessionsStore');
+const { ensureHomeDirectoryResolved } = await import('@/stores/useDirectoryStore');
+const { updateDesktopSettings } = await import('@/lib/persistence');
 const originalUI = useUIStore.getState();
 const originalProjects = useProjectsStore.getState();
 const originalSessions = useGlobalSessionsStore.getState();
@@ -84,6 +86,11 @@ afterAll(async () => {
 
 test('recent sessions and name search exclude declined folders and react to admission', async () => {
   await act(async () => root.render(<RuntimeAPIProvider apis={apis}><I18nProvider><SyncProvider sdk={sdk} directory="/allowed"><CommandPalette /></SyncProvider></I18nProvider></RuntimeAPIProvider>));
+  await act(async () => {
+    // Settle the startup echo before simulating a new server-confirmed project.
+    await ensureHomeDirectoryResolved();
+    await updateDesktopSettings({});
+  });
   expect(document.body.textContent).toContain('Allowed conversation');
   expect(document.body.textContent).not.toContain('Declined conversation');
   const input = browser.document.querySelector('input');

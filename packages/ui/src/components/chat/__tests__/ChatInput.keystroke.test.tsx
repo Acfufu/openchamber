@@ -156,7 +156,8 @@ const { ThemeSystemProvider } = await import('@/contexts/ThemeSystemContext');
 const { RuntimeAPIContext } = await import('@/contexts/runtimeAPIContext');
 const { ChatInput } = await import('../ChatInput');
 const { SyncProvider } = await import('@/sync/sync-context');
-const { useDirectoryStore } = await import('@/stores/useDirectoryStore');
+const { useDirectoryStore, ensureHomeDirectoryResolved } = await import('@/stores/useDirectoryStore');
+const { updateDesktopSettings } = await import('@/lib/persistence');
 const { getSyncChildStores } = await import('@/sync/sync-refs');
 const { OpenCode } = await import('@opencode/client');
 
@@ -246,7 +247,12 @@ const countComposerRenders = async (
         </RuntimeAPIContext.Provider>,
       );
     });
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    await act(async () => {
+      // Home discovery queues a settings echo that can otherwise land during typing.
+      await ensureHomeDirectoryResolved();
+      await updateDesktopSettings({});
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
 
     const content = container.querySelector<HTMLElement>('.cm-content');
     const view = content ? EditorView.findFromDOM(content) : null;
