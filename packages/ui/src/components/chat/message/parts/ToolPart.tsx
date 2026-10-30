@@ -1112,7 +1112,6 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
         () => getDiffPatchEntries(metadata, diffContent ?? undefined, (path) => getRelativePath(path, currentDirectory)),
         [currentDirectory, diffContent, metadata]
     );
-    const hasVisualDiffEntry = diffEntries.some((entry) => entry.renderMode === 'diff');
     // `execute` renders its script and its call list itself, below.
     const hideToolInputPreview = part.tool === 'openchamber'
         || part.tool === 'openchamber_schedule'
@@ -1366,6 +1365,12 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
                                 <div className="min-w-0 flex-1 typography-meta font-medium text-muted-foreground">
                                     {renderPathLikeGitChanges(entry.title)}
                                 </div>
+                                {entry.renderMode === 'diff' ? (
+                                    <DiffViewToggle
+                                        mode={diffViewMode}
+                                        onModeChange={setDiffViewMode}
+                                    />
+                                ) : null}
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -1535,14 +1540,6 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
 
                     {shouldRenderResult && (
                         <div>
-                            {isFileChangeTool(part.tool) && hasVisualDiffEntry ? (
-                                <div className="mb-1 flex items-center justify-end gap-2">
-                                    <DiffViewToggle
-                                        mode={diffViewMode}
-                                        onModeChange={setDiffViewMode}
-                                    />
-                                </div>
-                            ) : null}
                             {renderResultContent()}
                             {executeTruncation ? (
                                 <div className="typography-meta mt-1 text-muted-foreground">
