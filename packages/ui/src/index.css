@@ -1512,6 +1512,46 @@ diffs-container {
   margin: var(--markdown-paragraph-spacing) 0;
 }
 
+/* A collapsed user message keeps its two lines: code blocks run inline with
+   the text and blocks lose their margins. A data attribute, not utility classes:
+   classes spelling out "code-block" fell under the phone's [class*="code"] font
+   rule (mobile.css) and shrank the whole message to code size. */
+@layer utilities {
+  [data-user-message-collapsed] > .markdown-content .markdown-content > * {
+    margin-block: 0;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-oc-streamdown] > *,
+  [data-user-message-collapsed] > .markdown-content [data-oc-markdown-block] > * {
+    margin-block: 0 !important;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block'] {
+    display: inline !important;
+    margin-block: 0 !important;
+    border-width: 0 !important;
+    background-color: transparent !important;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-header'],
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-actions'] {
+    display: none !important;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-body'],
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-body'] pre {
+    display: inline !important;
+    padding: 0 !important;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-body'] code {
+    display: inline !important;
+    padding-inline-start: 0 !important;
+    background-image: none !important;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-body'] code > span {
+    display: block !important;
+  }
+  [data-user-message-collapsed] > .markdown-content [data-streamdown='code-block-body'] code > span::before {
+    display: none !important;
+  }
+}
+
 /* The native root and arrival wrappers add no rhythm of their own. Static
    mode renders blocks directly; streaming mode wraps each official Block. */
 .markdown-content > [data-oc-streamdown],
