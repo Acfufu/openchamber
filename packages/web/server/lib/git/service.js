@@ -6227,6 +6227,19 @@ const notBootstrappedHere = () => createWorktreeBootstrapState(
   WORKTREE_BOOTSTRAP_PHASE_SETUP_READY,
 );
 
+// A persisted record becomes this process's state. One left `pending` with no
+// live bootstrap behind it is a crash mid-population and is inspected.
+const adoptPersistedBootstrapState = async (key, persisted, bootstrapStore) => {
+  if (persisted.status !== WORKTREE_BOOTSTRAP_PENDING || await hasActiveWorktreeBootstrap(key)) {
+    worktreeBootstrapState.set(key, persisted);
+    return persisted;
+  }
+  const blocker = await inspectWorktreeBootstrapRecovery(key);
+  worktreeBootstrapState.set(key, blocker);
+  await bootstrapStore.write(key, blocker);
+  return blocker;
+};
+
 export async function getWorktreeBootstrapStatus(directory, { bootstrapStore } = {}) {
   const key = await toCanonicalBootstrapStateKey(directory);
   if (!key) {
@@ -6239,19 +6252,49 @@ export async function getWorktreeBootstrapStatus(directory, { bootstrapStore } =
       if (!persisted) {
         return worktreeBootstrapState.get(key) ?? notBootstrappedHere();
       }
-      if (persisted.status !== WORKTREE_BOOTSTRAP_PENDING || await hasActiveWorktreeBootstrap(key)) {
-        worktreeBootstrapState.set(key, persisted);
-        return persisted;
-      }
-      const blocker = await inspectWorktreeBootstrapRecovery(key);
-      worktreeBootstrapState.set(key, blocker);
-      await bootstrapStore.write(key, blocker);
-      return blocker;
+      return await adoptPersistedBootstrapState(key, persisted, bootstrapStore);
     } catch {
       const blocker = await inspectWorktreeBootstrapRecovery(key);
       worktreeBootstrapState.set(key, blocker);
       return blocker;
     }
+  }
+  return worktreeBootstrapState.get(key) ?? notBootstrappedHere();
+}
+
+const worktreeBootstrapGateLoads = new Map();
+
+/**
+ * The state the OpenCode proxy's checkout gate reads on every request. It
+ * reads memory, since the store takes a cross-process file lock per read. The
+ * first read of a folder in this process loads its persisted record, so a
+ * checkout that failed before a restart stays closed from the first request
+ * instead of only after something reads its status with the store. A store
+ * that cannot be read leaves the folder to memory, as before the load, and is
+ * not read again for it: failing closed there would close every folder.
+ */
+export async function getWorktreeBootstrapGateStatus(directory, { bootstrapStore } = {}) {
+  const key = await toCanonicalBootstrapStateKey(directory);
+  if (!key) {
+    throw new Error('Worktree directory is required');
+  }
+  if (bootstrapStore && !worktreeBootstrapState.has(key)) {
+    let load = worktreeBootstrapGateLoads.get(key);
+    if (!load) {
+      load = (async () => {
+        try {
+          const persisted = await bootstrapStore.read(key);
+          // A bootstrap that began meanwhile is newer than the file.
+          if (persisted && !worktreeBootstrapState.has(key)) {
+            await adoptPersistedBootstrapState(key, persisted, bootstrapStore);
+          }
+        } catch (error) {
+          console.warn(`[git] Could not read the saved setup state of ${key}:`, error?.message ?? error);
+        }
+      })();
+      worktreeBootstrapGateLoads.set(key, load);
+    }
+    await load;
   }
   return worktreeBootstrapState.get(key) ?? notBootstrappedHere();
 }

@@ -1085,16 +1085,21 @@ forwarding. A failed checkout returns 503 to every request that would start
 the folder's OpenCode location; the reads OpenCode answers without one
 (`isGlobalRead` in `../opencode-trust`, which the trust gate also uses: the
 session list, session and message reads, events) pass, so the worktree's
-sessions stay listed while the user repairs it. Mutations stay closed even
-where the trust gate lets them through: moving a session starts both its
+sessions stay listed while the user repairs it. Mutations stay closed:
+moving a session starts both its
 source and destination locations. A repair that completes the
 checkout (`onCheckoutHydrated`) evicts the folder's locations before the record
 turns ready, so OpenCode opens the repaired folder afresh. The shared draft
 creator keeps the project directory selected until creation returns, because
 preview paths have no bootstrap state. A directory with no bootstrap state was
-never populated by this server and passes at once. The gate reads the in-memory
-state only: the durable bootstrap store takes a cross-process file lock per
-read, which must not sit on every proxied request.
+never populated by this server and passes at once. The gate
+reads memory (`getWorktreeBootstrapGateStatus` in `../git/service.js`): the
+durable bootstrap store takes a cross-process file lock per read, which must not
+sit on every proxied request. The first request for a folder in each server
+process loads that folder's saved record once, so a checkout that failed before
+a restart is refused from the first request; concurrent first requests share
+the one read. A store that cannot be read leaves the folder to memory, since
+failing closed there would close every folder.
 
 This server gate covers web, Electron, hosted mobile, and Capacitor connections.
 The VS Code extension owns its separate Git and proxy implementation.

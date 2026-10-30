@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { completeWorktreeCheckoutHydration, getWorktreeBootstrapStatus } from './service.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { completeWorktreeCheckoutHydration, getWorktreeBootstrapGateStatus, getWorktreeBootstrapStatus } from './service.js';
 import { createWorktreeBootstrapStore } from './worktree-bootstrap-storage.js';
 
 const directories = [];
@@ -155,6 +155,43 @@ describe('worktree bootstrap storage', () => {
 
     expect(result).toMatchObject({ status: 'ready', phase: 'setup-ready' });
     await expect(store.read(worktree)).resolves.toBeNull();
+  });
+
+  it('closes a checkout that failed before a restart from the first gated request', async () => {
+    const dataDirectory = await temporaryDirectory('worktree-bootstrap-gate-');
+    const broken = path.join(dataDirectory, 'broken');
+    const healthy = path.join(dataDirectory, 'healthy');
+    const filePath = path.join(dataDirectory, 'bootstrap.json');
+    // Written by the previous run: this process holds nothing in memory for it.
+    await createWorktreeBootstrapStore({ filePath }).write(broken, {
+      status: 'failed', phase: 'git-ready', error: 'Setup failed', errorCode: 'UNKNOWN', updatedAt: 1,
+    });
+    const store = createWorktreeBootstrapStore({ filePath });
+    const reads = [];
+    const bootstrapStore = { ...store, read: (directory) => { reads.push(directory); return store.read(directory); } };
+
+    const first = await Promise.all([1, 2, 3].map(() => getWorktreeBootstrapGateStatus(broken, { bootstrapStore })));
+    expect(first.map((status) => status.status)).toEqual(['failed', 'failed', 'failed']);
+    await expect(getWorktreeBootstrapGateStatus(broken, { bootstrapStore })).resolves.toMatchObject({ status: 'failed' });
+    await expect(getWorktreeBootstrapGateStatus(healthy, { bootstrapStore })).resolves.toMatchObject({ status: 'ready' });
+    await expect(getWorktreeBootstrapGateStatus(healthy, { bootstrapStore })).resolves.toMatchObject({ status: 'ready' });
+    // One read of the file per folder, then memory only.
+    expect(reads).toHaveLength(2);
+  });
+
+  it('leaves the gate open when the file cannot be read, and reads it once', async () => {
+    const directory = path.join(await temporaryDirectory('worktree-bootstrap-gate-broken-'), 'checkout');
+    let reads = 0;
+    const bootstrapStore = { read: async () => { reads += 1; throw new Error('storage is invalid'); } };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(getWorktreeBootstrapGateStatus(directory, { bootstrapStore })).resolves.toMatchObject({ status: 'ready' });
+      await expect(getWorktreeBootstrapGateStatus(directory, { bootstrapStore })).resolves.toMatchObject({ status: 'ready' });
+      expect(reads).toBe(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('completes only hydration-owned failures and publishes the transition in memory', async () => {
