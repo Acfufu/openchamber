@@ -136,6 +136,26 @@ run a second Markdown parser. Ordinary code selections copy raw code;
 prose follows the Markdown/plain setting and retains safe rich HTML. The
 desktop `openchamber:copy` event follows the same selection policy.
 
+### Why image exports keep prose at the visible column width
+
+The export clone keeps the live message column width, including whole-turn
+exports whose source is detached. Shrink-to-fit sizing let the widest line
+stretch every paragraph. Code wraps for the image; only unwrappable blocks
+grow the canvas. Their clipping ancestors clear both overflow axes because a
+hidden y axis makes visible x overflow compute to auto. Non-root ancestors
+also release width caps such as KaTeX's `max-width: 100%`; the clone root stays
+column-sized so surrounding prose does not reflow.
+
+The canvas uses LTR physical placement while the clone retains its inherited
+text direction. Overflow is measured on both edges after releasing width caps;
+left overflow adds a physical offset to the clone. Growing the canvas therefore
+cannot right-align and move the fixed-width text column in an RTL interface.
+
+Overflow measurement skips hidden and clipped content, including KaTeX's
+invisible MathML twin, and tolerates 1 CSS pixel of rounding. Pixel density
+falls from 2 toward 0.5 near html-to-image's 16384-device-pixel limit. Beyond
+32768 CSS pixels the floor still permits the library's existing squash behavior.
+
 ### Why selection cloning follows the Range boundaries
 
 `markdown/selectionRange.ts` owns code-source coverage for Markdown selection,
