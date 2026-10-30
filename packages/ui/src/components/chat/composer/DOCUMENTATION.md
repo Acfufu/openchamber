@@ -772,6 +772,13 @@ and the send path reading the same grammar.
   origin is no longer the rendered draft is appended to the origin's draft
   through `restoreDraft`. It is not inserted or sent in the visible session,
   including for **Insert and send**, and a toast says where it went.
+  The dictation shortcut starts in the focused composer's form, falling back
+  to the main chat when no form has focus. Mobile mic triggers explicitly
+  address their own form. One mounted dictation engine owns capture and
+  keyboard confirmation per window; repeated shortcuts and Enter confirm
+  that recording even if focus moves to the other chat. Idle and unmount
+  release ownership. A mic in another composer cannot start a second capture
+  or confirm the owner's recording.
 - `state/useDraftTarget.ts` — the draft can target a directory that does not
   exist yet (a worktree being created). It must survive not appearing in the
   branch list, or the selector snaps back to the project root mid-creation. A
@@ -1286,9 +1293,9 @@ ends or the message unmounts.
 
 Voice: the comment shell mounts its own `ComposerDictation` whose insert
 callbacks target the comment draft (insert-and-send attaches; it never sends).
-While it is mounted, the composer's wrapper-level dictation engine is not —
-two engines would both answer the global `openchamber:dictation-toggle`
-event, and a transcript meant for one editor must not reach the other. A
+While it is mounted, the composer's wrapper-level dictation engine is not:
+the comment engine takes the form's addressed dictation events, and a
+transcript meant for one editor must not reach the other. A
 recording in flight when comment mode opens is discarded by that swap.
 
 The comment editor reuses `ComposerEditor` with `dataChatInput="comment"` so
@@ -1304,6 +1311,14 @@ become synthetic context, which the send-time snippet expansion skips, so
 `expandCommentSnippets` (`submit/buildOutgoingMessage.ts`) expands each
 comment's own text before assembly, on the send and queue paths alike. The
 quoted code or message stays verbatim.
+
+### Why dictation uses a window-local capture owner
+
+Main and pinned chats can both mount a dictation engine. The engine claims
+ownership synchronously before starting capture, because React has not yet
+committed its recording status when the next global listener runs. Keyboard
+confirmation stays with that owner so one gesture cannot send both drafts.
+Form-addressed mic actions cannot confirm another form's recording.
 
 ## Testing
 

@@ -4583,9 +4583,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         </div>
     ) : null;
 
-    /** The dictation engine listens for this globally; the composer only asks. */
+    /** Address the mobile mic action to this form even if another editor has focus. */
     const toggleDictation = React.useCallback(() => {
-        window.dispatchEvent(new CustomEvent('openchamber:dictation-toggle'));
+        window.dispatchEvent(new CustomEvent('openchamber:dictation-toggle', {
+            detail: { composer: composerFormRef.current },
+        }));
     }, []);
 
     const openMobileAttachSheet = React.useCallback(() => {
@@ -5106,9 +5108,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     survives the morph. Its absolute overlay covers whichever
                     shape the wrapper currently has. NOT mounted during comment
                     mode: the comment shell runs its own comment-scoped engine,
-                    and two engines would both answer the global dictation
-                    toggle (an in-flight recording is discarded by the swap —
-                    its transcript must never reach the normal draft). */}
+                    so the form's dictation events belong to that engine.
+                    An in-flight recording is discarded by the swap:
+                    its transcript must never reach the normal draft. */}
                 {isMobile && !isBtwActive && !mobileCommentActive ? (
                     <MemoComposerDictation
                         radius={chatInputRadius}
