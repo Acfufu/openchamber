@@ -25,8 +25,12 @@ const runningShellsSchema = z.array(z.object({
   time: z.object({ started: z.number() }),
 }));
 
-export const createSessionActivityProbe = ({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs = 10_000, fetchImpl = fetch }) => {
-  const openCodeGet = async (fetchPath, query, signal = AbortSignal.timeout(timeoutMs)) => {
+export const createSessionActivityProbe = ({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs = 10_000, fetchImpl = fetch, signal: parentSignal }) => {
+  const requestSignal = () => {
+    const timeout = AbortSignal.timeout(timeoutMs);
+    return parentSignal ? AbortSignal.any([parentSignal, timeout]) : timeout;
+  };
+  const openCodeGet = async (fetchPath, query, signal = requestSignal()) => {
     const base = buildOpenCodeUrl(fetchPath, '');
     const search = new URLSearchParams(query || {}).toString();
     const response = await fetchImpl(search ? `${base}?${search}` : base, {
@@ -90,7 +94,7 @@ export const createSessionActivityProbe = ({ buildOpenCodeUrl, getOpenCodeAuthHe
    */
   const hasWorkingDescendants = async (sessionId, statuses) => {
     const parents = new Map();
-    const signal = AbortSignal.timeout(timeoutMs);
+    const signal = requestSignal();
     let unknown = false;
     for (const activeId of Object.keys(statuses)) {
       if (activeId === sessionId) continue;
@@ -135,7 +139,7 @@ export const createSessionActivityProbe = ({ buildOpenCodeUrl, getOpenCodeAuthHe
         'x-opencode-directory': encodeURIComponent(directory),
         ...getOpenCodeAuthHeaders(),
       },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: requestSignal(),
     }).catch(() => null);
     if (!response?.ok) return null;
     const parsed = runningShellsSchema.safeParse(unwrapOpenCodeResponse(await response.json().catch(() => null)));

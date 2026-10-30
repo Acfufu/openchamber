@@ -30,7 +30,7 @@ This module provides Git repository operations for the web server runtime, inclu
 The following functions are exported and used by the web server:
 
 ### Repository Operations
-- `isGitRepository(directory)`: Check if a directory is a Git repository. A repository whose root is the home directory or a filesystem root (`C:\`, `/`) answers `false` (`unsupportedRepositoryRootReason`): such a repository covers the whole disk, every status read would walk it, and it is nearly always an accidental `git init`. All Git surfaces then show the non-repository state for that directory.
+- `isGitRepository(directory, { strict })`: Check if a directory is a Git repository. With `strict: true`, only a confirmed non-repository or an unsupported root answers `false`; a missing/inaccessible directory or an operational Git failure throws. Scheduled tasks use strict mode to prevent an isolation failure from dispatching into the project checkout. Other callers keep the default best-effort probe. A repository whose root is the home directory or a filesystem root (`C:\`, `/`) answers `false` (`unsupportedRepositoryRootReason`): such a repository covers the whole disk, every status read would walk it, and it is nearly always an accidental `git init`. All Git surfaces then show the non-repository state for that directory.
 - `repository-root.js` owns that home/disk-root rule (`unsupportedRepositoryRootReason`) and `vcsInitRefusal`, which the OpenCode routes and the VS Code bridge use to refuse OpenCode's `POST /api/vcs/init` in those places. It has no Git dependency so the VS Code extension can import it.
 - `getGlobalIdentity()`: Get global Git user.name, user.email, and core.sshCommand.
 - `getCurrentIdentity(directory)`: Get local Git identity (fallback to global if not set locally).
@@ -82,7 +82,7 @@ A stale status row can outlive its repository. Returning empty contents would re
 - `getUnpushedBranchCounts(directory, branchNames)`: Count commits ahead of each locally known upstream for up to five supplied local branches. This reads local refs only and omits branches without an upstream.
 - `createBranch(directory, branchName, options)`: Create and checkout a new branch.
 - `checkoutBranch(directory, branchName)`: Checkout an existing branch. A remote-tracking name (`origin/main`, or the `remotes/`-prefixed form) resolves to the local branch of that name, created with `--track` when it does not exist yet, because the branch selector offers remote branches as places to work rather than commits to inspect — a literal checkout of the remote ref would detach HEAD. A local branch whose own name looks like a remote ref wins over that resolution, and anything unresolvable is checked out as requested. The returned `branch` is the branch that was actually checked out, which callers should report instead of the requested name.
-- `deleteBranch(directory, branch, options)`: Delete a branch (supports force flag).
+- `deleteBranch(directory, branch, options)`: Delete a branch (supports force flag). Scheduled cleanup uses `ifExists: true` so recovery after a completed branch deletion succeeds; only a confirmed missing ref is ignored, while operational Git failures still throw.
 - `renameBranch(directory, oldName, newName)`: Rename a branch and preserve upstream tracking.
 - `getRemotes(directory)`: Get list of configured remotes.
 

@@ -2561,14 +2561,26 @@ const warnedUnsupportedRoots = new Set();
 // `repoRoot` is null inside a bare repository or a .git directory, where Git
 // prints the git dir and then fails on `--show-toplevel`; those still count
 // as repositories.
-const probeRepository = async (directoryPath) => {
+const probeRepository = async (directoryPath, { strict = false } = {}) => {
   const notRepository = { isRepository: false, repoRoot: null };
   if (!directoryPath || !fs.existsSync(directoryPath)) {
+    if (strict) throw new Error('Project directory does not exist or is inaccessible');
     return notRepository;
   }
 
-  const result = await runGitCommand(directoryPath, ['rev-parse', '--git-dir', '--show-toplevel'], { timeoutMs: GIT_PROBE_TIMEOUT_MS });
+  const options = { timeoutMs: GIT_PROBE_TIMEOUT_MS };
+  if (strict) options.env = { ...await buildGitEnv(directoryPath), LC_ALL: 'C' };
+  const result = await runGitCommand(directoryPath, ['rev-parse', '--git-dir', '--show-toplevel'], options);
   const [gitDir = '', topLevel = ''] = result.stdout.split(/\r?\n/).map((line) => line.trim());
+  if (strict && !result.success) {
+    if (result.exitCode === 128 && !gitDir && /^fatal: not a git repository \(or any (?:of the parent directories\):|parent up to mount point [^\r\n]+\))/i.test(result.stderr.trim())) {
+      return notRepository;
+    }
+    // Bare repositories and .git directories have a git dir but no work tree.
+    if (!(gitDir && result.exitCode === 128 && /must be run in a work tree/i.test(result.stderr))) {
+      throw new Error(result.message || 'Failed to probe Git repository');
+    }
+  }
   if (!gitDir) return notRepository;
   if (!result.success) return { isRepository: true, repoRoot: null };
 
@@ -2583,8 +2595,8 @@ const probeRepository = async (directoryPath) => {
   return notRepository;
 };
 
-export async function isGitRepository(directory) {
-  return (await probeRepository(normalizeDirectoryPath(directory))).isRepository;
+export async function isGitRepository(directory, options) {
+  return (await probeRepository(normalizeDirectoryPath(directory), options)).isRepository;
 }
 
 export async function getGlobalIdentity() {
@@ -6970,6 +6982,13 @@ export async function deleteBranch(directory, branch, options = {}) {
     const branchName = branch.startsWith('refs/heads/')
       ? branch.substring('refs/heads/'.length)
       : branch;
+    if (options.ifExists) {
+      const found = await runGitCommand(directory, ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], { timeoutMs: GIT_PROBE_TIMEOUT_MS });
+      if (!found.success) {
+        if (found.exitCode === 1 && !found.stderr.trim()) return { success: true };
+        throw new Error(found.message || 'Failed to check branch before deletion');
+      }
+    }
     const args = ['branch', options.force ? '-D' : '-d', branchName];
     await git.raw(args);
     return { success: true };

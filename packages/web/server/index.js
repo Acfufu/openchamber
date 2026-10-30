@@ -105,6 +105,7 @@ import { createMessageSearchRuntime } from './lib/message-search/runtime.js';
 import { createScheduledTasksRuntime } from './lib/scheduled-tasks/runtime.js';
 import { resolveSessionDefaults } from './lib/scheduled-tasks/session-defaults.js';
 import { createChatsScope } from './lib/scheduled-tasks/chats-scope.js';
+import { createUnregisteredScheduledWorktreeBridge } from './lib/scheduled-tasks/worktree-bridge.js';
 import { createServerStartupRuntime } from './lib/opencode/server-startup-runtime.js';
 import { createTunnelWiringRuntime } from './lib/opencode/tunnel-wiring-runtime.js';
 import { createStartupPipelineRuntime } from './lib/opencode/startup-pipeline-runtime.js';
@@ -643,7 +644,7 @@ const sessionMetadataStore = createSessionMetadataStore({
   },
 });
 
-const readStoredSessionMetadata = (sessionID) => sessionMetadataStore.get(sessionID);
+const readStoredSessionMetadata = (sessionID, options) => sessionMetadataStore.get(sessionID, options);
 
 const persistSessionMetadataPatch = async (sessionID, patch, { directory = '' } = {}) => {
   const metadata = await sessionMetadataStore.setSessionMetadata(sessionID, patch, { directory });
@@ -1856,12 +1857,24 @@ const refreshOpenCodeAfterConfigChange = (...args) => openCodeLifecycleRuntime.r
 const startHealthMonitoring = () => openCodeLifecycleRuntime.startHealthMonitoring(HEALTH_CHECK_INTERVAL);
 const triggerHealthCheck = () => openCodeLifecycleRuntime.triggerHealthCheck();
 const scheduledChatsScope = createChatsScope(OPENCHAMBER_CHATS_DIR);
+// Git routes fill this bridge after the scheduler is created.
+const scheduledWorktreeBridge = createUnregisteredScheduledWorktreeBridge();
 const scheduledTasksRuntime = createScheduledTasksRuntime({
   projectConfigRuntime,
   chatsScope: scheduledChatsScope,
+  readSessionMetadata: readStoredSessionMetadata,
   messageQueueRuntime,
   resolvePrimaryWorktreeRoot,
   isSessionArchived: (sessionID) => openChamberSessionService.sessionArchive.isArchived(sessionID),
+  createTaskWorktree: (input) => {
+    const create = scheduledWorktreeBridge.create;
+    if (!create) {
+      return Promise.reject(new Error('worktree creation is unavailable'));
+    }
+    return create(input);
+  },
+  removeTaskWorktree: (input) => scheduledWorktreeBridge.remove(input),
+  isGitRepository: (projectDirectory) => scheduledWorktreeBridge.isGitRepository(projectDirectory),
   readSessionDefaults: async (projectID) => {
     const settings = await readSettingsFromDiskMigrated();
     const project = sanitizeProjects(settings?.projects || []).find((entry) => entry.id === projectID) ?? null;
@@ -2855,6 +2868,7 @@ async function main(options = {}) {
     listConfiguredProjects,
     messageSearchRuntime,
     sessionWarmingRuntime,
+    scheduledWorktreeBridge,
     crypto,
     fs,
     os,
