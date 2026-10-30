@@ -160,6 +160,14 @@ clipboard and image rendering share this configuration. The stable consumer
 root is `.markdown-content[data-markdown-content]`; code and table consumers
 use native `data-streamdown` markers.
 
+#### Why chat requires double tildes for strikethrough
+
+Single tildes in agent prose often mark ranges such as `5~20s`. Both GFM and
+the CJK extension disable single-tilde strikethrough for chat because micromark
+merges their registrations. Chat callers and exports pass `singleTilde={false}`.
+Documents, file previews, plans, notes and release notes retain the default GFM
+rendering, including GitHub's `~text~` in host-authored descriptions and comments.
+
 Fenced `diff` blocks carry a translated Proposal label and a source-copy button.
 Completed, bounded patches use the same read-only diff preview as tool cards,
 with file names as text and no file actions. Headerless +/- snippets receive

@@ -2250,6 +2250,7 @@ const AssistantMessageBody = React.memo(({
                                         <LongErrorText text={errorMessage ?? ''}>
                                             {(visibleText) => (
                                                 <SimpleMarkdownRenderer
+                                                    singleTilde={false}
                                                     content={visibleText}
                                                     onShowPopup={onShowPopup}
                                                     className="[&_.markdown-content>*:first-child]:mt-0 [&_.markdown-content>*:last-child]:mb-0"

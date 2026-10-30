@@ -970,6 +970,7 @@ const MermaidPreviewDialog: React.FC<{
                             {status === 'ready' && (
                                 <div ref={mermaidPreviewRef} className="h-full">
                                     <SimpleMarkdownRenderer
+                                        singleTilde={false}
                                         content={mermaidMarkdown}
                                         variant="tool"
                                         allowMermaidWheelEvents
@@ -1143,7 +1144,7 @@ const ToolOutputDialog: React.FC<ToolOutputDialogProps> = ({ popup, onOpenChange
                                 if (isSubagentTool(tool) || tool === 'reasoning') {
                                     return (
                                         <div className={tool === 'reasoning' ? "text-muted-foreground" : ""}>
-                                            <SimpleMarkdownRenderer content={popup.content} variant="tool" />
+                                            <SimpleMarkdownRenderer content={popup.content} singleTilde={false} variant="tool" />
                                         </div>
                                     );
                                 }

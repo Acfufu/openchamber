@@ -779,7 +779,7 @@ const ToolScrollableTextOutput: React.FC<{
     if (forcedMode === 'markdown') {
         return (
             <div className="w-full min-w-0">
-                <SimpleMarkdownRenderer content={renderedOutput} variant="tool" onShowPopup={onShowPopup} />
+                <SimpleMarkdownRenderer content={renderedOutput} singleTilde={false} variant="tool" onShowPopup={onShowPopup} />
             </div>
         );
     }
@@ -1350,7 +1350,7 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
         if (isSubagentTool(part.tool) && hasStringOutput) {
             return renderScrollableBlock(
                 <div className="w-full min-w-0">
-                    <SimpleMarkdownRenderer content={prepareTaskToolOutput(outputString)} variant="tool" onShowPopup={onShowPopup} />
+                    <SimpleMarkdownRenderer content={prepareTaskToolOutput(outputString)} singleTilde={false} variant="tool" onShowPopup={onShowPopup} />
                 </div>
             );
         }
