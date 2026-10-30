@@ -691,6 +691,15 @@ Two rules follow from the routes:
   edits, duplicates or renames an entity reads its own stored entry instead:
   `useAgentsStore.fetchAgentEntity` / `fetchAgentPermissions`, and the
   per-command `…/config` read inside `useCommandsStore.loadCommands`.
+- **A worktree draft reads its first session's folder.** A project
+  opened on a folder of its repository keeps its commands in that folder, and a
+  worktree draft's directory is the worktree root. While the draft's start
+  folder is resolving, the composer lists and requests nothing
+  (`resolveCommandDirectory` returns `pending`). Once the folder resolves, or
+  falls back to the root, commands, skills and file search read that folder,
+  the same folder its agents come from. Only the composer that shows the draft maps it;
+  a pinned column keeps its own session's directory. The draft's directory stays
+  the root, because the target picker matches it.
 - **`request` and `permissions` are replaced wholesale by a PATCH.** A caller
   must send the full block it wants persisted; sending only the field it changed
   drops the rest.

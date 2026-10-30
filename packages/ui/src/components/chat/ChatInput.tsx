@@ -141,7 +141,8 @@ import { buildSkillMentionInstruction } from '@/lib/skillMentionInstruction';
 import { useGitStore } from '@/stores/useGitStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { selectAvailableSkillsForDirectory, useSkillsStore } from '@/stores/useSkillsStore';
-import { selectCommandsForDirectory, useCommandsStore } from '@/stores/useCommandsStore';
+import { selectCommandsForComposer, useCommandsStore } from '@/stores/useCommandsStore';
+import { useComposerConfigDirectory } from '@/hooks/useComposerConfigDirectory';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { usePermissionStore } from '@/stores/permissionStore';
@@ -309,6 +310,7 @@ const MAX_MOBILE_COMPOSER_LINES = 16;
  */
 const MOBILE_COMPOSER_BOUND_GAP_PX = 4;
 const EMPTY_QUEUE: QueuedMessage[] = [];
+const EMPTY_COMPOSER_SKILLS: [] = [];
 const NO_ATTACH_GUESTS: [] = [];
 
 const getFileMentionInputSourceForInsertedText = (insertedText: string): FileMentionAutocompleteInputSource => (
@@ -556,9 +558,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     }, [currentSessionId]);
     const fallbackDirectory = useDirectoryStore((s) => s.currentDirectory);
     const liveEffectiveDirectory = useEffectiveDirectory();
-    const currentDirectory = (chatColumnSession?.sessionId ? chatColumnSession.directory : null)
-        ?? liveEffectiveDirectory
-        ?? fallbackDirectory;
+    const currentDirectory = liveEffectiveDirectory ?? fallbackDirectory;
     const currentSessionDirectoryForSync = useSessionUIStore(
         React.useCallback((s) => currentSessionId ? s.getDirectoryForSession(currentSessionId) : null, [currentSessionId]),
     );
@@ -915,8 +915,19 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // Known slash-invocations (commands + built-ins) and `$` skills, used to
     // highlight matching tokens in the composer, the same way confirmed
     // @files are.
-    const availableCommands = useCommandsStore((s) => selectCommandsForDirectory(s, currentDirectory));
-    const availableSkills = useSkillsStore((s) => selectAvailableSkillsForDirectory(s, currentDirectory));
+    const commandsTarget = useComposerConfigDirectory(currentDirectory);
+    const availableCommands = useCommandsStore((s) => selectCommandsForComposer(s, commandsTarget));
+    const commandsDirectory = commandsTarget.status === 'resolved' ? commandsTarget.directory : null;
+    const preloadDraftCatalogs = !columnPinned && !currentSessionId && newSessionDraftOpen
+        && Boolean(newSessionDraft.worktreeStartDirectory);
+    React.useEffect(() => {
+        if (!preloadDraftCatalogs || !commandsDirectory) return;
+        void useCommandsStore.getState().loadCommands(commandsDirectory);
+        void useSkillsStore.getState().loadSkills(commandsDirectory);
+    }, [commandsDirectory, preloadDraftCatalogs]);
+    const availableSkills = useSkillsStore((s) => commandsTarget.status === 'pending'
+        ? EMPTY_COMPOSER_SKILLS
+        : selectAvailableSkillsForDirectory(s, commandsTarget.directory));
     const knownSlashNames = React.useMemo(() => {
         const names = new Set<string>([
             'init', 'review', 'undo', 'redo', 'timeline', 'compact', 'fork', 'btw', 'summary', 'workspace-review', 'plan-feature', 'craft-goal', 'schedule-task', 'catch-up', 'debug', 'weigh', 'explore',
@@ -1551,7 +1562,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             opencodeClient,
         );
         const availableSkillNames = new Set(
-            selectAvailableSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
+            availableSkills.map((skill) => skill.name),
         );
         const skillInstruction = buildSkillMentionInstruction(collectInlineSkillMentions(sanitizedText, availableSkillNames));
         // The server and the VS Code auto-send deliver `text` as is, so its
@@ -1646,7 +1657,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }
         void resumeAfterQueue().catch(console.warn);
         recordLinkedReferences(queueSessionId, queueTarget.directory, linked);
-    }, [getCurrentInputSnapshot, currentSessionId, messageQueueTarget, inputMode, hasDrafts, guestCommands, attachedFiles, sanitizeAttachmentsForSend, prepareReadOnSendMentions, extractInlineFileMentions, agents, currentDirectory, consumePendingSyntheticParts, mailboxTarget, inlineDraftTarget, consumeDrafts, linkedReferences, scrollToLatest, clearAttachedFiles, chatDraftIdentity, isMobile, isMobileCommentOpen, addToQueue, currentProviderId, currentModelId, currentAgentName, currentVariant, t, readSessionMentionsBeforeSend, sessionMentionsIn]);
+    }, [getCurrentInputSnapshot, currentSessionId, messageQueueTarget, inputMode, hasDrafts, guestCommands, attachedFiles, sanitizeAttachmentsForSend, prepareReadOnSendMentions, extractInlineFileMentions, agents, availableSkills, consumePendingSyntheticParts, mailboxTarget, inlineDraftTarget, consumeDrafts, linkedReferences, scrollToLatest, clearAttachedFiles, chatDraftIdentity, isMobile, isMobileCommentOpen, addToQueue, currentProviderId, currentModelId, currentAgentName, currentVariant, t, readSessionMentionsBeforeSend, sessionMentionsIn]);
 
     /** Put the context a queued message was captured with back on the composer chips. */
     const restoreQueuedContext = React.useCallback((context: readonly QueuedContextPart[]) => {
@@ -2187,7 +2198,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         };
 
         const availableSkillNames = new Set(
-            selectAvailableSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
+            availableSkills.map((skill) => skill.name),
         );
 
         // Comments become synthetic context, which the send-time expansion

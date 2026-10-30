@@ -7,6 +7,15 @@ everything between typing and sending.
 own state and wires these modules together; it should not grow logic that
 belongs to one of them.
 
+### Why composer discovery follows the live session directory
+
+Command and skill menus, token highlighting, submission and file search follow
+the session record across live directory stores. A column's directory can still
+name the worktree root after the record confirms a start subfolder, so it cannot
+override that record or restrict its lookup. Catalog preload is limited to
+worktree drafts once their start directory resolves; existing sessions keep
+on-demand command and skill loading.
+
 `ChatContainer.tsx` keeps one `ChatInput` mounted while a new-session draft
 becomes its first session. Draft-only UI first fades for 120ms while the editor
 stays in place. The parent then moves the editor to its final session position

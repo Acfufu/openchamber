@@ -115,6 +115,13 @@ Attachment drafts stay in memory for the page's lifetime, including composer rem
 
 ## Catalog changes apply live
 
+Worktree drafts keep their checkout root as target identity and expose a separate
+pending or resolved start folder to composer discovery. Runtime switches retire
+the outgoing resolution. Restoring a pending draft resolves its folder again,
+preserving its model and agent picks; runtime, draft and revision guards reject
+obsolete completions. Confirmed session directories outrank worktree metadata
+when resolving composer configuration and file search.
+
 OpenCode v2 watches its own config files and rebuilds agents, commands, skills,
 MCP servers and plugins by itself, announcing each rebuilt slice
 (`config.updated`, `agent.updated`, `command.updated`, `skill.updated`,

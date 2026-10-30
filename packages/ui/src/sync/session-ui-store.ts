@@ -460,6 +460,11 @@ export type NewSessionDraftState = {
   permissionMode?: PermissionMode
   pendingWorktreeRequestId?: string | null
   bootstrapPendingDirectory?: string | null
+  /**
+   * Composer discovery follows this folder; the target picker keeps the root.
+   * A null directory means resolution is pending.
+   */
+  worktreeStartDirectory?: { worktreeRoot: string; directory: string | null } | null
   preserveDirectoryOverride?: boolean
   parentID: string | null
   title?: string
@@ -535,6 +540,7 @@ export type SessionUIState = {
   overrideNewSessionDraftTarget: (options: Record<string, unknown>) => void
   resolvePendingDraftWorktreeTarget: (requestId: string, directory: string | null, options?: Record<string, unknown>) => void
   setDraftBootstrapPendingDirectory: (directory: string | null) => void
+  setDraftWorktreeStartDirectory: (draftId: number, worktreeRoot: string, directory: string | null) => void
   setPendingDraftWorktreeRequest: (requestId: string | null) => void
   getWorktreeMetadata: (sessionId: string) => WorktreeMetadata | undefined
 
@@ -804,7 +810,7 @@ const applyDraftTargetSelectionDefaults = (
         ?? resolveDraftProjectForDirectory(projects, availableWorktreesByProject, normalizePath(previousDraft.directoryOverride ?? null))
     const previousConfigDirectory = normalizePath(previousDraft.directoryOverride ?? null)
       ?? normalizePath(previousProject?.path ?? null)
-    if (previousConfigDirectory === configDirectory) return
+    if (previousConfigDirectory === configDirectory && draft.worktreeStartDirectory?.directory !== null) return
   }
 
   const runtimeKey = getRuntimeKey()
@@ -827,10 +833,17 @@ const applyDraftTargetSelectionDefaults = (
   // so the agents and models offered are the ones that folder's config defines.
   // The preview stays quiet: the send reports a fallback to the worktree root.
   const worktreeProject = projectOfWorktreeRoot(configDirectory, draft.selectedProjectId, availableWorktreesByProject)
+  // Until the start folder resolves, the composer lists no commands for the root.
+  if (configDirectory && worktreeProject) {
+    useSessionUIStore.getState().setDraftWorktreeStartDirectory(draft.draftId, configDirectory, null)
+  }
   const activation = configDirectory && worktreeProject
     // A worktree that failed to populate has no folder to read; its root is the fallback.
     ? resolveStartDirectory(worktreeProject, configDirectory).then(({ directory }) => directory, () => configDirectory).then(async (directory) => {
-      if (revision !== draftDefaultsRevision || getRuntimeKey() !== runtimeKey) return
+      const current = useSessionUIStore.getState()
+      if (revision !== draftDefaultsRevision || getRuntimeKey() !== runtimeKey
+        || !current.newSessionDraft.open || current.newSessionDraft.draftId !== draft.draftId) return
+      useSessionUIStore.getState().setDraftWorktreeStartDirectory(draft.draftId, configDirectory, directory)
       await activateConfigForDirectory(directory, activationOptions)
     })
     : activateConfigForDirectory(configDirectory, activationOptions)
@@ -1566,6 +1579,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
   },
 
   prepareForRuntimeSwitch: (apiBaseUrl?: string | null) => {
+    draftDefaultsRevision += 1
     const key = runtimeMemoryKey(apiBaseUrl)
     // Not remembered: an unknown directory, which would pin the host to "/"
     // when restored, and anything under a key that names no host.
@@ -1625,6 +1639,9 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       setActiveSession(restoredDirectory ?? opencodeClient.getDirectory() ?? "", restoredSessionId)
     } else {
       setActiveSession("", "")
+      if (restoredDraft.open && restoredDraft.worktreeStartDirectory?.directory === null) {
+        applyDraftTargetSelectionDefaults(restoredDraft, availableWorktreesByProject, undefined, restoredDraft)
+      }
     }
   },
 
@@ -2034,6 +2051,12 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
     set((s) => {
       if (!s.newSessionDraft?.open) return s
       return { newSessionDraft: { ...s.newSessionDraft, bootstrapPendingDirectory: normalizePath(directory) } }
+    }),
+
+  setDraftWorktreeStartDirectory: (draftId, worktreeRoot, directory) =>
+    set((s) => {
+      if (!s.newSessionDraft?.open || s.newSessionDraft.draftId !== draftId) return s
+      return { newSessionDraft: { ...s.newSessionDraft, worktreeStartDirectory: { worktreeRoot, directory } } }
     }),
 
   setPendingDraftWorktreeRequest: (requestId) =>

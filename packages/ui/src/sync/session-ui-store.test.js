@@ -1,5 +1,6 @@
 import { ensureChatsRootDirectory } from '@/lib/chatDirectories';
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import * as gitHttp from '@/lib/gitApiHttp';
 import { opencodeClient } from '@/lib/opencode/client';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
@@ -14,7 +15,7 @@ import { useCommandsStore } from '@/stores/useCommandsStore';
 import { useSessionGoalArmStore } from '@/stores/useSessionGoalArmStore';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useSelectionStore } from './selection-store';
-import { getRuntimeKey } from '@/lib/runtime-switch';
+import { getRuntimeApiBaseUrl, getRuntimeKey, initializeRuntimeEndpoint, switchRuntimeEndpoint } from '@/lib/runtime-switch';
 import { getDeferredSafeStorage } from '@/stores/utils/safeStorage';
 import { CHAT_DRAFT_PROJECT_ID } from '@/lib/chatDirectories';
 import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
@@ -460,6 +461,68 @@ describe('slash-command goal objectives', () => {
 });
 
 describe('runtime worktree topology', () => {
+  test('resumes a pending start folder after A -> B -> A and rejects the old completion', async () => {
+    const originalUI = useSessionUIStore.getState();
+    const originalProjects = useProjectsStore.getState();
+    const originalConfig = useConfigStore.getState();
+    const originalDirectory = useDirectoryStore.getState();
+    const originalRuntime = { apiBaseUrl: getRuntimeApiBaseUrl(), runtimeKey: getRuntimeKey() };
+    const project = { id: 'runtime-folder-project', path: '/runtime-project/ai' };
+    const root = '/runtime-worktree';
+    const a = 'https://draft-a.test';
+    const b = 'https://draft-b.test';
+    const prefixResolvers = [];
+    const prefixes = spyOn(gitHttp, 'resolveGitRepositoryPrefix').mockImplementation(() => new Promise((resolve) => prefixResolvers.push(resolve)));
+    const validation = spyOn(gitHttp, 'validateWorktreeDirectory').mockImplementation(async (directory, worktreeRoot) => ({
+      valid: true, insideWorktreeRoot: true, resolvedWorktreeRoot: worktreeRoot, resolvedCwd: directory,
+    }));
+    const fetch = spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(null, { status: 404 }));
+    const activated = [];
+    const flush = async () => { await Bun.sleep(0); };
+    try {
+      initializeRuntimeEndpoint({ apiBaseUrl: a });
+      useProjectsStore.setState({ projects: [project], activeProjectId: project.id });
+      useDirectoryStore.setState({ currentDirectory: root, homeDirectory: '/home', isHomeReady: true });
+      useConfigStore.setState({ activateDirectory: async (directory) => { activated.push(directory); } });
+      useSessionUIStore.setState({
+        currentSessionId: null,
+        newSessionDraft: { ...originalUI.newSessionDraft, open: false },
+        availableWorktreesByProject: new Map([[project.path, [{ path: root, projectDirectory: project.path, branch: 'test', label: 'test' }]]]),
+      });
+      useSessionUIStore.getState().openNewSessionDraft({ selectedProjectId: project.id, directoryOverride: root });
+      const draftId = useSessionUIStore.getState().newSessionDraft.draftId;
+      expect(useSessionUIStore.getState().newSessionDraft.worktreeStartDirectory).toEqual({ worktreeRoot: root, directory: null });
+      expect(prefixResolvers).toHaveLength(1);
+      useSessionUIStore.getState().prepareForRuntimeSwitch(a);
+      switchRuntimeEndpoint({ apiBaseUrl: b });
+      useSessionUIStore.getState().restoreForRuntimeSwitch(b, `url:${a}`);
+      prefixResolvers[0]('ai');
+      await flush();
+      expect(activated).toEqual([]);
+      useSessionUIStore.getState().prepareForRuntimeSwitch(b);
+      switchRuntimeEndpoint({ apiBaseUrl: a });
+      useSessionUIStore.getState().restoreForRuntimeSwitch(a, `url:${b}`);
+      expect(useSessionUIStore.getState().newSessionDraft.draftId).toBe(draftId);
+      expect(prefixResolvers).toHaveLength(2);
+      expect(activated).toEqual([]);
+      prefixResolvers[1]('ai');
+      await flush();
+      expect(useSessionUIStore.getState().newSessionDraft.worktreeStartDirectory).toEqual({ worktreeRoot: root, directory: `${root}/ai` });
+      expect(activated).toEqual([`${root}/ai`]);
+    } finally {
+      for (const resolve of prefixResolvers) resolve('ai');
+      await flush();
+      prefixes.mockRestore();
+      validation.mockRestore();
+      switchRuntimeEndpoint(originalRuntime);
+      fetch.mockRestore();
+      useSessionUIStore.setState(originalUI);
+      useProjectsStore.setState(originalProjects);
+      useConfigStore.setState(originalConfig);
+      useDirectoryStore.setState(originalDirectory);
+    }
+  });
+
   test('restores independent in-memory maps across A -> B -> A', () => {
     const topologyA = new Map([['/repo', [{ path: '/repo/a', branch: 'a' }]]]);
     const topologyB = new Map([['/repo', [{ path: '/repo/b', branch: 'b' }]]]);
