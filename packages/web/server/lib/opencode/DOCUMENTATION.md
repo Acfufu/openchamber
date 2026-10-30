@@ -1075,6 +1075,21 @@ file lock per read, which must not sit on every proxied request.
 This server gate covers web, Electron, hosted mobile, and Capacitor connections.
 The VS Code extension owns its separate Git and proxy implementation.
 
+### Why the proxy deadline is configurable
+
+Slow gateways can exceed the default 240000 ms deadline. Operators can set
+`OPENCHAMBER_PROXY_TIMEOUT_MS` to an integer from `0` to `2147483647`.
+Invalid values warn at startup and keep the default. The upper bound prevents
+Node socket timers from overflowing to 1 ms; integers also satisfy
+`AbortSignal.timeout`. Zero disables the response deadline and proxy socket
+timers, allowing unbounded waits while retaining client-disconnect cancellation.
+The generic proxy watches response closure before upstream headers arrive and
+destroys abandoned outgoing requests even after the incoming body is complete.
+That listener is removed when the outgoing request closes.
+Other client and upstream timeouts, SSE watchdogs, and readiness deadlines
+remain unchanged. Web, Electron's server, hosted mobile, and Capacitor use this
+setting; VS Code's separate extension bridge does not.
+
 ## Public exports (watcher.js)
 - `createOpenCodeWatcherRuntime(dependencies)`: creates global event watcher runtime backed by the shared upstream SSE reader.
 - Returned API:
