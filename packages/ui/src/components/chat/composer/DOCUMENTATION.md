@@ -898,6 +898,23 @@ exceeded" (#5687). So each picker clamps only while its style carries no
 max-height: on the first frame before the placement is measured, and for
 callers that anchor the list themselves, like the scheduled task editor.
 
+### Why the `@` list holds its last answer while the next query searches
+
+The `@` list asks the server for files on each settled query (after a 180ms
+debounce). It used to swap the whole list for a spinner row while a search
+ran, so with the height morph the popup shrank and regrew by its full height
+on every keystroke, and showed "no matches" for agents before the file search
+had even started. Now the rows the user sees always come from one settled
+query: from the keystroke until its search answers, the list keeps the last
+settled rows, agents included, and fades them only if the wait passes 150ms.
+The box therefore moves once per answer, by what the answer changed. The
+spinner row shows only when there are no rows yet, and "no matches" only
+once the current query's search has answered; the two rows share one height.
+Server hits carry the key of the search they answer (`mentionSearchKey`), so
+an older query's hits never show as the current one's. Enter picks the row on
+screen, held or not; a new answer selects its first row.
+`../FileMentionAutocomplete.test.tsx` covers these states.
+
 ## Other sessions as context
 
 Another session, or one message of it, is mentioned in the text itself: as

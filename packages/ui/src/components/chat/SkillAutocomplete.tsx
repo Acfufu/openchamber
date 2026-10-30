@@ -48,7 +48,6 @@ export const SkillAutocomplete = React.forwardRef<SkillAutocompleteHandle, Skill
   const mobileMaxHeight = useMobileAutocompleteMaxHeight(containerRef, style?.maxHeight === undefined, 240);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const selectedIndexRef = React.useRef(0);
-  const [filteredSkills, setFilteredSkills] = React.useState<SkillInfo[]>([]);
   const itemRefs = React.useRef<(HTMLDivElement | null)[]>([]);
   const { listRef, onKeyboardNavigate } = useAutocompleteSelectionScroll(selectedIndex, itemRefs);
   // Skills of the directory the composer sends to (session directory, or the
@@ -65,10 +64,13 @@ export const SkillAutocomplete = React.forwardRef<SkillAutocompleteHandle, Skill
     if (directory) void loadSkills(directory);
   }, [directory, loadSkills]);
 
+  // Ranked in the render that shows them: an effect painted the last query's
+  // rows first, so the box moved twice per keystroke.
+  const filteredSkills = React.useMemo(() => rankSkillAutocompleteItems(skills, searchQuery), [skills, searchQuery]);
+
   React.useEffect(() => {
-    setFilteredSkills(rankSkillAutocompleteItems(skills, searchQuery));
     setSelectedIndex(0);
-  }, [skills, searchQuery]);
+  }, [filteredSkills]);
 
   React.useEffect(() => {
     selectedIndexRef.current = selectedIndex;
