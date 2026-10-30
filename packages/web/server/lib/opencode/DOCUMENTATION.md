@@ -992,7 +992,9 @@ within a ten-minute overall deadline.
       read npm, since the website API serves only the release; it still gets
       the check-in. The install route and `openchamber update` read the same
       channel through `checkForUpdates`. The desktop app keeps its own
-      `desktopUpdateChannel`, and other app types stay on releases.
+      `desktopUpdateChannel`. The Android app ships only as Canary until it
+      has a store release: every Android build, an APK from an earlier release
+      included, is offered the newest APK of the `canary` GitHub pre-release. Other app types stay on releases.
   - `POST /api/openchamber/update-install`
     - A copy no package manager installed answers 409 before any command
       runs: a global install would add a second copy and leave the running

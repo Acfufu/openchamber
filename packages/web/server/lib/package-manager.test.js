@@ -262,32 +262,19 @@ describe('checkForUpdates', () => {
     }
   });
 
-  it('resolves an Android APK asset when the update API returns an AAB', async () => {
+  it('offers a Canary Android app the newest APK of the canary pre-release', async () => {
     fetchMock
       .when('api.openchamber.dev', {
         ok: true,
-        json: async () => ({
-          latestVersion: '1.10.0',
-          updateAvailable: true,
-          downloadUrl: 'https://github.com/openchamber/openchamber/releases/download/v1.10.0/OpenChamber-1.10.0-42-android.aab',
-        }),
+        json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
       })
-      .when('api.github.com/repos/openchamber/openchamber/releases/tags/v1.10.0', {
+      .when('api.github.com/repos/openchamber/openchamber/releases/tags/canary', {
         ok: true,
         json: async () => ({
           assets: [
-            {
-              name: 'OpenChamber-1.10.0-42-android.aab',
-              browser_download_url: 'https://downloads.example/OpenChamber-1.10.0-42-android.aab',
-            },
-            {
-              name: 'app-release.apk',
-              browser_download_url: 'https://downloads.example/app-release.apk',
-            },
-            {
-              name: 'OpenChamber-1.10.0-42-android.apk',
-              browser_download_url: 'https://downloads.example/OpenChamber-1.10.0-42-android.apk',
-            },
+            { name: 'OpenChamber-2.5.4-canary.20261030.4-29857000-android.apk', browser_download_url: 'https://downloads.example/old.apk' },
+            { name: 'OpenChamber-2.5.4-canary.20261031.5-29858440-android.apk', browser_download_url: 'https://downloads.example/new.apk' },
+            { name: 'OpenChamber-2.5.4-canary.20261031.5-29858440-android.aab', browser_download_url: 'https://downloads.example/new.aab' },
           ],
         }),
       });
@@ -295,31 +282,49 @@ describe('checkForUpdates', () => {
     const result = await checkForUpdates({
       appType: 'mobile-capacitor',
       platform: 'android',
-      currentVersion: '1.9.10',
+      currentVersion: '2.5.4-canary.20261030.4',
     });
 
-    expect(result.downloadUrl).toBe('https://downloads.example/OpenChamber-1.10.0-42-android.apk');
+    expect(result).toMatchObject({
+      available: true,
+      version: '2.5.4-canary.20261031.5',
+      downloadUrl: 'https://downloads.example/new.apk',
+    });
+
+    // An APK from a release, whose releases carry no APK any more, moves to Canary.
+    const fromRelease = await checkForUpdates({
+      appType: 'mobile-capacitor',
+      platform: 'android',
+      currentVersion: '2.5.3',
+    });
+    expect(fromRelease.available).toBe(true);
+    expect(fromRelease.downloadUrl).toBe('https://downloads.example/new.apk');
+
+    const upToDate = await checkForUpdates({
+      appType: 'mobile-capacitor',
+      platform: 'android',
+      currentVersion: '2.5.4-canary.20261031.5',
+    });
+    expect(upToDate.available).toBe(false);
+    expect(upToDate.downloadUrl).toBeUndefined();
   });
 
-  it('keeps a direct Android APK URL from the update API', async () => {
-    const apkUrl = 'https://github.com/openchamber/openchamber/releases/download/v1.10.0/OpenChamber-1.10.0-42-android.apk';
-    fetchMock.when('api.openchamber.dev', {
-      ok: true,
-      json: async () => ({
-        latestVersion: '1.10.0',
-        updateAvailable: true,
-        downloadUrl: apkUrl,
-      }),
-    });
+  it('reports an unreadable canary pre-release as an error for a Canary Android app', async () => {
+    fetchMock
+      .when('api.openchamber.dev', {
+        ok: true,
+        json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
+      })
+      .when('api.github.com/repos/openchamber/openchamber/releases/tags/canary', { ok: false, status: 503 });
 
     const result = await checkForUpdates({
       appType: 'mobile-capacitor',
       platform: 'android',
-      currentVersion: '1.9.10',
+      currentVersion: '2.5.4-canary.20261030.4',
     });
 
-    expect(result.downloadUrl).toBe(apkUrl);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.available).toBe(false);
+    expect(result.error).toBe('Unable to determine versions');
   });
 
   it('returns available=false when API claims update but npm is behind', async () => {

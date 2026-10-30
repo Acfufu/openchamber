@@ -33,6 +33,8 @@ jobs:
     outputs:
       build: ${{ steps.decide.outputs.build }}
       version: ${{ steps.decide.outputs.version }}
+      release: ${{ steps.decide.outputs.release }}
+      build_number: ${{ steps.decide.outputs.build_number }}
       sha: ${{ steps.decide.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,6 +63,11 @@ jobs:
           NEXT=$(node -p "const [a, b, c] = '$RELEASE'.split('.').map(Number); [a, b, c + 1].join('.')")
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "version=${NEXT}-canary.$(date -u +%Y%m%d).${RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          # The mobile apps: TestFlight takes only a numeric version, so the
+          # night is told apart by the build number, minutes since the epoch
+          # like any mobile build (mobile-release.yml).
+          echo "release=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "build_number=$(( $(date -u +%s) / 60 ))" >> "$GITHUB_OUTPUT"
           if [ "$EVENT" = "schedule" ] && [ "$SHA" = "$PUBLISHED" ]; then
             echo "main has not moved since the last Canary ($SHA)."
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -493,10 +500,47 @@ jobs:
             bun publish --access public --tag canary
           fi
 
+  # The phone apps are Canary only until they have store releases: the
+  # Android APK goes into the canary pre-release with the desktop files, and
+  # iOS goes to TestFlight. Both report the Canary version to the update check.
+  build-android:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.build == 'true' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/mobile-release.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+      app_version: ${{ needs.prepare.outputs.version }}
+      version_name: ${{ needs.prepare.outputs.version }}
+      build_number: ${{ needs.prepare.outputs.build_number }}
+      build_android: true
+      build_ios: false
+    secrets: inherit
+
+  # Not needed by the publish job: a failed TestFlight upload does not hold
+  # back the desktop and Android builds.
+  build-ios:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.build == 'true' }}
+    # GitHub checks every job of the called workflow against these, the
+    # skipped Android one included.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/mobile-release.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+      app_version: ${{ needs.prepare.outputs.version }}
+      version_name: ${{ needs.prepare.outputs.release }}
+      build_number: ${{ needs.prepare.outputs.build_number }}
+      build_android: false
+      build_ios: true
+    secrets: inherit
+
   # Last, after npm too: the release notes name the commit the next night
   # compares main against, so a build that did not reach npm is retried.
   publish:
-    needs: [prepare, build-macos, build-windows, build-linux, publish-npm]
+    needs: [prepare, build-macos, build-windows, build-linux, build-android, publish-npm]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -509,6 +553,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.sha }}
+          # The whole history and the tags, for this night's notes.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -528,11 +574,54 @@ jobs:
           path: files
           merge-multiple: true
 
+      - name: Download Android files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: openchamber-android-*
+          path: android
+          merge-multiple: true
+
+      # The names the update check looks for (package-manager.js).
+      - name: Name the Android files
+        env:
+          BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+        run: |
+          set -euo pipefail
+          apk=$(find android -name '*.apk' | head -1)
+          aab=$(find android -name '*.aab' | head -1)
+          test -n "$apk" && test -n "$aab"
+          cp "$apk" "files/OpenChamber-${VERSION}-${BUILD_NUMBER}-android.apk"
+          cp "$aab" "files/OpenChamber-${VERSION}-${BUILD_NUMBER}-android.aab"
+
       - name: Combine macOS and Windows manifests
         env:
           LATEST_YML_DIR: ${{ github.workspace }}/manifests
           OPENCHAMBER_VERSION: ${{ needs.prepare.outputs.version }}
         run: node packages/electron/scripts/finalize-latest-yml.mjs
+
+      # What changed since the build the release notes name (or, for the
+      # first one, since the latest release), added to the earlier nights.
+      # The update dialog shows the nights after the installed build.
+      - name: Write the Canary notes
+        run: |
+          set -euo pipefail
+          PUBLISHED=$(gh release view canary --json body --jq '.body' 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1 || true)
+          if [ -n "$PUBLISHED" ] && git merge-base --is-ancestor "$PUBLISHED" "$SHA" 2>/dev/null; then
+            FROM=$PUBLISHED
+          else
+            FROM=$(git describe --tags --match 'v*' --abbrev=0 "$SHA")
+          fi
+          # Earlier nights start empty only when there are none yet: any other
+          # failure stops here, before a one-night file replaces them.
+          if ! ASSETS=$(gh release view canary --json assets --jq '.assets[].name' 2>&1); then
+            echo "$ASSETS" | grep -q 'release not found' || { echo "$ASSETS"; exit 1; }
+            ASSETS=""
+          fi
+          if printf '%s\n' "$ASSETS" | grep -qx canary-notes.json; then
+            gh release download canary --pattern canary-notes.json --output "$RUNNER_TEMP/previous-notes.json"
+          fi
+          node scripts/changelog/canary-notes.mjs --previous "$RUNNER_TEMP/previous-notes.json" \
+            --from "$FROM" --to "$SHA" --version "$VERSION" > "$RUNNER_TEMP/canary-notes.json"
 
       - name: Publish to the canary pre-release
         run: |
@@ -551,13 +640,13 @@ jobs:
           PREVIOUS=${PREVIOUS:-$VERSION}
           # New files first, then the manifests that name them, then the old
           # files: an updater always reads a manifest whose files exist.
-          gh release upload canary files/OpenChamber-* --clobber
+          gh release upload canary files/OpenChamber-* "$RUNNER_TEMP/canary-notes.json" --clobber
           gh release upload canary \
             "$RUNNER_TEMP/latest-mac.yml" "$RUNNER_TEMP/latest.yml" "$RUNNER_TEMP/latest-arm64.yml" \
             files/latest-linux.yml files/latest-linux-arm64.yml --clobber
           for asset in $OLD_ASSETS; do
             case "$asset" in
-              latest*.yml|*"-${VERSION}-"*|*"-${PREVIOUS}-"*) ;;
+              latest*.yml|canary-notes.json|*"-${VERSION}-"*|*"-${PREVIOUS}-"*) ;;
               *) gh release delete-asset canary "$asset" --yes ;;
             esac
           done
