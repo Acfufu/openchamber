@@ -198,6 +198,7 @@ IPC results if its endpoint changes while the read is pending.
 | `scripts/bundle-main.mjs` | Bundles Electron main code into `dist-bundle/{entry,main,early-startup}.mjs` for packaging |
 | `scripts/rebuild-native.mjs` | Rebuilds native modules against the Electron runtime |
 | `scripts/package.mjs` | Runs `electron-builder`, with unsigned Windows builds when signing env is missing |
+| `scripts/windows-signpath.mjs` | Two-pass Windows build for SignPath signing, and the electron-builder sign hook it uses (see *Windows signing through SignPath*) |
 | `resources/` | Packaged web assets, icons, macOS entitlements, and the NSIS include for the Windows installer. Every file in `resources/icons` is written by `bun run brand:generate` (`scripts/brand`); do not edit them by hand |
 
 ## Development
@@ -297,6 +298,28 @@ Electron Builder copies the `@openchamber/web` workspace package whole, ignoring
 Windows voice-model installation uses the native decoder from `7zip-bin`, a runtime dependency of the web backend. Its executable stays in `app.asar.unpacked` so the server can spawn it directly with a hidden window. Windows packaging keeps only the target decoder architecture; macOS and Linux packaging exclude all decoder binaries. The `afterPack` check requires the target Windows decoder in both the ASAR header and the unpacked directory, including ARM64 builds on x64 hosts. Extraction and staging remain owned by the [dictation module](../web/server/lib/dictation/DOCUMENTATION.md).
 
 macOS builds produce `dmg` and `zip` artifacts. Windows builds produce an NSIS installer. Linux builds produce an AppImage, a `.deb` and an `.rpm` for the native x64 or arm64 host; the `.rpm` needs `rpmbuild` on the build host.
+
+### Windows signing through SignPath
+
+`.github/workflows/windows-signed-build.yml` builds and signs the Windows app; the signing policy, organization and project are the `env` block at its top. Two workflows call it: the desktop smoke workflow (`sign_windows` input) and `release-windows.yml`, run from a release tag. Releases still come unsigned from `release.yml` until the SignPath Foundation certificate is issued; then `release.yml` stops building Windows and publishing, and `release-windows.yml` adds the signed files to the draft and publishes it. `scripts/windows-signpath.mjs` drives the build in two passes, each followed by one signing request that holds both architectures, so a build needs two approvals in SignPath:
+
+1. `build-app` builds the app and stages `OpenChamber.exe` and the NSIS uninstaller. The request uses the `windows-app` artifact configuration.
+2. `build-installer` puts the signed `OpenChamber.exe` into the same unpacked app and builds the installer from it (`--prepackaged`), with the signed uninstaller in place. The request uses `windows-installer`.
+3. `finalize` regenerates the blockmap and `latest.yml`, which electron-builder computed from the unsigned installer.
+
+Only those executables are ours. Electron's DLLs, `elevate.exe`, the bundled OpenCode CLI, ripgrep and node-pty's binaries come from upstream projects, and SignPath Foundation's terms forbid signing them with our certificate; they ship unsigned inside the signed installer.
+
+#### Why Windows releases get their own workflow
+
+SignPath refuses a signing request from a run where any job ran on a runner other than GitHub-hosted, including jobs that never touched the Windows files. `release.yml` runs npm, macOS and Linux on Blacksmith runners, so signing inside it fails. `release-windows.yml` builds and signs in a run of its own. Re-signing the installers `release.yml` built is ruled out: SignPath vouches that a file was built from the source in the run that asks for the signature.
+
+#### Why the second pass reuses the unpacked app instead of building again
+
+`OpenChamber.exe` carries the hash of `app.asar` in its resources. A fresh pack writes a new `app.asar`, and the signed executable from the first pass would no longer match it.
+
+#### Why the uninstaller is swapped in a sign hook
+
+electron-builder compiles the uninstaller and embeds it in the installer within one NSIS step, and SignPath signs only files a workflow step uploads. The `win.signtoolOptions.sign` hook is the one point between those two: in the first pass it copies the uninstaller out, in the second it replaces the freshly compiled uninstaller with the signed copy. Both come from the same NSIS script and version.
 
 ## Platform Notes
 
