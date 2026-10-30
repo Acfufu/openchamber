@@ -42,6 +42,7 @@ import { isGroupWork } from '../works/sidebarWorks';
 import { SessionGroupSection, type SessionGroupSectionProps } from './SessionGroupSection';
 import type { ProjectSection } from './sessionProjectRender';
 import { CrossfadeZoneHeader, CrossfadeZoneHeaders } from './CrossfadeZoneHeaders';
+import { getPinnedZoneHeaderHeight } from './pinnedZoneHeader';
 import { prepareSessionProjectAction } from './sessionProjectActionContext';
 import { applyShowControl, getProjectLabel, grantGroupAccess, retryGroupStatus, toggleActivityZone, toggleProjectsCaption } from './sessionProjectListActions';
 import { countArchiveAllOutcome, selectArchiveAllSessionIds, withArchiveAllSubtrees } from './archiveAllSessions';
@@ -540,7 +541,7 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
           }
         }}>
           <SortableContext items={structuralIds} strategy={verticalListSortingStrategy}>
-            <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} />
+            <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} getStickyHeaderHeight={getPinnedZoneHeaderHeight} />
           </SortableContext>
         </DndContext>
         </SessionFolderOwnersProvider>

@@ -45,16 +45,65 @@ export const sessionSidebarRowSizeKey = (row: SessionSidebarRow): string => {
 };
 
 /**
- * The virtualizer's key for a row: its own key plus its trailing section gap.
- * A header's gap depends on the row after it, so closing or opening the header
- * changes its height without changing its key; under the plain key the
- * virtualizer would keep the old measured height until the resize observer
- * reported back, and the rows below would hop by the gap a frame later. A new
- * key takes the size estimate above, exact once a row like it was measured.
+ * The virtualizer's key for a row: its own key plus its trailing section gap
+ * and its size key. A header's gap depends on the row after it, so closing or
+ * opening the header changes its height without changing its key; under the
+ * plain key the virtualizer would keep the old measured height until the
+ * resize observer reported back, and the rows below would hop by the gap a
+ * frame later. A row that turns between one and two lines (Detailed rows) is
+ * the same: the virtualizer drops measurements of rows that are not mounted
+ * only when their key goes, so rows near the last viewport kept the old
+ * mode's height. A new key takes the size estimate above, exact once a row
+ * like it was measured.
  */
 export const sessionSidebarRowVirtualKey = (row: SessionSidebarRow, nextRow: SessionSidebarRow | undefined): string => (
-  `${row.key}|${sectionSpacingAfter(row, nextRow) ?? ''}`
+  `${row.key}|${sectionSpacingAfter(row, nextRow) ?? ''}|${sessionSidebarRowSizeKey(row)}`
 );
+
+/**
+ * Whether a row present in both lists changed its size key: Detailed rows
+ * turned on or off, or a row gained or lost its second line. Every such row
+ * above the viewport moves the rows under it at once, so the list keeps the
+ * row at the top of the viewport in place (`SessionSidebarRows`).
+ */
+export const sessionSidebarRowSizeKeysChanged = (
+  previous: readonly SessionSidebarRow[],
+  next: readonly SessionSidebarRow[],
+): boolean => {
+  if (previous === next) return false;
+  const sizeKeyByRow = new Map(previous.map((row) => [row.key, sessionSidebarRowSizeKey(row)]));
+  return next.some((row) => {
+    const sizeKey = sizeKeyByRow.get(row.key);
+    return sizeKey !== undefined && sizeKey !== sessionSidebarRowSizeKey(row);
+  });
+};
+
+/** The row under a line across the list, and where the line crosses it as a share of its height. */
+type SessionSidebarScrollAnchor = { key: string; fraction: number };
+
+/** `items` are in index order, as the virtualizer lists them. */
+export const findSessionSidebarScrollAnchor = (
+  rows: readonly SessionSidebarRow[],
+  items: readonly { index: number; start: number; end: number }[],
+  line: number,
+): SessionSidebarScrollAnchor | null => {
+  const item = items.find((candidate) => candidate.end > line);
+  const row = item ? rows[item.index] : undefined;
+  if (!item || !row) return null;
+  const size = item.end - item.start;
+  return { key: row.key, fraction: size > 0 ? Math.max(line - item.start, 0) / size : 0 };
+};
+
+/** Where the line now crosses the list: the same share of the anchor row, at its new start and height. */
+export const resolveSessionSidebarScrollAnchor = (
+  anchor: SessionSidebarScrollAnchor,
+  rows: readonly SessionSidebarRow[],
+  measurements: readonly { start: number; size: number }[],
+): number | null => {
+  const index = rows.findIndex((row) => row.key === anchor.key);
+  const measured = index >= 0 ? measurements[index] : undefined;
+  return measured ? measured.start + anchor.fraction * measured.size : null;
+};
 
 /**
  * A row's size: the measured height of a row like it (`sessionSidebarRowSizeKey`,

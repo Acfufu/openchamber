@@ -2,9 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import {
   estimateSessionSidebarRowSize,
   findFirstVisibleSessionSidebarRowIndex,
+  findSessionSidebarScrollAnchor,
   getInitialSessionSidebarRowIndexes,
   mergeSessionSidebarVirtualIndexes,
+  resolveSessionSidebarScrollAnchor,
   sectionSpacingAfter,
+  sessionSidebarRowSizeKeysChanged,
   sessionSidebarRowVirtualKey,
   sessionSidebarRowSizeKey,
 } from './sessionSidebarVirtualization';
@@ -119,5 +122,93 @@ describe('SessionSidebarRows section spacing', () => {
 
     expect(closed.key).toBe(open.key);
     expect(closed.virtualKey).not.toBe(open.virtualKey);
+  });
+
+  test('a row that turns between one and two lines is a new virtual item, so the other mode\'s height is not reused', () => {
+    const detailed = buildSessionSidebarRowModel({ ...input(true), detailedZoneRows: true }).rows;
+    const compact = buildSessionSidebarRowModel({ ...input(true), detailedZoneRows: false }).rows;
+    const virtualKey = (rows: readonly SessionSidebarRow[], key: string) => {
+      const index = rows.findIndex((row) => row.key === key);
+      return sessionSidebarRowVirtualKey(rows[index], rows[index + 1]);
+    };
+    const projectSession = detailed.find((row) => row.kind === 'session' && row.node.session.id === 'other');
+
+    expect(projectSession).toBeDefined();
+    expect(compact.some((row) => row.key === projectSession?.key)).toBe(true);
+    expect(virtualKey(detailed, projectSession!.key)).not.toBe(virtualKey(compact, projectSession!.key));
+  });
+});
+
+describe('SessionSidebarRows scroll anchor', () => {
+  // SAFETY: the anchor reads only row keys and the size keys of the row model's own rows.
+  const node = (id: string): SessionNode => ({ session: { id, title: id, directory: '/repo', time: { created: 1, updated: 1 } } as Session, children: [], worktree: null });
+  const input = (detailedZoneRows: boolean, collapsedProjects = new Set<string>()): SessionSidebarRowModelArgs => {
+    const sessions = Array.from({ length: 40 }, (_, index) => node(`session-${index}`));
+    const sections: ProjectSection[] = [{
+      project: { id: 'project-a', normalizedPath: '/repo' },
+      groups: [{ id: 'main', label: 'main', branch: null, description: null, isMain: true, worktree: null, directory: '/repo', folderScopeKey: '/repo', sessions }],
+    }];
+    return {
+      mode: 'normal', sections, authoritativeSections: sections, chatGroup: null,
+      workEntries: [], zoneSessionIds: new Set(),
+      foldersMap: {}, groupSearchDataByGroup: new WeakMap(), normalizedQuery: '',
+      collapsedProjects, collapsedGroups: new Set(), collapsedFolders: new Set(), collapsedActivities: new Set(),
+      expandedParents: new Set(), visibleCountByContainer: new Map([['project-a:main', 40]]), pinnedSessionIds: new Set(), sessionOrderIndex: new Map(),
+      groupStatusByKey: new Map(), folderAuthorityByOwner: new Map([['project-a', { scopeKeys: ['/repo'], complete: true }]]), sessionOwnerById: new Map(),
+      activeProjectId: 'project-a', singleProjectMode: false, singleProjectId: null, showOnlyMainWorkspace: false, hideDirectoryControls: false,
+      detailedZoneRows,
+    };
+  };
+  // Lays the rows out the way the virtualizer does once every row is measured.
+  const layout = (rows: readonly SessionSidebarRow[]) => {
+    let start = 0;
+    return rows.map((row, index) => {
+      const size = row.kind === 'session' ? ('detailed' in row && row.detailed ? 51 : 32) : 28;
+      const item = { index, start, size, end: start + size };
+      start += size;
+      return item;
+    });
+  };
+  const rowAt = (rows: readonly SessionSidebarRow[], items: ReturnType<typeof layout>, line: number) => {
+    const item = items.find((candidate) => candidate.end > line)!;
+    return { key: rows[item.index].key, into: line - item.start };
+  };
+
+  test('turning Detailed rows off and on keeps the row under the line where it was', () => {
+    const detailed = buildSessionSidebarRowModel(input(true)).rows;
+    const compact = buildSessionSidebarRowModel(input(false)).rows;
+    const detailedLayout = layout(detailed);
+    const compactLayout = layout(compact);
+    expect(sessionSidebarRowSizeKeysChanged(detailed, compact)).toBe(true);
+
+    // Deep in the list, 20px into a session row: with the scroll position kept,
+    // the compact list would show a session much further down.
+    const index = detailed.findIndex((row) => row.kind === 'session' && row.node.session.id === 'session-25');
+    const line = detailedLayout[index].start + 20;
+    expect(rowAt(compact, compactLayout, line).key).not.toBe(detailed[index].key);
+
+    const anchor = findSessionSidebarScrollAnchor(detailed, detailedLayout, line)!;
+    const compactLine = resolveSessionSidebarScrollAnchor(anchor, compact, compactLayout)!;
+    expect(rowAt(compact, compactLayout, compactLine).key).toBe(detailed[index].key);
+    expect(rowAt(compact, compactLayout, compactLine).into).toBeCloseTo(20 * 32 / 51);
+
+    // Back to Detailed rows: the same row, the same pixel.
+    const back = findSessionSidebarScrollAnchor(compact, compactLayout, compactLine)!;
+    expect(resolveSessionSidebarScrollAnchor(back, detailed, detailedLayout)).toBeCloseTo(line);
+  });
+
+  test('a header opening or closing leaves every remaining row its height', () => {
+    const open = buildSessionSidebarRowModel(input(true)).rows;
+    const closed = buildSessionSidebarRowModel(input(true, new Set(['project-a']))).rows;
+    expect(sessionSidebarRowSizeKeysChanged(open, closed)).toBe(false);
+    expect(sessionSidebarRowSizeKeysChanged(open, open)).toBe(false);
+  });
+
+  test('an anchor row gone from the list leaves the position alone', () => {
+    const open = buildSessionSidebarRowModel(input(true)).rows;
+    const closed = buildSessionSidebarRowModel(input(true, new Set(['project-a']))).rows;
+    const items = layout(open);
+    const anchor = findSessionSidebarScrollAnchor(open, items, items[10].start)!;
+    expect(resolveSessionSidebarScrollAnchor(anchor, closed, layout(closed))).toBeNull();
   });
 });

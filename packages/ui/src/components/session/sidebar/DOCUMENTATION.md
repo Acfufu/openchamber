@@ -921,7 +921,11 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   model estimate. The virtualizer keys each row with its gap
   (`sessionSidebarRowVirtualKey`): a header gains or loses its gap as it
   closes or opens, and under its plain key the old measured height would hold
-  until the resize observer reported, so the rows below hopped a frame later. The virtualizer corrects the
+  until the resize observer reported, so the rows below hopped a frame later.
+  The key carries the size key too: a row that turns between one and two
+  lines (Detailed rows, a row gaining or losing its second line) starts
+  unmeasured, because the virtualizer keeps the measured height of a row
+  that is not mounted under its key, in the other mode's height. The virtualizer corrects the
   scroll position whenever a row above the viewport measures differently from
   its estimate, and those writes land in the middle of a scroll gesture as small
   jumps; rows of one key share a height at any interface font size, so after
@@ -1124,3 +1128,20 @@ The session tree frames a group instead: the line starts under the open row
 and stops at its last child with a corner, so where a worktree's or a
 session's children end reads at a glance, and a long tree is not striped by
 lines that run through rows they do not belong to.
+
+### Why a change of row height keeps the row the user sees and not the scroll position
+
+Turning Detailed rows on or off changes the height of every row at once, and
+the scroll position stayed: with 360 sessions and session 108 at the top,
+Compact showed session 21 and Detailed after it session 142, since the
+shorter list clamped the position at its end. When a row present before and
+after changes its size key, `SessionSidebarRows` finds the row under the
+line just below the pinned zone header (`getPinnedZoneHeaderHeight`), at the
+scroll position read before the new rows reached the DOM, and scrolls so the
+same share of that row is above the line again. The share is kept, not the
+pixel offset: a pixel offset into a 51px row can lie past the end of the
+same row at 32px, and a round trip through Compact then landed a row away.
+The line sits under the pinned header because the row at the scroll top is
+hidden by it; anchored there, the first row the user sees moved by 20px.
+Other row changes, such as a session arriving above the viewport or Show
+more, keep the scroll position as before.
