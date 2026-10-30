@@ -74,6 +74,8 @@ const OPENCHAMBER_DEFAULTS_FRESH_MS = 15_000;
 type ConfigRuntimeContext = { runtimeKey: string; generation: number };
 
 let configRuntimeGeneration = 0;
+// A transport change retires in-flight reads but keeps delayed same-instance discovery.
+let configInstanceGeneration = 0;
 
 const captureConfigRuntimeContext = (): ConfigRuntimeContext => ({
     runtimeKey: getRuntimeKey(),
@@ -1161,6 +1163,7 @@ subscribeRuntimeEndpointChanged((detail) => {
     _agentsLoadGeneration.clear();
     _initializeAppInFlight = null;
     if (detail.runtimeKey === detail.previousRuntimeKey) return;
+    configInstanceGeneration += 1;
     useConfigStore.setState({
         configRuntimeKey: detail.runtimeKey,
         directoryScoped: {},
@@ -4185,6 +4188,7 @@ export const useConfigStore = create<ConfigStore>()(
                     }
 
                     const runtimeContext = captureConfigRuntimeContext();
+                    const instanceGeneration = configInstanceGeneration;
                     const run = (async () => {
                         const initStarted = typeof performance !== 'undefined' ? performance.now() : Date.now();
                         markStartupTrace('initializeApp:start');
@@ -4285,7 +4289,10 @@ export const useConfigStore = create<ConfigStore>()(
                             set({ isInitialized: true, isConnected: true, hasEverConnected: true, connectionPhase: "connected", lastInitFailure: null });
                             // A plugin registers its agents while the server is already serving, so
                             // the load above can race it. Re-check once, after startup has settled.
-                            setTimeout(() => void get().loadAgents({ directory: configDirectory, source: 'startupAgentRecheck' }), 8_000);
+                            setTimeout(() => {
+                                if (instanceGeneration !== configInstanceGeneration) return;
+                                void get().loadAgents({ directory: configDirectory, source: 'startupAgentRecheck' });
+                            }, 8_000);
                             const initEnded = typeof performance !== 'undefined' ? performance.now() : Date.now();
                             markStartupTrace('initializeApp:end', {
                                 durationMs: Math.round(initEnded - initStarted),
