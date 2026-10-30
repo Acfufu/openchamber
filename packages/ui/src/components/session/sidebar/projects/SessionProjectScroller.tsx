@@ -147,6 +147,14 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
   // Only project headers sort; a worktree is a work among the project's
   // works, ordered by activity like the rest.
   const [isProjectDragging, setProjectDragging] = React.useState(false);
+  // Set as a drag reorders projects, so the list keeps its scroll position for
+  // the user's own reorder rather than holding the row on screen.
+  const projectReorderRef = React.useRef(false);
+  const takeProjectReorder = React.useCallback(() => {
+    const reordered = projectReorderRef.current;
+    projectReorderRef.current = false;
+    return reordered;
+  }, []);
   const scrollContainerRef = React.useRef<HTMLElement | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -537,11 +545,12 @@ function SessionProjectScrollerComponent({ model, view, actions }: SessionProjec
           const projectFrom = projectIds.indexOf(activeId);
           const projectTo = projectIds.indexOf(overId);
           if (projectFrom >= 0 && projectTo >= 0 && view.projectSortOrder === 'manual') {
+            projectReorderRef.current = true;
             actions.reorderProjects(projectFrom, projectTo);
           }
         }}>
           <SortableContext items={structuralIds} strategy={verticalListSortingStrategy}>
-            <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} getStickyHeaderHeight={getPinnedZoneHeaderHeight} />
+            <SessionSidebarRows model={model.rowModel} scrollElement={scrollElement} pinnedRowIndexes={pinnedRowIndexes} renderRow={renderRow} onFirstVisibleIndexChange={handleFirstVisibleIndexChange} getStickyHeaderHeight={getPinnedZoneHeaderHeight} takeProjectReorder={takeProjectReorder} />
           </SortableContext>
         </DndContext>
         </SessionFolderOwnersProvider>

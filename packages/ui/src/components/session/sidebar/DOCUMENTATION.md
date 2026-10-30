@@ -1148,26 +1148,34 @@ sits under the pinned header because the row at the scroll top is hidden by
 it; anchored there, the first row the user sees moved by 20px.
 
 The row under the line is skipped when it moved elsewhere in the list (a
-session that became active and went to the top, with its open subsessions):
-following it would scroll the list away. The list is cut into works, a
-session or run with the rows open under it and every other row on its own;
-the works that stayed are the longest run of works whose new positions keep
-their old order, so whatever is left out is the fewest works that moved. The
-anchor is the first row of those on screen. Rules tried before this followed
-an open session's tree to the top: checking the row above a subsession (its
-parent moved with it), taking the shift most rows on screen share (the tree
-filled the screen), and the longest run counted by rows (the tree had more
-rows than the list it jumped over).
+session that became active and went to the top, with its open subsessions;
+a project sorted by recent activity that went above): following it would
+scroll the list away. What stayed is found in two steps, each the longest
+run of blocks whose new positions keep their old order, so whatever is left
+out is the fewest blocks that moved. First sections, a project or zone with
+everything under its header; a tie goes to the section on screen, since a
+project going above it and it going below that project are the same change.
+Then works inside the sections that stayed, a session or run with the rows
+open under it and every other row on its own. The anchor is the first row of
+those on screen. Rules tried before this followed what moved: checking the
+row above a subsession (its parent moved with it), taking the shift most
+rows on screen share (an open tree filled the screen), and the longest run
+counted by rows or by works across projects (an open tree or a larger
+project outvoted what it jumped over).
 
 What the user does to the list keeps its own behaviour: a header opening or
 closing (it has its motion), Show more or less (the new rows show where the
 control was), subsessions shown or hidden, a search, projects dragged into
-another order. They are told apart by what the user sets on rows: open or
+another order. Most are told apart by what the user sets on rows: open or
 closed, the count Show more asked for (`requestedCount`; `currentCount`
-also moves as sessions arrive), the project order. A row that offers nothing
-to set is left out: a session gains or loses its chevron, and an empty group
-or folder is always open, as sessions come and go. Projects sorted by recent
-activity also reorder on their own, and those moves keep the scroll position
-as before. The sidebar never scrolled to a session the user opened or
-created, and still does not; the phone's drawer brings its row into view
-after the anchor (`scrollRequest`).
+also moves as sessions arrive). A row that offers nothing to set is left
+out: a session gains or loses its chevron, and an empty group or folder is
+always open, as sessions come and go. A changed project order looks the same
+whether the user dragged it or projects sorted by recent activity moved on
+their own, so the drag says so itself: `SessionProjectScroller` marks it
+before the reorder and `takeProjectReorder` hands the mark over once, when
+the order changes. A project moving above the viewport on its own is
+anchored like a session doing so. A hidden list (the phone's while projects
+are reordered) keeps nothing. The sidebar never scrolled to a session the
+user opened or created, and still does not; the phone's drawer brings its
+row into view after the anchor (`scrollRequest`).

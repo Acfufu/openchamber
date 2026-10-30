@@ -85,10 +85,6 @@ const rowUserState = (row: SessionSidebarRow): string | undefined => {
   }
 };
 
-const projectOrder = (rows: readonly SessionSidebarRow[], kept: ReadonlyMap<string, number>): string[] => (
-  rows.filter((row) => row.kind === 'project-header' && kept.has(row.key)).map((row) => row.key)
-);
-
 type SessionSidebarRowList = {
   rows: readonly SessionSidebarRow[];
   rowIndexByKey: ReadonlyMap<string, number>;
@@ -97,27 +93,36 @@ type SessionSidebarRowList = {
 
 /**
  * Whether the user changed the list rather than the sessions in it: a header
- * opened or closed, Show more or less, subsessions shown or hidden, projects
- * dragged into another order, a search. The list then behaves as the user's
- * action makes it (a header's motion, new rows where the control was); for
- * any other change, sessions arriving, leaving or moving and rows changing
- * height, it keeps the row the user sees in place (`SessionSidebarRows`).
- * Projects sorted by recent activity reorder on their own too; those moves
- * count as the user's and keep the scroll position.
+ * opened or closed, Show more or less, subsessions shown or hidden, a search.
+ * The list then behaves as the user's action makes it (a header's motion, new
+ * rows where the control was); for any other change, sessions arriving,
+ * leaving or moving and rows changing height, it keeps the row the user sees
+ * in place (`SessionSidebarRows`). Projects dragged into another order are
+ * the user's too, but the rows cannot tell them from projects sorted by
+ * recent activity moving on their own: the drag says so itself
+ * (`sessionSidebarProjectOrderChanged`).
  */
 export const isSessionSidebarUserChange = (previous: SessionSidebarRowList, next: SessionSidebarRowList): boolean => {
   if (previous.search || next.search) return true;
-  const kept = new Map<string, number>();
   for (const row of previous.rows) {
     const index = next.rowIndexByKey.get(row.key);
     if (index === undefined) continue;
     const before = rowUserState(row);
     const after = rowUserState(next.rows[index]);
     if (before !== undefined && after !== undefined && before !== after) return true;
-    kept.set(row.key, index);
   }
-  return projectOrder(previous.rows, kept).join('\n') !== projectOrder(next.rows, kept).join('\n');
+  return false;
 };
+
+const projectOrder = (list: SessionSidebarRowList, other: SessionSidebarRowList): string => list.rows
+  .filter((row) => row.kind === 'project-header' && other.rowIndexByKey.has(row.key))
+  .map((row) => row.key)
+  .join('\n');
+
+/** Whether projects present before and after changed their order. */
+export const sessionSidebarProjectOrderChanged = (previous: SessionSidebarRowList, next: SessionSidebarRowList): boolean => (
+  projectOrder(previous, next) !== projectOrder(next, previous)
+);
 
 /**
  * A row the user sees and where it sits: the row under the line `fraction` of
@@ -126,31 +131,20 @@ export const isSessionSidebarUserChange = (previous: SessionSidebarRowList, next
 type SessionSidebarScrollAnchor = { key: string; fraction: number; offset: number };
 
 /**
- * The rows that kept their place. The list is cut into works: a session or a
- * run with the open rows nested under it, and every other row on its own. The
- * works that stayed are the longest run of works, in their old order, whose
- * new positions also increase, so whatever is left out is the fewest works
- * that moved, such as a session that became active and went to the top. A
- * work counts once however many subsessions it has open: counted by rows, a
- * long open tree outvoted the works it jumped over. Returns old row indexes.
+ * The groups that kept their order: the longest run of groups, in their old
+ * order, whose new positions also increase, so whatever is left out is the
+ * fewest groups that moved. A group stands at its first row still listed.
  */
-const rowsInPlace = (rows: readonly SessionSidebarRow[], nextIndexByKey: ReadonlyMap<string, number>): Set<number> => {
-  const works: number[][] = [];
-  let rootDepth = -1;
-  rows.forEach((row, index) => {
-    const nested = row.kind === 'session' || row.kind === 'run';
-    if (nested && rootDepth >= 0 && row.depth > rootDepth) {
-      works[works.length - 1].push(index);
-      return;
-    }
-    works.push([index]);
-    rootDepth = nested ? row.depth : -1;
-  });
-  // tails[length - 1]: the work ending the best run of that length so far.
+const groupsInPlace = (
+  rows: readonly SessionSidebarRow[],
+  groups: readonly (readonly number[])[],
+  nextIndexByKey: ReadonlyMap<string, number>,
+): number[] => {
+  // tails[length - 1]: the group ending the best run of that length so far.
   const tails: number[] = [];
   const tailPositions: number[] = [];
   const previous = new Map<number, number>();
-  works.forEach((members, work) => {
+  groups.forEach((members, group) => {
     const position = members.map((index) => nextIndexByKey.get(rows[index].key)).find((next) => next !== undefined);
     if (position === undefined) return;
     let low = 0;
@@ -160,12 +154,90 @@ const rowsInPlace = (rows: readonly SessionSidebarRow[], nextIndexByKey: Readonl
       if (tailPositions[middle] < position) low = middle + 1;
       else high = middle;
     }
-    if (low > 0) previous.set(work, tails[low - 1]);
-    tails[low] = work;
+    if (low > 0) previous.set(group, tails[low - 1]);
+    tails[low] = group;
     tailPositions[low] = position;
   });
+  const kept: number[] = [];
+  for (let group = tails.at(-1); group !== undefined; group = previous.get(group)) kept.push(group);
+  return kept.reverse();
+};
+
+const isSectionHeader = (row: SessionSidebarRow): boolean => (
+  row.kind === 'project-header' || row.kind === 'activity-header' || row.kind === 'caption'
+);
+
+/**
+ * The sections that kept their order, as `groupsInPlace` does, except that a
+ * tie goes to the section the user is looking at: a project that went above
+ * the one on screen and the one on screen going below it are the same change
+ * in order. A few dozen sections at most, so the quadratic search is cheap.
+ */
+const sectionsInPlace = (
+  rows: readonly SessionSidebarRow[],
+  sections: readonly (readonly number[])[],
+  nextIndexByKey: ReadonlyMap<string, number>,
+  shownSection: number,
+): number[] => {
+  const positions = sections.map((members) => members.map((index) => nextIndexByKey.get(rows[index].key)).find((next) => next !== undefined));
+  // Less than one section, so it only breaks ties.
+  const weight = (section: number) => (section === shownSection ? 1.5 : 1);
+  const best: number[] = [];
+  const previous: (number | undefined)[] = [];
+  let end: number | undefined;
+  sections.forEach((_, section) => {
+    const position = positions[section];
+    if (position === undefined) return;
+    best[section] = weight(section);
+    for (let before = 0; before < section; before += 1) {
+      const earlier = positions[before];
+      if (earlier !== undefined && earlier < position && best[before] + weight(section) > best[section]) {
+        best[section] = best[before] + weight(section);
+        previous[section] = before;
+      }
+    }
+    if (end === undefined || best[section] > best[end]) end = section;
+  });
+  const kept: number[] = [];
+  for (let section = end; section !== undefined; section = previous[section]) kept.push(section);
+  return kept.reverse();
+};
+
+/**
+ * The rows that kept their place, in two steps. Sections first: a project or
+ * a zone with everything under its header, so a project sorted by recent
+ * activity that went to the top counts once, however many sessions it lists.
+ * Then works inside the sections that stayed: a session or a run with the
+ * rows open under it, and every other row on its own, so a session that
+ * became active and went to the top of its project counts once too, however
+ * many subsessions it has open. Counted by rows, a long open tree or a large
+ * project outvoted what it jumped over. `shownIndex` is the old row under the
+ * line. Returns old row indexes.
+ */
+const rowsInPlace = (rows: readonly SessionSidebarRow[], nextIndexByKey: ReadonlyMap<string, number>, shownIndex: number): Set<number> => {
+  const sections: number[][] = [];
+  let shownSection = -1;
+  rows.forEach((row, index) => {
+    if (isSectionHeader(row) || sections.length === 0) sections.push([]);
+    sections[sections.length - 1].push(index);
+    if (index === shownIndex) shownSection = sections.length - 1;
+  });
+  const works: number[][] = [];
+  for (const section of sectionsInPlace(rows, sections, nextIndexByKey, shownSection)) {
+    let rootDepth = -1;
+    for (const index of sections[section]) {
+      const row = rows[index];
+      const nested = row.kind === 'session' || row.kind === 'run';
+      if (nested && rootDepth >= 0 && row.depth > rootDepth) {
+        works[works.length - 1].push(index);
+        continue;
+      }
+      works.push([index]);
+      rootDepth = nested ? row.depth : -1;
+    }
+  }
   const kept = new Set<number>();
-  for (let work = tails.at(-1); work !== undefined; work = previous.get(work)) {
+  for (const work of groupsInPlace(rows, works, nextIndexByKey)) {
     for (const index of works[work]) if (nextIndexByKey.has(rows[index].key)) kept.add(index);
   }
   return kept;
@@ -183,7 +255,7 @@ export const findSessionSidebarScrollAnchor = (
   viewportEnd: number,
   nextIndexByKey: ReadonlyMap<string, number>,
 ): SessionSidebarScrollAnchor | null => {
-  const kept = rowsInPlace(rows, nextIndexByKey);
+  const kept = rowsInPlace(rows, nextIndexByKey, items.find((candidate) => candidate.end > line)?.index ?? -1);
   const item = items.find((candidate) => candidate.end > line && candidate.start < viewportEnd && kept.has(candidate.index));
   const row = item ? rows[item.index] : undefined;
   if (!item || !row) return null;

@@ -9,6 +9,7 @@ import {
   resolveSessionSidebarScrollAnchor,
   sectionSpacingAfter,
   isSessionSidebarUserChange,
+  sessionSidebarProjectOrderChanged,
   sessionSidebarRowVirtualKey,
   sessionSidebarRowSizeKey,
 } from './sessionSidebarVirtualization';
@@ -143,12 +144,12 @@ describe('SessionSidebarRows section spacing', () => {
 describe('SessionSidebarRows scroll anchor', () => {
   // SAFETY: the anchor reads only row keys and the size keys of the row model's own rows.
   const node = (id: string, children: readonly string[] = []): SessionNode => ({ session: { id, title: id, directory: '/repo', time: { created: 1, updated: 1 } } as Session, children: children.map((child) => node(child)), worktree: null });
-  type Options = { detailed?: boolean; collapsedProjects?: Set<string>; sessionIds?: string[]; visible?: number; mode?: 'normal' | 'search'; projectOrder?: string[]; childrenOf?: Record<string, string[]> };
+  type Options = { detailed?: boolean; collapsedProjects?: Set<string>; sessionIds?: string[]; visible?: number; mode?: 'normal' | 'search'; projectOrder?: string[]; childrenOf?: Record<string, string[]>; otherIds?: string[] };
   const ids = (count: number) => Array.from({ length: count }, (_, index) => `session-${index}`);
-  const model = ({ detailed = true, collapsedProjects = new Set<string>(), sessionIds = ids(40), visible = 60, mode = 'normal', projectOrder = ['project-a', 'project-b'], childrenOf = {} }: Options = {}) => {
+  const model = ({ detailed = true, collapsedProjects = new Set<string>(), sessionIds = ids(40), visible = 60, mode = 'normal', projectOrder = ['project-a', 'project-b'], childrenOf = {}, otherIds = ['other-0', 'other-1'] }: Options = {}) => {
     const sectionById = new Map<string, ProjectSection>(['project-a', 'project-b'].map((id) => [id, {
       project: { id, normalizedPath: `/${id}` },
-      groups: [{ id: 'main', label: 'main', branch: null, description: null, isMain: true, worktree: null, directory: `/${id}`, folderScopeKey: `/${id}`, sessions: (id === 'project-a' ? sessionIds : ['other-0', 'other-1']).map((sessionId) => node(sessionId, childrenOf[sessionId])) }],
+      groups: [{ id: 'main', label: 'main', branch: null, description: null, isMain: true, worktree: null, directory: `/${id}`, folderScopeKey: `/${id}`, sessions: (id === 'project-a' ? sessionIds : otherIds).map((sessionId) => node(sessionId, childrenOf[sessionId])) }],
     }]));
     const sections = projectOrder.map((id) => sectionById.get(id)!);
     const args: SessionSidebarRowModelArgs = {
@@ -156,7 +157,7 @@ describe('SessionSidebarRows scroll anchor', () => {
       workEntries: [], zoneSessionIds: new Set(),
       foldersMap: {}, groupSearchDataByGroup: new WeakMap(), normalizedQuery: mode === 'search' ? 'session' : '',
       collapsedProjects, collapsedGroups: new Set(), collapsedFolders: new Set(), collapsedActivities: new Set(),
-      expandedParents: new Set(Object.keys(childrenOf).map((parent) => `project:active:${parent}`)), visibleCountByContainer: new Map([['project-a:main', visible]]), pinnedSessionIds: new Set(), sessionOrderIndex: new Map([...sessionIds, 'other-0', 'other-1'].map((id, index) => [id, index])),
+      expandedParents: new Set(Object.keys(childrenOf).map((parent) => `project:active:${parent}`)), visibleCountByContainer: new Map([['project-a:main', visible], ['project-b:main', 100]]), pinnedSessionIds: new Set(), sessionOrderIndex: new Map([...sessionIds, ...otherIds].map((id, index) => [id, index])),
       groupStatusByKey: new Map(), folderAuthorityByOwner: new Map(['project-a', 'project-b'].map((id) => [id, { scopeKeys: [`/${id}`], complete: true }])), sessionOwnerById: new Map(),
       activeProjectId: 'project-a', singleProjectMode: false, singleProjectId: null, showOnlyMainWorkspace: false, hideDirectoryControls: false,
       detailedZoneRows: detailed,
@@ -300,12 +301,36 @@ describe('SessionSidebarRows scroll anchor', () => {
     expect(follow(before, arrived, line)).toBe(line);
   });
 
+  test('a project moving above on its own keeps the rows on screen in place', () => {
+    const before = model();
+    const items = layout(before.rows);
+    const index = sessionIndex(before.rows, 'session-25');
+    const line = items[index].start + 10;
+    // Sorted by recent activity, project-b went to the top.
+    const after = model({ projectOrder: ['project-b', 'project-a'] });
+    expect(rowAt(after.rows, layout(after.rows), follow(before, after, line)!)).toEqual({ key: before.rows[index].key, into: 10 });
+  });
+
+  test('a project larger than the one on screen moving above on its own keeps the rows in place', () => {
+    const otherIds = Array.from({ length: 60 }, (_, index) => `other-${index}`);
+    const before = model({ otherIds });
+    const items = layout(before.rows);
+    const index = sessionIndex(before.rows, 'session-25');
+    const line = items[index].start + 10;
+    const after = model({ otherIds, projectOrder: ['project-b', 'project-a'] });
+    expect(rowAt(after.rows, layout(after.rows), follow(before, after, line)!)).toEqual({ key: before.rows[index].key, into: 10 });
+  });
+
   test('what the user does to the list keeps its own scrolling', () => {
     const open = model();
     expect(isSessionSidebarUserChange(open, model({ collapsedProjects: new Set(['project-a']) }))).toBe(true);
     expect(isSessionSidebarUserChange(model({ visible: 20 }), model({ visible: 40 }))).toBe(true);
     expect(isSessionSidebarUserChange(open, model({ mode: 'search' }))).toBe(true);
-    expect(isSessionSidebarUserChange(open, model({ projectOrder: ['project-b', 'project-a'] }))).toBe(true);
+    // A drag says so itself (`takeProjectReorder`): the rows look the same as
+    // projects sorted by recent activity moving on their own.
+    expect(isSessionSidebarUserChange(open, model({ projectOrder: ['project-b', 'project-a'] }))).toBe(false);
+    expect(sessionSidebarProjectOrderChanged(open, model({ projectOrder: ['project-b', 'project-a'] }))).toBe(true);
+    expect(sessionSidebarProjectOrderChanged(open, model({ sessionIds: ['new-1', ...ids(40)] }))).toBe(false);
     expect(isSessionSidebarUserChange(open, model())).toBe(false);
   });
 
