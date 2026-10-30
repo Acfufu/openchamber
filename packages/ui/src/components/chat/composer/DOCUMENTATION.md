@@ -1403,6 +1403,21 @@ a phantom Shift at sentence starts, so a soft-keyboard Send always submits, whil
 a hardware Shift+Enter still inserts a newline. Alt/Option+Enter inserts a
 newline, and Ctrl/Cmd+Enter is unchanged.
 
+### Why IME cleanup requires DOM padding evidence
+
+On iOS in Send mode, Sogou's long press can commit a newline followed by a
+padding space and a cleanup Backspace. If the padding reaches only the DOM,
+CodeMirror's replayed Backspace can delete the document's newline.
+`editor/imeNewline.ts` consumes one deletion only after observing a DOM line
+with exactly one extra leading space and a native caret after that space.
+The mark belongs to the specific native newline insertion and expires after
+400 ms. Other input, document edits, selection changes, pointer interaction,
+blur and Enter clear it. Padding already in the document uses normal deletion.
+The extension lives in the return-key compartment, enabled only for iOS Send
+mode; switching to Return removes it. A time window alone would swallow an
+ordinary Backspace. With confirmed padding, a user's Backspace within the same
+window is still indistinguishable from the keyboard's cleanup.
+
 The expanded desktop composer always inserts a newline with Enter, Shift+Enter
 and Alt/Option+Enter, and sends with Ctrl/Cmd+Enter; it ignores the Enter-to-send
 preference.
