@@ -12,6 +12,7 @@ import { execFile, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import updaterPkg from 'electron-updater';
+import { z } from 'zod';
 import { ElectronSshManager } from './ssh-manager.mjs';
 import { collectLocalFileDiagnostics, collectSshBufferDiagnostics } from '@openchamber/web/server/lib/diagnostics/local-files.js';
 import { replaceFileWithRetry } from './windows-file-replace.mjs';
@@ -4669,6 +4670,18 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       const sessionId = readTrimmedString(args?.sessionId);
       if (sessionId) clearSessionNotifications(sessionId);
       return null;
+    }
+
+    case 'desktop_clipboard_read_selection':
+      if (process.platform !== 'linux' || !clipboard.selection) return '';
+      return clipboard.selection.readText();
+
+    case 'desktop_clipboard_write_selection': {
+      if (process.platform !== 'linux' || !clipboard.selection) return false;
+      const text = z.string().safeParse(args?.text);
+      if (!text.success) return false;
+      await clipboard.selection.writeText(text.data);
+      return true;
     }
 
     case 'desktop_tray_update':
