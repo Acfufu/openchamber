@@ -140,6 +140,12 @@ export function translateWireEvent(payload) {
       if (!sessionID) return [];
       return [event('session.deleted', { sessionID, info: { id: sessionID } })];
 
+    // Its own event, never a `session.updated`: the consumers of that one
+    // (goal mode, lineage, notifications) would take a restore for an edit.
+    case 'session.unarchived':
+      if (!sessionID) return [];
+      return [event('session.unarchived', { sessionID })];
+
     // --- live status --------------------------------------------------------
 
     // v2 still declares `session.status` and `session.idle`; a 2.0.2 server was
