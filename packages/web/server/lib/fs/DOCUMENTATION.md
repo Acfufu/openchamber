@@ -49,9 +49,9 @@ Own filesystem API behavior for the web server runtime, including workspace-boun
       directories so shallow repositories are checked before deeper folders;
       `.git` directory, file, or
       symlink marks a repository boundary, except the root's own `.git`,
-      which the walk goes past: clients ask only for roots that are not
-      repositories or have no commits yet, and decide from the root's
-      status whether its repository hides the ones below; junk directories are skipped;
+      which the walk goes past: a root repository's submodules and nested
+      checkouts are reported too, and the client decides whether the root or
+      a discovered repository is the one a surface works in; junk directories are skipped;
       symlinked directories are followed, each real directory walked once,
       and repositories are reported under the link path)
   - Owns exec job queue state (`execJobs`) and lifecycle/TTL pruning.

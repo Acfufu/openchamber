@@ -1549,8 +1549,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
     const foreign = Boolean(targetDirectory);
     const rootDirectory = targetDirectory ?? panelDirectory;
     const runtimeKey = useGitStore((state) => state.runtimeKey);
-    // Diffs belong to the repository being diffed: when the root is not
-    // itself a repository, operate on the resolved nested repository instead.
+    // Diffs belong to the repository being diffed: the picked one, or the
+    // root when nothing is picked.
     const { gitDirectory: nestedGitDirectory, repositoryOptions } = useNestedGitDirectory(rootDirectory ?? null, { enabled: visible, recheckOnOpen: true });
     const effectiveDirectory = nestedGitDirectory ?? rootDirectory;
     // The binding follows the repository actually being diffed.

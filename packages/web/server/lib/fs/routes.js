@@ -414,10 +414,9 @@ const GIT_DIRS_SKIP_LIST = new Set(['node_modules', 'dist', 'build', '.venv', 't
 // containing a `.git` entry — a directory, a worktree pointer file, or a
 // symlink). A repository boundary stops descent: nested repos inside repos
 // are not reported. The root's own `.git` is the exception and the walk goes
-// on below it: whether a root repository hides the ones inside it is the
-// client's call, made from the root's status (a root with no commits yet
-// hides nothing). Clients ask only for roots that are not repositories or
-// have no commits, so an established root is never walked.
+// on below it, so a root repository's submodules and nested checkouts are
+// reported too; the client decides whether the root or a discovered repository
+// is the one a surface works in.
 // Symlinked directories are followed, the way the file tree follows them: a
 // parent folder of links to repositories kept elsewhere is a common way to
 // group them into one project. Each real directory is walked once, so a link
